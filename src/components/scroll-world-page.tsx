@@ -18,6 +18,10 @@ import {
   services,
   site,
 } from "@/content/site";
+import {
+  getServicesPinDistance,
+  getServicesScrollTrigger,
+} from "@/lib/scroll-triggers";
 import { cn } from "@/lib/utils";
 
 const processSteps = [
@@ -214,21 +218,16 @@ export function ScrollWorldPage() {
 
       const servicesTrack =
         root.current?.querySelector<HTMLElement>("[data-services-track]");
-      const servicesFrame =
-        root.current?.querySelector<HTMLElement>("[data-services-frame]");
-      if (servicesTrack && servicesFrame && window.innerWidth >= 900) {
+      if (servicesTrack && window.innerWidth >= 900) {
         const distance = () =>
-          Math.max(0, servicesTrack.scrollWidth - window.innerWidth + 96);
+          getServicesPinDistance(servicesTrack.scrollWidth, window.innerWidth);
         gsap.to(servicesTrack, {
           x: () => -distance(),
           ease: "none",
           scrollTrigger: {
             trigger: "[data-services]",
-            start: "top top",
-            end: () => `+=${distance() + window.innerHeight * 1.2}`,
-            pin: servicesFrame,
-            scrub: 0.6,
-            invalidateOnRefresh: true,
+            ...getServicesScrollTrigger(distance()),
+            end: () => `+=${distance()}`,
           },
         });
       }

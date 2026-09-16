@@ -6,7 +6,8 @@ The page should feel like moving through a commercial project package, not
 watching a generic construction reel. Each scroll behavior has a job:
 
 1. **Hero:** establish scale and specialty-trade positioning over the generated
-   site footage.
+   site footage. Hero copy and CTAs share the header `page-rail` inset so they
+   line up with the Strong Foam logo.
 2. **Trust hold:** reduce the offer to three large, sequential proof statements.
    A low-contrast structural grid and cyan/red datum line give the light field
    depth without competing with the typography.
@@ -30,7 +31,8 @@ avoids repeating one reveal recipe across every section.
 - GSAP ScrollTrigger owns scroll-linked transforms and opacity.
 - The hero has one word-built entrance and a slow media push.
 - The trust chapter is the longest hold.
-- Services is pinned on desktop and becomes a native snap rail below 900 px.
+- Services is pinned on desktop with pin spacing, then becomes a native snap
+  rail below 900 px. The next chapter cannot slide under the rail.
 - The process image is the only full-frame clip-path wipe.
 - Project cards reveal once and stay visible.
 - Reduced-motion users get settled copy, static poster frames, and a native

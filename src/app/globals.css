@@ -53,6 +53,8 @@
   --sf-red: #e8043d;
   --sf-ink: #0b1218;
   --sf-concrete: #151c24;
+  --page-max: 88rem;
+  --page-inline: 1rem;
 
   --background: #0b1218;
   --foreground: #f2f5f7;
@@ -139,11 +141,28 @@ body {
   overflow-x: clip;
 }
 
+@media (min-width: 640px) {
+  :root {
+    --page-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-inline: 2.5rem;
+  }
+}
+
+.page-rail {
+  width: min(100%, var(--page-max));
+  margin-inline: auto;
+  padding-inline: var(--page-inline);
+}
+
 .scroll-world {
   --page-gutter: clamp(1.25rem, 5vw, 5rem);
-  --page-max: 88rem;
   position: relative;
-  overflow: clip;
+  overflow-x: clip;
   background: var(--sf-ink);
   color: #f3f7f9;
 }
@@ -226,11 +245,15 @@ body {
 }
 
 .hero-copy {
+  --hero-copy-inset: max(
+    var(--page-inline),
+    calc((100% - min(100%, var(--page-max))) / 2 + var(--page-inline))
+  );
   position: absolute;
   z-index: 2;
-  left: var(--page-gutter);
+  left: var(--hero-copy-inset);
   bottom: clamp(3rem, 10vh, 7.5rem);
-  max-width: min(66rem, 84vw);
+  max-width: min(66rem, calc(100% - var(--hero-copy-inset) * 2));
   will-change: transform, opacity;
 }
 
@@ -318,7 +341,10 @@ body {
 .hero-edge-note {
   position: absolute;
   z-index: 2;
-  right: var(--page-gutter);
+  right: max(
+    var(--page-inline),
+    calc((100% - min(100%, var(--page-max))) / 2 + var(--page-inline))
+  );
   bottom: clamp(3rem, 10vh, 7.5rem);
   writing-mode: vertical-rl;
   font: 600 0.68rem/1 var(--font-display);
@@ -415,7 +441,9 @@ body {
 
 .services-act {
   position: relative;
-  height: 450svh;
+  z-index: 2;
+  isolation: isolate;
+  min-height: 100svh;
   background: #0b1218;
 }
 
@@ -423,6 +451,7 @@ body {
   position: relative;
   height: 100svh;
   overflow: hidden;
+  background: #0b1218;
 }
 
 .services-track {
@@ -525,6 +554,8 @@ body {
 }
 
 .process-act {
+  position: relative;
+  z-index: 1;
   background: #e9edef;
   color: #101a21;
 }
@@ -945,7 +976,7 @@ body {
 
 @media (max-width: 640px) {
   .hero-copy {
-    max-width: calc(100vw - 2.5rem);
+    max-width: calc(100% - var(--page-inline) * 2);
     bottom: 2.5rem;
   }
 
