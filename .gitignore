@@ -38,6 +38,12 @@ assets/animated/.cache/
 assets/animated/bridges/
 *.log
 
+# generated copies of assets/ for Next public serving
+/public/media/animated/
+/public/media/backgrounds/
+/public/media/brand/
+/public/media/projects/
+
 # local agent scratch
 .superpowers/
 **/__pycache__/

@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/sync-public-media.mjs",
+    "prebuild": "node scripts/sync-public-media.mjs",
     "build": "next build",
+    "media:sync": "node scripts/sync-public-media.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

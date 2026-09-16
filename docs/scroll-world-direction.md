@@ -37,6 +37,10 @@ avoids repeating one reveal recipe across every section.
   service rail.
 - Motion is cleaned up through `gsap.context()` when the route unmounts.
 
+`public/media` is a generated copy of `assets/` (not a symlink). Relative
+symlinks caused Vercel’s `next build` public-file copy to fail with “Cannot
+copy … to a subdirectory of itself.”
+
 ## Asset placement
 
 - `SFI-Logo-Jpeg-EDIT_00-removebg-preview.png`: real Strong Foam mark used

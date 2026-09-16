@@ -22,7 +22,7 @@ npm run build
 | `src/lib/site-schema.ts` | Organization / WebSite / FAQ `@graph` |
 | `src/components/` | Header, scroll page, shadcn/ui |
 | `assets/` | Brand / projects / Omni loops |
-| `public/media/*` | Symlinks into `assets/` for `/media/...` URLs |
+| `public/media/*` | Copied from `assets/` on `predev` / `prebuild` |
 | `docs/` | Brief, dossier, recovered copy, SEO pack |
 | `.cursor/skills/` | scroll-craft, gemini-omni, SEO, design |
 
