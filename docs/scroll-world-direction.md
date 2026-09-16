@@ -43,6 +43,11 @@ avoids repeating one reveal recipe across every section.
 symlinks caused Vercel’s `next build` public-file copy to fail with “Cannot
 copy … to a subdirectory of itself.”
 
+Vercel Hobby blocks commits whose GitHub author is not `makemoney2023`. Every
+commit in this repo must use author and committer
+`makemoney2023 <124006256+makemoney2023@users.noreply.github.com>` via
+`GIT_AUTHOR_*` / `GIT_COMMITTER_*` for that command only — never `git config`.
+
 ## Asset placement
 
 - `SFI-Logo-Jpeg-EDIT_00-removebg-preview.png`: real Strong Foam mark used
