@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { calendlyUnmatchedEvents, leads } from "@/db/schema";
 import type { CalendlyLeadStore } from "@/lib/leads/calendly";
 import type { LeadStore, Mailer, StoredLead } from "@/lib/leads/create-lead";
-import { buildEstimatingEmail } from "@/lib/leads/email";
+import { buildEstimatingEmail, buildVisitorEmail } from "@/lib/leads/email";
 import { MemoryRateLimiter, type RateLimiter } from "@/lib/leads/rate-limit";
 import type { LeadPayload } from "@/lib/leads/schema";
 
@@ -101,7 +101,7 @@ export function buildLeadInsertValues(
     province: payload.province,
     services: "services" in payload ? [...payload.services] : [],
     answers: payload,
-    recommendedServices: [],
+    recommendedServices: "services" in payload ? [...payload.services] : [],
     files: payload.uploadPaths.map((pathname) => ({ pathname })),
     sourcePath: null,
     utm: null,
@@ -140,6 +140,36 @@ export function getLeadStore(): LeadStore {
       const db = getDb();
       await db.update(leads).set({ notifyStatus: status }).where(eq(leads.id, id));
     },
+  };
+}
+
+export type ThanksLead = {
+  status: "qualified" | "secondary";
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+export async function getLeadById(id: string): Promise<ThanksLead | null> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      status: leads.status,
+      firstName: leads.firstName,
+      lastName: leads.lastName,
+      email: leads.email,
+    })
+    .from(leads)
+    .where(eq(leads.id, id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  if (row.status !== "qualified" && row.status !== "secondary") return null;
+  return {
+    status: row.status,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
   };
 }
 
@@ -213,10 +243,9 @@ export function getMailer(): Mailer {
       await sendResendEmail({ to, ...message });
     },
 
-    async sendVisitor() {
-      // The Mailer interface (src/lib/leads/create-lead.ts) does not carry a
-      // recipient address on LeadEmailInput, so there is no visitor email to
-      // send to here. Left as a documented no-op; see task-12-report.md.
+    async sendVisitor(input) {
+      const message = buildVisitorEmail(input);
+      await sendResendEmail({ to: input.email, ...message });
     },
   };
 }

@@ -86,6 +86,7 @@ describe("buildLeadInsertValues", () => {
       city: "Kitchener",
       province: "ON",
       services: ["spray-foam"],
+      recommendedServices: ["spray-foam"],
       idempotencyKey: "abc123",
       files: [{ pathname: "leads/11111111-1111-4111-8111-111111111111/plan.pdf" }],
     });
@@ -117,6 +118,7 @@ describe("buildLeadInsertValues", () => {
     });
 
     expect(values.services).toEqual([]);
+    expect(values.recommendedServices).toEqual([]);
     expect(values.files).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ export type LeadEmailInput = {
   status: "qualified" | "secondary";
   firstName: string;
   lastName: string;
+  email: string;
   company: string;
   city: string;
   services: string[];

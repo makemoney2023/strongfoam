@@ -5,6 +5,7 @@ const base = {
   status: "qualified" as const,
   firstName: "Alex",
   lastName: "Lee",
+  email: "alex@gc.example",
   company: "Acme GC",
   city: "Kitchener",
   services: ["spray-foam"],

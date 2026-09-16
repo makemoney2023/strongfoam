@@ -57,6 +57,7 @@ function emailInput(
     status,
     firstName: payload.firstName,
     lastName: payload.lastName,
+    email: payload.email,
     company: payload.company,
     city: payload.city,
     services: servicesOf(payload),
