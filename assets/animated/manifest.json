@@ -1,0 +1,70 @@
+{
+  "model": "gemini-omni-flash-preview",
+  "generatedAt": "2026-09-16T15:07:06.077Z",
+  "openmontage": "/Users/cbsuperpatch/Desktop/ClaudeSkills/skills/community/openmontage",
+  "results": [
+    {
+      "id": "02",
+      "slug": "sfi-hero-spray",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "ok": true,
+      "out": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/16x9/sf-bg-02-sfi-hero-spray_omni.mp4",
+      "bridge": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/bridges/16x9/sf-bg-02-sfi-hero-spray_last.png",
+      "interaction_id": "v1_Chc1cS1xYW9HN0dNbmRfdU1QeGVYVmdRURIXNXEtcWFvRzdHTW5kX3VNUHhlWFZnUVE",
+      "cost_usd": 0.8,
+      "duration_seconds": 43.06
+    },
+    {
+      "id": "04",
+      "slug": "sfi-wide-structure",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "ok": true,
+      "out": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/16x9/sf-bg-04-sfi-wide-structure_omni.mp4",
+      "bridge": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/bridges/16x9/sf-bg-04-sfi-wide-structure_last.png",
+      "interaction_id": "v1_ChdGN0NxYXItOU5heVVfdU1QdDhQcHdRYxIXRjdDcWFyLTlOYXlVX3VNUHQ4UHB3UWM",
+      "cost_usd": 0.8,
+      "duration_seconds": 49.37
+    },
+    {
+      "id": "05",
+      "slug": "sfi-roof-deck",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "ok": true,
+      "out": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/16x9/sf-bg-05-sfi-roof-deck_omni.mp4",
+      "bridge": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/bridges/16x9/sf-bg-05-sfi-roof-deck_last.png",
+      "interaction_id": "v1_ChdRckNxYXU2Y0hNVFRfdU1QLTRPZDRBSRIXUXJDcWF1NmNITVRUX3VNUC00T2Q0QUk",
+      "cost_usd": 0.8,
+      "duration_seconds": 42.25
+    },
+    {
+      "id": "07",
+      "slug": "sfi-fireproofing",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "ok": true,
+      "out": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/16x9/sf-bg-07-sfi-fireproofing_omni.mp4",
+      "bridge": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/bridges/16x9/sf-bg-07-sfi-fireproofing_last.png",
+      "interaction_id": "v1_ChdhckNxYXQzYkphZldfdU1QdEstTzJRWRIXYXJDcWF0M2JKYWZXX3VNUHRLLU8yUVk",
+      "cost_usd": 0.8,
+      "duration_seconds": 39.45
+    },
+    {
+      "id": "13",
+      "slug": "home-exterior",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "ok": true,
+      "out": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/16x9/sf-bg-13-home-exterior_omni.mp4",
+      "bridge": "/Users/cbsuperpatch/Desktop/Projects/strongfoam/assets/animated/bridges/16x9/sf-bg-13-home-exterior_last.png",
+      "interaction_id": "v1_ChdrN0NxYXFMWEFkaTlfUFVQNHJqaW9RaxIXazdDcWFxTFhBZGk5X1BVUDRyamlvUWs",
+      "cost_usd": 0.8,
+      "duration_seconds": 40.12
+    }
+  ],
+  "okCount": 5,
+  "failCount": 0,
+  "cost_usd_sum": 4
+}

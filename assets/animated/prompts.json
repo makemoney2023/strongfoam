@@ -1,0 +1,127 @@
+{
+  "model": "gemini-omni-flash-preview",
+  "duration": "8",
+  "notes": "Image-to-video plates for Strong Foam scroll-world. Single continuous shot, subtle documentary motion, industrial craft mood. No text overlays, no logos invented, no dialogue. Brand accents cyan #009ee2 / red #e8043d only via lighting/atmosphere if natural.",
+  "plates": [
+    {
+      "id": "01",
+      "slug": "foam-texture",
+      "file": "01-servive.jpg",
+      "aspect": "9:16",
+      "use": "texture loop",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME> — a close-up of spray polyurethane foam texture. Very slow Ken Burns push-in with subtle parallax across the cellular surface. Soft industrial ambient light drifts across the foam. Micro detail of cells catching light. No cuts, no people, no text, no logos. Quiet workshop ambience only."
+    },
+    {
+      "id": "02",
+      "slug": "sfi-hero-spray",
+      "file": "02-SFI1004_00.jpg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME> — a commercial spray foam jobsite. Slow cinematic camera drift right with a gentle forward push, as if observing skilled installers at work without inventing new faces or branding. Dust motes in raking light. Documentary industrial luxury mood, cool cyan edge light. No cuts, no on-screen text, no logos. Low ambient jobsite hum."
+    },
+    {
+      "id": "03",
+      "slug": "sfi-vertical-bay",
+      "file": "03-SFI1001.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow vertical rise / slight tilt as if a crane POV over an insulated commercial bay. Subtle volumetric light. Keep architecture and materials faithful to the still. No cuts, no text, no logos. Soft industrial ambience."
+    },
+    {
+      "id": "04",
+      "slug": "sfi-wide-structure",
+      "file": "04-SFI1003.jpeg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow lateral dolly across the commercial structure with a barely perceptible zoom. Morning or cool daylight. Spec-grade industrial craft feel. No cuts, no people added, no text, no logos. Quiet room tone."
+    },
+    {
+      "id": "05",
+      "slug": "sfi-roof-deck",
+      "file": "05-SFI1006.jpeg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow push toward the insulated roof / deck plane with subtle camera breathe. Emphasize sealed surfaces and craftsmanship. Cool cyan rim light. No cuts, no text, no logos. Soft wind ambience."
+    },
+    {
+      "id": "06",
+      "slug": "sfi-tall-cavity",
+      "file": "06-SFI1009.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow upward crane move through the tall cavity, revealing depth of insulation work. Documentary restraint. No cuts, no text, no logos. Quiet industrial ambience."
+    },
+    {
+      "id": "07",
+      "slug": "sfi-fireproofing",
+      "file": "07-SFI1007.jpg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow orbit-like drift around steel / fireproofing surfaces. Subtle particulate in light. Industrial luxury, specification-aware mood. No cuts, no text, no logos. Low metallic room tone."
+    },
+    {
+      "id": "08",
+      "slug": "dsc-jobsite-a",
+      "file": "08-DSC_2335.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME> — real jobsite photography. Very slow handheld-stable drift with gentle push-in. Preserve the photograph's subjects and materials; do not invent branding. No cuts, no text overlays. Natural jobsite ambience, no dialogue."
+    },
+    {
+      "id": "09",
+      "slug": "dsc-jobsite-b",
+      "file": "09-DSC_2348.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow documentary camera drift, slight parallax on foreground tools or materials if present. Faithful to the still. No cuts, no text, no logos. Soft ambient construction tone."
+    },
+    {
+      "id": "10",
+      "slug": "dsc-jobsite-c",
+      "file": "10-DSC_2355.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Gentle Ken Burns zoom with a soft left-to-right drift. Industrial craft atmosphere. No cuts, no text, no logos. Quiet ambience."
+    },
+    {
+      "id": "11",
+      "slug": "dsc-jobsite-d",
+      "file": "11-DSC_2391.jpg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow push-in toward the work area; keep lighting natural and restrained. No cuts, no text, no logos. Soft jobsite hum."
+    },
+    {
+      "id": "12",
+      "slug": "wide-exterior",
+      "file": "12-5.jpg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow aerial-feeling glide across the building exterior with subtle cloud shadow motion if sky is visible. Premium industrial mood. No cuts, no text, no logos. Soft outdoor ambience."
+    },
+    {
+      "id": "13",
+      "slug": "home-exterior",
+      "file": "13-home.jpg",
+      "aspect": "16:9",
+      "use": "hero bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME> — building exterior. Slow cinematic push with gentle lateral drift. Cool daylight, confident commercial presence. No cuts, no text, no logos. Soft outdoor ambience."
+    },
+    {
+      "id": "14",
+      "slug": "img-jobsite-e",
+      "file": "14-IMG_8029.jpeg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow vertical-aware camera rise with slight zoom. Preserve materials and scene fidelity. No cuts, no text, no logos. Quiet industrial ambience."
+    },
+    {
+      "id": "15",
+      "slug": "img-jobsite-f",
+      "file": "15-IMG_8208.jpeg",
+      "aspect": "9:16",
+      "use": "section bg",
+      "prompt": "In a single continuous shot, start from <FIRST_FRAME>. Slow documentary drift and soft push-in. Craft-focused lighting. No cuts, no text, no logos. Soft ambient tone."
+    }
+  ]
+}

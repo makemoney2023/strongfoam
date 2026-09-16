@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import {
+  faqItems,
+  scrollSections,
+  services,
+  site,
+} from "@/content/site";
+
+describe("site content for scroll overlays", () => {
+  it("exposes verified NAP and contact channels", () => {
+    expect(site.legalName).toBe("Strong Foam Insulation Inc.");
+    expect(site.phoneDisplay).toBe("519-900-6000");
+    expect(site.emailEstimating).toBe("estimating@strongfoam.com");
+    expect(site.primaryOps.street).toContain("Breithaupt");
+  });
+
+  it("covers all five homepage service anchors", () => {
+    expect(services.map((s) => s.id)).toEqual([
+      "spray-foam",
+      "fireproofing",
+      "intumescent",
+      "avb",
+      "spf-roofing",
+    ]);
+    for (const service of services) {
+      expect(service.title.length).toBeGreaterThan(3);
+      expect(service.overlay.length).toBeGreaterThan(20);
+      expect(service.overlay.length).toBeLessThan(220);
+    }
+  });
+
+  it("orders scroll sections per build brief IA", () => {
+    expect(scrollSections.map((s) => s.id)).toEqual([
+      "hero",
+      "trust",
+      "services",
+      "process",
+      "sectors",
+      "projects",
+      "coverage",
+      "faq",
+      "contact",
+    ]);
+  });
+
+  it("does not expose scaffold copy or unfinished labels", () => {
+    const publicCopy = JSON.stringify(scrollSections);
+    expect(publicCopy).not.toContain("Stub:");
+    expect(publicCopy).not.toContain("[stub]");
+    expect(scrollSections.every((section) => section.status === "ready")).toBe(
+      true,
+    );
+  });
+
+  it("keeps hero overlay budget tight (headline + one support)", () => {
+    const hero = scrollSections.find((s) => s.id === "hero");
+    expect(hero?.headline).toBeTruthy();
+    expect(hero?.support?.split(" ").length).toBeLessThan(28);
+  });
+
+  it("ships FAQ pairs suitable for FAQPage JSON-LD", () => {
+    expect(faqItems.length).toBeGreaterThanOrEqual(4);
+    for (const item of faqItems) {
+      expect(item.question.endsWith("?") || item.question.includes("?")).toBe(
+        true,
+      );
+      expect(item.answer.length).toBeGreaterThan(40);
+    }
+  });
+
+  it("avoids banned absolute greenest claim in overlays", () => {
+    const blob = JSON.stringify({ services, scrollSections, faqItems });
+    expect(blob.toLowerCase()).not.toContain("greenest");
+    expect(blob).not.toContain("—");
+  });
+});
