@@ -17,10 +17,11 @@ npm run build
 
 | Path | Role |
 |------|------|
-| `src/app/` | App Router (home scroll-world) |
+| `src/app/` | App Router (home scroll-world, `/request-estimate`) |
 | `src/content/site.ts` | NAP, services, FAQ, scroll overlays |
 | `src/lib/site-schema.ts` | Organization / WebSite / FAQ `@graph` |
-| `src/components/` | Header, scroll page, shadcn/ui |
+| `src/lib/leads/` | Estimate survey qualification, HMAC, rate limits |
+| `src/components/` | Header, scroll page, estimate survey, shadcn/ui |
 | `assets/` | Brand / projects / Omni loops |
 | `public/media/*` | Copied from `assets/` on `predev` / `prebuild` |
 | `docs/` | Brief, dossier, recovered copy, SEO pack |
@@ -41,6 +42,32 @@ npm run omni:bg -- --priority   # or --all
 ```
 
 Requires `GEMINI_API_KEY` in `.env.local` (gitignored).
+
+## Estimate survey
+
+Indexed wizard at `/request-estimate`. Confirmation at `/request-estimate/thanks` is `noindex`. Qualified leads can book via HMAC-gated Calendly.
+
+```bash
+npm test
+npm run db:push
+```
+
+Environment names (values live in `.env.local`, never committed):
+
+```
+DATABASE_URL
+BLOB_READ_WRITE_TOKEN
+RESEND_API_KEY
+RESEND_FROM
+LEAD_NOTIFY_TO
+LEAD_THANKS_SECRET
+NEXT_PUBLIC_CALENDLY_URL
+CALENDLY_WEBHOOK_SIGNING_KEY
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+```
+
+See `.env.example` for the same names with empty values.
 
 ## Stack
 

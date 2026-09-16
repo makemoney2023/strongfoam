@@ -37,6 +37,8 @@ Beautiful **3D one-page scroll craft / scroll-world** marketing site for commerc
 ## IA (one-page scroll + light multi-route for SEO)
 **Scroll world (home `/`):** Hero → Trust/proof → Services orbit → Process → Sectors (ICI/MUR/industrial) → Projects gallery → Coverage (KW–London–GTA) → FAQ → Contact/estimate CTA
 
+**Lead capture:** `/request-estimate` adaptive estimate survey; `/request-estimate/thanks` noindex confirmation.
+
 **SEO routes (SSR, answer-first):**  
 `/services/*`, `/sectors/*`, `/resources/*` (blog MDX from calendar), `/locations/kitchener-waterloo`, `/locations/london`, `/locations/gta` (unique synthesis only), `/contact`, `/projects`
 
@@ -65,6 +67,7 @@ Follow pattern memo in uploads for content law, schema `@graph`, robots AI allow
 4. Week-1 content stubs + full calendar JSON present
 5. README with run instructions; no secrets; no WP code
 6. PR/main has clear commit history
+7. Homepage primary CTAs open `/request-estimate`; qualified thanks can embed Calendly
 
 ## Attached uploads (read these)
 - Research dossier, recovered copy, security notes
