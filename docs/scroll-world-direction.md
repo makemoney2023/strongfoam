@@ -31,8 +31,9 @@ avoids repeating one reveal recipe across every section.
 - GSAP ScrollTrigger owns scroll-linked transforms and opacity.
 - The hero has one word-built entrance and a slow media push.
 - The trust chapter is the longest hold.
-- Services is pinned on desktop with pin spacing, then becomes a native snap
-  rail below 900 px. The next chapter cannot slide under the rail.
+- Services is pinned on every viewport with pin spacing, then becomes a native
+  snap rail only when the visitor prefers reduced motion. Vertical scroll moves
+  the five scopes. The next chapter cannot slide under the rail.
 - The process image is the only full-frame clip-path wipe.
 - Project cards reveal once and stay visible.
 - Reduced-motion users get settled copy, static poster frames, and a native

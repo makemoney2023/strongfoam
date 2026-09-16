@@ -5,6 +5,10 @@ export function getServicesPinDistance(
   return Math.max(0, trackWidth - viewportWidth);
 }
 
+export function shouldPinServicesRail(viewportWidth: number) {
+  return Number.isFinite(viewportWidth) && viewportWidth > 0;
+}
+
 export function getServicesScrollTrigger(distance: number) {
   return {
     start: "top top" as const,

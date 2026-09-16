@@ -906,39 +906,18 @@ body {
     font-size: clamp(2.7rem, 11vw, 5rem);
   }
 
-  .services-act {
-    height: auto;
-  }
-
-  .services-frame {
-    height: auto;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-  }
-
-  .services-track {
-    height: auto;
-    min-height: 85svh;
-    gap: 1.25rem;
-    padding-block: 7rem 4rem;
-  }
-
   .services-lead {
-    width: 82vw;
-    scroll-snap-align: center;
+    width: min(82vw, 52rem);
   }
 
   .service-panel {
-    width: 82vw;
+    width: min(82vw, 31rem);
     min-height: 30rem;
     align-self: center;
-    scroll-snap-align: center;
   }
 
   .services-close {
-    width: 76vw;
-    scroll-snap-align: center;
+    width: min(76vw, 28rem);
   }
 
   .process-grid,

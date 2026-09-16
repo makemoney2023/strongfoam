@@ -22,6 +22,7 @@ import {
 import {
   getServicesPinDistance,
   getServicesScrollTrigger,
+  shouldPinServicesRail,
 } from "@/lib/scroll-triggers";
 import { cn } from "@/lib/utils";
 
@@ -219,7 +220,7 @@ export function ScrollWorldPage() {
 
       const servicesTrack =
         root.current?.querySelector<HTMLElement>("[data-services-track]");
-      if (servicesTrack && window.innerWidth >= 900) {
+      if (servicesTrack && shouldPinServicesRail(window.innerWidth)) {
         const distance = () =>
           getServicesPinDistance(servicesTrack.scrollWidth, window.innerWidth);
         gsap.to(servicesTrack, {
