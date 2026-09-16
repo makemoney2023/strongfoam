@@ -46,6 +46,7 @@ assets/animated/bridges/
 
 # local agent scratch
 .superpowers/
+.worktrees/
 **/__pycache__/
 *.pyc
 
