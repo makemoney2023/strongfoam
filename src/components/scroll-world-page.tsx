@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { PhoneIcon } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -662,6 +663,7 @@ export function ScrollWorldPage() {
                 "brand-button brand-button--outline",
               )}
             >
+              <PhoneIcon aria-hidden="true" />
               {site.phoneDisplay}
             </a>
           </div>

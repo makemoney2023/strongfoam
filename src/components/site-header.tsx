@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PhoneIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/content/site";
 import { cn } from "@/lib/utils";
@@ -47,8 +48,9 @@ export function SiteHeader() {
         <div className="flex items-center gap-3">
           <a
             href={`tel:${site.phoneE164}`}
-            className="hidden text-sm text-white/70 hover:text-[color:var(--sf-cyan)] sm:inline"
+            className="hidden items-center gap-1.5 text-sm text-white/70 hover:text-[color:var(--sf-cyan)] sm:inline-flex"
           >
+            <PhoneIcon aria-hidden="true" className="size-4" />
             {site.phoneDisplay}
           </a>
           <a

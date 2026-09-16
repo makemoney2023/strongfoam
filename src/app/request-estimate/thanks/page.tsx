@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PhoneIcon } from "lucide-react";
 import { CalendlyEmbed } from "@/components/estimate-survey/calendly-embed";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/content/site";
@@ -57,6 +58,7 @@ export default async function ThanksPage({
               "brand-button brand-button--outline",
             )}
           >
+            <PhoneIcon aria-hidden="true" />
             {site.phoneDisplay}
           </a>
           <a
