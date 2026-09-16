@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Project-local agent skills are vendored reference tooling, not app code.
     ".cursor/**",
+    ".worktrees/**",
   ]),
 ]);
 
