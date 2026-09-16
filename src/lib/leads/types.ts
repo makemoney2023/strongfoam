@@ -1,5 +1,3 @@
-import type { ServiceId } from "@/content/site";
-
 export type ProjectType =
   | "commercial_ici"
   | "multi_unit"
@@ -23,10 +21,19 @@ export type Timeline =
 
 export type DrawingsReady = "yes" | "no" | "later";
 
+export const SERVICE_IDS = [
+  "spray-foam",
+  "fireproofing",
+  "intumescent",
+  "avb",
+  "spf-roofing",
+] as const;
+export type ListedServiceId = (typeof SERVICE_IDS)[number];
+
 export type QualifyInput = {
   projectType: ProjectType;
   province: Province;
-  services: ServiceId[];
+  services: ListedServiceId[];
 };
 
 export type QualifyResult = {
@@ -38,12 +45,4 @@ export const QUALIFYING_PROJECT_TYPES: ProjectType[] = [
   "commercial_ici",
   "multi_unit",
   "industrial",
-];
-
-export const SERVICE_IDS: ServiceId[] = [
-  "spray-foam",
-  "fireproofing",
-  "intumescent",
-  "avb",
-  "spf-roofing",
 ];
