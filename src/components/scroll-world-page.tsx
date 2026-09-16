@@ -459,7 +459,7 @@ export function ScrollWorldPage() {
             <div className="services-close">
               <p>Specified systems.</p>
               <p>Coordinated execution.</p>
-              <a href="#contact">Send the package →</a>
+              <a href="/request-estimate">Send the package →</a>
             </div>
           </div>
         </div>
@@ -647,13 +647,13 @@ export function ScrollWorldPage() {
           </p>
           <div className="contact-actions">
             <a
-              href={`mailto:${site.emailEstimating}`}
+              href="/request-estimate"
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "brand-button brand-button--red",
               )}
             >
-              {site.emailEstimating}
+              Start the project survey
             </a>
             <a
               href={`tel:${site.phoneE164}`}
@@ -665,6 +665,14 @@ export function ScrollWorldPage() {
               {site.phoneDisplay}
             </a>
           </div>
+          <p className="mt-4 text-sm text-white/70">
+            <a
+              href={`mailto:${site.emailEstimating}`}
+              className="text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+            >
+              {site.emailEstimating}
+            </a>
+          </p>
           <div className="contact-footer">
             <span>Strong Foam Insulation Inc.</span>
             <span>{productBrands.slice(0, 4).join(" · ")}</span>

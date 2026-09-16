@@ -7,12 +7,12 @@ import { site } from "@/content/site";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "#services", label: "Services" },
-  { href: "#sectors", label: "Sectors" },
-  { href: "#projects", label: "Projects" },
-  { href: "#coverage", label: "Coverage" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#contact", label: "Contact" },
+  { href: "/#services", label: "Services" },
+  { href: "/#sectors", label: "Sectors" },
+  { href: "/#projects", label: "Projects" },
+  { href: "/#coverage", label: "Coverage" },
+  { href: "/#faq", label: "FAQ" },
+  { href: "/#contact", label: "Contact" },
 ];
 
 export function SiteHeader() {
@@ -44,15 +44,23 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
-        <a
-          href={`tel:${site.phoneE164}`}
-          className={cn(
-            buttonVariants({ size: "default" }),
-            "bg-[color:var(--sf-cyan)] text-[color:var(--sf-ink)] hover:bg-[color:var(--sf-cyan)]/90",
-          )}
-        >
-          {site.phoneDisplay}
-        </a>
+        <div className="flex items-center gap-3">
+          <a
+            href={`tel:${site.phoneE164}`}
+            className="hidden text-sm text-white/70 hover:text-[color:var(--sf-cyan)] sm:inline"
+          >
+            {site.phoneDisplay}
+          </a>
+          <a
+            href="/request-estimate"
+            className={cn(
+              buttonVariants({ size: "default" }),
+              "bg-[color:var(--sf-red,#e8043d)] text-white hover:bg-[color:var(--sf-red,#e8043d)]/90",
+            )}
+          >
+            Request estimate
+          </a>
+        </div>
       </div>
     </header>
   );

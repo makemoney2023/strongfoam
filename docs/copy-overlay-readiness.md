@@ -10,7 +10,7 @@
 | Trust / about (softened) | Recovered About + claims guards |
 | Five service overlays + bodies | `strongfoam-recovered-copy.md` (+ AVB synthesized from products/dossier) |
 | Coverage / NAP | Dossier + brief preferred Breithaupt ops |
-| Contact / estimate CTA | Recovered footer CTA + NAP |
+| Contact / estimate CTA | Hero/header/process/contact primary CTAs open `/request-estimate`; phone and estimating email are fallbacks. |
 | FAQ (≥6) | `docs/seo/04-aeo-geo-keyword-clusters.md` AEO Q&As |
 | Product brand strip | Strong Supply list |
 

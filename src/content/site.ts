@@ -144,7 +144,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "How do I request an estimate?",
     answer:
-      "Email drawings and the package scope to estimating@strongfoam.com or call 519-900-6000. Include relevant specs, elevations, and schedule constraints so estimating can respond with a useful bid.",
+      "Start the project survey at /request-estimate. You can also email drawings and the package scope to estimating@strongfoam.com or call 519-900-6000.",
   },
 ];
 
@@ -166,7 +166,7 @@ export const scrollSections: ScrollSection[] = [
     support:
       "Spray foam, cementitious fireproofing, intumescent coatings, and AVB. Bid-ready specialty scope.",
     status: "ready",
-    cta: { label: "Request an estimate", href: "#contact" },
+    cta: { label: "Request an estimate", href: "/request-estimate" },
   },
   {
     id: "trust",
@@ -219,11 +219,11 @@ export const scrollSections: ScrollSection[] = [
     id: "contact",
     headline: "Get a competitive estimate",
     support:
-      "Send drawings to estimating@strongfoam.com or call 519-900-6000. Competitive quotes for projects of any size, with details carried from drawings to field.",
+      "Start the project survey, or call 519-900-6000. Competitive quotes for projects of any size, with details carried from drawings to field.",
     status: "ready",
     cta: {
-      label: "Email estimating",
-      href: `mailto:${site.emailEstimating}`,
+      label: "Start the project survey",
+      href: "/request-estimate",
     },
   },
 ];

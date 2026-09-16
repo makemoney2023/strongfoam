@@ -68,6 +68,23 @@ describe("site content for scroll overlays", () => {
     }
   });
 
+  it("sends hero estimate CTA to the survey route", () => {
+    const hero = scrollSections.find((section) => section.id === "hero");
+    expect(hero?.cta).toEqual({
+      label: "Request an estimate",
+      href: "/request-estimate",
+    });
+  });
+
+  it("points estimate FAQ at the on-site survey first", () => {
+    const item = faqItems.find((entry) =>
+      entry.question.toLowerCase().includes("estimate"),
+    );
+    expect(item?.answer).toContain("/request-estimate");
+    expect(item?.answer).toContain("estimating@strongfoam.com");
+    expect(item?.answer).toContain("519-900-6000");
+  });
+
   it("avoids banned absolute greenest claim in overlays", () => {
     const blob = JSON.stringify({ services, scrollSections, faqItems });
     expect(blob.toLowerCase()).not.toContain("greenest");
