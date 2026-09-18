@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.1
+**Version:** 0.2
 **Created:** 2026-09-18
 **Last updated:** 2026-09-18
 
@@ -13,16 +13,19 @@ This document defines the product direction and implementation requirements for
 evolving the Strong Foam website into a centralized construction CRM and
 operations platform.
 
-The platform will begin with two capabilities:
+The platform will begin with three capabilities:
 
 1. An internal list and review workflow for estimate requests submitted through
    the existing lead-generation survey.
 2. A field job workflow in which technicians can review plans, mark completed
    work directly on a blueprint or diagram, and attach speech-to-text notes.
+3. A governed AI operations agent that can summarize authorized records, create
+   and update tasks, draft administrative work, and surface exceptions.
 
 The long-term product will support customer relationship management, estimating,
 project execution, field reporting, job costing, and operational review for
-insulation, drywall, flooring, and home-building work.
+insulation, drywall, flooring, and home-building work while using safe
+automation to reduce repetitive administration.
 
 ## 2. Source-of-truth policy
 
@@ -103,6 +106,8 @@ The system should answer:
 - Let technicians mark completed or blocked work on plan sheets.
 - Let technicians record voice notes and receive editable transcripts.
 - Keep plans, annotations, photos, audio, notes, and status history together.
+- Let authorized users ask the AI agent to summarize records and create or
+  update reversible tasks with confirmation and audit history.
 
 ### 6.2 Long-term goals
 
@@ -587,6 +592,9 @@ materials, equipment, purchase_orders, receipts
 costs, invoices, payments
 change_orders, inspections, deficiencies, daily_logs
 notifications, audit_events, integration_events
+outbox_events, background_jobs, dead_letter_jobs
+ai_runs, ai_steps, ai_citations, ai_proposals, ai_approvals
+ai_tool_executions, knowledge_chunks, embedding_versions
 ```
 
 Data-model rules:
@@ -601,41 +609,307 @@ Data-model rules:
 - Business events and audit events should be append-only.
 - Deletion and retention must respect legal, contractual, and privacy needs.
 
-## 22. Technical direction
+## 22. Design system
 
-### 22.1 Application structure
+### 22.1 Design direction
 
-Continue with the existing Next.js application initially, with clear route and
-bundle boundaries:
+The operations product will use a design language called **Industrial
+Precision**: trustworthy, durable, legible, and efficient without looking like
+generic enterprise software.
+
+The public marketing site may retain its cinematic, dark, motion-led
+presentation. The authenticated product must prioritize fast scanning, clear
+status, accessible data entry, and field use. Both surfaces share the Strong
+Foam brand, typography, and core color primitives.
+
+Design dials for the authenticated product:
+
+| Dial | Target | Meaning |
+|---|---:|---|
+| Visual variance | 4/10 | Modern and distinctive, but predictable |
+| Motion | 3/10 | Subtle feedback rather than decorative animation |
+| Information density | 8/10 office, 5/10 field | Efficient desktop review and touch-friendly field work |
+
+### 22.2 Token architecture
+
+The implementation must use three token layers:
 
 ```text
-Public marketing and survey
-Authenticated office application
-Mobile-first field application
-API and integration endpoints
-Asynchronous workers
+Primitive values → Semantic purpose → Component tokens
 ```
 
-The public website must remain performant and independently usable if internal
-operations are degraded.
+- Primitive tokens define brand colors, neutral ramps, type scales, spacing,
+  radii, shadows, and motion.
+- Semantic tokens define purpose, such as surface, foreground, action, success,
+  warning, danger, focus, and work status.
+- Component tokens define local behavior for buttons, tables, cards, fields,
+  navigation, annotation tools, and AI surfaces.
 
-### 22.2 Recommended platform components
+Components must not introduce raw colors or arbitrary spacing when a token
+exists. A machine-readable token file and generated CSS variables will become
+the code-level source of truth when implementation starts.
 
-- Existing Next.js App Router and React UI stack.
-- PostgreSQL with Drizzle and version-controlled migrations.
-- Private object storage for plans, photos, recordings, and exports.
-- A supported authentication provider and server-side authorization layer.
-- A durable queue or workflow service for transcription, notifications,
-  document generation, and integration retries.
-- PDF.js or equivalent for plan rendering.
-- A canvas overlay such as Konva or tldraw for annotations.
-- IndexedDB-backed local drafts and upload queue for field resilience.
-- A selected speech-to-text provider behind an internal adapter.
+### 22.3 Color system
 
-Provider choices are implementation decisions and must be recorded before the
-relevant release begins.
+Existing brand primitives are retained:
 
-### 22.3 API rules
+| Token | Value | Use |
+|---|---|---|
+| Strong Foam cyan | `#009EE2` | Primary actions, links, focus, active navigation |
+| Strong Foam red | `#E8043D` | Brand accent and urgent/destructive emphasis |
+| Ink | `#0B1218` | Dark navigation and dark-mode background |
+| Concrete | `#151C24` | Elevated dark surfaces |
+| Mist | `#E9EDEF` | Light neutral sections |
+| White | `#FFFFFF` | High-contrast content and light surfaces |
+
+The authenticated office product is light-first for long data-review sessions,
+with dark navigation and an optional complete dark theme. The field experience
+may follow device theme but must preserve outdoor contrast.
+
+Semantic status colors must include success, warning, danger, information, and
+neutral states. Brand red must not represent routine selection. Annotation
+states must use color plus icon, label, border pattern, or shape so meaning
+never relies on color alone.
+
+Every production color pair must pass WCAG 2.2 AA contrast: 4.5:1 for normal
+text and 3:1 for large text, controls, focus indicators, and meaningful
+graphics.
+
+### 22.4 Typography
+
+Reuse the existing type families:
+
+- **Archivo:** page titles, section headings, metric values, and compact labels.
+- **Source Sans 3:** body text, forms, tables, notes, and long-form reading.
+- **System monospace:** identifiers, quantities, revision codes, and technical
+  values only.
+
+The base body size is 16px with a minimum 1.5 line height for prose. Dense
+tables may use 14px text when zoom, contrast, and row targeting remain
+accessible. Body text must never be smaller than 12px.
+
+### 22.5 Layout and spacing
+
+- Use a 4px base spacing grid with named semantic spacing tokens.
+- Use 6px as the default application radius; larger radii are reserved for
+  overlays and prominent cards.
+- Desktop uses a persistent left navigation, top context bar, and flexible
+  workspace.
+- Tablet collapses secondary panels before reducing primary content.
+- Field mobile uses no more than five bottom-navigation destinations.
+- Office tables favor compact 36–40px rows; field actions use at least 44px
+  touch targets with at least 8px separation.
+- Primary actions remain visible without covering content or device safe areas.
+- Drawers are used for quick inspection; full pages are used for multi-step or
+  high-consequence work.
+
+### 22.6 Core component language
+
+The component system extends the existing shadcn primitives and must define:
+
+- Application shell, sidebar, breadcrumbs, command palette, and mobile
+  navigation.
+- Data table, filters, saved views, bulk action bar, pagination, and empty
+  states.
+- Status badge, priority indicator, assignee, due date, and sync-state badge.
+- Summary card, metric card, exception card, and progress indicator.
+- Forms with visible labels, descriptions, inline validation, and unsaved-state
+  protection.
+- Activity timeline, comments, mentions, attachments, and approvals.
+- Job card, daily log, task checklist, material request, and deficiency card.
+- Plan viewer toolbar, layer panel, annotation properties, and revision banner.
+- AI assistant panel, prompt composer, citations, proposed-change diff, approval
+  control, execution result, and undo affordance.
+- Skeleton, loading, success, warning, error, offline, pending-sync, and retry
+  states.
+
+Icons must come from one SVG icon family, initially Lucide. Emoji must not be
+used as functional icons.
+
+### 22.7 Interaction and motion
+
+- Standard transitions use 150–250ms and communicate state or spatial change.
+- Save, sync, upload, transcription, and AI actions always expose progress.
+- Destructive and high-impact actions require clear consequences and recovery
+  where possible.
+- Keyboard navigation and visible focus are required for all office workflows.
+- Hover cannot be the only way to reveal a required action.
+- `prefers-reduced-motion` must remove nonessential motion.
+- The field application must preserve drafts and make pending, synced, failed,
+  and conflicted states unmistakable.
+
+### 22.8 Data visualization
+
+Dashboards prioritize actionable exception queues over decorative charts.
+Charts must provide accessible legends, labels, tooltips, tabular alternatives,
+and drill-through to source records. Color alone must not encode a series or
+status.
+
+### 22.9 Design-system governance
+
+- New components require documented anatomy, variants, states, accessibility,
+  responsive behavior, and content rules.
+- Product pages consume shared components rather than local imitations.
+- Visual regression, keyboard, contrast, and responsive checks are required
+  before a component is marked stable.
+- Supported review widths are 375px, 768px, 1024px, and 1440px at minimum.
+- Page-specific exceptions must be documented rather than silently overriding
+  global tokens.
+
+## 23. Technical and deployment architecture
+
+### 23.1 Chosen platform
+
+The target production topology is:
+
+```text
+strongfoam.com / app.strongfoam.com
+Vercel CDN + Next.js frontend and thin BFF
+                    │ authenticated HTTPS
+                    ▼
+api.strongfoam.com
+Render TypeScript API
+        │                    │
+        ▼                    ▼
+Supabase                 Render worker
+PostgreSQL + Auth        AI, transcription, embeddings,
+Storage + pgvector       exports, notifications, integrations
+```
+
+Platform responsibilities:
+
+| Platform | Responsibility |
+|---|---|
+| Vercel | Public site, survey UI, authenticated office/field UI, SSR, static assets, thin same-origin BFF |
+| Render web service | Authoritative domain API, authorization enforcement, webhooks, AI streaming, and job submission |
+| Render worker | Durable transcription, embedding, document generation, notifications, integrations, and approved AI automation |
+| Supabase | PostgreSQL, Auth, private Storage, Row Level Security, backups, Realtime where useful, and `pgvector` |
+
+**Database decision:** use Supabase PostgreSQL instead of Neon for the expanded
+product. Neon already serves the small lead system well, but Supabase reduces
+administration by consolidating authentication, private files, PostgreSQL,
+row-level security, realtime events, backups, and vector search. Migrating now
+is less costly than migrating after CRM and field data proliferate.
+
+### 23.2 Application boundaries
+
+- The browser must not receive service-role credentials or unrestricted
+  database access.
+- Business mutations flow through typed domain commands on the Render API.
+- The Vercel BFF authenticates same-origin browser requests and forwards short
+  operations; it does not perform long-running work.
+- Long operations return a job identifier and process asynchronously.
+- Direct-to-Supabase Storage uploads use short-lived, object-scoped permission.
+- Supabase RLS provides defense in depth and is not a substitute for domain
+  authorization.
+- The public marketing site remains usable if the Render API or AI provider is
+  degraded.
+
+### 23.3 Render services
+
+The Render API must:
+
+- Run as a paid, stateless web service bound to `0.0.0.0:$PORT`.
+- Expose `/health/live` and `/health/ready`.
+- Use graceful shutdown and deployment-safe request draining.
+- Version public contracts under `/v1`.
+- Verify webhook signatures and replay identifiers.
+- Use idempotency keys for retryable mutations.
+- Store no durable files on Render's ephemeral filesystem.
+
+Use a separate paid Render background worker. The initial durable queue will use
+`pg-boss` on Supabase PostgreSQL to avoid operating another datastore. A
+transactional outbox will commit a business change and its pending event
+together. Workers must checkpoint, retry with backoff, enforce provider rate
+limits, and move exhausted work into a visible dead-letter queue.
+
+Render cron jobs may enqueue reconciliation and scheduled work but must not
+perform full long-running jobs themselves.
+
+### 23.4 Supabase data services
+
+- Enable `vector`/pgvector through a reviewed migration.
+- Use separate least-privilege roles for API runtime, workers, migrations, and
+  backup operations.
+- Use pooled connections for application traffic and a direct connection for
+  migrations and supported maintenance.
+- Make storage buckets private and use immutable object keys for plans,
+  recordings, evidence, proposals, and closeout documents.
+- Enforce organization and record scope in RLS policies.
+- Use Realtime only for bounded status and activity updates initially, not
+  collaborative plan drawing.
+- Provision paid backups and point-in-time recovery before production business
+  records are accepted.
+
+### 23.5 Environment and release strategy
+
+Production, staging, preview, and local environments must not share databases,
+storage buckets, queues, credentials, or webhook destinations.
+
+```text
+Production: Vercel production + Render production + Supabase production
+Staging:    persistent Vercel/Render/Supabase staging
+Preview:    Vercel preview + on-demand backend preview + synthetic database
+Local:      local frontend/API/worker + isolated development database
+```
+
+Required release checks:
+
+- Frozen-lockfile install, lint, type check, tests, and production builds.
+- Migration validation against an isolated database.
+- Frontend/API contract compatibility.
+- Authorization and cross-organization isolation tests.
+- Playwright smoke tests for changed full-stack workflows.
+- Dependency, secret, and infrastructure validation.
+
+Production uses expand/contract migrations:
+
+1. Back up the database.
+2. Apply an additive migration.
+3. Deploy the Render API.
+4. Deploy workers and verify queue health.
+5. Deploy and test the Vercel candidate.
+6. Promote the verified Vercel deployment.
+7. Remove obsolete schema only in a later release.
+
+A paid Vercel plan and paid Render services are production requirements. Free
+services that sleep or expire must never carry production CRM/ERP traffic.
+
+### 23.6 Migration from current infrastructure
+
+1. Add versioned Drizzle migrations and baseline the existing lead schema.
+2. Provision Supabase Auth, PostgreSQL, Storage, and pgvector in staging.
+3. Copy existing Neon lead and Calendly records while preserving IDs.
+4. Verify counts, checksums, qualification behavior, and signed-file access.
+5. Move business logic and webhooks to the Render API.
+6. Move email delivery to the transactional outbox and worker.
+7. Migrate private Vercel Blob objects to Supabase Storage with a rollback
+   window; do not dual-write indefinitely.
+8. Switch the frontend through an environment-controlled API endpoint.
+9. Remove production database credentials and authoritative business logic from
+   Vercel after cutover.
+
+### 23.7 Observability and recovery
+
+All services must propagate a correlation ID, organization ID, authenticated
+actor ID, deployment version, and job/event ID without logging sensitive
+payloads.
+
+Operational dashboards and alerts must cover:
+
+- API availability, latency, and error rate.
+- Queue depth, oldest-job age, retries, and dead letters.
+- Worker health and duration by workload.
+- Database connections, slow queries, storage, and vector-index performance.
+- Failed uploads, webhooks, notifications, transcriptions, and AI actions.
+- Version skew between frontend, API, workers, and database schema.
+
+Initial recovery targets are RPO of 15 minutes or less and RTO of four hours or
+less. Perform encrypted backups to a separate failure domain and test a restore
+at least quarterly. Final retention and recovery targets must be approved
+before financial workflows launch.
+
+### 23.8 API rules
 
 - Validate all inputs server-side.
 - Authorize every internal read and mutation.
@@ -645,7 +919,186 @@ relevant release begins.
 - Use stable domain events for asynchronous work and integrations.
 - Version externally consumed API contracts.
 
-## 23. Security, privacy, and compliance
+## 24. AI operations agent
+
+### 24.1 Purpose
+
+The product will include an AI operations agent that reduces repetitive
+administration while keeping humans accountable for customer, safety,
+commercial, and financial decisions.
+
+The agent is an interface to typed application capabilities, not a privileged
+database administrator. Disabling AI must not disable any core workflow.
+
+### 24.2 Initial capabilities
+
+**AI-001:** The agent must answer questions about authorized customers,
+requests, estimates, projects, jobs, tasks, notes, and documents with citations
+to the source records and versions.
+
+**AI-002:** The agent must summarize:
+
+- Estimate-request history.
+- Meeting and call notes.
+- Daily field logs.
+- Voice-note transcripts.
+- Job progress, blockers, deficiencies, and outstanding decisions.
+- Activity since a user's last review.
+
+**AI-003:** The agent must create and update tasks through typed commands,
+including title, description, assignee, due date, priority, status, checklist,
+and source-record link.
+
+**AI-004:** The agent should convert notes or transcripts into proposed tasks,
+material requests, blockers, deficiencies, follow-ups, and daily reports.
+
+**AI-005:** The agent should draft customer communications, internal handoffs,
+estimate scopes, closeout summaries, and status updates. External communication
+requires human review and send approval.
+
+**AI-006:** Scheduled automations may identify missing owners, stale
+opportunities, overdue actions, unsummarized field notes, unresolved blockers,
+missing daily logs, and jobs at risk. Results appear in an exception queue
+rather than silently changing high-impact records.
+
+**AI-007:** The agent must report completed changes, failures, and skipped
+actions in plain language and link to the audit entry.
+
+### 24.3 Action and approval policy
+
+Agent authority is the intersection of:
+
+```text
+User permission ∩ organization policy ∩ record scope ∩ tool policy
+```
+
+| Action class | Examples | Initial policy |
+|---|---|---|
+| Read-only | Search, summarize, compare, explain history | Automatic within caller scope |
+| Draft | Draft task, report, note, or communication | Automatic; no persistent side effect |
+| Direct reversible command | “Move my task to Friday,” “mark this task done” | Execute when the requesting user has permission; confirm and offer undo |
+| Proactive or multi-record mutation | Reassign tasks, bulk due-date changes, workflow transitions | Show exact diff and require approval |
+| High impact | Customer send, estimate approval, project status, change order | Explicit step-up approval; second approver when policy requires |
+| Restricted | Payments, permissions, deletion, pricing approval, safety/compliance sign-off | Never autonomous |
+
+A direct user command serves as approval only for a reversible action whose
+complete effect is stated in the command. Ambiguous, inferred, proactive, bulk,
+cross-user, or high-impact changes require a preview.
+
+Approvals bind to the exact command payload, actor, entity version, and
+expiration. Execution must recheck authorization and optimistic-lock versions.
+Changed or expired proposals require new approval.
+
+### 24.4 Agent tool design
+
+The agent receives narrow, schema-validated tools such as:
+
+```text
+searchAuthorizedRecords
+summarizeRecordSet
+getTask
+createTask
+updateTask
+addInternalNote
+draftDailyReport
+draftCustomerMessage
+proposeWorkflowChange
+submitApprovedCommand
+```
+
+The agent must never receive raw SQL, unrestricted storage access, arbitrary
+HTTP, generic email sending, or service credentials. Every tool independently
+authorizes and validates its operation; model output is never trusted as an
+authorization decision.
+
+Retrieved content, uploaded plans, emails, and notes are untrusted data and
+cannot modify system policy or tool permissions.
+
+### 24.5 Retrieval and pgvector
+
+Structured facts such as status, assignment, dates, quantities, approvals, and
+costs must come from authorized SQL/domain queries, not semantic search.
+
+Unstructured content eligible for retrieval includes:
+
+- Notes and comments.
+- Transcripts and daily reports.
+- Extracted document text.
+- Scope descriptions and activity narrative.
+- Approved internal knowledge and procedures.
+
+Use hybrid retrieval:
+
+```text
+Authorization prefilter
+  → PostgreSQL full-text search + pgvector similarity
+  → reranking
+  → cited context
+  → model response
+```
+
+Each indexed chunk must store organization, source entity and immutable version,
+visibility scope, content hash, embedding model/version, timestamps, and
+deletion state. Use HNSW and GIN indexes where evaluation supports them.
+Re-embedding must occur side by side so model changes do not interrupt search.
+Audio binaries are never embedded; approved transcript text may be embedded.
+
+No retrieval result, count, title, or citation may cross an organization or
+record access boundary.
+
+### 24.6 Durable execution
+
+Interactive read-only responses may stream from the Render API. Transcription,
+document extraction, embedding, bulk summarization, scheduled review, and
+multi-step automation run as durable worker jobs.
+
+The domain transaction writes the business change and transactional outbox
+event together. The worker claims an idempotent job, checkpoints long work,
+retries within a budget, records provider usage, and sends exhausted jobs to a
+dead-letter queue with an operational alert.
+
+### 24.7 AI records and audit
+
+Maintain append-only records for AI runs, steps, retrieval citations,
+proposals, approvals, tool executions, and outcomes.
+
+Capture:
+
+- Actor, organization, record scope, and correlation ID.
+- Model/provider, prompt-template version, and tool-schema version.
+- Redacted inputs and outputs needed for review.
+- Source citations and immutable source versions.
+- Proposed and actual before/after state.
+- Approval evidence.
+- Token, latency, and cost totals.
+- Failure, retry, cancellation, and final outcome.
+
+Do not store hidden chain-of-thought. Audit tables must not be writable or
+deletable by ordinary application roles.
+
+### 24.8 AI quality and safety requirements
+
+- Feature flags, role enablement, and organization usage limits are required.
+- Maintain a representative evaluation set for summaries, retrieval, task
+  extraction, and authorization boundaries.
+- Factual responses cite source records; uncertainty is stated.
+- Cross-organization adversarial tests must return no content or metadata.
+- Replayed tool requests produce one business effect.
+- A worker restart resumes or safely retries incomplete work.
+- Model/provider failure leaves manual CRM and field workflows available.
+- Costs, latency, correction rates, approval rates, undo rates, and automation
+  failures are measurable.
+
+### 24.9 AI rollout
+
+1. Read-only search and cited summaries for selected internal users.
+2. Draft tasks, notes, reports, and communications.
+3. Direct reversible updates to the requesting user's tasks.
+4. Approved task creation, assignment, and internal-note actions.
+5. Durable note/transcript extraction and exception queues.
+6. Policy-driven automation after measured accuracy and adoption justify it.
+
+## 25. Security, privacy, and compliance
 
 - Enforce organization and record-level authorization server-side.
 - Apply least-privilege roles.
@@ -663,7 +1116,7 @@ relevant release begins.
 - Review Canadian privacy obligations, including PIPEDA, with qualified counsel
   before production use of field recordings.
 
-## 24. Reliability and performance
+## 26. Reliability and performance
 
 - Core list and detail pages should remain responsive with at least 100,000
   requests/jobs through pagination, indexing, and bounded queries.
@@ -678,7 +1131,7 @@ relevant release begins.
 
 Final service-level objectives will be established before production rollout.
 
-## 25. Product success measures
+## 27. Product success measures
 
 Initial metrics:
 
@@ -691,6 +1144,8 @@ Initial metrics:
 - Transcription completion and correction rate.
 - Time from reported blocker to resolution.
 - Percentage of completed jobs with required closeout evidence.
+- Time saved on note summarization and task administration.
+- AI suggestion acceptance, correction, undo, and failure rates.
 
 Later metrics:
 
@@ -704,15 +1159,17 @@ Later metrics:
 Metrics must not be used for automated employment decisions without an explicit
 policy and human review.
 
-## 26. Delivery sequence
+## 28. Delivery sequence
 
 ### Foundation
 
 1. Add version-controlled database migrations.
-2. Establish organization, user, membership, role, and audit-event models.
-3. Add authentication and server-side authorization.
-4. Separate public, office, and field application boundaries.
-5. Preserve and test the existing lead intake contract.
+2. Provision isolated Supabase staging and production projects.
+3. Establish organization, user, membership, role, RLS, and audit-event models.
+4. Add Supabase Auth and server-side authorization.
+5. Establish the Render API, worker, transactional outbox, and health checks.
+6. Separate public, office, and field application boundaries on Vercel.
+7. Preserve and test the existing lead intake contract during migration.
 
 ### Estimate operations
 
@@ -736,6 +1193,14 @@ policy and human review.
 4. Add audio recording, durable processing, transcription, and transcript
    review.
 
+### AI operations
+
+1. Add authorized hybrid retrieval and cited read-only summaries.
+2. Add task, note, and report drafts.
+3. Add reversible direct task updates with confirmation and undo.
+4. Add exact-diff approvals for proactive and multi-record actions.
+5. Add scheduled exception detection and operational review queues.
+
 ### Commercial and operational expansion
 
 1. Add estimate versions, line items, price books, proposals, and approvals.
@@ -747,7 +1212,7 @@ policy and human review.
 Each stage must include authorization tests, audit coverage, data migration,
 operational monitoring, and user acceptance criteria.
 
-## 27. Dependencies and risks
+## 29. Dependencies and risks
 
 | Risk or dependency | Mitigation |
 |---|---|
@@ -761,25 +1226,30 @@ operational monitoring, and user acceptance criteria.
 | Financial or status edits lack traceability | Append-only audit and version records |
 | Marketing performance declines as app grows | Maintain route, data, and bundle boundaries |
 | Trade-specific fields fragment the platform | Shared core entities plus configurable trade templates |
+| AI exposes another organization's records | Authorization prefilter, RLS, source-level ACLs, and adversarial tests |
+| Prompt injection triggers an unsafe action | Narrow typed tools, server authorization, and untrusted-content boundaries |
+| AI creates duplicate or stale changes | Idempotency, optimistic locking, payload-bound approval, and undo |
+| Cross-platform releases create version skew | Versioned contracts and expand/contract deployment |
+| Supabase migration disrupts lead intake | Staging rehearsal, ID preservation, verification, and rollback window |
+| Render worker stops during processing | Checkpointed jobs, graceful shutdown, retries, and dead-letter queue |
+| Infrastructure stores Canadian data outside Canada | Confirm contractual residency and transfer requirements before provisioning |
 
-## 28. Open decisions
+## 30. Open decisions
 
 These decisions are required before their respective implementation stage:
 
-1. Authentication provider and login requirements.
-2. Single-company launch versus immediate multi-organization support.
-3. Final staff roles and permission matrix.
-4. Whether the office application uses `/app` or a dedicated subdomain.
-5. Annotation library and marked-up PDF export approach.
-6. Speech-to-text provider, supported languages, consent, and audio retention.
-7. Queue/workflow provider for asynchronous processing.
-8. Accounting system of record and synchronization boundaries.
-9. Required field devices and minimum supported browsers.
-10. Offline requirements beyond drafts and queued uploads.
-11. Initial estimate format, price-book ownership, taxes, and approval rules.
-12. Data retention, backup, and disaster-recovery policies.
+1. Single-company launch versus opening multi-organization onboarding.
+2. Final staff roles, MFA rules, and permission matrix.
+3. Annotation library and marked-up PDF export approach.
+4. Speech-to-text provider, supported languages, consent, and audio retention.
+5. AI model gateway, model providers, embedding model, and cost limits.
+6. Accounting system of record and synchronization boundaries.
+7. Required field devices and minimum supported browsers.
+8. Offline requirements beyond drafts and queued uploads.
+9. Initial estimate format, price-book ownership, taxes, and approval rules.
+10. Final data residency, retention, backup, and disaster-recovery policies.
 
-## 29. Decision log
+## 31. Decision log
 
 | Date | Decision | Reason |
 |---|---|---|
@@ -788,9 +1258,16 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Store annotations separately from immutable document versions | Preserves plan history and auditable field evidence |
 | 2026-09-18 | Process transcription asynchronously | Network or provider latency must not block field work |
 | 2026-09-18 | Integrate accounting before attempting a general ledger | Construction operations are the product's initial differentiator |
+| 2026-09-18 | Use Industrial Precision as the product design language | It preserves the brand while prioritizing accessible, efficient office and field work |
+| 2026-09-18 | Deploy the frontend to Vercel and the authoritative API/workers to Render | It separates fast web delivery from durable application and background workloads |
+| 2026-09-18 | Migrate PostgreSQL, Auth, private files, and vectors to Supabase | Consolidation reduces administration and supports RLS, Storage, Realtime, and pgvector |
+| 2026-09-18 | Use pg-boss and a transactional outbox for durable work | It avoids another required datastore while providing idempotent PostgreSQL-backed jobs |
+| 2026-09-18 | Permit direct reversible AI task updates within user authority | It reduces administration while preserving confirmation, undo, and auditability |
+| 2026-09-18 | Require approval for proactive, bulk, external, and high-impact AI actions | It keeps humans responsible for consequential business decisions |
 
-## 30. Change log
+## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.2 | 2026-09-18 | Added the design system, Vercel/Render/Supabase deployment architecture, pgvector retrieval, and governed AI operations agent |
 | 0.1 | 2026-09-18 | Initial CRM / ERP product requirements and phased delivery plan |
