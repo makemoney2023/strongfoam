@@ -89,6 +89,11 @@ describe("buildLeadInsertValues", () => {
       recommendedServices: ["spray-foam"],
       idempotencyKey: "abc123",
       files: [{ pathname: "leads/11111111-1111-4111-8111-111111111111/plan.pdf" }],
+      workflowStatus: "new",
+      assignedTo: null,
+      nextAction: null,
+      nextActionDueAt: null,
+      lostReason: null,
     });
     expect(values.consentAt).toEqual(new Date(now));
   });

@@ -11,9 +11,17 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   status: text("status").notNull(),
   bookingStatus: text("booking_status").notNull(),
   notifyStatus: text("notify_status").notNull(),
+  workflowStatus: text("workflow_status").notNull().default("new"),
+  assignedTo: text("assigned_to"),
+  nextAction: text("next_action"),
+  nextActionDueAt: timestamp("next_action_due_at", { withTimezone: true }),
+  lostReason: text("lost_reason"),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
   firstName: text("first_name").notNull(),
@@ -32,6 +40,20 @@ export const leads = pgTable("leads", {
   idempotencyKey: text("idempotency_key").notNull().unique(),
   calendlyInviteeUri: text("calendly_invitee_uri"),
   consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
+});
+
+export const estimateRequestEvents = pgTable("estimate_request_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  actor: text("actor").notNull(),
+  kind: text("kind").notNull(),
+  summary: text("summary").notNull(),
+  payload: jsonb("payload").notNull(),
 });
 
 export const calendlyUnmatchedEvents = pgTable(

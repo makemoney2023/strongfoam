@@ -108,6 +108,11 @@ export function buildLeadInsertValues(
     referrer: null,
     idempotencyKey: lead.idempotencyKey,
     consentAt: new Date(now),
+    workflowStatus: "new",
+    assignedTo: null,
+    nextAction: null,
+    nextActionDueAt: null,
+    lostReason: null,
   };
 }
 

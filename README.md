@@ -17,10 +17,11 @@ npm run build
 
 | Path | Role |
 |------|------|
-| `src/app/` | App Router (home scroll-world, `/request-estimate`) |
+| `src/app/` | App Router (home scroll-world, `/request-estimate`, `/app`) |
 | `src/content/site.ts` | NAP, services, FAQ, scroll overlays |
 | `src/lib/site-schema.ts` | Organization / WebSite / FAQ `@graph` |
 | `src/lib/leads/` | Estimate survey qualification, HMAC, rate limits |
+| `src/lib/ops/` | Staff auth, estimate-request review, workflow rules |
 | `src/components/` | Header, scroll page, estimate survey, shadcn/ui |
 | `assets/` | Brand / projects / Omni loops |
 | `public/media/*` | Copied from `assets/` on `predev` / `prebuild` |
@@ -47,9 +48,16 @@ Requires `GEMINI_API_KEY` in `.env.local` (gitignored).
 
 Indexed wizard at `/request-estimate`. Confirmation at `/request-estimate/thanks` is `noindex`. Qualified leads can book via HMAC-gated Calendly.
 
+Staff review lives at `/app/login` and `/app/requests`. It is gated by
+`OPS_SESSION_SECRET`, `OPS_STAFF_EMAILS`, and `OPS_STAFF_PASSWORD`.
+
+If `DATABASE_URL` is unset, or `OPS_DEMO=1`, the review workspace uses local
+demo requests so the UI can be exercised without Postgres.
+
 ```bash
 npm test
-npm run db:push
+npm run db:generate
+npm run db:migrate
 ```
 
 Environment names (values live in `.env.local`, never committed):
@@ -65,6 +73,10 @@ NEXT_PUBLIC_CALENDLY_URL
 CALENDLY_WEBHOOK_SIGNING_KEY
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
+OPS_SESSION_SECRET
+OPS_STAFF_EMAILS
+OPS_STAFF_PASSWORD
+OPS_DEMO
 ```
 
 See `.env.example` for the same names with empty values.

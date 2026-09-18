@@ -9,6 +9,8 @@
     "prebuild": "node scripts/sync-public-media.mjs",
     "build": "next build",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
+    "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "media:sync": "node scripts/sync-public-media.mjs",
     "start": "next start",
     "lint": "eslint",
