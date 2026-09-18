@@ -142,37 +142,41 @@ export default async function EstimateRequestDetailPage({
                 <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
                   Project
                 </dt>
-                <dd className="mt-1">
-                  {PROJECT_TYPE_LABELS[request.projectType as keyof typeof PROJECT_TYPE_LABELS] ??
-                    request.projectType}
-                  <br />
-                  {request.city}
-                  {request.province === "ON" ? ", ON" : " · Outside Ontario"}
-                  <br />
-                  {formatServices(request.services)}
+                <dd className="mt-1 space-y-1">
+                  <p>
+                    {PROJECT_TYPE_LABELS[request.projectType as keyof typeof PROJECT_TYPE_LABELS] ??
+                      request.projectType}
+                  </p>
+                  <p>
+                    {request.city}
+                    {request.province === "ON" ? ", ON" : " · Outside Ontario"}
+                  </p>
+                  <p>{formatServices(request.services)}</p>
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
                   Qualification
                 </dt>
-                <dd className="mt-1">
-                  {QUALIFICATION_LABELS[request.status as keyof typeof QUALIFICATION_LABELS] ??
-                    request.status}
-                  <br />
-                  Booking:{" "}
-                  {BOOKING_LABELS[request.bookingStatus as keyof typeof BOOKING_LABELS] ??
-                    request.bookingStatus}
+                <dd className="mt-1 space-y-1">
+                  <p>
+                    {QUALIFICATION_LABELS[request.status as keyof typeof QUALIFICATION_LABELS] ??
+                      request.status}
+                  </p>
+                  <p>
+                    Booking:{" "}
+                    {BOOKING_LABELS[request.bookingStatus as keyof typeof BOOKING_LABELS] ??
+                      request.bookingStatus}
+                  </p>
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
                   Role / timeline
                 </dt>
-                <dd className="mt-1">
-                  {field(answers.role)}
-                  <br />
-                  {field(answers.timeline)}
+                <dd className="mt-1 space-y-1">
+                  <p>{field(answers.role)}</p>
+                  <p>{field(answers.timeline)}</p>
                 </dd>
               </div>
             </dl>

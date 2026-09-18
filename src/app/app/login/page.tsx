@@ -1,45 +1,8 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  OPS_SESSION_COOKIE,
-  OPS_SESSION_TTL_MS,
-  createOpsSession,
-  getOpsSession,
-  isConfiguredStaffEmail,
-  signOpsSession,
-} from "@/lib/ops/auth";
-
-async function signIn(formData: FormData) {
-  "use server";
-
-  const secret = process.env.OPS_SESSION_SECRET;
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
-
-  if (
-    !secret ||
-    !process.env.OPS_STAFF_PASSWORD ||
-    !isConfiguredStaffEmail(email) ||
-    password !== process.env.OPS_STAFF_PASSWORD
-  ) {
-    redirect("/app/login?error=1");
-  }
-
-  const store = await cookies();
-  store.set({
-    name: OPS_SESSION_COOKIE,
-    value: signOpsSession(createOpsSession(email)),
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: OPS_SESSION_TTL_MS / 1000,
-  });
-  redirect("/app/requests");
-}
+import { getOpsSession } from "@/lib/ops/auth";
 
 export default async function OpsLoginPage({
   searchParams,
@@ -55,7 +18,8 @@ export default async function OpsLoginPage({
   return (
     <main className="flex min-h-full flex-1 items-center justify-center bg-[color:var(--sf-mist,#e9edef)] px-4 py-24 text-[color:var(--sf-ink)]">
       <form
-        action={signIn}
+        action="/api/ops/login"
+        method="post"
         className="w-full max-w-md rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-8 shadow-sm"
       >
         <p className="section-kicker mb-3 text-[color:var(--sf-cyan)]">

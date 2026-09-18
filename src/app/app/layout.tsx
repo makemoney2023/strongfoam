@@ -1,18 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { buttonVariants } from "@/components/ui/button";
-import { OPS_SESSION_COOKIE, getOpsSession } from "@/lib/ops/auth";
+import { getOpsSession } from "@/lib/ops/auth";
 import { useDemoOpsStore } from "@/lib/ops/demo-store";
-import { cn } from "@/lib/utils";
-
-async function signOut() {
-  "use server";
-  const store = await cookies();
-  store.delete(OPS_SESSION_COOKIE);
-  redirect("/app/login");
-}
 
 export default async function OpsLayout({
   children,
@@ -49,10 +38,10 @@ export default async function OpsLayout({
             <span className="hidden text-[color:var(--sf-ink)]/65 sm:inline">
               {session.email}
             </span>
-            <form action={signOut}>
+            <form action="/api/ops/logout" method="post">
               <button
                 type="submit"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                className="inline-flex h-8 items-center rounded-md border border-[color:var(--sf-ink)]/15 px-3 text-sm font-medium hover:bg-[color:var(--sf-mist,#e9edef)]"
               >
                 Sign out
               </button>

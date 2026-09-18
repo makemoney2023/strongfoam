@@ -4,7 +4,7 @@ import { CalendlyEmbed } from "@/components/estimate-survey/calendly-embed";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/content/site";
 import { getLeadById } from "@/lib/leads/adapters";
-import { resolveThanksView } from "@/app/request-estimate/thanks/resolve-thanks-view";
+import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {

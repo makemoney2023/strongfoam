@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { signLeadId } from "@/lib/leads/hmac";
-import { resolveThanksView } from "@/app/request-estimate/thanks/resolve-thanks-view";
+import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
 
 const secret = "test-secret-test-secret-test-secret";
 
