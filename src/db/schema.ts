@@ -42,6 +42,36 @@ export const leads = pgTable("leads", {
   consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
 });
 
+export const estimateRequestTasks = pgTable("estimate_request_tasks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  title: text("title").notNull(),
+  assignee: text("assignee"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  status: text("status").notNull().default("open"),
+  createdBy: text("created_by").notNull(),
+});
+
+export const estimateRequestComments = pgTable("estimate_request_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  actor: text("actor").notNull(),
+  body: text("body").notNull(),
+});
+
 export const estimateRequestEvents = pgTable("estimate_request_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   leadId: uuid("lead_id")

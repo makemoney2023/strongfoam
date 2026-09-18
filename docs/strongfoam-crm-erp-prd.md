@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.3
+**Version:** 0.4
 **Created:** 2026-09-18
 **Last updated:** 2026-09-18
 
@@ -1270,6 +1270,7 @@ These decisions are required before their respective implementation stage:
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.4 | 2026-09-18 | Added request tasks, comments, mentions, and collaboration migration |
 | 0.3 | 2026-09-18 | Shipped the first staff estimate-request review workspace, session auth, and versioned workflow schema |
 | 0.2 | 2026-09-18 | Added the design system, Vercel/Render/Supabase deployment architecture, pgvector retrieval, and governed AI operations agent |
 | 0.1 | 2026-09-18 | Initial CRM / ERP product requirements and phased delivery plan |

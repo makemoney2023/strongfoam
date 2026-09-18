@@ -1,7 +1,14 @@
-import { estimateRequestEvents, leads } from "@/db/schema";
+import {
+  estimateRequestComments,
+  estimateRequestEvents,
+  estimateRequestTasks,
+  leads,
+} from "@/db/schema";
 
 export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
+export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
+export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 
 const now = Date.now();
 
@@ -90,6 +97,34 @@ export function demoEstimateEvents(): EstimateRequestEvent[] {
       kind: "review_update",
       summary: "status new → reviewing; owner unassigned → Jordan Patel",
       payload: {},
+    },
+  ];
+}
+
+export function demoEstimateTasks(): EstimateRequestTask[] {
+  return [
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      leadId: "11111111-1111-4111-8111-111111111111",
+      createdAt: new Date(now - 90 * 60 * 1000),
+      updatedAt: new Date(now - 90 * 60 * 1000),
+      title: "Confirm podium R-value target",
+      assignee: "Alex Rivera",
+      dueAt: new Date(now + 18 * 60 * 60 * 1000),
+      status: "open",
+      createdBy: "estimating@strongfoam.com",
+    },
+  ];
+}
+
+export function demoEstimateComments(): EstimateRequestComment[] {
+  return [
+    {
+      id: "55555555-5555-4555-8555-555555555555",
+      leadId: "11111111-1111-4111-8111-111111111111",
+      createdAt: new Date(now - 70 * 60 * 1000),
+      actor: "estimating@strongfoam.com",
+      body: "@alex drawings look complete except the north elevation.",
     },
   ];
 }

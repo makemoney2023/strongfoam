@@ -1,14 +1,25 @@
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { estimateRequestEvents, leads } from "@/db/schema";
+import {
+  estimateRequestComments,
+  estimateRequestEvents,
+  estimateRequestTasks,
+  leads,
+} from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
 import {
+  addDemoEstimateRequestComment,
+  addDemoEstimateRequestTask,
   getDemoEstimateRequest,
+  listDemoEstimateRequestComments,
   listDemoEstimateRequestEvents,
+  listDemoEstimateRequestTasks,
   listDemoEstimateRequests,
+  setDemoEstimateRequestTaskStatus,
   updateDemoEstimateRequest,
   useDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   isWorkflowStatus,
   requireLostReason,
@@ -18,6 +29,8 @@ import {
 export type EstimateRequestRow = typeof leads.$inferSelect;
 
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
+export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
+export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 
 export type EstimateRequestFilters = {
   q?: string;
@@ -212,6 +225,135 @@ export async function updateEstimateRequest(args: {
   }
 
   return updated;
+}
+
+async function recordEvent(args: {
+  leadId: string;
+  actor: string;
+  kind: string;
+  summary: string;
+  payload: Record<string, unknown>;
+}) {
+  const db = getDb();
+  await db.insert(estimateRequestEvents).values(args);
+}
+
+export async function listEstimateRequestTasks(
+  leadId: string,
+): Promise<EstimateRequestTask[]> {
+  if (useDemoOpsStore()) return listDemoEstimateRequestTasks(leadId);
+  const db = getDb();
+  return db
+    .select()
+    .from(estimateRequestTasks)
+    .where(eq(estimateRequestTasks.leadId, leadId))
+    .orderBy(desc(estimateRequestTasks.createdAt));
+}
+
+export async function listEstimateRequestComments(
+  leadId: string,
+): Promise<EstimateRequestComment[]> {
+  if (useDemoOpsStore()) return listDemoEstimateRequestComments(leadId);
+  const db = getDb();
+  return db
+    .select()
+    .from(estimateRequestComments)
+    .where(eq(estimateRequestComments.leadId, leadId))
+    .orderBy(desc(estimateRequestComments.createdAt));
+}
+
+export async function addEstimateRequestTask(args: {
+  leadId: string;
+  actor: string;
+  title: string;
+  assignee: string | null;
+  dueAt: Date | null;
+}): Promise<EstimateRequestTask | null> {
+  if (useDemoOpsStore()) return addDemoEstimateRequestTask(args);
+  if (!(await getEstimateRequest(args.leadId))) return null;
+  const db = getDb();
+  const rows = await db
+    .insert(estimateRequestTasks)
+    .values({
+      leadId: args.leadId,
+      title: args.title,
+      assignee: args.assignee,
+      dueAt: args.dueAt,
+      status: "open",
+      createdBy: args.actor,
+    })
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "task_created",
+    summary: `task created: ${args.title}`,
+    payload: { taskId: task.id, title: args.title },
+  });
+  return task;
+}
+
+export async function setEstimateRequestTaskStatus(args: {
+  leadId: string;
+  taskId: string;
+  actor: string;
+  status: TaskStatus;
+}): Promise<EstimateRequestTask | null> {
+  if (useDemoOpsStore()) return setDemoEstimateRequestTaskStatus(args);
+  const db = getDb();
+  const rows = await db
+    .update(estimateRequestTasks)
+    .set({ status: args.status, updatedAt: new Date() })
+    .where(
+      and(
+        eq(estimateRequestTasks.id, args.taskId),
+        eq(estimateRequestTasks.leadId, args.leadId),
+      ),
+    )
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: args.status === "done" ? "task_completed" : "task_reopened",
+    summary:
+      args.status === "done"
+        ? `task completed: ${task.title}`
+        : `task reopened: ${task.title}`,
+    payload: { taskId: task.id, status: args.status },
+  });
+  return task;
+}
+
+export async function addEstimateRequestComment(args: {
+  leadId: string;
+  actor: string;
+  body: string;
+}): Promise<EstimateRequestComment | null> {
+  if (useDemoOpsStore()) return addDemoEstimateRequestComment(args);
+  if (!(await getEstimateRequest(args.leadId))) return null;
+  const db = getDb();
+  const rows = await db
+    .insert(estimateRequestComments)
+    .values({
+      leadId: args.leadId,
+      actor: args.actor,
+      body: args.body,
+    })
+    .returning();
+  const comment = rows[0];
+  if (!comment) return null;
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "comment_added",
+    summary: "internal comment added",
+    payload: { commentId: comment.id, body: args.body },
+  });
+  return comment;
 }
 
 export function staffFileHref(

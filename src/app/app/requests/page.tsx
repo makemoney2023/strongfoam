@@ -176,8 +176,10 @@ export default async function EstimateRequestsPage({
                     <td className="px-4 py-3 align-top">
                       <p>{request.nextAction ?? "Set next action"}</p>
                       <p className="text-xs text-[color:var(--sf-ink)]/55">
-                        {BOOKING_LABELS[request.bookingStatus as keyof typeof BOOKING_LABELS] ??
-                          request.bookingStatus}
+                        {request.nextActionDueAt
+                          ? `Due ${request.nextActionDueAt.toLocaleString("en-CA")}`
+                          : (BOOKING_LABELS[request.bookingStatus as keyof typeof BOOKING_LABELS] ??
+                            request.bookingStatus)}
                       </p>
                     </td>
                   </tr>

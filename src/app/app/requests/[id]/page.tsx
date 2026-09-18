@@ -5,9 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
+import { extractMentions } from "@/lib/ops/collaboration";
 import {
   getEstimateRequest,
+  listEstimateRequestComments,
   listEstimateRequestEvents,
+  listEstimateRequestTasks,
   staffFileHref,
 } from "@/lib/ops/store";
 import {
@@ -21,7 +24,12 @@ import {
   formatRequestNumber,
   formatServices,
 } from "@/lib/ops/workflow";
-import { saveEstimateRequestReview } from "./actions";
+import {
+  addRequestComment,
+  addRequestTask,
+  saveEstimateRequestReview,
+  setRequestTaskStatus,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +67,11 @@ export default async function EstimateRequestDetailPage({
   const request = await getEstimateRequest(id);
   if (!request) notFound();
 
-  const events = await listEstimateRequestEvents(id);
+  const [events, tasks, comments] = await Promise.all([
+    listEstimateRequestEvents(id),
+    listEstimateRequestTasks(id),
+    listEstimateRequestComments(id),
+  ]);
   const answers = asRecord(request.answers);
   const files = Array.isArray(request.files)
     ? (request.files as Array<{ pathname?: string }>)
@@ -215,6 +227,118 @@ export default async function EstimateRequestDetailPage({
                 })}
               </ul>
             )}
+          </div>
+
+          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
+            <h2 className="font-heading text-lg font-semibold">Tasks</h2>
+            {tasks.length === 0 ? (
+              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+                No tasks have been created yet.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {tasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className="flex flex-wrap items-start justify-between gap-3 border-b border-[color:var(--sf-ink)]/8 pb-3 last:border-b-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {task.status === "done" ? (
+                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-[color:var(--sf-ink)]/45">
+                            Done
+                          </span>
+                        ) : (
+                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-[color:var(--sf-cyan)]">
+                            Open
+                          </span>
+                        )}
+                        {task.title}
+                      </p>
+                      <p className="text-xs text-[color:var(--sf-ink)]/55">
+                        {task.assignee ?? "Unassigned"}
+                        {task.dueAt
+                          ? ` · due ${task.dueAt.toLocaleString("en-CA")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <form action={setRequestTaskStatus}>
+                      <input type="hidden" name="id" value={request.id} />
+                      <input type="hidden" name="taskId" value={task.id} />
+                      <input
+                        type="hidden"
+                        name="status"
+                        value={task.status === "done" ? "open" : "done"}
+                      />
+                      <button
+                        type="submit"
+                        className="h-8 rounded-md border border-[color:var(--sf-ink)]/15 px-3 text-sm font-medium hover:bg-[color:var(--sf-mist,#e9edef)]"
+                      >
+                        {task.status === "done" ? "Reopen" : "Complete"}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form action={addRequestTask} className="mt-5 space-y-3">
+              <input type="hidden" name="id" value={request.id} />
+              <div className="space-y-2">
+                <Label htmlFor="taskTitle">New task</Label>
+                <Input id="taskTitle" name="title" className="h-11" required />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="taskAssignee">Assignee</Label>
+                  <Input id="taskAssignee" name="assignee" className="h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="taskDueAt">Due</Label>
+                  <Input
+                    id="taskDueAt"
+                    name="dueAt"
+                    type="datetime-local"
+                    className="h-11"
+                  />
+                </div>
+              </div>
+              <Button type="submit" variant="outline" className="h-11">
+                Add task
+              </Button>
+            </form>
+          </div>
+
+          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
+            <h2 className="font-heading text-lg font-semibold">Comments</h2>
+            {comments.length === 0 ? (
+              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+                No comments yet. Use @name to mention a teammate.
+              </p>
+            ) : (
+              <ol className="mt-4 space-y-4">
+                {comments.map((comment) => (
+                  <li key={comment.id} className="border-l-2 border-[color:var(--sf-ink)]/20 pl-3">
+                    <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
+                    <p className="text-xs text-[color:var(--sf-ink)]/55">
+                      {comment.actor} · {comment.createdAt.toLocaleString("en-CA")}
+                      {extractMentions(comment.body).length > 0
+                        ? ` · mentioned ${extractMentions(comment.body).join(", ")}`
+                        : ""}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <form action={addRequestComment} className="mt-5 space-y-3">
+              <input type="hidden" name="id" value={request.id} />
+              <div className="space-y-2">
+                <Label htmlFor="commentBody">Add a comment</Label>
+                <Textarea id="commentBody" name="body" rows={3} required />
+              </div>
+              <Button type="submit" variant="outline" className="h-11">
+                Post comment
+              </Button>
+            </form>
           </div>
 
           <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
