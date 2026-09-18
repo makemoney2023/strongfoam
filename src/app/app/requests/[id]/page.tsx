@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
 import { extractMentions } from "@/lib/ops/collaboration";
+import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
 import {
   draftCrmFromRequest,
   findCompanyMatches,
@@ -14,13 +15,21 @@ import {
   OPPORTUNITY_STAGES,
 } from "@/lib/ops/crm";
 import {
+  canConvertWonWork,
+  draftJobFromOpportunity,
+  formatJobNumber,
+  JOB_STATUS_LABELS,
+} from "@/lib/ops/jobs";
+import {
   getEstimateRequest,
+  getProject,
   getRequestCrmRecords,
   listCompanies,
   listContacts,
   listEstimateRequestComments,
   listEstimateRequestEvents,
   listEstimateRequestTasks,
+  listJobs,
   staffFileHref,
 } from "@/lib/ops/store";
 import {
@@ -87,6 +96,20 @@ export default async function EstimateRequestDetailPage({
       listCompanies(),
       listContacts(),
     ]);
+  const project = crm.opportunity?.projectId
+    ? await getProject(crm.opportunity.projectId)
+    : null;
+  const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
+  const canConvert =
+    Boolean(crm.opportunity) &&
+    !crm.opportunity?.projectId &&
+    canConvertWonWork({
+      workflowStatus: request.workflowStatus,
+      opportunityStage: crm.opportunity?.stage,
+    });
+  const jobDraft = crm.opportunity
+    ? draftJobFromOpportunity(crm.opportunity)
+    : null;
   const draft = draftCrmFromRequest(request);
   const companyMatches = findCompanyMatches(draft.companyName, allCompanies);
   const contactMatches = findContactMatches(
@@ -481,6 +504,59 @@ export default async function EstimateRequestDetailPage({
                   Create CRM records
                 </Button>
               </form>
+            )}
+          </div>
+
+          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
+            <h2 className="font-heading text-lg font-semibold">Project and jobs</h2>
+            {project && crm.opportunity ? (
+              <div className="mt-4 space-y-3">
+                <p>
+                  <Link
+                    href={`/app/projects/${project.id}`}
+                    className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                  >
+                    {project.name}
+                  </Link>
+                </p>
+                <ul className="space-y-2">
+                  {projectJobs.map((job) => (
+                    <li key={job.id}>
+                      <Link
+                        href={`/app/jobs/${job.id}`}
+                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                      >
+                        {formatJobNumber(job.id)} · {job.name}
+                      </Link>
+                      <p className="text-sm text-[color:var(--sf-ink)]/65">
+                        {JOB_STATUS_LABELS[
+                          job.status as keyof typeof JOB_STATUS_LABELS
+                        ] ?? job.status}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : canConvert && crm.opportunity && jobDraft ? (
+              <ConvertWonWorkForm
+                opportunityId={crm.opportunity.id}
+                returnTo={`/app/requests/${request.id}`}
+                defaults={{
+                  projectName: jobDraft.projectName,
+                  jobName: jobDraft.jobName,
+                  scope: jobDraft.scope,
+                  projectManager: crm.opportunity.owner,
+                }}
+              />
+            ) : crm.opportunity ? (
+              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+                Mark this request won to create a project and the first field
+                job.
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+                Create CRM records first, then convert won work into a project.
+              </p>
             )}
           </div>
 

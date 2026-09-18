@@ -1,33 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
-import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
-import {
-  canConvertWonWork,
-  draftJobFromOpportunity,
-  formatJobNumber,
-  JOB_STATUS_LABELS,
-} from "@/lib/ops/jobs";
+import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
 import {
   getCompany,
-  getContact,
-  getEstimateRequest,
   getOpportunity,
   getProject,
   getSite,
   listJobs,
 } from "@/lib/ops/store";
-import {
-  formatFullName,
-  formatRequestNumber,
-  formatServices,
-  PROJECT_TYPE_LABELS,
-} from "@/lib/ops/workflow";
+import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
+import { addProjectJob } from "../../jobs/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpportunityDetailPage({
+export default async function ProjectDetailPage({
   params,
   searchParams,
 }: {
@@ -40,50 +31,37 @@ export default async function OpportunityDetailPage({
 
   const { id } = await params;
   const query = await searchParams;
-  const opportunity = await getOpportunity(id);
-  if (!opportunity) notFound();
+  const project = await getProject(id);
+  if (!project) notFound();
 
-  const [company, contact, site, request, project] = await Promise.all([
-    opportunity.companyId ? getCompany(opportunity.companyId) : null,
-    opportunity.contactId ? getContact(opportunity.contactId) : null,
-    opportunity.siteId ? getSite(opportunity.siteId) : null,
-    opportunity.sourceLeadId
-      ? getEstimateRequest(opportunity.sourceLeadId)
-      : null,
-    opportunity.projectId ? getProject(opportunity.projectId) : null,
+  const [company, site, opportunity, jobs] = await Promise.all([
+    project.companyId ? getCompany(project.companyId) : null,
+    project.siteId ? getSite(project.siteId) : null,
+    project.opportunityId ? getOpportunity(project.opportunityId) : null,
+    listJobs({ projectId: project.id }),
   ]);
-  const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
-  const canConvert =
-    !opportunity.projectId &&
-    canConvertWonWork({
-      workflowStatus: request?.workflowStatus,
-      opportunityStage: opportunity.stage,
-    });
-  const draft = draftJobFromOpportunity(opportunity);
 
   return (
     <main className="page-rail py-8">
       <Link
-        href="/app/opportunities"
+        href="/app/projects"
         className="text-sm font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
       >
-        Back to opportunities
+        Back to projects
       </Link>
-      <p className="section-kicker mt-6 mb-2">Opportunity</p>
+      <p className="section-kicker mt-6 mb-2">Project</p>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            {opportunity.name}
+            {project.name}
           </h1>
           <p className="mt-2 text-sm text-[color:var(--sf-ink)]/65">
-            {opportunity.owner ?? "Unassigned"}
-            {opportunity.source ? ` · ${opportunity.source}` : ""}
+            {project.projectManager ?? "Unassigned"}
+            {company ? ` · ${company.name}` : ""}
           </p>
         </div>
-        <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold ring-1 ring-[color:var(--sf-ink)]/10">
-          {OPPORTUNITY_LABELS[
-            opportunity.stage as keyof typeof OPPORTUNITY_LABELS
-          ] ?? opportunity.stage}
+        <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold capitalize ring-1 ring-[color:var(--sf-ink)]/10">
+          {project.status}
         </p>
       </div>
 
@@ -92,7 +70,7 @@ export default async function OpportunityDetailPage({
           role="status"
           className="mt-4 rounded-md bg-[color:var(--sf-cyan)]/10 px-3 py-2 text-sm text-[color:var(--sf-ink)]"
         >
-          Opportunity saved.
+          Project saved.
         </p>
       ) : null}
       {query.error ? (
@@ -124,16 +102,6 @@ export default async function OpportunityDetailPage({
         </div>
         <div>
           <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Contact
-          </dt>
-          <dd className="mt-1">
-            {contact
-              ? `${formatFullName(contact.firstName, contact.lastName)} · ${contact.email}`
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
             Site
           </dt>
           <dd className="mt-1">
@@ -144,30 +112,15 @@ export default async function OpportunityDetailPage({
         </div>
         <div>
           <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Scope
-          </dt>
-          <dd className="mt-1 space-y-1">
-            <p>
-              {PROJECT_TYPE_LABELS[
-                opportunity.projectType as keyof typeof PROJECT_TYPE_LABELS
-              ] ??
-                opportunity.projectType ??
-                "—"}
-            </p>
-            <p>{formatServices(opportunity.services)}</p>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Source request
+            Opportunity
           </dt>
           <dd className="mt-1">
-            {opportunity.sourceLeadId ? (
+            {opportunity ? (
               <Link
-                href={`/app/requests/${opportunity.sourceLeadId}`}
+                href={`/app/opportunities/${opportunity.id}`}
                 className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
               >
-                {formatRequestNumber(opportunity.sourceLeadId)}
+                {opportunity.name}
               </Link>
             ) : (
               "—"
@@ -176,28 +129,32 @@ export default async function OpportunityDetailPage({
         </div>
         <div>
           <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Project
+            Source request
           </dt>
           <dd className="mt-1">
-            {project ? (
+            {project.sourceLeadId ? (
               <Link
-                href={`/app/projects/${project.id}`}
+                href={`/app/requests/${project.sourceLeadId}`}
                 className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
               >
-                {project.name}
+                {formatRequestNumber(project.sourceLeadId)}
               </Link>
             ) : (
-              "Not converted"
+              "—"
             )}
           </dd>
         </div>
       </dl>
 
       <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-        <h2 className="font-heading text-lg font-semibold">Project and jobs</h2>
-        {project ? (
+        <h2 className="font-heading text-lg font-semibold">Jobs</h2>
+        {jobs.length === 0 ? (
+          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+            No jobs are attached to this project yet.
+          </p>
+        ) : (
           <ul className="mt-4 space-y-3">
-            {projectJobs.map((job) => (
+            {jobs.map((job) => (
               <li key={job.id}>
                 <Link
                   href={`/app/jobs/${job.id}`}
@@ -208,27 +165,63 @@ export default async function OpportunityDetailPage({
                 <p className="text-sm text-[color:var(--sf-ink)]/65">
                   {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ??
                     job.status}
+                  {" · "}
+                  {formatServices(job.services)}
                 </p>
               </li>
             ))}
           </ul>
-        ) : canConvert ? (
-          <ConvertWonWorkForm
-            opportunityId={opportunity.id}
-            returnTo={`/app/opportunities/${opportunity.id}`}
-            defaults={{
-              projectName: draft.projectName,
-              jobName: draft.jobName,
-              scope: draft.scope,
-              projectManager: opportunity.owner,
-            }}
-          />
-        ) : (
-          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-            Mark this work won on the source request before creating a project
-            and job.
-          </p>
         )}
+
+        <form action={addProjectJob} className="mt-6 space-y-4 border-t border-[color:var(--sf-ink)]/10 pt-5">
+          <input type="hidden" name="projectId" value={project.id} />
+          <input type="hidden" name="projectName" value={project.name} />
+          <h3 className="font-heading text-base font-semibold">Add a job</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="jobName">Job name</Label>
+              <Input id="jobName" name="jobName" className="h-11" required />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="scope">Scope</Label>
+              <Textarea id="scope" name="scope" rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectManager">Project manager</Label>
+              <Input
+                id="projectManager"
+                name="projectManager"
+                defaultValue={project.projectManager ?? ""}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="foreman">Foreman</Label>
+              <Input id="foreman" name="foreman" className="h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plannedStartAt">Planned start</Label>
+              <Input
+                id="plannedStartAt"
+                name="plannedStartAt"
+                type="datetime-local"
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plannedEndAt">Planned end</Label>
+              <Input
+                id="plannedEndAt"
+                name="plannedEndAt"
+                type="datetime-local"
+                className="h-11"
+              />
+            </div>
+          </div>
+          <Button type="submit" variant="outline" className="h-11">
+            Add job
+          </Button>
+        </form>
       </section>
     </main>
   );

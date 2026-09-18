@@ -28,7 +28,7 @@ export default async function OpsLayout({
                 sizes="144px"
               />
             </Link>
-            <nav className="hidden items-center gap-4 text-sm font-semibold md:flex">
+            <nav className="hidden items-center gap-4 text-sm font-semibold lg:flex">
               <Link href="/app/requests" className="hover:text-[color:var(--sf-cyan)]">
                 Estimate requests
               </Link>
@@ -37,6 +37,12 @@ export default async function OpsLayout({
               </Link>
               <Link href="/app/opportunities" className="hover:text-[color:var(--sf-cyan)]">
                 Opportunities
+              </Link>
+              <Link href="/app/projects" className="hover:text-[color:var(--sf-cyan)]">
+                Projects
+              </Link>
+              <Link href="/app/jobs" className="hover:text-[color:var(--sf-cyan)]">
+                Jobs
               </Link>
             </nav>
           </div>

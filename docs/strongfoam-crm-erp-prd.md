@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.5
+**Version:** 0.6
 **Created:** 2026-09-18
 **Last updated:** 2026-09-18
 
@@ -56,10 +56,10 @@ survey. It currently provides:
 
 The survey creates **estimate requests**, not priced estimates. Staff can now
 sign in to a session-gated review workspace, search and update requests, add
-tasks and comments, and convert a request into company, contact, site, and
-opportunity records. The application does not yet provide full organization
-RBAC, projects, jobs, crews, document markup, transcription, scheduling, or
-financial workflows.
+tasks and comments, convert a request into company, contact, site, and
+opportunity records, and convert won work into a project plus one or more
+jobs. The application does not yet provide full organization RBAC, crews,
+document markup, transcription, scheduling, or financial workflows.
 
 ## 4. Product vision
 
@@ -1268,11 +1268,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Require approval for proactive, bulk, external, and high-impact AI actions | It keeps humans responsible for consequential business decisions |
 | 2026-09-18 | Ship a session-gated staff review workspace before the full auth provider | It makes current leads reviewable immediately without waiting on Supabase Auth |
 | 2026-09-18 | Convert requests into separate company, contact, site, and opportunity records | Survey fields become reusable CRM entities without re-entry, while duplicate matches stay visible and linkable |
+| 2026-09-18 | Convert only won work into one project per opportunity, then add extra jobs on the project | Prevents premature field work, keeps the commercial record attached, and lets a site grow extra phases without duplicating the opportunity |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.6 | 2026-09-18 | Added won-work conversion into a project and jobs, plus job status and activity |
 | 0.5 | 2026-09-18 | Added company, contact, site, and opportunity conversion from estimate requests |
 | 0.4 | 2026-09-18 | Added request tasks, comments, mentions, and collaboration migration |
 | 0.3 | 2026-09-18 | Shipped the first staff estimate-request review workspace, session auth, and versioned workflow schema |

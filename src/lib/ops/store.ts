@@ -6,8 +6,11 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobEvents,
+  jobs,
   leads,
   opportunities,
+  projects,
   sites,
 } from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
@@ -15,11 +18,15 @@ import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
   addDemoEstimateRequestComment,
   addDemoEstimateRequestTask,
+  addDemoJobToProject,
+  convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   getDemoCompany,
   getDemoContact,
   getDemoEstimateRequest,
+  getDemoJob,
   getDemoOpportunity,
+  getDemoProject,
   getDemoSite,
   listDemoCompanies,
   listDemoContacts,
@@ -27,12 +34,21 @@ import {
   listDemoEstimateRequestEvents,
   listDemoEstimateRequestTasks,
   listDemoEstimateRequests,
+  listDemoJobEvents,
+  listDemoJobs,
   listDemoOpportunities,
+  listDemoProjects,
   listDemoSites,
   setDemoEstimateRequestTaskStatus,
+  setDemoJobStatus,
   updateDemoEstimateRequest,
   useDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import {
+  canConvertWonWork,
+  type JobConversionInput,
+  type JobStatus,
+} from "@/lib/ops/jobs";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   isWorkflowStatus,
@@ -48,6 +64,9 @@ export type CompanyRow = typeof companies.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
 export type OpportunityRow = typeof opportunities.$inferSelect;
+export type ProjectRow = typeof projects.$inferSelect;
+export type JobRow = typeof jobs.$inferSelect;
+export type JobEventRow = typeof jobEvents.$inferSelect;
 
 export type CrmConversionResult =
   | {
@@ -257,6 +276,13 @@ export async function updateEstimateRequest(args: {
         note: args.update.note ?? null,
       },
     });
+  }
+
+  if (updated.opportunityId && updated.workflowStatus === "won") {
+    await db
+      .update(opportunities)
+      .set({ stage: "won", updatedAt: now })
+      .where(eq(opportunities.id, updated.opportunityId));
   }
 
   return updated;
@@ -626,4 +652,226 @@ export async function convertRequestToCrm(args: {
     opportunityId: opportunity.id,
     created,
   };
+}
+
+export async function listProjects(companyId?: string): Promise<ProjectRow[]> {
+  if (useDemoOpsStore()) return listDemoProjects(companyId);
+  const db = getDb();
+  return db
+    .select()
+    .from(projects)
+    .where(companyId ? eq(projects.companyId, companyId) : undefined)
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function getProject(id: string): Promise<ProjectRow | null> {
+  if (useDemoOpsStore()) return getDemoProject(id);
+  const db = getDb();
+  const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listJobs(filters: {
+  projectId?: string;
+  companyId?: string;
+  status?: string;
+} = {}): Promise<JobRow[]> {
+  if (useDemoOpsStore()) return listDemoJobs(filters);
+  const db = getDb();
+  const conditions = [];
+  if (filters.projectId) conditions.push(eq(jobs.projectId, filters.projectId));
+  if (filters.companyId) conditions.push(eq(jobs.companyId, filters.companyId));
+  if (filters.status) conditions.push(eq(jobs.status, filters.status));
+  return db
+    .select()
+    .from(jobs)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(jobs.createdAt));
+}
+
+export async function getJob(id: string): Promise<JobRow | null> {
+  if (useDemoOpsStore()) return getDemoJob(id);
+  const db = getDb();
+  const rows = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listJobEvents(jobId: string): Promise<JobEventRow[]> {
+  if (useDemoOpsStore()) return listDemoJobEvents(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(jobEvents)
+    .where(eq(jobEvents.jobId, jobId))
+    .orderBy(desc(jobEvents.createdAt));
+}
+
+export async function convertOpportunityToProject(args: {
+  opportunityId: string;
+  actor: string;
+  input: JobConversionInput;
+}): Promise<{ ok: true; projectId: string; jobId: string } | { ok: false; error: string }> {
+  if (useDemoOpsStore()) return convertDemoOpportunityToProject(args);
+
+  const opportunity = await getOpportunity(args.opportunityId);
+  if (!opportunity) {
+    return { ok: false, error: "That opportunity could not be found." };
+  }
+  if (opportunity.projectId) {
+    return { ok: false, error: "This opportunity already has a project." };
+  }
+
+  const request = opportunity.sourceLeadId
+    ? await getEstimateRequest(opportunity.sourceLeadId)
+    : null;
+  if (
+    !canConvertWonWork({
+      workflowStatus: request?.workflowStatus,
+      opportunityStage: opportunity.stage,
+    })
+  ) {
+    return {
+      ok: false,
+      error: "Mark this work won before creating a project and job.",
+    };
+  }
+
+  const db = getDb();
+  const now = new Date();
+  const projectRows = await db
+    .insert(projects)
+    .values({
+      companyId: opportunity.companyId,
+      siteId: opportunity.siteId,
+      opportunityId: opportunity.id,
+      sourceLeadId: opportunity.sourceLeadId,
+      name: args.input.projectName,
+      status: "active",
+      projectManager: args.input.projectManager,
+    })
+    .returning();
+  const project = projectRows[0];
+  if (!project) return { ok: false, error: "The project could not be saved." };
+
+  const jobRows = await db
+    .insert(jobs)
+    .values({
+      projectId: project.id,
+      companyId: opportunity.companyId,
+      siteId: opportunity.siteId,
+      opportunityId: opportunity.id,
+      name: args.input.jobName,
+      status: "draft",
+      scope: args.input.scope || null,
+      services: opportunity.services,
+      projectManager: args.input.projectManager,
+      foreman: args.input.foreman,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
+    })
+    .returning();
+  const job = jobRows[0];
+  if (!job) return { ok: false, error: "The job could not be saved." };
+
+  await db
+    .update(opportunities)
+    .set({ projectId: project.id, stage: "won", updatedAt: now })
+    .where(eq(opportunities.id, opportunity.id));
+
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_created",
+    summary: `job created from won work: ${job.name}`,
+    payload: { projectId: project.id, opportunityId: opportunity.id },
+  });
+
+  if (request) {
+    await db
+      .update(leads)
+      .set({ workflowStatus: "won", updatedAt: now })
+      .where(eq(leads.id, request.id));
+    await recordEvent({
+      leadId: request.id,
+      actor: args.actor,
+      kind: "project_created",
+      summary: `project created: ${project.name}`,
+      payload: { projectId: project.id, jobId: job.id },
+    });
+  }
+
+  return { ok: true, projectId: project.id, jobId: job.id };
+}
+
+export async function addJobToProject(args: {
+  projectId: string;
+  actor: string;
+  input: JobConversionInput;
+}): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
+  if (useDemoOpsStore()) return addDemoJobToProject(args);
+  const project = await getProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  const db = getDb();
+  const rows = await db
+    .insert(jobs)
+    .values({
+      projectId: project.id,
+      companyId: project.companyId,
+      siteId: project.siteId,
+      opportunityId: project.opportunityId,
+      name: args.input.jobName,
+      status: "draft",
+      scope: args.input.scope || null,
+      services: [],
+      projectManager: args.input.projectManager ?? project.projectManager,
+      foreman: args.input.foreman,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
+    })
+    .returning();
+  const job = rows[0];
+  if (!job) return { ok: false, error: "The job could not be saved." };
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_created",
+    summary: `job added to project: ${job.name}`,
+    payload: { projectId: project.id },
+  });
+  return { ok: true, jobId: job.id };
+}
+
+export async function updateJobStatus(args: {
+  jobId: string;
+  actor: string;
+  status: JobStatus;
+  blockerNote: string | null;
+}): Promise<JobRow | null> {
+  if (useDemoOpsStore()) return setDemoJobStatus(args);
+  const existing = await getJob(args.jobId);
+  if (!existing) return null;
+  const db = getDb();
+  const rows = await db
+    .update(jobs)
+    .set({
+      status: args.status,
+      blockerNote: args.blockerNote,
+      updatedAt: new Date(),
+    })
+    .where(eq(jobs.id, args.jobId))
+    .returning();
+  const job = rows[0];
+  if (!job) return null;
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_status",
+    summary: `status ${existing.status} → ${args.status}`,
+    payload: {
+      before: existing.status,
+      after: args.status,
+      blockerNote: args.blockerNote,
+    },
+  });
+  return job;
 }

@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOpsSession } from "@/lib/ops/auth";
 import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
+import { formatJobNumber, JOB_STATUS_LABELS } from "@/lib/ops/jobs";
 import {
   getCompany,
   listContacts,
+  listJobs,
   listOpportunities,
+  listProjects,
   listSites,
 } from "@/lib/ops/store";
 import { formatFullName, formatServices } from "@/lib/ops/workflow";
@@ -25,10 +28,12 @@ export default async function CompanyDetailPage({
   const company = await getCompany(id);
   if (!company) notFound();
 
-  const [contacts, sites, opportunities] = await Promise.all([
+  const [contacts, sites, opportunities, projects, jobs] = await Promise.all([
     listContacts(company.id),
     listSites(company.id),
     listOpportunities(),
+    listProjects(company.id),
+    listJobs({ companyId: company.id }),
   ]);
   const companyOpportunities = opportunities.filter(
     (opportunity) => opportunity.companyId === company.id,
@@ -104,6 +109,48 @@ export default async function CompanyDetailPage({
           )}
         </section>
       </div>
+
+      <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
+        <h2 className="font-heading text-lg font-semibold">Projects</h2>
+        {projects.length === 0 ? (
+          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+            No projects are linked to this company yet.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {projects.map((project) => {
+              const projectJobs = jobs.filter((job) => job.projectId === project.id);
+              return (
+                <li key={project.id}>
+                  <Link
+                    href={`/app/projects/${project.id}`}
+                    className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                  >
+                    {project.name}
+                  </Link>
+                  <p className="text-sm text-[color:var(--sf-ink)]/65">
+                    {projectJobs.length} job{projectJobs.length === 1 ? "" : "s"}
+                    {project.projectManager ? ` · ${project.projectManager}` : ""}
+                  </p>
+                  {projectJobs.map((job) => (
+                    <p key={job.id} className="text-xs text-[color:var(--sf-ink)]/55">
+                      <Link
+                        href={`/app/jobs/${job.id}`}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {formatJobNumber(job.id)}
+                      </Link>
+                      {" · "}
+                      {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ??
+                        job.status}
+                    </p>
+                  ))}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
         <h2 className="font-heading text-lg font-semibold">Opportunities</h2>

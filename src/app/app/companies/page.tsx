@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOpsSession } from "@/lib/ops/auth";
-import { listCompanies, listContacts, listOpportunities } from "@/lib/ops/store";
+import {
+  listCompanies,
+  listContacts,
+  listOpportunities,
+  listProjects,
+} from "@/lib/ops/store";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +15,11 @@ export default async function CompaniesPage() {
     redirect("/app/login");
   }
 
-  const [companies, contacts, opportunities] = await Promise.all([
+  const [companies, contacts, opportunities, projects] = await Promise.all([
     listCompanies(),
     listContacts(),
     listOpportunities(),
+    listProjects(),
   ]);
 
   return (
@@ -42,12 +48,13 @@ export default async function CompaniesPage() {
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Contacts</th>
               <th className="px-4 py-3 font-semibold">Opportunities</th>
+              <th className="px-4 py-3 font-semibold">Projects</th>
             </tr>
           </thead>
           <tbody>
             {companies.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-[color:var(--sf-ink)]/60">
+                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--sf-ink)]/60">
                   No companies yet. Convert an estimate request to create the
                   first record.
                 </td>
@@ -59,6 +66,9 @@ export default async function CompaniesPage() {
                 );
                 const companyOpportunities = opportunities.filter(
                   (opportunity) => opportunity.companyId === company.id,
+                );
+                const companyProjects = projects.filter(
+                  (project) => project.companyId === company.id,
                 );
                 return (
                   <tr
@@ -87,6 +97,7 @@ export default async function CompaniesPage() {
                     <td className="px-4 py-3 align-top">
                       {companyOpportunities.length}
                     </td>
+                    <td className="px-4 py-3 align-top">{companyProjects.length}</td>
                   </tr>
                 );
               })

@@ -48,7 +48,9 @@ Requires `GEMINI_API_KEY` in `.env.local` (gitignored).
 
 Indexed wizard at `/request-estimate`. Confirmation at `/request-estimate/thanks` is `noindex`. Qualified leads can book via HMAC-gated Calendly.
 
-Staff review lives at `/app/login` and `/app/requests`. It is gated by
+Staff review lives at `/app/login` and `/app/requests`. Converted CRM records
+live at `/app/companies` and `/app/opportunities`. Won work becomes a project
+and jobs at `/app/projects` and `/app/jobs`. Access is gated by
 `OPS_SESSION_SECRET`, `OPS_STAFF_EMAILS`, and `OPS_STAFF_PASSWORD`.
 
 If `DATABASE_URL` is unset, or `OPS_DEMO=1`, the review workspace uses local
