@@ -1,14 +1,22 @@
 import {
+  companies,
+  contacts,
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
   leads,
+  opportunities,
+  sites,
 } from "@/db/schema";
 
 export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
+export type CompanyRow = typeof companies.$inferSelect;
+export type ContactRow = typeof contacts.$inferSelect;
+export type SiteRow = typeof sites.$inferSelect;
+export type OpportunityRow = typeof opportunities.$inferSelect;
 
 const now = Date.now();
 
@@ -49,6 +57,10 @@ export function demoEstimateRequests(): EstimateRequestRow[] {
       idempotencyKey: "demo-1",
       calendlyInviteeUri: null,
       consentAt: new Date(now - 2 * 60 * 60 * 1000),
+      companyId: null,
+      contactId: null,
+      siteId: null,
+      opportunityId: null,
     },
     {
       id: "22222222-2222-4222-8222-222222222222",
@@ -83,8 +95,61 @@ export function demoEstimateRequests(): EstimateRequestRow[] {
       idempotencyKey: "demo-2",
       calendlyInviteeUri: null,
       consentAt: new Date(now - 26 * 60 * 60 * 1000),
+      companyId: null,
+      contactId: null,
+      siteId: null,
+      opportunityId: null,
     },
   ];
+}
+
+export function demoCompanies(): CompanyRow[] {
+  return [
+    {
+      id: "66666666-6666-4666-8666-666666666666",
+      createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      name: "Acme Construction Ltd",
+      email: "office@acme-ltd.example",
+      phone: "519-555-0188",
+      city: "Waterloo",
+      province: "ON",
+    },
+  ];
+}
+
+export function demoContacts(): ContactRow[] {
+  return [
+    {
+      id: "77777777-7777-4777-8777-777777777777",
+      createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      firstName: "Alex",
+      lastName: "Lee",
+      email: "alex@acme-gc.example",
+      phone: "519-555-0199",
+      role: "General contractor / construction manager",
+    },
+  ];
+}
+
+export function demoSites(): SiteRow[] {
+  return [
+    {
+      id: "88888888-8888-4888-8888-888888888888",
+      createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      name: "Waterloo yard",
+      city: "Waterloo",
+      province: "ON",
+    },
+  ];
+}
+
+export function demoOpportunities(): OpportunityRow[] {
+  return [];
 }
 
 export function demoEstimateEvents(): EstimateRequestEvent[] {

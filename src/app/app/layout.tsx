@@ -29,8 +29,14 @@ export default async function OpsLayout({
               />
             </Link>
             <nav className="hidden items-center gap-4 text-sm font-semibold md:flex">
-              <Link href="/app/requests" className="text-[color:var(--sf-cyan)]">
+              <Link href="/app/requests" className="hover:text-[color:var(--sf-cyan)]">
                 Estimate requests
+              </Link>
+              <Link href="/app/companies" className="hover:text-[color:var(--sf-cyan)]">
+                Companies
+              </Link>
+              <Link href="/app/opportunities" className="hover:text-[color:var(--sf-cyan)]">
+                Opportunities
               </Link>
             </nav>
           </div>

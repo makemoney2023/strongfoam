@@ -40,6 +40,75 @@ export const leads = pgTable("leads", {
   idempotencyKey: text("idempotency_key").notNull().unique(),
   calendlyInviteeUri: text("calendly_invitee_uri"),
   consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
+  companyId: uuid("company_id"),
+  contactId: uuid("contact_id"),
+  siteId: uuid("site_id"),
+  opportunityId: uuid("opportunity_id"),
+});
+
+export const companies = pgTable("companies", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  city: text("city"),
+  province: text("province"),
+});
+
+export const contacts = pgTable("contacts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  companyId: uuid("company_id").references(() => companies.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  role: text("role"),
+});
+
+export const sites = pgTable("sites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  companyId: uuid("company_id").references(() => companies.id),
+  name: text("name").notNull(),
+  city: text("city").notNull(),
+  province: text("province").notNull(),
+});
+
+export const opportunities = pgTable("opportunities", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  companyId: uuid("company_id").references(() => companies.id),
+  contactId: uuid("contact_id").references(() => contacts.id),
+  siteId: uuid("site_id").references(() => sites.id),
+  sourceLeadId: uuid("source_lead_id").references(() => leads.id),
+  name: text("name").notNull(),
+  stage: text("stage").notNull().default("qualification"),
+  owner: text("owner"),
+  source: text("source"),
+  services: text("services").array().notNull(),
+  projectType: text("project_type"),
 });
 
 export const estimateRequestTasks = pgTable("estimate_request_tasks", {

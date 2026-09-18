@@ -7,7 +7,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
 import { extractMentions } from "@/lib/ops/collaboration";
 import {
+  draftCrmFromRequest,
+  findCompanyMatches,
+  findContactMatches,
+  OPPORTUNITY_LABELS,
+  OPPORTUNITY_STAGES,
+} from "@/lib/ops/crm";
+import {
   getEstimateRequest,
+  getRequestCrmRecords,
+  listCompanies,
+  listContacts,
   listEstimateRequestComments,
   listEstimateRequestEvents,
   listEstimateRequestTasks,
@@ -27,6 +37,7 @@ import {
 import {
   addRequestComment,
   addRequestTask,
+  convertRequestToCrmRecords,
   saveEstimateRequestReview,
   setRequestTaskStatus,
 } from "./actions";
@@ -67,11 +78,22 @@ export default async function EstimateRequestDetailPage({
   const request = await getEstimateRequest(id);
   if (!request) notFound();
 
-  const [events, tasks, comments] = await Promise.all([
-    listEstimateRequestEvents(id),
-    listEstimateRequestTasks(id),
-    listEstimateRequestComments(id),
-  ]);
+  const [events, tasks, comments, crm, allCompanies, allContacts] =
+    await Promise.all([
+      listEstimateRequestEvents(id),
+      listEstimateRequestTasks(id),
+      listEstimateRequestComments(id),
+      getRequestCrmRecords(request),
+      listCompanies(),
+      listContacts(),
+    ]);
+  const draft = draftCrmFromRequest(request);
+  const companyMatches = findCompanyMatches(draft.companyName, allCompanies);
+  const contactMatches = findContactMatches(
+    draft.email,
+    draft.phone,
+    allContacts,
+  );
   const answers = asRecord(request.answers);
   const files = Array.isArray(request.files)
     ? (request.files as Array<{ pathname?: string }>)
@@ -200,6 +222,269 @@ export default async function EstimateRequestDetailPage({
           </div>
 
           <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
+            <h2 className="font-heading text-lg font-semibold">CRM records</h2>
+            {crm.opportunity ? (
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                    Company
+                  </dt>
+                  <dd className="mt-1">
+                    {crm.company ? (
+                      <Link
+                        href={`/app/companies/${crm.company.id}`}
+                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                      >
+                        {crm.company.name}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                    Contact
+                  </dt>
+                  <dd className="mt-1">
+                    {crm.contact
+                      ? `${formatFullName(crm.contact.firstName, crm.contact.lastName)} · ${crm.contact.email}`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                    Site
+                  </dt>
+                  <dd className="mt-1">
+                    {crm.site
+                      ? `${crm.site.name} · ${crm.site.city}${crm.site.province === "ON" ? ", ON" : ""}`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                    Opportunity
+                  </dt>
+                  <dd className="mt-1">
+                    {crm.opportunity ? (
+                      <Link
+                        href={`/app/opportunities/${crm.opportunity.id}`}
+                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                      >
+                        {crm.opportunity.name}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                    {crm.opportunity ? (
+                      <p className="text-xs text-[color:var(--sf-ink)]/55">
+                        {OPPORTUNITY_LABELS[
+                          crm.opportunity.stage as keyof typeof OPPORTUNITY_LABELS
+                        ] ?? crm.opportunity.stage}
+                      </p>
+                    ) : null}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <form action={convertRequestToCrmRecords} className="mt-4 space-y-4">
+                <input type="hidden" name="id" value={request.id} />
+                <p className="text-sm text-[color:var(--sf-ink)]/70">
+                  Create or link a company, contact, site, and opportunity from
+                  this submission without retyping the captured details.
+                </p>
+                {companyMatches.length > 0 || contactMatches.length > 0 ? (
+                  <div className="rounded-md bg-[color:var(--sf-cyan)]/10 px-3 py-3 text-sm">
+                    <p className="font-semibold">Likely duplicates</p>
+                    {companyMatches.map((match) => (
+                      <p key={match.id} className="mt-1">
+                        Company {match.name} matches by {match.reason}.
+                      </p>
+                    ))}
+                    {contactMatches.map((match) => (
+                      <p key={match.id} className="mt-1">
+                        Contact {match.name} ({match.email}) matches by{" "}
+                        {match.reason}.
+                      </p>
+                    ))}
+                    <p className="mt-2 text-[color:var(--sf-ink)]/65">
+                      Link the existing records or confirm creating new ones.
+                    </p>
+                  </div>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="companyName">Company</Label>
+                    <Input
+                      id="companyName"
+                      name="companyName"
+                      defaultValue={draft.companyName}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkCompanyId">Link existing company</Label>
+                    <select
+                      id="linkCompanyId"
+                      name="linkCompanyId"
+                      defaultValue={companyMatches[0]?.id ?? ""}
+                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                    >
+                      <option value="">Create new company</option>
+                      {allCompanies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First name</Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      defaultValue={draft.firstName}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last name</Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      defaultValue={draft.lastName}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      defaultValue={draft.email}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      defaultValue={draft.phone}
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Input
+                      id="role"
+                      name="role"
+                      defaultValue={draft.role ?? ""}
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkContactId">Link existing contact</Label>
+                    <select
+                      id="linkContactId"
+                      name="linkContactId"
+                      defaultValue={contactMatches[0]?.id ?? ""}
+                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                    >
+                      <option value="">Create new contact</option>
+                      {allContacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {formatFullName(contact.firstName, contact.lastName)} ·{" "}
+                          {contact.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="siteName">Site</Label>
+                    <Input
+                      id="siteName"
+                      name="siteName"
+                      defaultValue={draft.siteName}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      name="city"
+                      defaultValue={draft.city}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="province">Province</Label>
+                    <Input
+                      id="province"
+                      name="province"
+                      defaultValue={draft.province}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="opportunityName">Opportunity</Label>
+                    <Input
+                      id="opportunityName"
+                      name="opportunityName"
+                      defaultValue={draft.opportunityName}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stage">Stage</Label>
+                    <select
+                      id="stage"
+                      name="stage"
+                      defaultValue={draft.stage}
+                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                    >
+                      {OPPORTUNITY_STAGES.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {OPPORTUNITY_LABELS[stage]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="owner">Owner</Label>
+                    <Input
+                      id="owner"
+                      name="owner"
+                      defaultValue={draft.owner ?? ""}
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+                {companyMatches.length > 0 || contactMatches.length > 0 ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="createNew" value="on" />
+                    Create new records even if matches exist
+                  </label>
+                ) : null}
+                <Button type="submit" variant="outline" className="h-11">
+                  Create CRM records
+                </Button>
+              </form>
+            )}
+          </div>
+
+          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
             <h2 className="font-heading text-lg font-semibold">Files</h2>
             {files.length === 0 ? (
               <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
@@ -252,7 +537,7 @@ export default async function EstimateRequestDetailPage({
                           <span className="mr-2 text-xs uppercase tracking-[0.12em] text-[color:var(--sf-cyan)]">
                             Open
                           </span>
-                        )}
+                        )}{" "}
                         {task.title}
                       </p>
                       <p className="text-xs text-[color:var(--sf-ink)]/55">

@@ -1,13 +1,22 @@
 import {
+  demoCompanies,
+  demoContacts,
   demoEstimateComments,
   demoEstimateEvents,
   demoEstimateRequests,
   demoEstimateTasks,
+  demoOpportunities,
+  demoSites,
+  type CompanyRow,
+  type ContactRow,
   type EstimateRequestComment,
   type EstimateRequestEvent,
   type EstimateRequestRow,
   type EstimateRequestTask,
+  type OpportunityRow,
+  type SiteRow,
 } from "@/lib/ops/demo-data";
+import type { CrmConversionInput } from "@/lib/ops/crm";
 import type {
   EstimateRequestFilters,
   EstimateRequestUpdate,
@@ -18,6 +27,10 @@ const requests = demoEstimateRequests();
 const events = demoEstimateEvents();
 const tasks = demoEstimateTasks();
 const comments = demoEstimateComments();
+const companies = demoCompanies();
+const contacts = demoContacts();
+const sites = demoSites();
+const opportunities = demoOpportunities();
 
 export function useDemoOpsStore(
   env: Record<string, string | undefined> = process.env,
@@ -233,4 +246,186 @@ export function addDemoEstimateRequestComment(args: {
     payload: { commentId: comment.id, body: args.body },
   });
   return comment;
+}
+
+export function listDemoCompanies(): CompanyRow[] {
+  return [...companies].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getDemoCompany(id: string): CompanyRow | null {
+  return companies.find((company) => company.id === id) ?? null;
+}
+
+export function listDemoContacts(companyId?: string): ContactRow[] {
+  return contacts
+    .filter((contact) => !companyId || contact.companyId === companyId)
+    .sort((a, b) => a.lastName.localeCompare(b.lastName));
+}
+
+export function getDemoContact(id: string): ContactRow | null {
+  return contacts.find((contact) => contact.id === id) ?? null;
+}
+
+export function listDemoSites(companyId?: string): SiteRow[] {
+  return sites
+    .filter((site) => !companyId || site.companyId === companyId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getDemoSite(id: string): SiteRow | null {
+  return sites.find((site) => site.id === id) ?? null;
+}
+
+export function listDemoOpportunities(): OpportunityRow[] {
+  return [...opportunities].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+}
+
+export function getDemoOpportunity(id: string): OpportunityRow | null {
+  return opportunities.find((opportunity) => opportunity.id === id) ?? null;
+}
+
+export function convertDemoRequestToCrm(args: {
+  leadId: string;
+  actor: string;
+  input: CrmConversionInput;
+}):
+  | {
+      ok: true;
+      companyId: string;
+      contactId: string;
+      siteId: string;
+      opportunityId: string;
+      created: { company: boolean; contact: boolean; site: boolean };
+    }
+  | { ok: false; error: string } {
+  const request = getDemoEstimateRequest(args.leadId);
+  if (!request) return { ok: false, error: "That request could not be found." };
+  if (request.opportunityId) {
+    return {
+      ok: false,
+      error: "This request is already linked to CRM records.",
+    };
+  }
+
+  let company = args.input.linkCompanyId
+    ? getDemoCompany(args.input.linkCompanyId)
+    : null;
+  if (args.input.linkCompanyId && !company) {
+    return { ok: false, error: "The selected company could not be found." };
+  }
+
+  let contact = args.input.linkContactId
+    ? getDemoContact(args.input.linkContactId)
+    : null;
+  if (args.input.linkContactId && !contact) {
+    return { ok: false, error: "The selected contact could not be found." };
+  }
+
+  const now = new Date();
+  const created = { company: false, contact: false, site: false };
+
+  if (!company) {
+    company = {
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      name: args.input.companyName,
+      email: args.input.email,
+      phone: args.input.phone || null,
+      city: args.input.city,
+      province: args.input.province,
+    };
+    companies.unshift(company);
+    created.company = true;
+  }
+
+  if (!contact) {
+    contact = {
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      companyId: company.id,
+      firstName: args.input.firstName,
+      lastName: args.input.lastName,
+      email: args.input.email,
+      phone: args.input.phone || "",
+      role: args.input.role,
+    };
+    contacts.unshift(contact);
+    created.contact = true;
+  } else if (!contact.companyId) {
+    contact.companyId = company.id;
+    contact.updatedAt = now;
+  }
+
+  let site =
+    sites.find(
+      (item) =>
+        item.companyId === company.id &&
+        item.city.toLowerCase() === args.input.city.toLowerCase() &&
+        item.province === args.input.province,
+    ) ?? null;
+  if (!site) {
+    site = {
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      companyId: company.id,
+      name: args.input.siteName,
+      city: args.input.city,
+      province: args.input.province,
+    };
+    sites.unshift(site);
+    created.site = true;
+  }
+
+  const opportunity: OpportunityRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    companyId: company.id,
+    contactId: contact.id,
+    siteId: site.id,
+    sourceLeadId: request.id,
+    name: args.input.opportunityName,
+    stage: args.input.stage,
+    owner: args.input.owner,
+    source: args.input.source,
+    services: args.input.services,
+    projectType: args.input.projectType,
+  };
+  opportunities.unshift(opportunity);
+
+  request.companyId = company.id;
+  request.contactId = contact.id;
+  request.siteId = site.id;
+  request.opportunityId = opportunity.id;
+  request.updatedAt = now;
+
+  recordEvent({
+    leadId: request.id,
+    actor: args.actor,
+    kind: "crm_converted",
+    summary: created.company
+      ? `created CRM records for ${company.name}`
+      : `linked CRM records for ${company.name}`,
+    payload: {
+      companyId: company.id,
+      contactId: contact.id,
+      siteId: site.id,
+      opportunityId: opportunity.id,
+      created,
+    },
+  });
+
+  return {
+    ok: true,
+    companyId: company.id,
+    contactId: contact.id,
+    siteId: site.id,
+    opportunityId: opportunity.id,
+    created,
+  };
 }
