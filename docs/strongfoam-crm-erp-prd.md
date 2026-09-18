@@ -1,10 +1,10 @@
 # Strong Foam CRM / ERP Product Requirements Document
 
-**Product:** Strong Foam Operations Platform  
-**Document owner:** Strong Foam Insulation Inc.  
-**Status:** Draft source of truth  
-**Version:** 0.1  
-**Created:** 2026-09-18  
+**Product:** Strong Foam Operations Platform
+**Document owner:** Strong Foam Insulation Inc.
+**Status:** Draft source of truth
+**Version:** 0.1
+**Created:** 2026-09-18
 **Last updated:** 2026-09-18
 
 ## 1. Purpose
