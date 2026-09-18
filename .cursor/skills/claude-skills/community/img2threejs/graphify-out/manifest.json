@@ -1,0 +1,1227 @@
+{
+  "docs/specs/render-profile.v2.schema.json": {
+    "mtime": 1786386784.2406511,
+    "ast_hash": "44362b2bbbb49d7fb74599b642b58692",
+    "semantic_hash": ""
+  },
+  "forge/_shared/artifact_cache.py": {
+    "mtime": 1786386784.2419407,
+    "ast_hash": "7be55775b136113815d15c2c4113a3d4",
+    "semantic_hash": ""
+  },
+  "forge/_shared/color_metrics.py": {
+    "mtime": 1786386784.2420187,
+    "ast_hash": "e23b82e5929500aba9eebb68614a0ed6",
+    "semantic_hash": ""
+  },
+  "forge/_shared/feature_acceptance_policy.py": {
+    "mtime": 1786386784.2421756,
+    "ast_hash": "5bcac233efd0576bed9d0eca9b1424cc",
+    "semantic_hash": ""
+  },
+  "forge/_shared/image_hash.py": {
+    "mtime": 1786386784.2422612,
+    "ast_hash": "b0a66cc654890a422489580594daf11c",
+    "semantic_hash": ""
+  },
+  "forge/_shared/jpeg.py": {
+    "mtime": 1786386784.2423732,
+    "ast_hash": "133f28b7479ed24b43187457862701c0",
+    "semantic_hash": ""
+  },
+  "forge/_shared/pipeline_routing.py": {
+    "mtime": 1786386784.2425773,
+    "ast_hash": "0fba65b5a355b4f14af996acc3f3f364",
+    "semantic_hash": ""
+  },
+  "forge/_shared/sdf_primitives.py": {
+    "mtime": 1786386784.24278,
+    "ast_hash": "61464099a6fc5881bf5e7fd176eca915",
+    "semantic_hash": ""
+  },
+  "forge/_shared/spec_search.py": {
+    "mtime": 1786386784.2429411,
+    "ast_hash": "ead1c5a0408ea15d94ef0e047660fb0a",
+    "semantic_hash": ""
+  },
+  "forge/_shared/status_banner.py": {
+    "mtime": 1786386784.2431529,
+    "ast_hash": "2010e007231470e60a70e737c574ee67",
+    "semantic_hash": ""
+  },
+  "forge/_shared/subdivision.py": {
+    "mtime": 1786386784.2433505,
+    "ast_hash": "d120c931ac3d5872e998699011fd769e",
+    "semantic_hash": ""
+  },
+  "forge/_shared/workflow_state.py": {
+    "mtime": 1786386784.2434492,
+    "ast_hash": "7aed94e661cd52098fa3bf5b55457984",
+    "semantic_hash": ""
+  },
+  "forge/materials/__init__.py": {
+    "mtime": 1786386784.243584,
+    "ast_hash": "a9ef86d1c9d6714ac6dc4ca113df97f1",
+    "semantic_hash": ""
+  },
+  "forge/materials/compatibility.py": {
+    "mtime": 1786386784.2437565,
+    "ast_hash": "107731f8517daab60b71bc748c387668",
+    "semantic_hash": ""
+  },
+  "forge/materials/reference.py": {
+    "mtime": 1786386784.2439795,
+    "ast_hash": "55246e793e6a2d6ccabb5c136289dbf0",
+    "semantic_hash": ""
+  },
+  "forge/next.py": {
+    "mtime": 1786386784.2440698,
+    "ast_hash": "094c9043dc43154316e65b48cff94f6c",
+    "semantic_hash": ""
+  },
+  "forge/report.py": {
+    "mtime": 1786386784.2441497,
+    "ast_hash": "e75537605f891a76d2ff1bb62168abcd",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/analyze_texture.py": {
+    "mtime": 1786386784.2444978,
+    "ast_hash": "e26aab5778303511bc853cdc01f46305",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/bind_detail_properties.py": {
+    "mtime": 1786386784.244674,
+    "ast_hash": "411477a79634412856c99ab8dfd54941",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/build_detail_inventory.py": {
+    "mtime": 1786386784.2449055,
+    "ast_hash": "ed4a0f74cdfb3e9df784f5bf02ec1461",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/camera_fitting_math.py": {
+    "mtime": 1786386784.2450807,
+    "ast_hash": "279d1afc790a83bf7d4d2fee0d608b60",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/camera_fitting_solver.py": {
+    "mtime": 1786386784.245269,
+    "ast_hash": "e21944bd054f295f7af4b5577594f71d",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/camera_fitting_types.py": {
+    "mtime": 1786386784.2454686,
+    "ast_hash": "4b07f3020185c20c161dc7b926074f27",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/camera_image_helpers.py": {
+    "mtime": 1786386784.2456388,
+    "ast_hash": "0176cd72e78bcdd34121a94fe4f7b5fe",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/check_intake_correctness.py": {
+    "mtime": 1786386784.2457895,
+    "ast_hash": "e45d570a475e48d33eacb203137bbe3b",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/check_reference_admission.py": {
+    "mtime": 1786386784.2459638,
+    "ast_hash": "8b2ff0f47545a2b4ba104f94e18ca9c1",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/cs2_foundation.py": {
+    "mtime": 1786386784.2461174,
+    "ast_hash": "27565622265df169f8dd3304420c29b4",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/cs2_manifest.py": {
+    "mtime": 1786386784.246299,
+    "ast_hash": "08bf1e27ef8104f5c29151a14fb83eb9",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/cs2_review_contract.py": {
+    "mtime": 1786386784.2463696,
+    "ast_hash": "3dbf55cb406a16839c443c53a14c3656",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/delight_albedo.py": {
+    "mtime": 1786386784.2465897,
+    "ast_hash": "05c23db8fc93e5946f5038d37a1fa749",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/detect_cs2.py": {
+    "mtime": 1786386784.2467859,
+    "ast_hash": "a8e7bcba6921edc25a1ee496a1df348c",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/detect_reference_effects.py": {
+    "mtime": 1786386784.2469769,
+    "ast_hash": "99822e55d7115943a1e21cc79a300c77",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/extract_cs2_textures.py": {
+    "mtime": 1786386784.2471268,
+    "ast_hash": "ffb7c4da55d55a61a9fb4da90794d266",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/extract_gradient_stops.py": {
+    "mtime": 1786386784.2472842,
+    "ast_hash": "f91ee39baa2cefa67453cba47442b7a2",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/extract_landmarks.py": {
+    "mtime": 1786386784.247502,
+    "ast_hash": "5d6f2df334129ff72782312fb0a1c1e1",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/extract_part_color_recipe.py": {
+    "mtime": 1786386784.2476177,
+    "ast_hash": "d6fc12bfae1f482fdac0b89ff9ee88d5",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/extract_pbr_evidence.py": {
+    "mtime": 1786386784.2477636,
+    "ast_hash": "a04b577763b172c86166e63f07e63ce9",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/fetch_cs2_metadata.py": {
+    "mtime": 1786386784.2479298,
+    "ast_hash": "c443a123771ff8d59c60b749cba5c042",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/locate_cs2_vpk.py": {
+    "mtime": 1786386784.2480032,
+    "ast_hash": "a9270028c0b45f8b6faa81284890d9e5",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/material_region_analysis.py": {
+    "mtime": 1786386784.2481945,
+    "ast_hash": "ad86ef23070e614b2467dc6a23c2da56",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/probe_glb.py": {
+    "mtime": 1786386784.248402,
+    "ast_hash": "3e8bf4cd08e8c8adddd1a30f79c76da5",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/probe_image.py": {
+    "mtime": 1786386784.2485585,
+    "ast_hash": "a62594e7437586cbaaf6818343a43e3c",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/run_vision_adapter.py": {
+    "mtime": 1786386784.248643,
+    "ast_hash": "336ba0217f601930cd8eae7fa05b0795",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/search_specs.py": {
+    "mtime": 1786386784.2487984,
+    "ast_hash": "dd8ebb80afa6703935a56746ab476670",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/semantic_decomposition.py": {
+    "mtime": 1786386784.2489536,
+    "ast_hash": "ce28dac3bef5daf342368dadeca5d442",
+    "semantic_hash": ""
+  },
+  "forge/stage1_intake/solve_camera_pose.py": {
+    "mtime": 1786386784.2491372,
+    "ast_hash": "bd6dad39466ff797ef96f02e43f148dd",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/apply_material_analysis.py": {
+    "mtime": 1786386784.2493625,
+    "ast_hash": "8091733f392439999589ff8067e44b0e",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/cs2_adapters.py": {
+    "mtime": 1786386784.2494357,
+    "ast_hash": "9bae95fbaec3d68fa60bb8772c18758e",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/derive_geometry.py": {
+    "mtime": 1786386784.2495964,
+    "ast_hash": "3614efe17f00dc1787b2de4b69dd693e",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/humanoid_proportions.py": {
+    "mtime": 1786386784.2497973,
+    "ast_hash": "734862e47d50ce9e46f85e777f45d16d",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/new_pre_spec_assessment.py": {
+    "mtime": 1786386784.2499986,
+    "ast_hash": "ec97e729aa82e85f1d3a242ffe79141d",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/new_sculpt_spec.py": {
+    "mtime": 1786386784.2502327,
+    "ast_hash": "e4e703597a65ed8f296faef3c154db9c",
+    "semantic_hash": ""
+  },
+  "forge/stage2_spec/validate_sculpt_spec.py": {
+    "mtime": 1786386784.2504897,
+    "ast_hash": "9b573d23c54b7465aa021a955c5f9692",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/bake_projected_texture.py": {
+    "mtime": 1786386784.250798,
+    "ast_hash": "7cf55ea3efbcd21ee221b2d634959c5f",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/decimate.py": {
+    "mtime": 1786386784.2510002,
+    "ast_hash": "b5f54677f42ce16f76f66aa2fa931fa3",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/generate_threejs_factory.py": {
+    "mtime": 1786386784.2512894,
+    "ast_hash": "1746a18f9edd06c63565a9612e75b28d",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/module_cache.py": {
+    "mtime": 1786386784.251474,
+    "ast_hash": "7f63237c1b049d400c58d6d99621e60a",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/morph_targets.py": {
+    "mtime": 1786386784.2516367,
+    "ast_hash": "47babc63b7728f3ced2eaf1a9ed532a9",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/orchestrate_passes.py": {
+    "mtime": 1786386784.2517455,
+    "ast_hash": "8bf8386d4e84ff6210db7f83cfcfad8c",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/uv_unwrap.py": {
+    "mtime": 1786386784.2518604,
+    "ast_hash": "8d98fa69d27411a80adbd0dc747eba55",
+    "semantic_hash": ""
+  },
+  "forge/stage3_build/visual_hull.py": {
+    "mtime": 1786386784.2519655,
+    "ast_hash": "17444a6ef83563014b29e78ccb56d507",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/_fit_divine_eye.py": {
+    "mtime": 1786386784.2520993,
+    "ast_hash": "784d84745e8d611a0f51bedc44429454",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/append_review.py": {
+    "mtime": 1786386784.2521868,
+    "ast_hash": "92f2b9ee76f6a70d5b6e32f199aac1c8",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/attachment_anchor.py": {
+    "mtime": 1786386784.2522807,
+    "ast_hash": "3dd3ade318b282268a7337b4515477d0",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/calibrate_eye.py": {
+    "mtime": 1786386784.252442,
+    "ast_hash": "ac021ff1660337da0eef54246bedd63c",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/check_part_coverage.py": {
+    "mtime": 1786386784.2528698,
+    "ast_hash": "c7e78b53275c5d50105acb59b38b7c0e",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/compare_region_passes.py": {
+    "mtime": 1786386784.2530563,
+    "ast_hash": "e7291bbaca49c658089daeea2271a098",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/correction_loop.py": {
+    "mtime": 1786386784.2532585,
+    "ast_hash": "d876370f6e99df02b64eeb08101b1b42",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/cs2_review.py": {
+    "mtime": 1786386784.2534547,
+    "ast_hash": "a61df4dbaca82a53e6da67e16f8b68ce",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/diagnose_render.py": {
+    "mtime": 1786386784.253666,
+    "ast_hash": "4bc08fca38c94df1ecbb61cc380bad96",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/diagnose_render_multi_angle.py": {
+    "mtime": 1786386784.2538307,
+    "ast_hash": "40114a4ec73d57778e7ed4cdbffd2347",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/divine_eye.py": {
+    "mtime": 1786386784.2539418,
+    "ast_hash": "9fc4f37a2a4b6f81c81da3fef65e6520",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/fit_params.py": {
+    "mtime": 1786386784.2540426,
+    "ast_hash": "10eb9619b988cac8fa261e9765f725e8",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/geometry_integrity.py": {
+    "mtime": 1786386784.2542567,
+    "ast_hash": "8e3b1ff0bca7d57d4ca8e10513693230",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/joint_loops.py": {
+    "mtime": 1786386784.2544537,
+    "ast_hash": "055e430acbd60849ff6a562c766a2ecb",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/make_comparison_sheet.py": {
+    "mtime": 1786386784.254673,
+    "ast_hash": "e75314ad84126d1145dc2e264683fb21",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/material_comparator.py": {
+    "mtime": 1786386784.2548368,
+    "ast_hash": "7664332f2092a63cd449edf3d03c0c60",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/material_feedback.py": {
+    "mtime": 1786386784.2549944,
+    "ast_hash": "2d4c2404ef9bfc120c7426bd7638f36b",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/material_gate.py": {
+    "mtime": 1786386784.2551413,
+    "ast_hash": "f2ecc2214696284be611cca8a7bcf8d8",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/material_views.py": {
+    "mtime": 1786386784.255298,
+    "ast_hash": "8b44cebfa361b5ff649d818af5c495f2",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/mesh_reference_compare.py": {
+    "mtime": 1786386784.2553973,
+    "ast_hash": "ac1f1b032476aca11ee0e8a6da6b0e10",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/multi_pass.py": {
+    "mtime": 1786386784.255478,
+    "ast_hash": "9d56dab64dc6066cca5d0ff31de5de4d",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/objectness.py": {
+    "mtime": 1786386784.255627,
+    "ast_hash": "61a1539d0cf5e2861df51e160df1076d",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/pairwise_penetration.py": {
+    "mtime": 1786386784.2557127,
+    "ast_hash": "6f2535f699d3aa33590a1619681415ea",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/per_feature.py": {
+    "mtime": 1786386784.2558775,
+    "ast_hash": "c455022b0cd4127768616b0385d854d6",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/render_bridge.py": {
+    "mtime": 1786386784.2559767,
+    "ast_hash": "897f8f78d7a71381c5db83624f993ae2",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/self_intersection.py": {
+    "mtime": 1786386784.2560904,
+    "ast_hash": "5b3d5a1d984439cf52eb55f9f26e85f6",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/turntable_gate.py": {
+    "mtime": 1786386784.2562075,
+    "ast_hash": "133fa74f14a3a01d6fc608df4613a8c8",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/validate_render_profile.py": {
+    "mtime": 1786386784.2563765,
+    "ast_hash": "1cfaa782dca73c444ee7f77ca845c7f1",
+    "semantic_hash": ""
+  },
+  "forge/stage4_review/vlm_gate.py": {
+    "mtime": 1786386784.2565534,
+    "ast_hash": "bb4b7f7186ff103f063386f4edc22dc1",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/__init__.py": {
+    "mtime": 1786386784.2568426,
+    "ast_hash": "50e484bb2ce5e2782bd382d7761a81f7",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/emit_rig.py": {
+    "mtime": 1786386784.2569468,
+    "ast_hash": "fb3a92f6ed0e0c9182bf985429ad25f7",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/geodesic_skinning.py": {
+    "mtime": 1786386784.2571535,
+    "ast_hash": "8d8071329e6813bd90ac16c83a5664ab",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/rig_spec.py": {
+    "mtime": 1786386784.2573009,
+    "ast_hash": "7d4c4a71a1dca2db61005d11ba6001bc",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/validate_rig_payload.py": {
+    "mtime": 1786386784.2574737,
+    "ast_hash": "3847f7b154f9f58d81b2cef006390b07",
+    "semantic_hash": ""
+  },
+  "forge/state.py": {
+    "mtime": 1786386784.2575605,
+    "ast_hash": "10a3a7d929862849bf30a09738c9549a",
+    "semantic_hash": ""
+  },
+  "forge/tests/showcase_test_support.py": {
+    "mtime": 1786386784.2579927,
+    "ast_hash": "7f2767b15e4ccb815a54cf82be44a1f1",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_analyze_texture.py": {
+    "mtime": 1786386784.2581365,
+    "ast_hash": "3880c83b3fbc5651ec1e0cdf0909c826",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_attachment_anchor.py": {
+    "mtime": 1786386784.2583077,
+    "ast_hash": "224a24d73ac022f38ef86281b7ac814b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_calibrate_eye.py": {
+    "mtime": 1786386784.2583716,
+    "ast_hash": "b4a302bdc856366fe670eba6f563a0e9",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_camera_fitting.py": {
+    "mtime": 1786386784.2585382,
+    "ast_hash": "bccb3dd3d658a9c267488f4e0fa555fe",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_camera_fitting_cli.py": {
+    "mtime": 1786386784.2586863,
+    "ast_hash": "23993c5839034778389821c00e9de4c5",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_camera_fitting_safety.py": {
+    "mtime": 1786386784.2588444,
+    "ast_hash": "d2c124f9b7a42e8deab99d87fe6f082b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_character_rig_derivation.py": {
+    "mtime": 1786386784.2590294,
+    "ast_hash": "b4723017092db6ad88c0c12592ea06aa",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_color_metrics.py": {
+    "mtime": 1786386784.2590957,
+    "ast_hash": "2068b4012550c3c9019d7e84abc8ebab",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_color_recipe.py": {
+    "mtime": 1786386784.2592378,
+    "ast_hash": "3c689201c6875c4b0b3f94070ce18043",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_correction_loop.py": {
+    "mtime": 1786386784.259423,
+    "ast_hash": "c6e4f1a2ecbefbc59a9588f56b207ed6",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_cs2_foundation.py": {
+    "mtime": 1786386784.2595775,
+    "ast_hash": "9ee8e920fce58b830fe69c885e43167b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_cs2_manifest.py": {
+    "mtime": 1786386784.2596436,
+    "ast_hash": "486ad5e75f5e44fe9a175b02527db9c8",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_cs2_review.py": {
+    "mtime": 1786386784.259903,
+    "ast_hash": "4330604b5eedf985a99cd2168fe7c723",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_decimation_wiring.py": {
+    "mtime": 1786386784.2600634,
+    "ast_hash": "513cc52d29e0e9edb809a167b00e94a6",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_divine_eye.py": {
+    "mtime": 1786386784.260228,
+    "ast_hash": "511ae216c999df4af52685ab08b53e61",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_fit_params.py": {
+    "mtime": 1786386784.26032,
+    "ast_hash": "5df7c202db09a92bcdb85b058556bd4e",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_geodesic_skinning.py": {
+    "mtime": 1786386784.2605073,
+    "ast_hash": "fd33fcdda73677c15fb94bcdd1f8c297",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_geometry_derivation.py": {
+    "mtime": 1786386784.2605777,
+    "ast_hash": "9eb25dd9dc2423c1fc4f53e77584ad16",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_glb_reference.py": {
+    "mtime": 1786386784.260725,
+    "ast_hash": "2bba14cafc78142b8ca9f5c9e1b336b2",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_gradient_stops.py": {
+    "mtime": 1786386784.260813,
+    "ast_hash": "6cd0fb8019f2d53829e2a3b56d4dbc2b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_hierarchy_scale.py": {
+    "mtime": 1786386784.2609985,
+    "ast_hash": "cc29f0544a6384579de7fcaf8e27d5c6",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_hue_zone_parity.py": {
+    "mtime": 1786386784.2610834,
+    "ast_hash": "16755423c6790f3c850c19e80a5497ac",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_humanoid_proportions.py": {
+    "mtime": 1786386784.2612429,
+    "ast_hash": "3e3581ecee4eb957b3c7955de2fda674",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_humanoid_silhouette_profile.py": {
+    "mtime": 1786386784.261446,
+    "ast_hash": "b41e8811e8f49a61abde622ee23d1208",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_intake_binding.py": {
+    "mtime": 1786386784.261526,
+    "ast_hash": "910c9694f3b18c79bc17ff265fcd957f",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_issue_triage.py": {
+    "mtime": 1786386784.2617223,
+    "ast_hash": "1a320c00a7e76f59f0e34dae018c373f",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_joint_admission_gate.py": {
+    "mtime": 1786386784.2618814,
+    "ast_hash": "eb056ae5c775542ab40d0e0f88670670",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_joint_loops.py": {
+    "mtime": 1786386784.2620463,
+    "ast_hash": "7d406cc5c10c92eb14a456431ae9a29b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_jpeg.py": {
+    "mtime": 1786386784.2622058,
+    "ast_hash": "7055a25d76ff3b4026941296b074d4b4",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_material_pipeline.py": {
+    "mtime": 1786386784.2623656,
+    "ast_hash": "269997e0b6f02b2f1bc2be05a2074445",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_material_reference.py": {
+    "mtime": 1786386784.2625234,
+    "ast_hash": "413b1a22f3609a44386979acf53244d7",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_module_cache.py": {
+    "mtime": 1786386784.262614,
+    "ast_hash": "4c298ded487b816caf2a06f3cf2f4e55",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_multi_angle.py": {
+    "mtime": 1786386784.2627883,
+    "ast_hash": "faa52f0fde8fe6221abe6ac6785fc19f",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_objectness.py": {
+    "mtime": 1786386784.2628787,
+    "ast_hash": "043569e72bb9dce9821a335c431d601b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_optional_vision_tooling.py": {
+    "mtime": 1786386784.2629788,
+    "ast_hash": "661dea528ee3c76c0f759d28b6fcbc2a",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_part_collision_morphs_lod.py": {
+    "mtime": 1786386784.2631736,
+    "ast_hash": "a72bbd7c3d23e7e01b9337e5f5661fe9",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_per_feature.py": {
+    "mtime": 1786386784.2632496,
+    "ast_hash": "04565992e76863d16afc98dd2830a2de",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_pipeline.py": {
+    "mtime": 1786386784.263398,
+    "ast_hash": "da10ad4d76b84c8d671258ca8d7b575b",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_pipeline_routing.py": {
+    "mtime": 1786386784.2635725,
+    "ast_hash": "c03de29bdd59d86a5633ac5854a60922",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_primitive_watertightness.py": {
+    "mtime": 1786386784.263696,
+    "ast_hash": "712401e2734aed15926ff26d363185a2",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_recessed_and_open_shell_topology.py": {
+    "mtime": 1786386784.2638109,
+    "ast_hash": "bd6d41ec3bb28329ed69d7cfe79bd0bc",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_reference_admission.py": {
+    "mtime": 1786386784.2639823,
+    "ast_hash": "87ad9a9a965b949561cf336753ee6be2",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_reference_effects.py": {
+    "mtime": 1786386784.2641435,
+    "ast_hash": "e95c1810700b5d6d108182afab48b8f2",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_release_metadata.py": {
+    "mtime": 1786386784.2642405,
+    "ast_hash": "a1da7a882fb87c28c233282807e8d358",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_render_bridge.py": {
+    "mtime": 1786386784.2643461,
+    "ast_hash": "56c15302e159a986152f45c114ddd36c",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_render_profile.py": {
+    "mtime": 1786386784.264448,
+    "ast_hash": "1b9e23cdc7381affb25e2ba81ea90938",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_repetition_system_scale.py": {
+    "mtime": 1786386784.2646604,
+    "ast_hash": "de058458b97fb9668a681a83b1b2c258",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_rig_hierarchy_emission.py": {
+    "mtime": 1786386784.2647839,
+    "ast_hash": "3765e4efa8027d1ca7e042e37d93ab21",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_rig_milestone0.py": {
+    "mtime": 1786386784.264895,
+    "ast_hash": "889116c48e54ff928a1fcf5ca0067e2d",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_sdf_primitives.py": {
+    "mtime": 1786386784.2650793,
+    "ast_hash": "4c80178bf768d2e72f372f93c0a1ecc3",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_search_specs.py": {
+    "mtime": 1786386784.2652051,
+    "ast_hash": "085cc63b2f5d89fa917af4579f2be087",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_self_intersection.py": {
+    "mtime": 1786386784.2653198,
+    "ast_hash": "f30fcc4429147be9ac4f0e85307abf29",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_showcase_tsc_smoke.py": {
+    "mtime": 1786386784.2654788,
+    "ast_hash": "6ecc2105022a59b6ef04b955682abdca",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_specular_wash.py": {
+    "mtime": 1786386784.2655385,
+    "ast_hash": "2de1d1ad4fae39cfae64aab3c135da0f",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_structure_gates.py": {
+    "mtime": 1786386784.2656927,
+    "ast_hash": "b3bdc25116ab6e09180ccf2a4cce8425",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_subdivision.py": {
+    "mtime": 1786386784.2657995,
+    "ast_hash": "abe6cd53ba26d8d4efe293829ae14deb",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_tessellation_tiers.py": {
+    "mtime": 1786386784.2659647,
+    "ast_hash": "6fb23dcb6c3d34ad11366f259833c1d2",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_tier1_diagnostics.py": {
+    "mtime": 1786386784.2661033,
+    "ast_hash": "1525c2124da1b64057dc8ae20fd1e587",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_turntable_gate.py": {
+    "mtime": 1786386784.2662728,
+    "ast_hash": "275a8705b5fb23a010bc6f66f46fb5b5",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_uv_unwrap.py": {
+    "mtime": 1786386784.2664287,
+    "ast_hash": "0848b40af4c6d1b5224c5d0f862b02ae",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_validate_rig_payload.py": {
+    "mtime": 1786386784.266495,
+    "ast_hash": "5d460bb92f86c1678d95b73dd58ddc7a",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_visual_hull.py": {
+    "mtime": 1786386784.266669,
+    "ast_hash": "076db9e49a4dc1f17d74d130f66f2a3a",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_visual_hull_carve.py": {
+    "mtime": 1786386784.2668297,
+    "ast_hash": "e70e06ebb3651f911ed168888ac4d035",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_vlm_gate.py": {
+    "mtime": 1786386784.2669628,
+    "ast_hash": "cf0f1b2f6a62606f2677c32d0b53c1f0",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_workflow_state.py": {
+    "mtime": 1786386784.2671442,
+    "ast_hash": "194cca478ff005fc145c429d0093e2d0",
+    "semantic_hash": ""
+  },
+  "forge/tests/test_ws6_docs.py": {
+    "mtime": 1786386784.2672777,
+    "ast_hash": "0903a3b3cc881ba74c0aca7ccc0a88e0",
+    "semantic_hash": ""
+  },
+  "integrations/mesh3d/generate_reference_mesh.py": {
+    "mtime": 1786386784.272036,
+    "ast_hash": "685de498654a3b67d6f89a8d6a2ab88c",
+    "semantic_hash": ""
+  },
+  "integrations/vision/pyproject.toml": {
+    "mtime": 1786386784.2722473,
+    "ast_hash": "c28422631d6c1a0390b1e35c3a3f88e0",
+    "semantic_hash": ""
+  },
+  "integrations/vision/reference_vision.py": {
+    "mtime": 1786386784.2736695,
+    "ast_hash": "a33a71d4b9db06fd7e01221db91bae01",
+    "semantic_hash": ""
+  },
+  "scripts/capture_threejs_playwright.py": {
+    "mtime": 1786386784.2742062,
+    "ast_hash": "06679a48c856c59802244da1ba5cae01",
+    "semantic_hash": ""
+  },
+  "scripts/character_audit.sh": {
+    "mtime": 1786386784.274286,
+    "ast_hash": "52f003fa7b37332e9ef84bc7eaaaef2a",
+    "semantic_hash": ""
+  },
+  "scripts/issue_triage.py": {
+    "mtime": 1786386784.2744474,
+    "ast_hash": "b9bf923e69d28b37216b6c3b21156259",
+    "semantic_hash": ""
+  },
+  "scripts/release_metadata.py": {
+    "mtime": 1786386784.2745855,
+    "ast_hash": "ff7340cb5d3e474476be653c26a0aa6f",
+    "semantic_hash": ""
+  },
+  ".github/FUNDING.yml": {
+    "mtime": 1786386784.2324522,
+    "ast_hash": "99444efc53cac0b07bc185b3a0e61746",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/bug_report.yml": {
+    "mtime": 1786386784.232612,
+    "ast_hash": "ad9ef4ca04168fac33de7cefb5061c81",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/contribution_intent.yml": {
+    "mtime": 1786386784.232709,
+    "ast_hash": "f8249085d4878cabbc49289cea75c0fa",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/feature_request.yml": {
+    "mtime": 1786386784.2328155,
+    "ast_hash": "cdcd3a5891a88a017717a2509adebea6",
+    "semantic_hash": ""
+  },
+  ".github/pull_request_template.md": {
+    "mtime": 1786386784.2329254,
+    "ast_hash": "4cbfe6add1161915fc650a2d19cf7262",
+    "semantic_hash": ""
+  },
+  ".github/release.yml": {
+    "mtime": 1786386784.2330828,
+    "ast_hash": "2cc465d26bf89917723a9ef3069200a1",
+    "semantic_hash": ""
+  },
+  ".github/workflows/beta-release.yml": {
+    "mtime": 1786386784.2332506,
+    "ast_hash": "a700c1e7b56cb0b6080855ca4edb0a2d",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1786386784.2333393,
+    "ast_hash": "b343f49140fee0022619d660594b795d",
+    "semantic_hash": ""
+  },
+  ".github/workflows/issue-triage.yml": {
+    "mtime": 1786386784.233425,
+    "ast_hash": "626bf39c7789b849f028d900b095eae9",
+    "semantic_hash": ""
+  },
+  ".github/workflows/pr-issue-close-policy.yml": {
+    "mtime": 1786386784.2335129,
+    "ast_hash": "2cfab78189433d41393d34c654181efb",
+    "semantic_hash": ""
+  },
+  ".github/workflows/release.yml": {
+    "mtime": 1786386784.2336051,
+    "ast_hash": "af44be175a738131c40c7851ab5b8eda",
+    "semantic_hash": ""
+  },
+  "CHANGELOG.md": {
+    "mtime": 1786386784.2339644,
+    "ast_hash": "f0aea51b2af8c3586a576e0477cca10d",
+    "semantic_hash": ""
+  },
+  "CINEMATIC-HERO-STACK.md": {
+    "mtime": 1786388268.8842244,
+    "ast_hash": "ae9ef54725e284eb7f628778987e6b09",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1786386784.2340522,
+    "ast_hash": "e9348b0be249ddde2382f4178f571e77",
+    "semantic_hash": ""
+  },
+  "CONTRIBUTING.md": {
+    "mtime": 1786386784.2342339,
+    "ast_hash": "b6ab038bc628840ebaf17f707bd28075",
+    "semantic_hash": ""
+  },
+  "ORG-WIRING.md": {
+    "mtime": 1786388276.1517043,
+    "ast_hash": "abf81c376c46bb0e298fac2ea9f56c0e",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1786386784.2346032,
+    "ast_hash": "1c6dfa12428fe1d8ef7fefa582cd0d2a",
+    "semantic_hash": ""
+  },
+  "ROADMAP.md": {
+    "mtime": 1786386784.2348626,
+    "ast_hash": "29dac56cf6408a18ca3bfb966e22d534",
+    "semantic_hash": ""
+  },
+  "SKILL.md": {
+    "mtime": 1786386784.2350285,
+    "ast_hash": "19d5454c55b95a1fdd36b60bccba4452",
+    "semantic_hash": ""
+  },
+  "docs/ARCHITECTURE.md": {
+    "mtime": 1786386784.235687,
+    "ast_hash": "9284f163fea0b38e8781fe9233237c86",
+    "semantic_hash": ""
+  },
+  "docs/RESEARCH_TRELLIS2_TO_IMG2THREEJS.md": {
+    "mtime": 1786386784.2358334,
+    "ast_hash": "eee5dccf4f3138b4c87b692f64427158",
+    "semantic_hash": ""
+  },
+  "docs/TOKEN_COST.md": {
+    "mtime": 1786386784.2359262,
+    "ast_hash": "888c62d963614f66cc02161a8b351637",
+    "semantic_hash": ""
+  },
+  "docs/UPGRADE_PLAN.md": {
+    "mtime": 1786386784.2360744,
+    "ast_hash": "4b1be3a722a0a323dfc6a8a062bda31f",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/gloves.md": {
+    "mtime": 1786386784.236366,
+    "ast_hash": "ce162c3fd74e073679d6cf10124565c7",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/heavy.md": {
+    "mtime": 1786386784.236604,
+    "ast_hash": "08d12fd78ceb4c7b514a47ec429fa44e",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/knives.md": {
+    "mtime": 1786386784.2367136,
+    "ast_hash": "6c0aadc98cc8526e1710260e61eddb92",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/pistols.md": {
+    "mtime": 1786386784.2369628,
+    "ast_hash": "83dd869827d2f46592087afd20476845",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/rifles.md": {
+    "mtime": 1786386784.2372112,
+    "ast_hash": "71c1e8af3def28e9d594048d6ee17a61",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/smgs.md": {
+    "mtime": 1786386784.2374735,
+    "ast_hash": "e255ebc3508e5929ce569ba576d7c9d7",
+    "semantic_hash": ""
+  },
+  "docs/cs2-anatomy/snipers.md": {
+    "mtime": 1786386784.237736,
+    "ast_hash": "8b73908ff4e9255920e698156853eaf4",
+    "semantic_hash": ""
+  },
+  "docs/cs2/3D_Technical_Reference.md": {
+    "mtime": 1786386784.23815,
+    "ast_hash": "3cf0c9f4e9ca91d651673ac5ebf07aeb",
+    "semantic_hash": ""
+  },
+  "docs/cs2/3D_Vocabulary_CS2_Dictionary.md": {
+    "mtime": 1786386784.2385085,
+    "ast_hash": "891be9af4d9fb71299965670bfba1f93",
+    "semantic_hash": ""
+  },
+  "docs/cs2/distill.md": {
+    "mtime": 1786386784.238747,
+    "ast_hash": "34c99b28f7f8b48a7dc4d0c1d7d027ec",
+    "semantic_hash": ""
+  },
+  "docs/cs2/review-gates.md": {
+    "mtime": 1786386784.2388465,
+    "ast_hash": "ff2398419a321089433b232ac34f31f7",
+    "semantic_hash": ""
+  },
+  "docs/integrations/reference_fidelity_tooling.md": {
+    "mtime": 1786386784.2391164,
+    "ast_hash": "b05785c84c0108a66eb113f4973d2aec",
+    "semantic_hash": ""
+  },
+  "docs/issue-triage.md": {
+    "mtime": 1786386784.2392094,
+    "ast_hash": "773bdf851926b455f8acff493cfbf1ae",
+    "semantic_hash": ""
+  },
+  "docs/materials/IMAGE_MATERIAL_ANALYSIS.md": {
+    "mtime": 1786386784.2394788,
+    "ast_hash": "f0b8b4852f1a7cc46177e7655bc93d9c",
+    "semantic_hash": ""
+  },
+  "docs/materials/README.md": {
+    "mtime": 1786386784.2396514,
+    "ast_hash": "95e23d95ce2a67db239b995f77d2348b",
+    "semantic_hash": ""
+  },
+  "docs/materials/THREEJS_MATERIAL_REFERENCE.md": {
+    "mtime": 1786386784.2398658,
+    "ast_hash": "19ec2d4565e13ed6e4c245fe3c8e3cb5",
+    "semantic_hash": ""
+  },
+  "docs/specs/vocabulary/README.md": {
+    "mtime": 1786386784.2408912,
+    "ast_hash": "0cc7124ecfdf2ca57c8fe57b6270ee53",
+    "semantic_hash": ""
+  },
+  "forge/requirements.txt": {
+    "mtime": 1786386784.2442243,
+    "ast_hash": "812d5b9c3f42944bba43b43def3553af",
+    "semantic_hash": ""
+  },
+  "forge/stage5_rig/NOTES.md": {
+    "mtime": 1786386784.256772,
+    "ast_hash": "9886a0ecf418b1b7dfe3eda01df8ee1a",
+    "semantic_hash": ""
+  },
+  "grimoire/character/head_construction.md": {
+    "mtime": 1786386784.2682865,
+    "ast_hash": "0488330a19c989cd883a6286a4dc2748",
+    "semantic_hash": ""
+  },
+  "grimoire/character/likeness_maximization.md": {
+    "mtime": 1786386784.2684295,
+    "ast_hash": "6ee7f081e0702fba81b64e93bad7545a",
+    "semantic_hash": ""
+  },
+  "grimoire/character/reconstruction.md": {
+    "mtime": 1786386784.2684898,
+    "ast_hash": "0f7315e86eae98583af63cffeea2c0f8",
+    "semantic_hash": ""
+  },
+  "grimoire/character/structure_decomposition.md": {
+    "mtime": 1786386784.268677,
+    "ast_hash": "df9714d59db8d3ae9e4e687be3e299a3",
+    "semantic_hash": ""
+  },
+  "grimoire/character/stylized_hair_threejs.md": {
+    "mtime": 1786386784.2688613,
+    "ast_hash": "1e1882c797b4cacabfff327b6c128622",
+    "semantic_hash": ""
+  },
+  "grimoire/feedback/render_capture.md": {
+    "mtime": 1786386784.2691114,
+    "ast_hash": "f0f2f3a9ba245ae825d2984f4fcf7630",
+    "semantic_hash": ""
+  },
+  "grimoire/feedback/shading_realism.md": {
+    "mtime": 1786386784.269277,
+    "ast_hash": "91e62e77df84d2ba217faccfb1abe77a",
+    "semantic_hash": ""
+  },
+  "grimoire/glossary/3d_vocabulary.md": {
+    "mtime": 1786386784.2694476,
+    "ast_hash": "6958dd82bdd625b7831436cf4b5f994c",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/cs2_intake_contract.md": {
+    "mtime": 1786386784.2696192,
+    "ast_hash": "4b5059d16101f1ed8099d6adb90bc4d6",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/cs2_technical_analysis.md": {
+    "mtime": 1786386784.2697513,
+    "ast_hash": "c1b527d2a3116d3f708f4004242248d8",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/cs2_texture_acquisition.md": {
+    "mtime": 1786386784.2698882,
+    "ast_hash": "431159ac9c5c69f4ebc93408da220d57",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/detail_inventory.md": {
+    "mtime": 1786386784.2700353,
+    "ast_hash": "0b33fe5d84cc8505ea0882819d9e54e8",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/image_analysis.md": {
+    "mtime": 1786386784.2701926,
+    "ast_hash": "7f6ba86deee9b6881f374ccb08d92102",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/local_spec_search.md": {
+    "mtime": 1786386784.2703195,
+    "ast_hash": "f83921d1d765e87a1db700801b4e2977",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/quality_contract.md": {
+    "mtime": 1786386784.270491,
+    "ast_hash": "c0f0ba2d97273a019dd543b03bee2f6c",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/surface_topology.md": {
+    "mtime": 1786386784.270642,
+    "ast_hash": "b6ffa21e3e057ed20d31111767cf9dea",
+    "semantic_hash": ""
+  },
+  "grimoire/intake/validation_rubric.md": {
+    "mtime": 1786386784.270784,
+    "ast_hash": "10ae4cd51139bc538d5972795b8331a3",
+    "semantic_hash": ""
+  },
+  "grimoire/readiness/action_rigging.md": {
+    "mtime": 1786386784.2708921,
+    "ast_hash": "c296b9083a497649e140a47817a2c7b7",
+    "semantic_hash": ""
+  },
+  "grimoire/readiness/joint_attachment.md": {
+    "mtime": 1786386784.270956,
+    "ast_hash": "f0c0ca02a80fa3818a597cdb2749450b",
+    "semantic_hash": ""
+  },
+  "grimoire/readiness/procedural_rigging_contract.md": {
+    "mtime": 1786386784.271018,
+    "ast_hash": "f19d6344e65581bfc156d803b8fb56ed",
+    "semantic_hash": ""
+  },
+  "grimoire/readiness/standard_character_pipeline.md": {
+    "mtime": 1786386784.271157,
+    "ast_hash": "b2c36ffc7ddb9320f1e153aba4c6e1ee",
+    "semantic_hash": ""
+  },
+  "grimoire/review/divine_eye_microscope.md": {
+    "mtime": 1786386784.2713645,
+    "ast_hash": "13e574e46467e9e1682dc87ee2ad9fe5",
+    "semantic_hash": ""
+  },
+  "grimoire/review/gates_reference.md": {
+    "mtime": 1786386784.2715158,
+    "ast_hash": "763e549fe56f23637b450841a2168160",
+    "semantic_hash": ""
+  },
+  "grimoire/review/self_correction.md": {
+    "mtime": 1786386784.2716594,
+    "ast_hash": "4430dfb9c2262565590a45005876af57",
+    "semantic_hash": ""
+  },
+  "grimoire/scripts.md": {
+    "mtime": 1786386784.2717695,
+    "ast_hash": "38908b067ad8665afdfbae6e5f38cca3",
+    "semantic_hash": ""
+  },
+  "integrations/vision/README.md": {
+    "mtime": 1786386784.2721927,
+    "ast_hash": "dd5cacad591534f142a9a48f49bf18ed",
+    "semantic_hash": ""
+  },
+  "skills/cs2-knife.md": {
+    "mtime": 1786386784.274756,
+    "ast_hash": "37b4be5a4f2b8a31e6f3cccec835d710",
+    "semantic_hash": ""
+  },
+  "skills/cs2-pistol.md": {
+    "mtime": 1786386784.2748218,
+    "ast_hash": "d39750bfa731e9275c222823ee1e5fb5",
+    "semantic_hash": ""
+  },
+  "skills/cs2_technical_analysis.md": {
+    "mtime": 1786386784.2748902,
+    "ast_hash": "e7e37b2bfb7b2223b6e3b6c41d79a654",
+    "semantic_hash": ""
+  },
+  "skills/generic-extract-skill.md": {
+    "mtime": 1786386784.2749488,
+    "ast_hash": "686c3c974d8b3fee1a2d1220e25a401a",
+    "semantic_hash": ""
+  },
+  "assets/logo.svg": {
+    "mtime": 1786386784.2351758,
+    "ast_hash": "2bda7478606bde2bec307ab8fd9d8daf",
+    "semantic_hash": ""
+  },
+  "assets/sponsors/atlas-cloud-logomark-black.svg": {
+    "mtime": 1786386784.2353284,
+    "ast_hash": "39db65c7ee98209c2c8bd5fbd84dbe86",
+    "semantic_hash": ""
+  },
+  "assets/sponsors/atlas-cloud-logomark-white.svg": {
+    "mtime": 1786386784.235418,
+    "ast_hash": "1296877fcbab69e27b01422931ac8875",
+    "semantic_hash": ""
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "processed_at": "2025-12-22T02:48:27.325247",
+  "total_analyzed": 2,
+  "total_errors": 1,
+  "total_skipped": 12,
+  "model": "gemini-2.5-flash",
+  "videos": [
+    {
+      "title": "The Best Online Course Platforms Compared (2025)",
+      "category": "Playlists & Full Courses",
+      "url": "https://www.youtube.com/watch?v=vwqw6l6VEnk"
+    },
+    {
+      "title": "Full 18-Minute Cold Calling Course (For SaaS Sales)",
+      "category": "Playlists & Full Courses",
+      "url": "https://www.youtube.com/watch?v=m2z1tgfv8Kc"
+    }
+  ],
+  "errors": [
+    {
+      "title": "The Ultimate Sales Training for 2025 [Full Course]",
+      "url": "https://www.youtube.com/watch?v=StVqS0jD7Ls",
+      "error": "400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'The input token count exceeds the maximum number of tokens allowed 1048576.', 'status': 'INVALID_ARGUMENT'}}"
+    }
+  ]
+}

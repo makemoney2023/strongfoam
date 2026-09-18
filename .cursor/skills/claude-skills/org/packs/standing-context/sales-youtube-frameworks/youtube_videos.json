@@ -1,0 +1,611 @@
+{
+  "metadata": {
+    "title": "Direct Sales Training Videos on YouTube",
+    "description": "A comprehensive collection of 60 curated YouTube videos for direct sales, network marketing, and sales training.",
+    "source": "Firecrawl Deep Research API",
+    "generated_date": "2025-12-21",
+    "total_videos": 60
+  },
+  "categories": [
+    {
+      "id": "playlists-courses",
+      "name": "Playlists & Full Courses",
+      "description": "Comprehensive training playlists and full-length courses",
+      "video_count": 15,
+      "videos": [
+        {
+          "id": 1,
+          "title": "Sales Training Videos",
+          "url": "https://www.youtube.com/playlist?list=PLn4ORmo_1jEiRDueWaORWVi-bcTrREuVr",
+          "type": "playlist",
+          "summary": "42 Minutes of Sales Training That Will Explode Your Sales in 2026. Jeremy Miner. How to Double Your Closing Rate in Seven Days.",
+          "creator": "Jeremy Miner"
+        },
+        {
+          "id": 2,
+          "title": "Direct Sales Training",
+          "url": "https://www.youtube.com/playlist?list=PL21st8YcsEPljgXAL9G-tha_xa6ccKM6x",
+          "type": "playlist",
+          "summary": "Training videos specifically created for direct selling and network marketing. Direct Sales video demonstration training.",
+          "creator": "Lisa Robbin Young"
+        },
+        {
+          "id": 3,
+          "title": "The Ultimate Sales Training for 2025 [Full Course]",
+          "url": "https://www.youtube.com/watch?v=StVqS0jD7Ls",
+          "type": "video",
+          "summary": "Full course covering everything you need to know for sales success in 2025. Motivational content with practical techniques."
+        },
+        {
+          "id": 4,
+          "title": "Network Marketing Basic Training",
+          "url": "https://www.youtube.com/playlist?list=PLHgJB5oZLeCQw1tSUHqifOs-cCf1aDM58",
+          "type": "playlist",
+          "summary": "How to Deal with Excuses in Network Marketing. The #1 Hidden Objection that Keeps People Frozen. Time management strategies."
+        },
+        {
+          "id": 5,
+          "title": "Network Marketing Mastery Course",
+          "url": "https://www.youtube.com/playlist?list=PLQt-lSCLwQBlNGXjXqjYUYSeODC52H4UK",
+          "type": "playlist",
+          "summary": "MLM Mastery Course covering lessons from Welcome to Your Successful Future to Getting Started with the Power of One."
+        },
+        {
+          "id": 6,
+          "title": "MLM BASIC TRAINING",
+          "url": "https://www.youtube.com/playlist?list=PLinMOifGM2PbQvUkL_WbMa9Txo3b6GBjN",
+          "type": "playlist",
+          "summary": "Network Marketing Business Basic Training Program covering fundamentals of MLM business building."
+        },
+        {
+          "id": 7,
+          "title": "Network Marketing MLM Training",
+          "url": "https://www.youtube.com/playlist?list=PLudf0wI4b4GvLYh1zGOOeP2S0cyJIqfnD",
+          "type": "playlist",
+          "summary": "How To Recruit 5 Reps Every Week. Advanced Prospecting Tips. Building a Self Sustaining Team in Network Marketing."
+        },
+        {
+          "id": 8,
+          "title": "The Best Online Course Platforms Compared (2025)",
+          "url": "https://www.youtube.com/watch?v=vwqw6l6VEnk",
+          "type": "video",
+          "summary": "Comparison of online course platforms for scaling your business."
+        },
+        {
+          "id": 9,
+          "title": "Objection Handling",
+          "url": "https://www.youtube.com/playlist?list=PLb7sO6xLmYxLVUcKtDtPzuIR0Gr7rXD-J",
+          "type": "playlist",
+          "summary": "Overcome Objections Using the Most Powerful Word in Sales. Understanding Intent. Delivering Satisfaction."
+        },
+        {
+          "id": 10,
+          "title": "How To Handle Objections In Sales",
+          "url": "https://www.youtube.com/playlist?list=PLHm1pyF7GOrSXcPgU9RAsaiTLEG7yXZ76",
+          "type": "playlist",
+          "summary": "Step by step thought process to handle objections from clients effectively."
+        },
+        {
+          "id": 11,
+          "title": "Full 18-Minute Cold Calling Course (For SaaS Sales)",
+          "url": "https://www.youtube.com/watch?v=m2z1tgfv8Kc",
+          "type": "video",
+          "summary": "Jason Bay from Outbound Squad gives sales training on exactly how to cold call for B2B sales.",
+          "creator": "Jason Bay"
+        },
+        {
+          "id": 12,
+          "title": "Cold Calling Series",
+          "url": "https://www.youtube.com/playlist?list=PLUgefmy913wGM8ywrvrQytE1gQsvCZjat",
+          "type": "playlist",
+          "summary": "Stop pitching in a cold call. Why Cold Calling Gives You Anxiety. The Cure for cold call reluctance."
+        },
+        {
+          "id": 13,
+          "title": "Jordan Belfort - Sales Class",
+          "url": "https://www.youtube.com/playlist?list=PLJg1Qt72v-K1_4dRtbCvuxX8HARczDEss",
+          "type": "playlist",
+          "summary": "The Basics of Transferring Certainty. Getting Through the Gatekeeper. Free Sales Training Program.",
+          "creator": "Jordan Belfort"
+        },
+        {
+          "id": 14,
+          "title": "Sales Success Training",
+          "url": "https://www.youtube.com/playlist?list=PL117ADA8336D83E5F",
+          "type": "playlist",
+          "summary": "5 Ways to Maximize End-of-Year Sales. 3 Strategies to Increase Customer Satisfaction. Cold Calling Tips.",
+          "creator": "Brian Tracy"
+        },
+        {
+          "id": 15,
+          "title": "Sales Psychology",
+          "url": "https://www.youtube.com/playlist?list=PLZ20p_mXvgkU8muH71TGEYqQxfDfAXbt7",
+          "type": "playlist",
+          "summary": "Become a strong communicator and close more sales. Learn sales psychology and body language skills."
+        }
+      ]
+    },
+    {
+      "id": "famous-trainers",
+      "name": "Famous Sales Trainers",
+      "description": "Content from renowned sales experts and motivational speakers",
+      "video_count": 10,
+      "videos": [
+        {
+          "id": 16,
+          "title": "The BEST Tips for Professional Sales People - Grant Cardone",
+          "url": "https://www.youtube.com/watch?v=RXreDCyZe64",
+          "type": "video",
+          "summary": "Grant Cardone shares his best tips for professional salespeople.",
+          "creator": "Grant Cardone"
+        },
+        {
+          "id": 17,
+          "title": "Grant Cardone Channel",
+          "url": "https://www.youtube.com/user/GrantCardone",
+          "type": "channel",
+          "summary": "The Greatest Salesman in the World. Actual Live Sales Call Training. The Best Financial Advice.",
+          "creator": "Grant Cardone"
+        },
+        {
+          "id": 18,
+          "title": "Grant Cardone Coaching His Sales Team LIVE!",
+          "url": "https://www.youtube.com/watch?v=XEdsdikkVCo&vl=en",
+          "type": "video",
+          "summary": "Live coaching session with top sales performers doing role play exercises.",
+          "creator": "Grant Cardone"
+        },
+        {
+          "id": 19,
+          "title": "Mastering Sales | Jordan Belfort Part One",
+          "url": "https://www.youtube.com/watch?v=G_Dw1wHtfE0",
+          "type": "video",
+          "summary": "Unlock Success with Jordan Belfort: The Real Wolf of Wall Street! Renowned sales expert shares his techniques.",
+          "creator": "Jordan Belfort"
+        },
+        {
+          "id": 20,
+          "title": "Jordan Belfort Reveals How To Sell Anything To Anyone At Anytime",
+          "url": "https://www.youtube.com/watch?v=3ZHQFacAzRU",
+          "type": "video",
+          "summary": "The REAL Wolf Of Wall Street talks about the mindset you have to have to sell anything to anyone at anytime.",
+          "creator": "Jordan Belfort"
+        },
+        {
+          "id": 21,
+          "title": "How to Persist, Be Patient and Succeed | Jordan Belfort | Goalcast",
+          "url": "https://www.youtube.com/watch?v=PtJXC4EvLTM",
+          "type": "video",
+          "summary": "Jordan Belfort on what it takes to reach success through persistence and patience.",
+          "creator": "Jordan Belfort"
+        },
+        {
+          "id": 22,
+          "title": "Brian Tracy: Self Confidence is Key | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=grSnCHhKhLE",
+          "type": "video",
+          "summary": "Building self confidence for improved sales game and overall productivity.",
+          "creator": "Brian Tracy"
+        },
+        {
+          "id": 23,
+          "title": "Advanced Selling In Action, Brian Tracy",
+          "url": "https://www.youtube.com/watch?v=A_faq9svxXE",
+          "type": "video",
+          "summary": "Take Action for Greater Sales Success. Maintaining and building upon a successful sales career.",
+          "creator": "Brian Tracy"
+        },
+        {
+          "id": 24,
+          "title": "Brian Tracy Channel",
+          "url": "https://www.youtube.com/channel/UCc11676iKpKrJMYqNYHqNig",
+          "type": "channel",
+          "summary": "Sales Success Training. Upward Communication. The Power of Storytelling in Business. Tips for Selling.",
+          "creator": "Brian Tracy"
+        },
+        {
+          "id": 25,
+          "title": "Brian Tracy on Sales - Nordic Business Forum 2012",
+          "url": "https://www.youtube.com/watch?v=Ph6H915jijM",
+          "type": "video",
+          "summary": "Brian Tracy's comprehensive training on sales at Nordic Business Forum 2012.",
+          "creator": "Brian Tracy"
+        }
+      ]
+    },
+    {
+      "id": "sales-psychology",
+      "name": "Sales Psychology & Building Rapport",
+      "description": "Understanding buyer psychology and building trust with prospects",
+      "video_count": 8,
+      "videos": [
+        {
+          "id": 26,
+          "title": "Building Rapport with ANYONE in Sales",
+          "url": "https://www.youtube.com/watch?v=X3WyjImUQQ4",
+          "type": "video",
+          "summary": "Tips for Creating Rapport in Sales with any prospect."
+        },
+        {
+          "id": 27,
+          "title": "How To Build Rapport With Anyone (Full Masterclass)",
+          "url": "https://www.youtube.com/watch?v=vkzlRvsMMNQ",
+          "type": "video",
+          "summary": "Complete masterclass on building rapport. Resources for joining the Sales Revolution."
+        },
+        {
+          "id": 28,
+          "title": "How to Gain Trust & Build Rapport Faster | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=yDcfvjAsm8I",
+          "type": "video",
+          "summary": "Quick tips for gaining trust and building rapport faster with prospects.",
+          "creator": "Jeff Shore"
+        },
+        {
+          "id": 29,
+          "title": "Sales Training // How to Build Rapport with ANYONE // Andy Elliott",
+          "url": "https://www.youtube.com/watch?v=r3st2GFOO_A",
+          "type": "video",
+          "summary": "Sales tips that give you an edge that most salespeople will never have.",
+          "creator": "Andy Elliott"
+        },
+        {
+          "id": 30,
+          "title": "The Psychology of Selling: 13 Steps to Selling that Work",
+          "url": "https://www.youtube.com/watch?v=p-nQzB51lsE",
+          "type": "video",
+          "summary": "The Psychology of selling with 13 actionable steps. Modern sales training approach."
+        },
+        {
+          "id": 31,
+          "title": "The Psychology of Selling - Rene Rodriguez",
+          "url": "https://www.youtube.com/watch?v=7Tz99gfY6nQ",
+          "type": "video",
+          "summary": "6 Powerful Psychological principles for sales success.",
+          "creator": "Rene Rodriguez"
+        },
+        {
+          "id": 32,
+          "title": "The Latest Psychology Of Selling: All Of The New Data 2023",
+          "url": "https://www.youtube.com/watch?v=prMsgaVo3aQ",
+          "type": "video",
+          "summary": "Sales psychology insights to become more successful when engaging prospects.",
+          "creator": "Marc Wayshak"
+        },
+        {
+          "id": 33,
+          "title": "The most powerful sales psychology framework?",
+          "url": "https://www.youtube.com/watch?v=5npmlzv8Y1g",
+          "type": "video",
+          "summary": "Tech Sales Academy framework for understanding sales psychology."
+        }
+      ]
+    },
+    {
+      "id": "follow-up",
+      "name": "Follow-Up Strategies",
+      "description": "Effective techniques for following up with prospects and closing deals",
+      "video_count": 8,
+      "videos": [
+        {
+          "id": 34,
+          "title": "Stop Doing Boring Follow-Up (Do This Instead) | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=2vLajlEEu2Q",
+          "type": "video",
+          "summary": "Alternative approaches to boring follow-up that get buyer attention.",
+          "creator": "Jeff Shore"
+        },
+        {
+          "id": 35,
+          "title": "Personalize Your Sales Follow-Up | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=t37Mqi5r_3c",
+          "type": "video",
+          "summary": "Building strong relationships through the art of personalized follow-up.",
+          "creator": "Jeff Shore"
+        },
+        {
+          "id": 36,
+          "title": "The Sales Follow-Up Blueprint | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=fRbGYknaN74",
+          "type": "video",
+          "summary": "The ultimate sales follow-up blueprint that top sales professionals use to ensure success.",
+          "creator": "Jeff Shore"
+        },
+        {
+          "id": 37,
+          "title": "How to Record a Follow-Up Video that Gets Remembered",
+          "url": "https://www.youtube.com/watch?v=ZELzODwFvUI",
+          "type": "video",
+          "summary": "Creating memorable follow-up videos. Old school sales strategies that still work."
+        },
+        {
+          "id": 38,
+          "title": "Sales Pros Pick the Right Follow Up Tool for the Job",
+          "url": "https://www.youtube.com/watch?v=Nuj6kyufmss",
+          "type": "video",
+          "summary": "Choosing the right communication method for follow-up. Make or break the sale."
+        },
+        {
+          "id": 39,
+          "title": "How to Follow Up with Prospects (3 Steps Follow Up Sales Strategy)",
+          "url": "https://www.youtube.com/watch?v=U8Bi5XP-yi4",
+          "type": "video",
+          "summary": "Three steps to make follow-up more effective and reduce the number of follow-ups needed."
+        },
+        {
+          "id": 40,
+          "title": "The Best Ways to Follow Up in Sales | Shawn Casemore",
+          "url": "https://www.youtube.com/watch?v=my0DsvSLYkk",
+          "type": "video",
+          "summary": "Designing creative follow ups that get your prospects attention.",
+          "creator": "Shawn Casemore"
+        },
+        {
+          "id": 41,
+          "title": "Master the Art of Follow-Up",
+          "url": "https://www.youtube.com/watch?v=A4TxWIY3bMM",
+          "type": "video",
+          "summary": "How to Follow Up After a Sales Meeting. Proven Field Sales Techniques, Tips & Secrets."
+        }
+      ]
+    },
+    {
+      "id": "direct-sales",
+      "name": "Direct Sales & Network Marketing",
+      "description": "Specific training for direct sellers and network marketers",
+      "video_count": 6,
+      "videos": [
+        {
+          "id": 42,
+          "title": "The Secret to Direct Sales Success (It's not selling!)",
+          "url": "https://www.youtube.com/watch?v=quAd1lzUgA0",
+          "type": "video",
+          "summary": "Modern Direct Seller Academy training on achieving success without traditional selling techniques.",
+          "creator": "Modern Direct Seller"
+        },
+        {
+          "id": 43,
+          "title": "Direct Selling Tips and Tricks",
+          "url": "https://www.youtube.com/watch?v=rzdGWfpuOq4",
+          "type": "video",
+          "summary": "Training videos to take your direct selling journey to the next level. Weekly training and expert insights."
+        },
+        {
+          "id": 44,
+          "title": "Network Marketing Training For Beginners",
+          "url": "https://www.youtube.com/watch?v=5PMNesJuFVE",
+          "type": "video",
+          "summary": "Richard Matharoo, a seasoned network marketing expert, covers fundamentals for beginners.",
+          "creator": "Richard Matharoo"
+        },
+        {
+          "id": 45,
+          "title": "The Best Network Marketing Scripts - Frazer Brookes",
+          "url": "https://www.youtube.com/watch?v=KLGmFBIHfm8",
+          "type": "video",
+          "summary": "Proven scripts for network marketing conversations.",
+          "creator": "Frazer Brookes"
+        },
+        {
+          "id": 46,
+          "title": "Network Marketing Mindset Training",
+          "url": "https://www.youtube.com/watch?v=eHJSmqvR4nw",
+          "type": "video",
+          "summary": "Tools to unlock your full potential in network marketing. Mindset training for success."
+        },
+        {
+          "id": 47,
+          "title": "Network Marketing Explained",
+          "url": "https://www.youtube.com/watch?v=RzOgum0ybNM",
+          "type": "video",
+          "summary": "Fundamentals of network marketing. How To Use AI For Network Marketing."
+        }
+      ]
+    },
+    {
+      "id": "closing",
+      "name": "Closing Techniques",
+      "description": "Methods and strategies for closing sales effectively",
+      "video_count": 5,
+      "videos": [
+        {
+          "id": 48,
+          "title": "The Most POWERFUL Sales Closing Technique of All-Time",
+          "url": "https://www.youtube.com/watch?v=niLA7dJNM90",
+          "type": "video",
+          "summary": "System that gets you 1+ meeting/day. The Cold Call System for closing."
+        },
+        {
+          "id": 49,
+          "title": "Best Sales Strategies on How To Close More Sales",
+          "url": "https://www.youtube.com/watch?v=cMKmIU5Scxc",
+          "type": "video",
+          "summary": "Monetize Your Skills Online & Build Your Personal Brand through better closing."
+        },
+        {
+          "id": 50,
+          "title": "Stop Using These 3 Bad Closing Techniques | 5 Minute Sales Training",
+          "url": "https://www.youtube.com/watch?v=HLlHwgk06TI",
+          "type": "video",
+          "summary": "Common closing mistakes to avoid and what to do instead.",
+          "creator": "Jeff Shore"
+        },
+        {
+          "id": 51,
+          "title": "Sales 101: A Sales Beginner's Guide to Closing the Deal",
+          "url": "https://www.youtube.com/watch?v=ZfeucFcUP0w",
+          "type": "video",
+          "summary": "The 5-Step Formula to Closing More Deals without Price Pushback or Think-It-Overs."
+        },
+        {
+          "id": 52,
+          "title": "CLOSING Steps (Shockingly Simple - DON'T Overcomplicate This!)",
+          "url": "https://www.youtube.com/watch?v=VoUJ848UpWA",
+          "type": "video",
+          "summary": "Simplified closing process. Handle Sales Objections And Close Deals with Door-To-Door Tips."
+        }
+      ]
+    },
+    {
+      "id": "objection-handling",
+      "name": "Objection Handling",
+      "description": "Techniques for overcoming prospect objections",
+      "video_count": 3,
+      "videos": [
+        {
+          "id": 53,
+          "title": "9 Minute Training To Destroy Any Sales Objection",
+          "url": "https://www.youtube.com/watch?v=mDWUpuumAuo",
+          "type": "video",
+          "summary": "Jeremy Miner reveals how to reframe objections and close more deals. Break down mental barriers.",
+          "creator": "Jeremy Miner"
+        },
+        {
+          "id": 54,
+          "title": "Dealing with Objections",
+          "url": "https://www.youtube.com/watch?v=ylH5emU7JRA",
+          "type": "video",
+          "summary": "Step By Step Objection Handling techniques from Andy Elliott.",
+          "creator": "Andy Elliott"
+        },
+        {
+          "id": 55,
+          "title": "The Secret to Handling Any Sales Objection (They'll Never See It Coming)",
+          "url": "https://www.youtube.com/watch?v=-_sTrDwoZyM",
+          "type": "video",
+          "summary": "Exclusive techniques for handling any sales objection effectively."
+        }
+      ]
+    },
+    {
+      "id": "cold-calling",
+      "name": "Cold Calling",
+      "description": "Techniques for effective cold calling and prospecting",
+      "video_count": 3,
+      "videos": [
+        {
+          "id": 56,
+          "title": "Secrets To Mastering Cold Calling",
+          "url": "https://www.youtube.com/watch?v=pjf5uhOMcTc",
+          "type": "video",
+          "summary": "Intensive training on cold calling techniques learned over years of experience."
+        },
+        {
+          "id": 57,
+          "title": "The BEST Cold Call Opening Lines 2025",
+          "url": "https://www.youtube.com/watch?v=NdIPxKIPVc0",
+          "type": "video",
+          "summary": "Best approach for opening cold calls without giving prospects a chance to say no."
+        },
+        {
+          "id": 58,
+          "title": "10 Years of Expert Cold Calling Advice in 31 Minutes (B2B Sales)",
+          "url": "https://www.youtube.com/watch?v=hYjbrxLXJIU",
+          "type": "video",
+          "summary": "Free tech sales course with 10 years of expert cold calling advice condensed."
+        }
+      ]
+    },
+    {
+      "id": "general",
+      "name": "General Sales Training",
+      "description": "General sales tips and motivation",
+      "video_count": 2,
+      "videos": [
+        {
+          "id": 59,
+          "title": "How to Prospect Without Sales Experience | Ask Jeb",
+          "url": "https://www.youtube.com/watch?v=tcDN8zv-oK8",
+          "type": "video",
+          "summary": "How to train MLM recruits to sell without sales experience.",
+          "creator": "Jeb Blount"
+        },
+        {
+          "id": 60,
+          "title": "Wolf of Wall Street - Sales Motivation",
+          "url": "https://www.youtube.com/watch?v=8snbL_kVmXw",
+          "type": "video",
+          "summary": "Motivational content featuring Jordan Belfort on selling anything to anyone at anytime.",
+          "creator": "Jordan Belfort"
+        }
+      ]
+    }
+  ],
+  "statistics": {
+    "by_category": {
+      "playlists_courses": 15,
+      "famous_trainers": 10,
+      "sales_psychology": 8,
+      "follow_up": 8,
+      "direct_sales": 6,
+      "closing": 5,
+      "objection_handling": 3,
+      "cold_calling": 3,
+      "general": 2
+    },
+    "by_type": {
+      "video": 45,
+      "playlist": 13,
+      "channel": 2
+    },
+    "featured_creators": [
+      "Jeremy Miner",
+      "Grant Cardone",
+      "Jordan Belfort",
+      "Brian Tracy",
+      "Jeff Shore",
+      "Andy Elliott",
+      "Lisa Robbin Young",
+      "Jeb Blount",
+      "Marc Wayshak",
+      "Shawn Casemore"
+    ]
+  },
+  "learning_path": {
+    "description": "Recommended order for learning",
+    "steps": [
+      {
+        "step": 1,
+        "title": "Start with Fundamentals",
+        "description": "Begin with the Playlists & Full Courses section for comprehensive training",
+        "category_id": "playlists-courses"
+      },
+      {
+        "step": 2,
+        "title": "Learn from the Masters",
+        "description": "Study videos from Grant Cardone, Jordan Belfort, and Brian Tracy",
+        "category_id": "famous-trainers"
+      },
+      {
+        "step": 3,
+        "title": "Master Psychology",
+        "description": "Understand sales psychology and rapport-building techniques",
+        "category_id": "sales-psychology"
+      },
+      {
+        "step": 4,
+        "title": "Practice Closing",
+        "description": "Focus on closing techniques and objection handling",
+        "category_ids": [
+          "closing",
+          "objection-handling"
+        ]
+      },
+      {
+        "step": 5,
+        "title": "Perfect Your Outreach",
+        "description": "Learn cold calling and follow-up strategies",
+        "category_ids": [
+          "cold-calling",
+          "follow-up"
+        ]
+      },
+      {
+        "step": 6,
+        "title": "Apply to Direct Sales",
+        "description": "Implement everything in your direct sales/network marketing business",
+        "category_id": "direct-sales"
+      }
+    ]
+  }
+}

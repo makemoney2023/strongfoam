@@ -1,0 +1,294 @@
+{
+  "meta": {
+    "source_file": "Podcasts_Research_buying_psychology_frameworks.md",
+    "description": "Configuration for Buying Psychology Playbook for Ecommerce Content & Funnels",
+    "version": "1.0"
+  },
+  "outcomes_and_kpis": {
+    "primary_outcomes": [
+      "Higher conversion rate (CR)",
+      "Add-to-cart rate",
+      "Average Order Value (AOV)",
+      "Repeat purchase rate (LTV)"
+    ],
+    "diagnostics": [
+      "Checkout completion",
+      "Bounce rate",
+      "Time-to-first-CTA",
+      "Email opt-in %",
+      "Quiz completion %",
+      "Plan-save %",
+      "Review/UGC volume"
+    ],
+    "experiment_cadence": {
+      "concurrent_tests": 2,
+      "duration_days": "14-21",
+      "confidence_threshold": 0.95
+    },
+    "ethical_guardrails": [
+      "Scarcity only when verifiably true",
+      "Price anchors reflect real MSRP/previous price",
+      "Guarantees in plain-language",
+      "Cite evidence for claims"
+    ]
+  },
+  "implementation_roadmap": {
+    "foundations": {
+      "timeline": "Weeks 1-2",
+      "tasks": [
+        "Add authority + social proof blocks near primary CTAs",
+        "Reduce checkout friction (guest checkout, auto-complete, clear totals)",
+        "Add guarantee bar on PDP and pricing",
+        "Instrument analytics for all KPIs"
+      ]
+    },
+    "pricing_and_prompts": {
+      "timeline": "Weeks 3-4",
+      "tasks": [
+        "Create anchored pricing table with decoy tier and 'Most popular' marker",
+        "Implement exit-intent 'Save my plan' email capture",
+        "Add progress bars to quiz/plan and pre-stamp loyalty"
+      ]
+    },
+    "narrative_and_jobs": {
+      "timeline": "Weeks 5-8",
+      "tasks": [
+        "Rewrite PDP hero and sections using Means-End ladder",
+        "Create job-based landing pages for top segments",
+        "Launch A/B tests from backlog"
+      ]
+    }
+  },
+  "playbooks": {
+    "cialdini_principles": {
+      "focus": "Reciprocity, Scarcity, Authority, Consistency, Liking, Social Proof, Unity",
+      "checklist": [
+        "Credibility strip near every primary CTA",
+        "Reciprocity asset (free guide/checklist)",
+        "Small commitment path (quiz -> plan -> email -> purchase)",
+        "Community affinity badges/language",
+        "Verifiable scarcity only"
+      ],
+      "metrics": [
+        "CTR to cart",
+        "CR to purchase",
+        "Email opt-in %",
+        "Social proof block scroll depth"
+      ],
+      "owners": [
+        "Marketing",
+        "Web",
+        "Copy"
+      ]
+    },
+    "fogg_behavior_model": {
+      "focus": "Motivation x Ability x Prompt",
+      "checklist": [
+        "Reduce ability cost (guest checkout, inline validation)",
+        "Add timely prompts (exit-intent, abandon emails)",
+        "Clarify outcomes (delivery certainty, returns)"
+      ],
+      "metrics": [
+        "Checkout completion %",
+        "Form error rate",
+        "Exit-intent capture %",
+        "Abandoned-cart recovery"
+      ],
+      "owners": [
+        "Growth",
+        "Web",
+        "Lifecycle"
+      ]
+    },
+    "prospect_theory_loss_aversion": {
+      "focus": "Losses loom larger than gains; certainty/framing",
+      "checklist": [
+        "Add guarantee bar (PDP, pricing, checkout)",
+        "Frame avoided losses (time, pain, relapse)",
+        "Use comparison tables for missed benefits"
+      ],
+      "metrics": [
+        "CR vs baseline",
+        "Refund rate",
+        "Email reactivation rate"
+      ],
+      "owners": [
+        "Marketing",
+        "Copy",
+        "Legal"
+      ]
+    },
+    "anchoring_decoy_charm_pricing": {
+      "focus": "Reference price, decoy tier, left-digit bias",
+      "checklist": [
+        "Pricing table with 3 tiers: Good | Best (Most popular) | Pro (Decoy)",
+        "Show credible anchor (MSRP/competitor)",
+        "Charm pricing tests (e.g., $149 vs $150)"
+      ],
+      "metrics": [
+        "Plan mix",
+        "ARPU/AOV",
+        "CR",
+        "Price perception survey"
+      ],
+      "owners": [
+        "Product Marketing",
+        "RevOps",
+        "Web"
+      ]
+    },
+    "goal_gradient_endowed_progress": {
+      "focus": "Accelerated effort near goals; artificial head-starts",
+      "checklist": [
+        "Progress meters in quiz/onboarding",
+        "Pre-stamp loyalty progress",
+        "Milestone emails"
+      ],
+      "metrics": [
+        "Quiz completion %",
+        "Plan save %",
+        "Repeat purchase interval",
+        "Tier attainment rate"
+      ],
+      "owners": [
+        "Growth",
+        "CRM",
+        "Web"
+      ]
+    },
+    "means_end_chain": {
+      "focus": "Feature -> Benefit -> Value laddering",
+      "checklist": [
+        "Rewrite PDP sections using ladders",
+        "Pull exact phrases from interviews/reviews",
+        "Add 'Who this is for' block"
+      ],
+      "metrics": [
+        "PDP time-on-section",
+        "CTA CTR",
+        "CR lift"
+      ],
+      "owners": [
+        "Copy",
+        "Research",
+        "Web"
+      ]
+    },
+    "jobs_to_be_done": {
+      "focus": "Hiring a solution for progress",
+      "checklist": [
+        "Create top 2-3 job pages",
+        "Reframe PDP hero (job/outcome-first)",
+        "Map four forces (push, pull, habit, anxieties)"
+      ],
+      "metrics": [
+        "Job-page CR",
+        "Time on page",
+        "Ad-to-landing message match score"
+      ],
+      "owners": [
+        "Product Marketing",
+        "Copy",
+        "Web"
+      ]
+    },
+    "checkout_trust": {
+      "focus": "UX and trust signals to reduce abandonment",
+      "checklist": [
+        "Reduce form elements, enable guest checkout",
+        "Add payment badges and security microcopy",
+        "Surface total cost early",
+        "Auto-format payment inputs"
+      ],
+      "metrics": [
+        "Checkout completion %",
+        "Field error rate",
+        "Time on step",
+        "Abandonment drop"
+      ],
+      "owners": [
+        "Web",
+        "Engineering",
+        "UX"
+      ]
+    }
+  },
+  "ab_test_backlog": [
+    {
+      "name": "PDP authority + UGC near CTA",
+      "hypothesis": "Trust signals within 200px of CTA increase CR",
+      "metrics": [
+        "CTR to cart",
+        "CR",
+        "Scroll-to-CTA rate"
+      ]
+    },
+    {
+      "name": "Pricing decoy + 'Most popular' marker",
+      "hypothesis": "Decoy and marker shift plan mix and increase ARPU/AOV",
+      "metrics": [
+        "Plan mix %",
+        "ARPU/AOV",
+        "CR"
+      ]
+    },
+    {
+      "name": "Guarantee bar copy",
+      "hypothesis": "Certain small reward framing increases CR vs sweepstakes",
+      "metrics": [
+        "CR",
+        "Refund rate"
+      ]
+    },
+    {
+      "name": "Exit-intent save-progress",
+      "hypothesis": "Prompt at exit increases captured emails and recovered revenue",
+      "metrics": [
+        "Capture %",
+        "Recovered revenue"
+      ]
+    },
+    {
+      "name": "Progress meters & endowed progress",
+      "hypothesis": "Progress UI increases quiz completion and loyalty engagement",
+      "metrics": [
+        "Completion %",
+        "Time to second purchase"
+      ]
+    },
+    {
+      "name": "Checkout trust microcopy",
+      "hypothesis": "Security and returns microcopy increase completion",
+      "metrics": [
+        "Checkout completion %",
+        "Error rate"
+      ]
+    }
+  ],
+  "analytics_qa": {
+    "events": [
+      "view_pdp",
+      "add_to_cart",
+      "begin_checkout",
+      "checkout_step_*",
+      "purchase"
+    ],
+    "attributes": [
+      "plan_tier",
+      "anchor_seen",
+      "guarantee_seen",
+      "progress_meter_seen",
+      "exit_intent_triggered"
+    ],
+    "funnels": [
+      "PDP->ATC->Checkout->Purchase",
+      "Job page->Purchase",
+      "Pricing->Purchase"
+    ],
+    "qa_checks": [
+      "Verify claims",
+      "Copy lint (plain-language)",
+      "Policy links"
+    ]
+  }
+}

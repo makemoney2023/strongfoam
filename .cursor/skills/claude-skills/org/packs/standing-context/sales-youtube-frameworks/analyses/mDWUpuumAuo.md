@@ -1,0 +1,125 @@
+# 9 Minute Training To Destroy Any Sales Objection
+
+**URL:** https://www.youtube.com/watch?v=mDWUpuumAuo
+
+**Category:** Objection Handling
+
+**Analyzed:** 2025-12-22T01:23:27.220326
+
+**Model:** gemini-2.5-flash
+
+---
+
+Here's a structured analysis of the sales training video, focusing on actionable insights for a direct sales team, especially applicable to wellness products like the product.
+
+---
+
+## VIDEO ANALYSIS
+
+### 1. MAIN TOPIC & TECHNIQUE
+The primary sales concept taught is **De-framing to Drive Change through Pain and Fear of Future Pain.** This technique aims to shift a prospect's mindset away from their current objections by subtly highlighting the negative consequences of inaction.
+
+### 2. KEY FRAMEWORKS & STEP-BY-STEP PROCESS
+
+**A. Framework: Pain and Fear of Future Pain**
+
+*   **Principle:** The two biggest emotional drivers that cause humans to want to change are current pain and the fear of future pain. Sales are made not by focusing on product benefits alone, but by making the prospect vividly feel and see the consequences of *not* solving their problem.
+*   **Step-by-step process (Consequence Questioning):**
+    1.  **Identify Initial Pain Point:** Ask the prospect about their current problem. (e.g., "low energy, brain fog, poor focus").
+    2.  **Dig Deeper into Immediate Consequences:** Ask "What happens then?" to uncover the direct results of the pain. (e.g., "They won't have enough energy to dominate their business, will lose a lot of money and a lot of productivity.")
+    3.  **Uncover Secondary Consequences:** Continue asking "What happens then?" to explore the ripple effects. (e.g., "Their business won't make as much money and won't perform as well.")
+    4.  **Reveal Deeper, Personal Consequences:** Press further until the consequences become highly personal and emotional. (e.g., "The business won't be around much longer," leading to "They'll be unemployed," "Can't provide for the family," "Compromise for the family.")
+    5.  **Connect to Emotional Drivers:** Ensure the prospect relives their current pain and recognizes the *fear of future pain* if they don't change.
+
+**B. Framework: De-framing with a Concerned Tone / EPQ (Empathetic Persuasion Question) Consequence Question**
+
+*   **Principle:** A concerned tone seeds doubt in the prospect's mind, lowering their guard and making them more open to considering they might be wrong, without directly accusing them. This subtly shifts their internal "frame" of thinking.
+*   **Step-by-step process:**
+    1.  **Acknowledge and Validate (implicitly):** When the prospect presents an objection like "Now's not a good time," or "I'll do it down the road," don't directly rebut it.
+    2.  **Seek Permission (with an escape hatch):** "Can I ask you something and you can always get back to me down the road. Can I ask you something?" (Wait for "Sure.")
+    3.  **Deliver the EPQ Consequence Question (with concerned tone):** "How... how could I communicate to you that you might be making a mistake, without you getting upset with me?"
+    4.  **Follow with Deeper Consequence Questions (as per A):** Once they open up, gently guide them through the consequences of *not* addressing the problem *now*, using your concerned tone.
+
+**C. Framework: Identity Frame**
+
+*   **Principle:** People are driven by their self-identity. By painting a picture of negative consequences associated with a *type of person* who doesn't act, you encourage the prospect to differentiate themselves from that negative identity.
+*   **Step-by-step process:**
+    1.  **After De-framing and Consequence Questions:** Once the prospect has acknowledged the negative future if they don't act, introduce a contrast.
+    2.  **Ask a Question about Their Identity:** "For you, why look at doing this now? Like, why not push it down the road like a lot of executives do who end up never fixing their health and they never get promoted?" This implicitly asks if they want to be like "a lot of executives" who fail, or if they identify as someone who acts differently.
+
+### 3. EXACT SCRIPTS & WORD TRACKS
+
+*   **Common Prospect Objections/Frames (mentioned by speaker):**
+    *   "I don't have the money"
+    *   "Will it work for me?"
+    *   "I'm not sure I should do it"
+    *   "Next year is better"
+    *   "I'll do it down the road"
+    *   "I need to think it over"
+    *   "I need to do more research"
+    *   "How much is it going to cost?"
+    *   "We really liked you and what you had to say, but...now's not a good time for us. We'll get back to you when we are interested! Keep in touch!"
+
+*   **Consequence Questioning Scripts (based on role-play):**
+    *   "What are the consequences if they don't purchase your program?"
+    *   "What happens then?" (Repeatedly)
+    *   "What happens to the business owner when they go under?"
+    *   "What happens to their family?"
+    *   "Like what? Tell me." (When prospect gives vague answers)
+
+*   **De-framing EPQ Question (use with a concerned tone):**
+    *   "Can I ask you something and you can always get back to me down the road. Can I ask you something?" (Wait for confirmation).
+    *   "How... how could I communicate to you that you might be making a mistake, without you getting upset with me?"
+
+*   **Re-engagement/Persistence (if they initially refuse to let you ask the EPQ):**
+    *   Prospect: "Oh no, I don't really have time, mate, sorry."
+    *   Salesperson (concerned tone): "Well, yeah, I mean, I don't want to get you angry at me, I guess the question I had for you, and like I said, you always get back to me. How... how can I communicate to you that you might be making a mistake, without you getting upset with me?"
+        *(This shows you're not pushing, but genuinely concerned for them, which further lowers their guard.)*
+
+*   **Deeper Consequence & Identity Frame Questions (example from role-play, adapt to prospect's situation):**
+    *   "Because I'm concerned for you because... I mean what happens if you don't do anything about this and you keep having these issues with your gut, where you're having these bowel movements during the day at work, and then your boss starts getting upset with you? Like how long is he going to give you before he lets you go?"
+    *   "How does your spouse feel about it though? Like, does your spouse... does she want you to keep having these issues where you like having a hard time even performing at work? Like, does she want you to have to keep going through that?"
+    *   "But in all seriousness... Does she want you to get your health back so you can really get promoted into that CEO role, so you can make more money for the family, or what does she want you to do?"
+    *   "But why now? Like why why look at doing this now? Like why not, you know, push it down the road like a lot of executives do, who end up never fixing their health and they never get promoted?"
+
+### 4. OBJECTION HANDLING
+
+*   **Objection:** "Now's not a good time for us. We'll get back to you when we are interested! Keep in touch!" (or similar delays like "Next year is better," "I'll do it down the road," "I need to think it over.")
+    *   **Recommended Response:** Do not try to directly overcome this objection with logic. Instead, use the **De-framing EPQ Question with a Concerned Tone**.
+    *   **Exact Wording:** "Can I ask you something and you can always get back to me down the road. Can I ask you something?" [Wait for "Sure."] "How... how could I communicate to you that you might be making a mistake, without you getting upset with me?"
+    *   **Reframe/Psychology:** This response doesn't argue; it introduces doubt about their current decision to delay. The concerned tone bypasses their logical resistance and targets their emotional drivers, making them wonder *what* they might be overlooking. It then allows you to seamlessly transition into deeper consequence questions.
+
+*   **Objection:** (After asking to ask a question) "No, I don't really have time, mate, sorry."
+    *   **Recommended Response:** Show understanding but gently persist with the deeper framing.
+    *   **Exact Wording:** "Well, yeah, I mean, I don't want to get you angry at me, I guess the question I had for you, and like I said, you always get back to me. How... how can I communicate to you that you might be making a mistake, without you getting upset with me?"
+    *   **Reframe/Psychology:** Reinforces sincerity and concern. It's difficult for a prospect to stay aggressive when faced with genuine concern and a non-confrontational request, especially when you've already given them an "out" (getting back to them later).
+
+### 5. KEY TAKEAWAYS
+
+1.  **Focus on Pain, Not Just Gain:** True motivation for change comes from current pain and the fear of future pain. Salespeople must become skilled at uncovering and amplifying these.
+2.  **Master Consequence Questioning:** Don't stop at the surface-level problem. Repeatedly ask "What happens then?" to connect their current issues to deeper emotional, financial, or personal consequences.
+3.  **Leverage the "Concerned Tone" for De-framing:** This tone subtly introduces doubt into the prospect's mind, making them receptive to new ideas without feeling attacked or defensive.
+4.  **Use the EPQ Consequence Question:** The script "How could I communicate to you that you might be making a mistake, without you getting upset with me?" is a powerful tool to shift a prospect's mindset.
+5.  **Employ Identity Framing:** Encourage prospects to identify with people who act proactively to solve their problems, rather than those who delay and suffer negative consequences.
+
+### 6. the product APPLICATION
+
+These techniques are highly effective for selling the product wellness products, as they tap into intrinsic human desires for well-being and avoidance of suffering.
+
+*   **Identifying Pain & Fear of Future Pain (for the product products):**
+    *   **Prospect (e.g., for pain relief patches):** "My back pain has been bothering me for years, but I just live with it."
+    *   **Salesperson:** "I hear you, many people learn to live with discomfort. But let's look down the road. If this back pain continues or worsens, what does that mean for your ability to enjoy your retirement years, to play with your grandkids, or even just maintain your independence?" (Dig deeper: "What happens then when you can't lift things?" "How does your spouse feel watching you struggle?")
+    *   **Prospect (e.g., for energy/sleep patches):** "I'm always tired, but I just push through my day with coffee."
+    *   **Salesperson:** "Pushing through is tough, I admire your resilience. But what are the *real* consequences of that constant fatigue on your focus at work, on your mood with your family, or even on your overall health in the long run? What happens when that consistent lack of restorative sleep starts to impact your immune system or cognitive function?" (Dig deeper: "What happens then when you start making more mistakes at work because of the brain fog?" "How does your family feel when you're too exhausted to engage with them in the evenings?")
+
+*   **De-framing with a Concerned Tone (for the product products):**
+    *   **Prospect:** "I've tried so many things for my sleep; I don't think these patches will work."
+    *   **Salesperson (concerned tone, genuinely):** "I completely understand that sentiment; it's natural to feel that way after trying so much. But, if I were to say there's a different approach to wellness, one that works with your body's natural systems rather than against them, how could I communicate that to you without you getting frustrated with me for bringing it up?"
+    *   **Prospect:** "It's not in my budget right now."
+    *   **Salesperson (concerned tone):** "I hear you on that, budgeting is important. But, just curious, how could I convey to you that perhaps putting off addressing this chronic pain now might actually cost you more in the long run – in terms of lost productivity, increasing medication costs, or even your quality of life – without you getting upset with me?"
+
+*   **Identity Frame (for the product products):**
+    *   **Salesperson (after uncovering pain/consequences):** "Many people continue to struggle with chronic issues, accepting it as part of aging or just their 'normal,' never exploring new technologies or solutions. They often look back with regret, wishing they had been more proactive. Are you someone who lets discomfort dictate your life, or are you the kind of person who embraces innovative solutions to reclaim their vitality and live life to the fullest?"
+    *   **Salesperson (for focus/productivity patches):** "You mentioned you're an ambitious professional/entrepreneur. Do you want to be like those who struggle with brain fog and low energy, letting it limit their potential, or are you the kind of driven individual who invests in cutting-edge wellness tools to optimize their mental clarity and dominate their field?"
+
+By consistently applying these methods, a the product salesperson can shift the conversation from simply selling a product to helping prospects recognize the urgent need for change and persuade themselves to invest in their well-being.

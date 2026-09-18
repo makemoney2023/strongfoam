@@ -1,0 +1,82 @@
+{
+  "topic": "Key & Peele comedic analysis",
+  "summary": "Key & Peele blend precise performance, structured sketch writing, cinematic production, and incisive social satire. Their results rely on timing, facial/physical expressiveness, setup–misdirection–twist with escalating stakes and callbacks, code-switching, and genre pastiche. Psychologically, their work leverages benign violation, incongruity, and social identity cues, boosting resonance and shareability.",
+  "performance": {
+    "timing_delivery": [
+      "Strategic pauses and emphatic beats heighten punchlines",
+      "Escalation rhythm supports the final ‘blow’ moment"
+    ],
+    "facial_physicality": [
+      "Subtle micro-expressions contrast with hyperbolic physical turns",
+      "Base reality acting transitions into absurdity without losing grounding"
+    ],
+    "improv_integration": [
+      "Establish base reality, then introduce first unusual thing (FUT)",
+      "Explore FUT via ‘if/then’ escalation and commitment"
+    ]
+  },
+  "writing_patterns": {
+    "patterns": [
+      "Setup – misdirection – twist (surprise resolution)",
+      "Gradual escalation of stakes and logic",
+      "Callbacks/repetition for cohesion and catchphrases"
+    ],
+    "notes": "Patterns amplify surprise while maintaining internal logic."
+  },
+  "social_satire": {
+    "themes": [
+      "Race, culture, and politics through accessible satire",
+      "Code-switching to highlight identity and social navigation"
+    ],
+    "approach": "Mirror societal truths without alienating; invite empathy via humor."
+  },
+  "character_archetypes": [
+    "Recognizable figures (e.g., anxious suburbanite, overzealous misfit) with human nuance",
+    "Exaggeration reveals latent truths while staying relatable"
+  ],
+  "cinematic_production": {
+    "visual_style": [
+      "Filmic lighting, lens choices for realistic/hyper-stylized look",
+      "Genre pastiche (horror/action/drama tropes) for intertextual humor"
+    ],
+    "function": "Visual polish enhances timing, performance cues, and satirical subtext."
+  },
+  "audience_psychology": {
+    "benign_violation": "Balance norm violations with safety to invite laughter without alienation",
+    "incongruity_surprise": "Leverage expectation subversion for memorable twists",
+    "social_identity": "Show multiple identities; use code-switching to bridge groups"
+  },
+  "shareability": {
+    "drivers": [
+      "Escalation to a clear blow/peak",
+      "Callbacks/catchphrases for repeat viewing",
+      "Cinematic hooks and strong premises that summarize well in titles/thumbnails"
+    ]
+  },
+  "citations": [
+    {
+      "title": "NYTimes: Key & Peele Ends While Nation Could Still Use a Laugh",
+      "url": "https://www.nytimes.com/2015/08/16/us/key-peele-ends-while-nation-could-still-use-a-laugh.html"
+    },
+    {
+      "title": "Screen Rant: Funniest Key & Peele Sketches Ranked",
+      "url": "https://screenrant.com/funniest-key-peele-sketches-ranked/"
+    },
+    {
+      "title": "FunnyShmunny: Sketch Writing – Key & Peele Breakdown",
+      "url": "https://funnyshmunny.wordpress.com/sketch-writing-key-and-peele-breakdown/"
+    },
+    {
+      "title": "NPR Fresh Air: Key & Peele Interview (Transcript)",
+      "url": "https://www.npr.org/transcripts/246311451"
+    },
+    {
+      "title": "Vox: The visual brilliance of Key & Peele",
+      "url": "https://www.vox.com/2015/9/10/9302117/key-and-peele-series-finale"
+    },
+    {
+      "title": "IndieWire: Mastering Cinematic Sketch Comedy",
+      "url": "https://www.indiewire.com/features/general/key-peele-on-mastering-cinematic-sketch-comedy-with-a-whole-lot-of-improv-and-football-67712/"
+    }
+  ]
+}

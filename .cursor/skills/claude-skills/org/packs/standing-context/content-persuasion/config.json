@@ -1,0 +1,137 @@
+{
+  "meta": {
+    "source_file": "Podcasts_Research_content_persuasion_playbook.md",
+    "description": "Configuration for Content Persuasion Playbook",
+    "focus": "Content-Only (Articles, Scripts, Landing Pages, Emails, Shorts)",
+    "version": "1.0"
+  },
+  "core_frameworks": {
+    "cialdini_principles": {
+      "social_proof": "Weave numbers, reviews, expert quotes near claims and CTAs",
+      "authority": "Cite credible experts, studies, and institutions inline",
+      "reciprocity": "Deliver quick wins and practical takeaways before asking",
+      "liking_unity": "Reflect audience identity, shared language, and values",
+      "scarcity_ethical": "Only when verifiably true; otherwise emphasize uniqueness/fit"
+    },
+    "fogg_behavior_model": {
+      "motivation": "Highlight outcomes that matter now; vivid before/after",
+      "ability": "Give simple next steps; remove friction (1-click save, short form)",
+      "prompt": "Explicit, timely calls to action within narrative"
+    },
+    "prospect_theory_loss_aversion": {
+      "framing": [
+        "Prefer certain small gains (guarantees/bonuses)",
+        "Contrast avoided losses (time, relapse, frustration)",
+        "Use comparison language for missed benefits"
+      ]
+    },
+    "copy_structures": {
+      "aida": "Attention (Headlines) -> Interest (Why now) -> Desire (Vivid outcomes) -> Action (Single clear action)",
+      "pas": "Problem (Name it) -> Agitate (Intensify stakes) -> Solution (Practical fix)"
+    },
+    "narrative_transportation": {
+      "structure": "Character -> Goal -> Obstacle -> Insight -> Outcome",
+      "goal": "Absorb readers, tie resolution to actionable steps"
+    },
+    "processing_fluency": {
+      "tactics": [
+        "Plain language",
+        "Short sentences",
+        "Concrete words",
+        "Familiar structures",
+        "High contrast"
+      ]
+    },
+    "writing_for_web": {
+      "principles": [
+        "Be succinct",
+        "Inverted pyramid (main takeaway first)",
+        "Antidotes to F-pattern (headings, front-loaded sentences, bullets)"
+      ]
+    },
+    "plain_language": {
+      "target_grade": "7-8",
+      "tactics": [
+        "Avoid jargon",
+        "Specific verbs",
+        "Active voice"
+      ]
+    },
+    "means_end_ladders": {
+      "flow": "Feature -> Functional Outcome -> Emotional Benefit -> Identity/Values"
+    },
+    "jobs_to_be_done": {
+      "approach": "Write to the job, surface anxieties, show desired progress"
+    }
+  },
+  "writing_style_guide": {
+    "principles": [
+      "Inverted pyramid",
+      "Front-load sentences/headings",
+      "Short form structure (2-3 sentence paragraphs)",
+      "Plain language (common words, concrete specifics)",
+      "Active voice",
+      "Visual anchors (subheads every 150-200 words)",
+      "Data + credibility (inline citations)",
+      "One primary CTA per piece",
+      "Ethically truthful"
+    ]
+  },
+  "funnel_content_patterns": {
+    "tofu_awareness": [
+      "Problem-first headlines",
+      "Reciprocity (quick wins)",
+      "Social proof tiles",
+      "Low-commit CTA"
+    ],
+    "mofu_consideration": [
+      "AIDA/PAS sections",
+      "Comparison explainer",
+      "Outcomes ladder",
+      "Expert quotes",
+      "Micro-CTA to plan"
+    ],
+    "bofu_conversion": [
+      "Guarantee explainer",
+      "Short testimonial proof",
+      "Risk-reversal copy",
+      "Single CTA"
+    ],
+    "post_purchase": [
+      "Progress stories",
+      "What to do next mini-wins",
+      "Referral prompts"
+    ]
+  },
+  "templates": {
+    "aida_short_form": {
+      "attention": "The fastest path to [outcome] without [loss].",
+      "interest": "Most people waste weeks on [problem]. Here’s the 10-minute shortcut.",
+      "desire": "3 bullets laddered to values.",
+      "action": "Get the plan—free, no login."
+    },
+    "pas_medium_form": {
+      "problem": "When you’re trying to [job], [pain] keeps you stuck.",
+      "agitate": "Left alone, that means [losses/time/backslide].",
+      "solution": "Do X in 3 steps to get [outcome]—backed by [authority/social proof].",
+      "cta": "Download the 3-step checklist."
+    },
+    "story_block": "Character & Goal -> Obstacle -> Specific action -> Outcome -> Lesson -> CTA"
+  },
+  "microcopy_examples": {
+    "loss_aversion": "Don’t lose this week’s momentum—save your plan in 1 click.",
+    "authority": "Reviewed by [credential]; data from [institution].",
+    "social_proof": "12,487 people with [problem] used this in the last 90 days.",
+    "reciprocity": "Grab the quick-start checklist—free, no login."
+  },
+  "editorial_checklist": [
+    "Lead with takeaway",
+    "One job, one promise",
+    "Headings every 150-200 words (front-loaded)",
+    "Bullets > walls of text",
+    "Social proof/authority near claims/CTA",
+    "One clear CTA",
+    "Readability 7-8 grade",
+    "Facts verified/citations added"
+  ]
+}

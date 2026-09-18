@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "version": "1.0",
+    "description": "Configuration derived from AI detection systems research and anti-detection writing playbook.",
+    "sources": [
+      "Podcasts_Research_ai_detection_systems.md",
+      "Podcasts_Research_anti_ai_detection_playbook.md"
+    ]
+  },
+  "detection_landscape": {
+    "core_approaches": {
+      "zero_shot_statistics": [
+        "Perplexity/burstiness/log-rank",
+        "Curvature-based (DetectGPT, Fast-DetectGPT)",
+        "Log-rank/token cohesiveness (DetectLLM, TOCSIN)"
+      ],
+      "supervised_classifiers": [
+        "Trained discriminators (Grover, GLTR)",
+        "Perform well in-distribution, degrade under shift"
+      ],
+      "watermarking": [
+        "Embed statistical signals at generation time",
+        "Vulnerable to heavy edits/translation"
+      ]
+    },
+    "commercial_tools": {
+      "originality_ai": {
+        "focus": "High accuracy claims, RAID benchmark",
+        "note": "Cross-validate marketing numbers"
+      },
+      "gptzero": {
+        "features": "Multi-feature deep learning, sentence-level highlighting",
+        "claims": "Low false-positive rates"
+      },
+      "turnitin": {
+        "features": "Separate 'AI writing' tab",
+        "guardrails": "Scores 1-19% suppressed to reduce false positives",
+        "categories": [
+          "AI-generated",
+          "AI-paraphrased/bypasser"
+        ]
+      }
+    },
+    "reliability_issues": {
+      "false_positives": [
+        "Short texts",
+        "Formulaic academic prose",
+        "Heavy grammar-tool edits",
+        "ESL writing"
+      ],
+      "false_negatives": [
+        "High-end models + paraphrase/humanize tools",
+        "Paraphrasing attacks"
+      ],
+      "generalization": "Zero-shot methods generalize better than supervised but degrade under laundering"
+    },
+    "evasion_patterns": [
+      "Paraphrase/humanize/bypassers",
+      "Translation + back-translation",
+      "Adversarial prompt controls"
+    ],
+    "ethical_guidelines": [
+      "Treat scores as probabilistic indicators, not verdicts",
+      "Pair with context, drafts, and human judgment",
+      "Avoid collecting sensitive PII",
+      "Communicate evaluation criteria clearly"
+    ]
+  },
+  "writing_strategy": {
+    "practical_playbook": {
+      "provenance": "Keep drafting history, versions, timestamps, source links",
+      "style_signals": "Vary sentence length, personal perspective, domain-specific vocabulary",
+      "editing": "Prefer human revision over automated paraphrasers; read aloud",
+      "compliance": "Include disclaimers, avoid medical claims without citation",
+      "verification": "Cross-check with multiple detectors for high-stakes content"
+    },
+    "generator_integration": {
+      "environment_toggle": "AI_DETECTION_AWARE (default: true)",
+      "output_rules": [
+        "Return ONLY a single minified JSON object",
+        "No backticks or code fences",
+        "Conform to specified JSON Schema"
+      ],
+      "medium_native_requirements": [
+        "Open with a short, personal hook/scenario (first person)",
+        "Use unique, non-templated subheads",
+        "Include brief first-person anecdote per major section",
+        "Vary cadence: alternate short/long lines, rhetorical questions",
+        "Embed at least 3 concrete, verifiable specifics (numbers, studies)",
+        "Add inline Evidence callouts (e.g., 'Evidence: Study Name + figures')",
+        "Maintain scannability: short paragraphs, frequent subheads",
+        "End with single, honest CTA aligned to reader value"
+      ],
+      "humanization_checklist": {
+        "required_output": true,
+        "items": [
+          "Varied rhythm",
+          "Specific anecdotes",
+          "Domain vocabulary",
+          "Citations/Evidence"
+        ]
+      }
+    }
+  },
+  "references": {
+    "zero_shot": [
+      "DetectGPT",
+      "Fast-DetectGPT",
+      "DetectLLM",
+      "TOCSIN"
+    ],
+    "supervised": [
+      "Grover",
+      "GLTR"
+    ],
+    "watermarking": [
+      "Kirchenbauer et al."
+    ],
+    "benchmarks": [
+      "RAID",
+      "Originality.ai meta-analysis"
+    ]
+  }
+}

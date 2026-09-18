@@ -1,0 +1,473 @@
+{
+  "meta": {
+    "source_file": "SocialFunny_sarcasm_idioms_research.md",
+    "description": "Brand-safe sarcastic idioms, one-liners, and humor patterns for short-form content generation.",
+    "target_audience": "PG-13/Mature (Deadpool-style)",
+    "format": "Shorts (6–15s)",
+    "imported_from": "SocialFunny_sarcasm_idioms_research_config.json"
+  },
+  "purpose": "Curate brand-safe sarcastic idioms and one-liners with paraphrase guidance and product placement notes for short-form.",
+  "humor_theory": {
+    "principles": [
+      "Benign Violation: Violate expectations but signal safety via tone/context/tags.",
+      "Incongruity + Paraprosdokian: Setup -> flip -> benign tag.",
+      "Deadpan delivery: Straight face amplifies sarcasm without escalating harm."
+    ]
+  },
+  "content_libraries": {
+    "common_sarcastic_idioms": [
+      "Oh, because that makes total sense.",
+      "Tell me something I don’t know.",
+      "Nice going. / Great job.",
+      "Fascinating. (flatly)",
+      "Alert the media.",
+      "Obviously. / Oh, really? / You think?",
+      "Thanks for the help. (when unhelped)",
+      "Good luck with that.",
+      "Don’t work too hard.",
+      "Take your time.",
+      "I’ll make a note of that.",
+      "With the greatest respect ...",
+      "What else is new?",
+      "Be still my heart.",
+      "Life-changing. (for trivial things)",
+      "Adorable. / Iconic. (ironically)"
+    ],
+    "sarcastic_one_liners": [
+      "Silence is golden. Duct tape is silver.",
+      "If you find it hard to laugh at yourself, I can help.",
+      "Light travels faster than sound; some people seem bright until they speak.",
+      "I’m not saying I hate Mondays; Mondays hate me first.",
+      "Cancel my subscription—I don’t need your issues.",
+      "I clapped because it’s over, not because I liked it.",
+      "Keep rolling your eyes—maybe you’ll find a brain back there.",
+      "Sometimes I wish I was nicer, then I laugh and carry on."
+    ],
+    "deadpan_patterns": [
+      {
+        "type": "Praise -> undercut",
+        "example": "Incredible initiative… for something no one asked for."
+      },
+      {
+        "type": "News bulletin",
+        "example": "Breaking news: problem still a problem."
+      },
+      {
+        "type": "Lab report",
+        "example": "Results inconclusive; subject remains annoying."
+      },
+      {
+        "type": "Self-diagnosis",
+        "example": "Powered by spite and two brain cells on strike."
+      },
+      {
+        "type": "Time audit",
+        "example": "I’d love to, but my calendar says ‘no’."
+      }
+    ],
+    "snarky_comebacks": [
+      "It’s okay if you disagree; I can’t force you to be right.",
+      "Please cancel my subscription to your issues.",
+      "Underestimate me. That’ll be fun.",
+      "I’d explain it, but I’ve run out of crayons."
+    ]
+  },
+  "generation_components": {
+    "tone_device_tags": [
+      "paraprosdokian",
+      "litotes",
+      "understatement",
+      "deadpan idiom",
+      "meta aside"
+    ],
+    "tag_lines": [
+      "Anyway.",
+      "Moving on.",
+      "Next.",
+      "That tracks.",
+      "Noted.",
+      "Do less."
+    ],
+    "paraphrase_seeds": [
+      "Oh good,",
+      "Fantastic,",
+      "Groundbreaking,",
+      "Iconic,",
+      "Be still my heart,",
+      "What a thrill,",
+      "How inspiring,",
+      "Life-changing,",
+      "Adorable,"
+    ]
+  },
+  "guidelines": {
+    "paraphrasing": [
+      "Prefer idioms and public-domain-ish common sayings.",
+      "Avoid quoting identifiable celebs/shows verbatim.",
+      "Swap nouns/verbs to produce fresh surface forms.",
+      "Avoid protected catchphrases."
+    ],
+    "boost_placement": {
+      "allowed_terms": [
+        "clean energy",
+        "no sugar/caffeine",
+        "no jitters",
+        "drug-free, non-invasive",
+        "steady/clean/quiet energy",
+        "clarity/focus"
+      ],
+      "avoid": [
+        "medical/therapeutic claims"
+      ],
+      "placement_pattern": "One-liner -> quick Boost mention as calm solution -> benign tag."
+    },
+    "localization_pitfalls": [
+      "Avoid region-specific references that don’t translate.",
+      "Avoid sensitive topics (religion, politics, tragedies).",
+      "Test litotes/understatement where it’s uncommon.",
+      "Local review before scaling."
+    ],
+    "platform_policies": {
+      "language": "No explicit profanity, slurs, body-shaming, harassment.",
+      "adult_content": "No explicit sexual language; mild innuendo only.",
+      "violence": "No graphic imagery or incitement.",
+      "alcohol": "Casual references OK in organic; avoid in ads.",
+      "hate_misinfo": "Strict no-go."
+    },
+    "negative_lexicon": {
+      "avoid": [
+        "Profanity/slurs",
+        "Explicit sexual verbs",
+        "Graphic violence",
+        "Targeted insults",
+        "Suicide/self-harm punchlines",
+        "Eating disorder jokes",
+        "Hard-drug glamorization"
+      ],
+      "swaps": {
+        "disaster": "mess",
+        "train-wreck": "swerve",
+        "WTF": "what a time"
+      }
+    }
+  },
+  "templates": {
+    "assembly_structure": {
+      "norm": "Opener (e.g., 'Oh good,')",
+      "violation": "Nuisance statement",
+      "solution": "Benign Boost mention",
+      "tag": "Closing button (e.g., 'Moving on.')"
+    },
+    "mix_and_match": [
+      "Deadpan opener + nuisance + Boost tag + button",
+      "News bulletin: Breaking news: {nuisance}. Boost = {benefit}. {button}",
+      "Lab report: Preliminary results: {nuisance}. Intervention: Boost ({benefit}). {button}",
+      "Self-diagnosis: Symptoms: {nuisance}. Treatment plan: Boost for {benefit}. {button}",
+      "Calendar snark: Invited: {nuisance}. RSVP: Boost for {benefit}. {button}",
+      "Performance review: Q4 update: {nuisance}. Countermeasure: Boost ({benefit}). {button}",
+      "Travel advisory: Advisory: {nuisance}. Alternate route: Boost -> {benefit}. {button}",
+      "Minimalist roast: {nuisance}. Boost. {benefit}. {button}",
+      "Paraprosdokian pattern",
+      "Litotes pattern",
+      "Idiom inversion",
+      "Meta aside"
+    ]
+  },
+  "advanced_libraries": {
+    "expanded_idioms": [
+      "Alert the media",
+      "That makes total sense",
+      "Tell me something I don’t know",
+      "Nice going / Great job",
+      "Fascinating / Riveting",
+      "Obviously / Oh, really? / You think?",
+      "Thanks for the help",
+      "Good luck with that",
+      "Don’t work too hard",
+      "Take your time",
+      "I’ll make a note of that",
+      "With the greatest respect ...",
+      "What else is new?",
+      "Be still my heart",
+      "Life-changing",
+      "Adorable / Iconic",
+      "Cool / Neat",
+      "Don’t worry about it",
+      "Good morning!",
+      "He’s great",
+      "Hilarious",
+      "I’m ecstatic",
+      "I’m so happy for you",
+      "I think that was my fault",
+      "Obviously / Naturally / Of course",
+      "Breaking news: ...",
+      "Bold of you to assume ...",
+      "Groundbreaking / Revolutionary",
+      "Be honest, be brief, be gone",
+      "We love that for you",
+      "Choices were made"
+    ],
+    "paraprosdokian_stems": [
+      "I didn’t say it was your fault; I said I was blaming you.",
+      "The last thing I want to do is hurt you—but it’s still on my list.",
+      "Change is inevitable, except from a vending machine.",
+      "I used to be indecisive; now I’m not so sure.",
+      "I want to die peacefully in my sleep, not screaming like my passengers.",
+      "I’m great at multi-tasking: I can waste time, be unproductive, and procrastinate all at once.",
+      "I asked for directions; now I’m even more lost.",
+      "I’m not lazy; I’m on energy-saving mode.",
+      "I have standards; they’re just set to airplane mode.",
+      "If I agreed with you, we’d both be wrong.",
+      "I didn’t trip; the floor attacked me.",
+      "My train of thought left the station without me.",
+      "I’m not arguing; I’m just explaining why I’m right.",
+      "I can explain it to you, but I can’t understand it for you.",
+      "I have the memory of a goldfish—some days that’s the dream."
+    ],
+    "litotes_stems": [
+      {
+        "input": "Not bad",
+        "meaning": "actually decent"
+      },
+      {
+        "input": "Not the worst idea",
+        "meaning": "could work"
+      },
+      {
+        "input": "Not exactly thrilled",
+        "meaning": "I’ll survive"
+      },
+      {
+        "input": "Not my favorite",
+        "meaning": "I’ll manage"
+      },
+      {
+        "input": "Not a small task",
+        "meaning": "it’s massive"
+      },
+      {
+        "input": "Not entirely wrong",
+        "meaning": "you’re close"
+      },
+      {
+        "input": "Not unhelpful",
+        "meaning": "mildly helpful"
+      },
+      {
+        "input": "Not ideal",
+        "meaning": "we move"
+      },
+      {
+        "input": "Not nothing",
+        "meaning": "something"
+      },
+      {
+        "input": "Not half bad",
+        "meaning": "surprisingly okay"
+      }
+    ],
+    "advanced_devices": [
+      {
+        "name": "Meiosis",
+        "example": "It’s not ideal—just a catastrophic vibe."
+      },
+      {
+        "name": "Hyperbole + undercut",
+        "example": "Monumental crisis… for a Tuesday."
+      },
+      {
+        "name": "Antithesis",
+        "example": "High stakes, low energy."
+      },
+      {
+        "name": "Zeugma",
+        "example": "I lost my keys and my motivation."
+      },
+      {
+        "name": "Aposiopesis",
+        "example": "I’d say how I feel, but—"
+      },
+      {
+        "name": "Anaphora",
+        "example": "We wait. We stall. We caffeinate."
+      },
+      {
+        "name": "Epistrophe",
+        "example": "On time, for once. Productive, for once."
+      },
+      {
+        "name": "Epanorthosis",
+        "example": "I’m thriving—sorry, surviving."
+      }
+    ]
+  },
+  "categories": {
+    "adult_leaning_base": {
+      "dating_nightlife": {
+        "stems": [
+          "We love that for you",
+          "choices were made",
+          "bold of you to assume",
+          "red flags are just carnival lights",
+          "soft launch my attention span"
+        ],
+        "one_liners": [
+          "I’m not ‘hard to get’; I’m ‘easy to lose interest.’",
+          "I believe in second chances—for other people.",
+          "My type? Tall, employed, and fictional."
+        ]
+      },
+      "hangovers": {
+        "stems": [
+          "grape depression",
+          "rehydration arc",
+          "brain buffering",
+          "sun bad",
+          "pants optional"
+        ],
+        "one_liners": [
+          "Not hungover—just pre-hydrated for tomorrow.",
+          "If coffee fails, we file an appeal.",
+          "Today’s cardio is avoiding sunlight."
+        ]
+      },
+      "workplace": {
+        "stems": [
+          "meetings that could’ve been a memo",
+          "initiative theater",
+          "email Jenga",
+          "productivity cosplay",
+          "quiet quitting my expectations"
+        ],
+        "one_liners": [
+          "I do my best work when I’m left alone forever.",
+          "I’m not burned out; I’m flame-retired.",
+          "We’re pivoting to nap-based solutions."
+        ]
+      },
+      "adult_life": {
+        "stems": [
+          "situationship math",
+          "calendar intimacy",
+          "commitment-adjacent",
+          "therapy bills > utility bills"
+        ],
+        "one_liners": [
+          "Love languages: acts of service and leaving me alone.",
+          "I bring stability—emotional? No. Blood sugar? Maybe."
+        ]
+      }
+    },
+    "fresh_2024_2025": {
+      "ai_automation": [
+        "hallucinated minutes",
+        "auto-reply remorse",
+        "prompt paralysis"
+      ],
+      "smart_home": [
+        "smart fridge overreach",
+        "robot vacuum politics",
+        "thermostat coup"
+      ],
+      "vr_ar": [
+        "headset hair",
+        "virtual eye contact",
+        "autoplay nausea"
+      ],
+      "security_2fa": [
+        "two-factor tango",
+        "code expiry sprint",
+        "captcha charisma"
+      ],
+      "fees_tipping": [
+        "layered fees lasagna",
+        "surge season",
+        "tip-prompt trial"
+      ],
+      "subscription_creep": [
+        "bundle maze",
+        "free-trial amnesia",
+        "points spreadsheet theology"
+      ],
+      "quiet_luxury": [
+        "soft-life calendar",
+        "vibe budget",
+        "linen era"
+      ],
+      "wellness_gadgets": [
+        "sleep ring tribunal",
+        "HRV gossip",
+        "cold plunge RSVP"
+      ],
+      "rto_desk_hoteling": [
+        "badge lore",
+        "desk lottery",
+        "office ping safari"
+      ],
+      "climate_inconvenience": [
+        "sidewalk sauna",
+        "allergy boss fight",
+        "forecast gaslighting"
+      ],
+      "parking_apps": [
+        "street-sweeping roulette",
+        "app-only tolls",
+        "meter diplomacy"
+      ],
+      "pickleball_hoa": [
+        "court politics",
+        "noise bylaws",
+        "paddle etiquette"
+      ],
+      "mocktails": [
+        "zero-proof swagger",
+        "bitters discourse",
+        "ice-clarity audit"
+      ],
+      "sleep_tracking": [
+        "sleep score shame",
+        "REM FOMO",
+        "nap KPI"
+      ],
+      "group_chats": [
+        "thread coup",
+        "mute diplomacy",
+        "reply-all riot"
+      ],
+      "fantasy_sports": [
+        "waiver wire law",
+        "trade court",
+        "commissioner coup"
+      ],
+      "travel_points": [
+        "mile math",
+        "elite tier theology",
+        "status audit"
+      ]
+    },
+    "innuendo_stems_pg13": [
+      "We kept it PG, but the subtitles are rated higher.",
+      "Emotionally available; batteries not included.",
+      "Chemistry lab is open; goggles recommended.",
+      "Flirting like a disclaimer: fine print does the heavy lifting.",
+      "Romance arc: slow burn, fast captions.",
+      "I brought snacks and bad decisions—one’s calorie-free.",
+      "Soft launch of my attention span; hard stop at 2am.",
+      "Dinner? I’m more into dessert metaphors.",
+      "We can keep it classy… with a dangerous aftertaste.",
+      "Wholesome on main; chaos in the director’s cut."
+    ]
+  },
+  "delivery": {
+    "cues": {
+      "prosody": "Drawl positive word, quick micro-pause, deadpan cadence on button.",
+      "punctuation": "Ellipses (...) for beat, em dash (-) for twist, ironic quotes, parenthetical asides.",
+      "timing": "1-2 beats setup, 1 beat flip, immediate tag. Total 6-15s.",
+      "visuals": "Bold/colored keywords on twist, tiny delay animation on tag."
+    },
+    "meta_practices": [
+      "Keep it brief; don’t drown the product message.",
+      "Breaking the 4th wall examples: 'Yes, this is an ad.', 'Narrator: they actually did buy the patch.'"
+    ]
+  }
+}
