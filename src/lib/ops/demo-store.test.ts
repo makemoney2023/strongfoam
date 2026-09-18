@@ -36,6 +36,8 @@ describe("CRM conversion", () => {
     const draft = draftCrmFromRequest(qualified);
     const parsed = parseCrmConversion({
       ...draft,
+      role: draft.role ?? undefined,
+      owner: draft.owner ?? undefined,
       linkCompanyId: "66666666-6666-4666-8666-666666666666",
       linkContactId: "77777777-7777-4777-8777-777777777777",
     });

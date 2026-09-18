@@ -164,13 +164,13 @@ export function parseCrmConversion(input: {
   lastName?: string;
   email?: string;
   phone?: string;
-  role?: string;
+  role?: string | null;
   siteName?: string;
   city?: string;
   province?: string;
   opportunityName?: string;
   stage?: string;
-  owner?: string;
+  owner?: string | null;
   source?: string;
   services?: string[];
   projectType?: string;
