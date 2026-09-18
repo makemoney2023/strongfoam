@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
+import { Flash } from "@/components/ops/flash";
+import { PageHeader } from "@/components/ops/page-header";
+import { StatusBadge } from "@/components/ops/status-badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
 import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
 import {
@@ -47,9 +56,7 @@ export default async function OpportunityDetailPage({
     opportunity.companyId ? getCompany(opportunity.companyId) : null,
     opportunity.contactId ? getContact(opportunity.contactId) : null,
     opportunity.siteId ? getSite(opportunity.siteId) : null,
-    opportunity.sourceLeadId
-      ? getEstimateRequest(opportunity.sourceLeadId)
-      : null,
+    opportunity.sourceLeadId ? getEstimateRequest(opportunity.sourceLeadId) : null,
     opportunity.projectId ? getProject(opportunity.projectId) : null,
   ]);
   const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
@@ -62,174 +69,129 @@ export default async function OpportunityDetailPage({
   const draft = draftJobFromOpportunity(opportunity);
 
   return (
-    <main className="page-rail py-8">
-      <Link
-        href="/app/opportunities"
-        className="text-sm font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-      >
-        Back to opportunities
-      </Link>
-      <p className="section-kicker mt-6 mb-2">Opportunity</p>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            {opportunity.name}
-          </h1>
-          <p className="mt-2 text-sm text-[color:var(--sf-ink)]/65">
-            {opportunity.owner ?? "Unassigned"}
-            {opportunity.source ? ` · ${opportunity.source}` : ""}
-          </p>
-        </div>
-        <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold ring-1 ring-[color:var(--sf-ink)]/10">
-          {OPPORTUNITY_LABELS[
-            opportunity.stage as keyof typeof OPPORTUNITY_LABELS
-          ] ?? opportunity.stage}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[
+          { href: "/app/opportunities", label: "Opportunities" },
+          { label: opportunity.name },
+        ]}
+        title={opportunity.name}
+        description={`${opportunity.owner ?? "Unassigned"}${opportunity.source ? ` · ${opportunity.source}` : ""}`}
+        actions={
+          <StatusBadge
+            status={opportunity.stage}
+            label={
+              OPPORTUNITY_LABELS[opportunity.stage as keyof typeof OPPORTUNITY_LABELS] ??
+              opportunity.stage
+            }
+          />
+        }
+      />
+      <Flash saved={query.saved} error={query.error} savedMessage="Opportunity saved." />
 
-      {query.saved ? (
-        <p
-          role="status"
-          className="mt-4 rounded-md bg-[color:var(--sf-cyan)]/10 px-3 py-2 text-sm text-[color:var(--sf-ink)]"
-        >
-          Opportunity saved.
-        </p>
-      ) : null}
-      {query.error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md bg-[color:var(--sf-red)]/10 px-3 py-2 text-sm text-[color:var(--sf-red)]"
-        >
-          {query.error}
-        </p>
-      ) : null}
-
-      <dl className="mt-6 grid gap-4 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Company
-          </dt>
-          <dd className="mt-1">
-            {company ? (
-              <Link
-                href={`/app/companies/${company.id}`}
-                className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-              >
-                {company.name}
-              </Link>
-            ) : (
-              "—"
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Contact
-          </dt>
-          <dd className="mt-1">
-            {contact
-              ? `${formatFullName(contact.firstName, contact.lastName)} · ${contact.email}`
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Site
-          </dt>
-          <dd className="mt-1">
-            {site
-              ? `${site.name} · ${site.city}${site.province === "ON" ? ", ON" : ""}`
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Scope
-          </dt>
-          <dd className="mt-1 space-y-1">
-            <p>
-              {PROJECT_TYPE_LABELS[
-                opportunity.projectType as keyof typeof PROJECT_TYPE_LABELS
-              ] ??
+      <Card>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Company</p>
+            <p className="mt-1">
+              {company ? (
+                <Link href={`/app/companies/${company.id}`} className="font-medium hover:underline">
+                  {company.name}
+                </Link>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Contact</p>
+            <p className="mt-1">
+              {contact
+                ? `${formatFullName(contact.firstName, contact.lastName)} · ${contact.email}`
+                : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Site</p>
+            <p className="mt-1">
+              {site ? `${site.name} · ${site.city}${site.province === "ON" ? ", ON" : ""}` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Scope</p>
+            <p className="mt-1">
+              {PROJECT_TYPE_LABELS[opportunity.projectType as keyof typeof PROJECT_TYPE_LABELS] ??
                 opportunity.projectType ??
                 "—"}
             </p>
-            <p>{formatServices(opportunity.services)}</p>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Source request
-          </dt>
-          <dd className="mt-1">
-            {opportunity.sourceLeadId ? (
-              <Link
-                href={`/app/requests/${opportunity.sourceLeadId}`}
-                className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-              >
-                {formatRequestNumber(opportunity.sourceLeadId)}
-              </Link>
-            ) : (
-              "—"
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
-            Project
-          </dt>
-          <dd className="mt-1">
-            {project ? (
-              <Link
-                href={`/app/projects/${project.id}`}
-                className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-              >
-                {project.name}
-              </Link>
-            ) : (
-              "Not converted"
-            )}
-          </dd>
-        </div>
-      </dl>
-
-      <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-        <h2 className="font-heading text-lg font-semibold">Project and jobs</h2>
-        {project ? (
-          <ul className="mt-4 space-y-3">
-            {projectJobs.map((job) => (
-              <li key={job.id}>
+            <p className="text-sm text-muted-foreground">{formatServices(opportunity.services)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Source request</p>
+            <p className="mt-1">
+              {opportunity.sourceLeadId ? (
                 <Link
-                  href={`/app/jobs/${job.id}`}
-                  className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                  href={`/app/requests/${opportunity.sourceLeadId}`}
+                  className="font-medium hover:underline"
                 >
-                  {formatJobNumber(job.id)} · {job.name}
+                  {formatRequestNumber(opportunity.sourceLeadId)}
                 </Link>
-                <p className="text-sm text-[color:var(--sf-ink)]/65">
-                  {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ??
-                    job.status}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : canConvert ? (
-          <ConvertWonWorkForm
-            opportunityId={opportunity.id}
-            returnTo={`/app/opportunities/${opportunity.id}`}
-            defaults={{
-              projectName: draft.projectName,
-              jobName: draft.jobName,
-              scope: draft.scope,
-              projectManager: opportunity.owner,
-            }}
-          />
-        ) : (
-          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-            Mark this work won on the source request before creating a project
-            and job.
-          </p>
-        )}
-      </section>
-    </main>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Project</p>
+            <p className="mt-1">
+              {project ? (
+                <Link href={`/app/projects/${project.id}`} className="font-medium hover:underline">
+                  {project.name}
+                </Link>
+              ) : (
+                "Not converted"
+              )}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Project and jobs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {project ? (
+            <ul className="space-y-3">
+              {projectJobs.map((job) => (
+                <li key={job.id}>
+                  <Link href={`/app/jobs/${job.id}`} className="font-medium hover:underline">
+                    {formatJobNumber(job.id)} · {job.name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">
+                    {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ?? job.status}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : canConvert ? (
+            <ConvertWonWorkForm
+              opportunityId={opportunity.id}
+              returnTo={`/app/opportunities/${opportunity.id}`}
+              defaults={{
+                projectName: draft.projectName,
+                jobName: draft.jobName,
+                scope: draft.scope,
+                projectManager: opportunity.owner,
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Mark this work won on the source request before creating a project and job.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

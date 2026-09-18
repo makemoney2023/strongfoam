@@ -1,5 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { PageHeader } from "@/components/ops/page-header";
+import { StatusBadge } from "@/components/ops/status-badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
 import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
 import { formatJobNumber, JOB_STATUS_LABELS } from "@/lib/ops/jobs";
@@ -40,146 +48,149 @@ export default async function CompanyDetailPage({
   );
 
   return (
-    <main className="page-rail py-8">
-      <Link
-        href="/app/companies"
-        className="text-sm font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-      >
-        Back to companies
-      </Link>
-      <p className="section-kicker mt-6 mb-2">Company</p>
-      <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        {company.name}
-      </h1>
-      <p className="mt-2 text-sm text-[color:var(--sf-ink)]/65">
-        {[company.city, company.province === "ON" ? "ON" : company.province]
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[
+          { href: "/app/companies", label: "Companies" },
+          { label: company.name },
+        ]}
+        title={company.name}
+        description={[
+          company.city,
+          company.province === "ON" ? "ON" : company.province,
+          company.email,
+          company.phone,
+        ]
           .filter(Boolean)
-          .join(", ") || "Location not set"}
-        {company.email ? ` · ${company.email}` : ""}
-        {company.phone ? ` · ${company.phone}` : ""}
-      </p>
+          .join(" · ") || "Location not set"}
+      />
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <section className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-          <h2 className="font-heading text-lg font-semibold">Contacts</h2>
-          {contacts.length === 0 ? (
-            <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-              No contacts are linked to this company.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {contacts.map((contact) => (
-                <li key={contact.id}>
-                  <p className="font-medium">
-                    {formatFullName(contact.firstName, contact.lastName)}
-                  </p>
-                  <p className="text-sm text-[color:var(--sf-ink)]/65">
-                    {contact.email}
-                    {contact.phone ? ` · ${contact.phone}` : ""}
-                  </p>
-                  {contact.role ? (
-                    <p className="text-xs text-[color:var(--sf-ink)]/55">
-                      {contact.role}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Contacts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {contacts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No contacts are linked to this company.</p>
+            ) : (
+              <ul className="space-y-3">
+                {contacts.map((contact) => (
+                  <li key={contact.id}>
+                    <p className="font-medium">
+                      {formatFullName(contact.firstName, contact.lastName)}
                     </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                    <p className="text-sm text-muted-foreground">
+                      {contact.email}
+                      {contact.phone ? ` · ${contact.phone}` : ""}
+                    </p>
+                    {contact.role ? (
+                      <p className="text-xs text-muted-foreground">{contact.role}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-          <h2 className="font-heading text-lg font-semibold">Sites</h2>
-          {sites.length === 0 ? (
-            <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-              No sites are linked to this company.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {sites.map((site) => (
-                <li key={site.id}>
-                  <p className="font-medium">{site.name}</p>
-                  <p className="text-sm text-[color:var(--sf-ink)]/65">
-                    {site.city}
-                    {site.province === "ON" ? ", ON" : ` · ${site.province}`}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Sites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sites.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sites are linked to this company.</p>
+            ) : (
+              <ul className="space-y-3">
+                {sites.map((site) => (
+                  <li key={site.id}>
+                    <p className="font-medium">{site.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {site.city}
+                      {site.province === "ON" ? ", ON" : ` · ${site.province}`}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-        <h2 className="font-heading text-lg font-semibold">Projects</h2>
-        {projects.length === 0 ? (
-          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-            No projects are linked to this company yet.
-          </p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {projects.map((project) => {
-              const projectJobs = jobs.filter((job) => job.projectId === project.id);
-              return (
-                <li key={project.id}>
-                  <Link
-                    href={`/app/projects/${project.id}`}
-                    className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-                  >
-                    {project.name}
-                  </Link>
-                  <p className="text-sm text-[color:var(--sf-ink)]/65">
-                    {projectJobs.length} job{projectJobs.length === 1 ? "" : "s"}
-                    {project.projectManager ? ` · ${project.projectManager}` : ""}
-                  </p>
-                  {projectJobs.map((job) => (
-                    <p key={job.id} className="text-xs text-[color:var(--sf-ink)]/55">
-                      <Link
-                        href={`/app/jobs/${job.id}`}
-                        className="underline-offset-4 hover:underline"
-                      >
-                        {formatJobNumber(job.id)}
-                      </Link>
-                      {" · "}
-                      {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ??
-                        job.status}
+      <Card>
+        <CardHeader>
+          <CardTitle>Projects</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {projects.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No projects are linked to this company yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {projects.map((project) => {
+                const projectJobs = jobs.filter((job) => job.projectId === project.id);
+                return (
+                  <li key={project.id}>
+                    <Link href={`/app/projects/${project.id}`} className="font-medium hover:underline">
+                      {project.name}
+                    </Link>
+                    <p className="text-sm text-muted-foreground">
+                      {projectJobs.length} job{projectJobs.length === 1 ? "" : "s"}
+                      {project.projectManager ? ` · ${project.projectManager}` : ""}
                     </p>
-                  ))}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                    {projectJobs.map((job) => (
+                      <p key={job.id} className="text-xs text-muted-foreground">
+                        <Link href={`/app/jobs/${job.id}`} className="hover:underline">
+                          {formatJobNumber(job.id)}
+                        </Link>
+                        {" · "}
+                        {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ??
+                          job.status}
+                      </p>
+                    ))}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      <section className="mt-6 rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-        <h2 className="font-heading text-lg font-semibold">Opportunities</h2>
-        {companyOpportunities.length === 0 ? (
-          <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
-            No opportunities are linked to this company yet.
-          </p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {companyOpportunities.map((opportunity) => (
-              <li key={opportunity.id}>
-                <Link
-                  href={`/app/opportunities/${opportunity.id}`}
-                  className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-                >
-                  {opportunity.name}
-                </Link>
-                <p className="text-sm text-[color:var(--sf-ink)]/65">
-                  {OPPORTUNITY_LABELS[
-                    opportunity.stage as keyof typeof OPPORTUNITY_LABELS
-                  ] ?? opportunity.stage}
-                  {" · "}
-                  {formatServices(opportunity.services)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+      <Card>
+        <CardHeader>
+          <CardTitle>Opportunities</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {companyOpportunities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No opportunities are linked to this company yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {companyOpportunities.map((opportunity) => (
+                <li key={opportunity.id}>
+                  <Link
+                    href={`/app/opportunities/${opportunity.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {opportunity.name}
+                  </Link>
+                  <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                    <StatusBadge
+                      status={opportunity.stage}
+                      label={
+                        OPPORTUNITY_LABELS[opportunity.stage as keyof typeof OPPORTUNITY_LABELS] ??
+                        opportunity.stage
+                      }
+                    />
+                    <span>{formatServices(opportunity.services)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

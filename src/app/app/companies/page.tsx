@@ -1,5 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/ops/page-header";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getOpsSession } from "@/lib/ops/auth";
 import {
   listCompanies,
@@ -23,42 +33,35 @@ export default async function CompaniesPage() {
   ]);
 
   return (
-    <main className="page-rail py-8">
-      <p className="section-kicker mb-2">CRM</p>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Companies
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-[color:var(--sf-ink)]/70">
-            Companies created or linked from estimate requests. Contacts, sites,
-            and opportunities stay attached to the company record.
+    <div className="space-y-6">
+      <PageHeader
+        title="Companies"
+        description="Companies created or linked from estimate requests. Contacts, sites, and opportunities stay attached."
+        actions={
+          <p className="text-sm text-muted-foreground">
+            {companies.length} compan{companies.length === 1 ? "y" : "ies"}
           </p>
-        </div>
-        <p className="text-sm font-semibold text-[color:var(--sf-ink)]/60">
-          {companies.length} compan{companies.length === 1 ? "y" : "ies"}
-        </p>
-      </div>
+        }
+      />
 
-      <div className="mt-6 overflow-x-auto rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white">
-        <table className="min-w-[48rem] w-full border-collapse text-left text-sm">
-          <thead className="bg-[color:var(--sf-mist,#e9edef)] text-xs uppercase tracking-[0.12em] text-[color:var(--sf-ink)]/60">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Company</th>
-              <th className="px-4 py-3 font-semibold">Location</th>
-              <th className="px-4 py-3 font-semibold">Contacts</th>
-              <th className="px-4 py-3 font-semibold">Opportunities</th>
-              <th className="px-4 py-3 font-semibold">Projects</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Company</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Contacts</TableHead>
+              <TableHead>Opportunities</TableHead>
+              <TableHead>Projects</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {companies.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--sf-ink)]/60">
-                  No companies yet. Convert an estimate request to create the
-                  first record.
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  No companies yet. Convert an estimate request to create the first record.
+                </TableCell>
+              </TableRow>
             ) : (
               companies.map((company) => {
                 const companyContacts = contacts.filter(
@@ -71,40 +74,30 @@ export default async function CompaniesPage() {
                   (project) => project.companyId === company.id,
                 );
                 return (
-                  <tr
-                    key={company.id}
-                    className="border-t border-[color:var(--sf-ink)]/8 hover:bg-[color:var(--sf-cyan)]/5"
-                  >
-                    <td className="px-4 py-3 align-top">
-                      <Link
-                        href={`/app/companies/${company.id}`}
-                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-                      >
+                  <TableRow key={company.id}>
+                    <TableCell>
+                      <Link href={`/app/companies/${company.id}`} className="font-medium hover:underline">
                         {company.name}
                       </Link>
                       {company.email ? (
-                        <p className="text-xs text-[color:var(--sf-ink)]/55">
-                          {company.email}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{company.email}</p>
                       ) : null}
-                    </td>
-                    <td className="px-4 py-3 align-top">
+                    </TableCell>
+                    <TableCell>
                       {company.city
                         ? `${company.city}${company.province === "ON" ? ", ON" : ""}`
                         : "—"}
-                    </td>
-                    <td className="px-4 py-3 align-top">{companyContacts.length}</td>
-                    <td className="px-4 py-3 align-top">
-                      {companyOpportunities.length}
-                    </td>
-                    <td className="px-4 py-3 align-top">{companyProjects.length}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>{companyContacts.length}</TableCell>
+                    <TableCell>{companyOpportunities.length}</TableCell>
+                    <TableCell>{companyProjects.length}</TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
-      </div>
-    </main>
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
 }
