@@ -14,13 +14,14 @@ import {
 import {
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
+  getPortfolioBaselineState,
   getPortfolioJobScheduleState,
   getPortfolioResourceGeometry,
   getPortfolioTaskScheduleState,
   isPortfolioWorkingDay,
   localScheduleDateKey,
-  normalizePortfolioScheduleDates,
   portfolioCalendarDate,
+  type PortfolioBaselineState,
   type PortfolioScheduleCalendar,
   type PortfolioScheduleAssignment,
   type ProjectedPortfolioProject,
@@ -94,22 +95,26 @@ function varianceLabel(
   return `Start ${signed(variance.startVarianceDays)} · Finish ${signed(variance.finishVarianceDays)}`;
 }
 
-type NormalizedBaselineEntry = {
-  dates: Required<ScheduleDates>;
-  hasValidDates: boolean;
-};
-
 function portfolioBaselineVariance(
   assignment: PortfolioScheduleAssignment,
-  entry: NormalizedBaselineEntry | undefined,
-  selected: boolean,
+  state: PortfolioBaselineState,
 ): ReturnType<typeof calculateBaselineVariance> | null {
-  if (!selected || (entry && !entry.hasValidDates)) return null;
+  if (state.kind !== "scheduled" && state.kind !== "added") return null;
   return calculateBaselineVariance(
     assignment,
-    entry?.dates ?? null,
+    state.kind === "scheduled" ? state.dates : null,
     assignment.calendar as ResolvedWorkingCalendar,
   );
+}
+
+function baselineStateLabel(
+  state: PortfolioBaselineState,
+  variance: ReturnType<typeof calculateBaselineVariance> | null,
+): string {
+  if (state.kind === "none") return "None selected";
+  if (state.kind === "not-baselined") return "Not baselined";
+  if (state.kind === "invalid") return "Invalid baseline date";
+  return variance ? varianceLabel(variance) : "Not baselined";
 }
 
 function AssignmentMark({
@@ -276,6 +281,7 @@ export function PortfolioResourceSchedule({
   const lanes = buildPortfolioResourceLanes(
     buildPortfolioScheduleAssignments(projects),
   );
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
   const jobsById = new Map(
     projects.flatMap((project) =>
       project.jobs.map((job) => [`${project.id}:job:${job.id}`, job] as const),
@@ -293,20 +299,13 @@ export function PortfolioResourceSchedule({
   const baselineByEntity = new Map(
     baseline === "latest"
       ? projects.flatMap((project) =>
-          (project.latestBaseline?.items ?? []).map((item) => {
-            const dates = normalizePortfolioScheduleDates(item);
-            return [
+          (project.latestBaseline?.items ?? []).map(
+            (item) =>
+              [
               `${project.id}:${item.entityType}:${item.entityId}`,
-              {
-                dates,
-                hasValidDates: Boolean(
-                  dates.plannedStartAt ||
-                    dates.plannedEndAt ||
-                    dates.dueAt,
-                ),
-              },
-            ] as const;
-          }),
+                item,
+              ] as const,
+          ),
         )
       : [],
   );
@@ -407,10 +406,15 @@ export function PortfolioResourceSchedule({
                 const baselineItem = baselineByEntity.get(
                   `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
                 );
+                const baselineState = getPortfolioBaselineState(
+                  baseline,
+                  projectsById.get(assignment.projectId)?.latestBaseline ??
+                    null,
+                  baselineItem,
+                );
                 const variance = portfolioBaselineVariance(
                   assignment,
-                  baselineItem,
-                  baseline === "latest",
+                  baselineState,
                 );
                 return (
                   <div
@@ -445,11 +449,12 @@ export function PortfolioResourceSchedule({
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge variant="outline">{assignment.role}</Badge>
-                            {variance ? (
-                              <span className="text-xs text-muted-foreground">
-                                {varianceLabel(variance)}
-                              </span>
-                            ) : null}
+                            <span className="text-xs text-muted-foreground">
+                              {baselineStateLabel(
+                                baselineState,
+                                variance,
+                              )}
+                            </span>
                           </div>
                         </div>
                         {assignment.hasPotentialOverlap ? (
@@ -465,18 +470,18 @@ export function PortfolioResourceSchedule({
                         ) : null}
                       </div>
                     </div>
-                    <div className="relative flex min-h-14 items-center px-2">
+                    <div className="relative flex min-h-14 items-center">
                       <AssignmentTimelineBackdrop
                         window={window}
                         now={now}
                         calendar={assignment.calendar}
                       />
                       <div className="relative z-10 min-w-0 flex-1">
-                        {baselineItem?.hasValidDates ? (
+                        {baselineState.kind === "scheduled" ? (
                           <AssignmentMark
                             assignment={{
                               ...assignment,
-                              ...baselineItem.dates,
+                              ...baselineState.dates,
                             }}
                             window={window}
                             state="remaining"
@@ -521,10 +526,15 @@ export function PortfolioResourceSchedule({
                   const baselineItem = baselineByEntity.get(
                     `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
                   );
+                  const baselineState = getPortfolioBaselineState(
+                    baseline,
+                    projectsById.get(assignment.projectId)?.latestBaseline ??
+                      null,
+                    baselineItem,
+                  );
                   const variance = portfolioBaselineVariance(
                     assignment,
-                    baselineItem,
-                    baseline === "latest",
+                    baselineState,
                   );
                   return (
                     <TableRow key={`${assignment.projectId}:${assignment.id}`}>
@@ -559,7 +569,7 @@ export function PortfolioResourceSchedule({
                         )}
                       </TableCell>
                       <TableCell>
-                        {variance ? varianceLabel(variance) : "None selected"}
+                        {baselineStateLabel(baselineState, variance)}
                       </TableCell>
                       <TableCell>
                         {assignment.hasPotentialOverlap

@@ -417,6 +417,39 @@ export function normalizePortfolioScheduleDates(
   };
 }
 
+export type PortfolioBaselineState =
+  | { kind: "none" }
+  | { kind: "not-baselined" }
+  | { kind: "added" }
+  | { kind: "invalid" }
+  | { kind: "scheduled"; dates: Required<ScheduleDates> };
+
+export function getPortfolioBaselineState(
+  mode: "latest" | "none",
+  latestBaseline: PortfolioScheduleBaseline | null,
+  item: ScheduleDates | undefined,
+): PortfolioBaselineState {
+  if (mode === "none") return { kind: "none" };
+  if (!latestBaseline) return { kind: "not-baselined" };
+  if (!item) return { kind: "added" };
+  const dates = normalizePortfolioScheduleDates(item);
+  const hasMalformedDate = (
+    [
+      ["plannedStartAt", item.plannedStartAt],
+      ["plannedEndAt", item.plannedEndAt],
+      ["dueAt", item.dueAt],
+    ] as const
+  ).some(
+    ([key, value]) =>
+      value !== null && value !== undefined && !dates[key],
+  );
+  if (hasMalformedDate) return { kind: "invalid" };
+  if (!dates.plannedStartAt && !dates.plannedEndAt && !dates.dueAt) {
+    return { kind: "not-baselined" };
+  }
+  return { kind: "scheduled", dates };
+}
+
 function nowCalendarDate(
   now: string | Date,
   calendar: PortfolioScheduleCalendar,
@@ -838,8 +871,6 @@ function dateFromOrdinal(value: number): string {
 }
 
 type PortfolioAssignmentRange = {
-  start: string;
-  end: string;
   startOrdinal: number;
   endOrdinal: number;
 };
@@ -860,18 +891,14 @@ function portfolioAssignmentRange(
   const startOrdinal = dateOrdinal(start);
   const endOrdinal = dateOrdinal(end);
   if (startOrdinal > endOrdinal) return null;
-  return { start, end, startOrdinal, endOrdinal };
+  return { startOrdinal, endOrdinal };
 }
 
-type PortfolioCalendarIndex = {
+type PortfolioCalendarProfile = {
   weekendDays: ReadonlySet<number>;
   exceptions: ReadonlyMap<string, boolean>;
+  exceptionOrdinals: readonly number[];
 };
-
-const portfolioCalendarIndexes = new WeakMap<
-  PortfolioScheduleCalendar,
-  PortfolioCalendarIndex
->();
 
 export type PortfolioOverlapDiagnostics = {
   calendarIndexBuilds: number;
@@ -889,12 +916,13 @@ export function createPortfolioOverlapDiagnostics(): PortfolioOverlapDiagnostics
   };
 }
 
-function getPortfolioCalendarIndex(
-  calendar: PortfolioScheduleCalendar,
-  diagnostics?: PortfolioOverlapDiagnostics,
-): PortfolioCalendarIndex {
-  const existing = portfolioCalendarIndexes.get(calendar);
-  if (existing) return existing;
+function normalizedCalendarParts(calendar: PortfolioScheduleCalendar): {
+  weekendDays: number[];
+  exceptions: Array<[string, boolean]>;
+} {
+  const weekendDays = [...new Set(calendar.weekendDays)].sort(
+    (left, right) => left - right,
+  );
   const exceptions = new Map<string, boolean>();
   for (const exception of calendar.exceptions) {
     const date = validDate(exception.date)?.value;
@@ -902,112 +930,206 @@ function getPortfolioCalendarIndex(
       exceptions.set(date, exception.isWorkingDay);
     }
   }
-  const index = {
-    weekendDays: new Set(calendar.weekendDays),
-    exceptions,
+  return {
+    weekendDays,
+    exceptions: [...exceptions.entries()].sort(([left], [right]) =>
+      compareLexical(left, right),
+    ),
   };
-  portfolioCalendarIndexes.set(calendar, index);
-  if (diagnostics) diagnostics.calendarIndexBuilds += 1;
-  return index;
 }
 
-function isIndexedWorkingDay(
-  ordinal: number,
+export function portfolioCalendarSignature(
   calendar: PortfolioScheduleCalendar,
-  diagnostics?: PortfolioOverlapDiagnostics,
-): boolean {
-  const index = getPortfolioCalendarIndex(calendar, diagnostics);
-  const date = dateFromOrdinal(ordinal);
-  const exception = index.exceptions.get(date);
-  if (exception !== undefined) return exception;
-  const day = ((ordinal + 4) % 7 + 7) % 7;
-  return !index.weekendDays.has(day);
+): string {
+  const normalized = normalizedCalendarParts(calendar);
+  return JSON.stringify([
+    calendar.timeZone,
+    normalized.weekendDays,
+    normalized.exceptions,
+  ]);
 }
+
+type CalendarPairSearch = {
+  regularSharedWorkingDay: boolean;
+  sharedExceptionOrdinals: readonly number[];
+  nextWorkingMemo: Map<number, number>;
+};
+
+class PortfolioCalendarQueryCache {
+  private readonly signatures = new WeakMap<
+    PortfolioScheduleCalendar,
+    string
+  >();
+  private readonly profiles = new Map<string, PortfolioCalendarProfile>();
+  private readonly pairs = new Map<string, CalendarPairSearch>();
+
+  constructor(
+    private readonly diagnostics?: PortfolioOverlapDiagnostics,
+  ) {}
+
+  signature(calendar: PortfolioScheduleCalendar): string {
+    const existing = this.signatures.get(calendar);
+    if (existing) return existing;
+    const signature = portfolioCalendarSignature(calendar);
+    this.signatures.set(calendar, signature);
+    if (!this.profiles.has(signature)) {
+      const normalized = normalizedCalendarParts(calendar);
+      this.profiles.set(signature, {
+        weekendDays: new Set(normalized.weekendDays),
+        exceptions: new Map(normalized.exceptions),
+        exceptionOrdinals: normalized.exceptions.map(([date]) =>
+          dateOrdinal(date),
+        ),
+      });
+      if (this.diagnostics) this.diagnostics.calendarIndexBuilds += 1;
+    }
+    return signature;
+  }
+
+  isWorkingOrdinal(signature: string, ordinal: number): boolean {
+    const profile = this.profiles.get(signature)!;
+    const exception = profile.exceptions.get(dateFromOrdinal(ordinal));
+    if (exception !== undefined) return exception;
+    const day = ((ordinal + 4) % 7 + 7) % 7;
+    return !profile.weekendDays.has(day);
+  }
+
+  firstSharedWorkingOrdinal(
+    leftSignature: string,
+    rightSignature: string,
+    start: number,
+    end: number,
+  ): number | null {
+    if (this.diagnostics) this.diagnostics.rangeQueries += 1;
+    const pair = this.getPair(leftSignature, rightSignature);
+    if (!pair.regularSharedWorkingDay) {
+      const index = lowerBound(pair.sharedExceptionOrdinals, start);
+      const candidate = pair.sharedExceptionOrdinals[index];
+      return candidate !== undefined && candidate <= end ? candidate : null;
+    }
+
+    const trail: number[] = [];
+    let cursor = start;
+    let result = pair.nextWorkingMemo.get(cursor);
+    while (result === undefined) {
+      trail.push(cursor);
+      if (this.diagnostics) this.diagnostics.workingDateEvaluations += 1;
+      if (
+        this.isWorkingOrdinal(leftSignature, cursor) &&
+        this.isWorkingOrdinal(rightSignature, cursor)
+      ) {
+        result = cursor;
+        break;
+      }
+      cursor += 1;
+      result = pair.nextWorkingMemo.get(cursor);
+    }
+    for (const ordinal of trail) {
+      pair.nextWorkingMemo.set(ordinal, result);
+    }
+    return result <= end ? result : null;
+  }
+
+  private getPair(
+    leftSignature: string,
+    rightSignature: string,
+  ): CalendarPairSearch {
+    const [firstSignature, secondSignature] =
+      compareLexical(leftSignature, rightSignature) <= 0
+        ? [leftSignature, rightSignature]
+        : [rightSignature, leftSignature];
+    const key = JSON.stringify([firstSignature, secondSignature]);
+    const existing = this.pairs.get(key);
+    if (existing) return existing;
+    const first = this.profiles.get(firstSignature)!;
+    const second = this.profiles.get(secondSignature)!;
+    const regularSharedWorkingDay = Array.from(
+      { length: 7 },
+      (_, day) =>
+        !first.weekendDays.has(day) && !second.weekendDays.has(day),
+    ).some(Boolean);
+    const exceptionOrdinals = [
+      ...new Set([
+        ...first.exceptionOrdinals,
+        ...second.exceptionOrdinals,
+      ]),
+    ].sort((left, right) => left - right);
+    const sharedExceptionOrdinals = regularSharedWorkingDay
+      ? []
+      : exceptionOrdinals.filter(
+          (ordinal) =>
+            this.isWorkingOrdinal(firstSignature, ordinal) &&
+            this.isWorkingOrdinal(secondSignature, ordinal),
+        );
+    if (this.diagnostics) {
+      this.diagnostics.pairIndexBuilds += 1;
+      this.diagnostics.workingDateEvaluations += exceptionOrdinals.length;
+    }
+    const pair = {
+      regularSharedWorkingDay,
+      sharedExceptionOrdinals,
+      nextWorkingMemo: new Map<number, number>(),
+    };
+    this.pairs.set(key, pair);
+    return pair;
+  }
+}
+
+const defaultPortfolioCalendarQueries = new PortfolioCalendarQueryCache();
 
 export function isPortfolioWorkingDay(
   date: string,
   calendar: PortfolioScheduleCalendar,
 ): boolean {
   const localDate = portfolioCalendarDate(date, calendar);
-  return localDate
-    ? isIndexedWorkingDay(dateOrdinal(localDate), calendar)
-    : false;
+  if (!localDate) return false;
+  const signature = defaultPortfolioCalendarQueries.signature(calendar);
+  return defaultPortfolioCalendarQueries.isWorkingOrdinal(
+    signature,
+    dateOrdinal(localDate),
+  );
 }
 
-type CalendarRangeBound = { start: number; end: number };
+function lowerBound(values: readonly number[], target: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (values[middle]! < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
 
-class SharedWorkingDayQuery {
-  private readonly calendarIds = new WeakMap<
-    PortfolioScheduleCalendar,
-    number
-  >();
-  private readonly pairIndexes = new Map<
-    string,
-    { start: number; end: number; prefix: Uint32Array }
-  >();
+class FenwickMultiset {
+  private readonly counts: Int32Array;
+  private total = 0;
 
-  constructor(
-    private readonly bounds: ReadonlyMap<
-      PortfolioScheduleCalendar,
-      CalendarRangeBound
-    >,
-    private readonly diagnostics: PortfolioOverlapDiagnostics,
-  ) {
-    let id = 0;
-    for (const calendar of bounds.keys()) {
-      this.calendarIds.set(calendar, id);
-      id += 1;
-    }
+  constructor(private readonly values: readonly number[]) {
+    this.counts = new Int32Array(values.length + 1);
   }
 
-  hasSharedWorkingDay(
-    left: PortfolioScheduleCalendar,
-    right: PortfolioScheduleCalendar,
-    start: number,
-    end: number,
-  ): boolean {
-    this.diagnostics.rangeQueries += 1;
-    const index = this.getPairIndex(left, right);
-    if (!index) return false;
-    const queryStart = Math.max(start, index.start);
-    const queryEnd = Math.min(end, index.end);
-    if (queryStart > queryEnd) return false;
-    const offsetStart = queryStart - index.start;
-    const offsetEnd = queryEnd - index.start + 1;
-    return index.prefix[offsetEnd]! > index.prefix[offsetStart]!;
+  add(value: number): void {
+    let index = lowerBound(this.values, value) + 1;
+    while (index < this.counts.length) {
+      this.counts[index] += 1;
+      index += index & -index;
+    }
+    this.total += 1;
   }
 
-  private getPairIndex(
-    left: PortfolioScheduleCalendar,
-    right: PortfolioScheduleCalendar,
-  ): { start: number; end: number; prefix: Uint32Array } | null {
-    const leftId = this.calendarIds.get(left);
-    const rightId = this.calendarIds.get(right);
-    if (leftId === undefined || rightId === undefined) return null;
-    const first = leftId <= rightId ? left : right;
-    const second = leftId <= rightId ? right : left;
-    const key =
-      leftId <= rightId ? `${leftId}:${rightId}` : `${rightId}:${leftId}`;
-    const existing = this.pairIndexes.get(key);
-    if (existing) return existing;
-    const firstBound = this.bounds.get(first)!;
-    const secondBound = this.bounds.get(second)!;
-    const start = Math.max(firstBound.start, secondBound.start);
-    const end = Math.min(firstBound.end, secondBound.end);
-    if (start > end) return null;
-    const prefix = new Uint32Array(end - start + 2);
-    for (let ordinal = start; ordinal <= end; ordinal += 1) {
-      this.diagnostics.workingDateEvaluations += 1;
-      const shared =
-        isIndexedWorkingDay(ordinal, first, this.diagnostics) &&
-        isIndexedWorkingDay(ordinal, second, this.diagnostics);
-      const offset = ordinal - start;
-      prefix[offset + 1] = prefix[offset]! + (shared ? 1 : 0);
+  countAtLeast(value: number): number {
+    return this.total - this.prefix(lowerBound(this.values, value));
+  }
+
+  private prefix(length: number): number {
+    let result = 0;
+    let index = length;
+    while (index > 0) {
+      result += this.counts[index]!;
+      index -= index & -index;
     }
-    const index = { start, end, prefix };
-    this.pairIndexes.set(key, index);
-    this.diagnostics.pairIndexBuilds += 1;
-    return index;
+    return result;
   }
 }
 
@@ -1054,6 +1176,7 @@ export function buildPortfolioResourceLanes(
   assignments: readonly PortfolioScheduleAssignment[],
   diagnostics = createPortfolioOverlapDiagnostics(),
 ): PortfolioResourceLane[] {
+  const calendarQueries = new PortfolioCalendarQueryCache(diagnostics);
   const groups = new Map<
     string,
     {
@@ -1081,63 +1204,126 @@ export function buildPortfolioResourceLanes(
       let potentialOverlapCount = 0;
 
       if (key !== PORTFOLIO_UNASSIGNED_RESOURCE_KEY) {
-        const ranges = new Map<
-          PortfolioScheduleAssignment,
-          PortfolioAssignmentRange
+        const ranged = sorted
+          .flatMap((assignment) => {
+            const range = portfolioAssignmentRange(assignment);
+            return range
+              ? [
+                  {
+                    assignment,
+                    range,
+                    signature: calendarQueries.signature(
+                      assignment.calendar,
+                    ),
+                  },
+                ]
+              : [];
+          })
+          .sort(
+            (left, right) =>
+              left.range.startOrdinal - right.range.startOrdinal ||
+              comparePortfolioAssignments(
+                left.assignment,
+                right.assignment,
+              ),
+          )
+          .map((item, order) => ({ ...item, order }));
+        const membersBySignature = new Map<
+          string,
+          typeof ranged
         >();
-        const bounds = new Map<
-          PortfolioScheduleCalendar,
-          CalendarRangeBound
+        for (const item of ranged) {
+          const members = membersBySignature.get(item.signature);
+          if (members) members.push(item);
+          else membersBySignature.set(item.signature, [item]);
+        }
+        const activeGroups = new Map<
+          string,
+          {
+            ends: FenwickMultiset;
+            maxInsertedEnd: number;
+            members: typeof ranged;
+            events: Array<{ afterOrder: number; minimumEnd: number }>;
+          }
         >();
-        for (const assignment of sorted) {
-          const range = portfolioAssignmentRange(assignment);
-          if (!range) continue;
-          ranges.set(assignment, range);
-          const bound = bounds.get(assignment.calendar);
-          if (bound) {
-            bound.start = Math.min(bound.start, range.startOrdinal);
-            bound.end = Math.max(bound.end, range.endOrdinal);
-          } else {
-            bounds.set(assignment.calendar, {
-              start: range.startOrdinal,
-              end: range.endOrdinal,
+        for (const [signature, members] of membersBySignature) {
+          const endValues = [
+            ...new Set(members.map((item) => item.range.endOrdinal)),
+          ].sort((left, right) => left - right);
+          activeGroups.set(signature, {
+            ends: new FenwickMultiset(endValues),
+            maxInsertedEnd: Number.NEGATIVE_INFINITY,
+            members,
+            events: [],
+          });
+        }
+
+        const activeSignatures = new Set<string>();
+        for (const item of ranged) {
+          let currentConflictCount = 0;
+          for (const activeSignature of activeSignatures) {
+            const activeGroup = activeGroups.get(activeSignature)!;
+            if (
+              activeGroup.maxInsertedEnd <
+              item.range.startOrdinal
+            ) {
+              activeSignatures.delete(activeSignature);
+              continue;
+            }
+            const firstShared =
+              calendarQueries.firstSharedWorkingOrdinal(
+                activeSignature,
+                item.signature,
+                item.range.startOrdinal,
+                item.range.endOrdinal,
+              );
+            if (firstShared === null) continue;
+            const conflictCount =
+              activeGroup.ends.countAtLeast(firstShared);
+            if (conflictCount === 0) continue;
+            currentConflictCount += conflictCount;
+            activeGroup.events.push({
+              afterOrder: item.order,
+              minimumEnd: firstShared,
             });
           }
+          if (currentConflictCount > 0) {
+            potentialOverlapCount += currentConflictCount;
+            overlapping.add(item.assignment);
+          }
+          const ownGroup = activeGroups.get(item.signature)!;
+          ownGroup.ends.add(item.range.endOrdinal);
+          ownGroup.maxInsertedEnd = Math.max(
+            ownGroup.maxInsertedEnd,
+            item.range.endOrdinal,
+          );
+          activeSignatures.add(item.signature);
         }
-        const sharedWorkingDays = new SharedWorkingDayQuery(
-          bounds,
-          diagnostics,
-        );
-        const active: Array<{
-          assignment: PortfolioScheduleAssignment;
-          range: PortfolioAssignmentRange;
-        }> = [];
-        for (const assignment of sorted) {
-          const range = ranges.get(assignment);
-          if (!range) continue;
-          for (let index = active.length - 1; index >= 0; index -= 1) {
-            if (active[index]!.range.endOrdinal < range.startOrdinal) {
-              active.splice(index, 1);
-            }
-          }
-          for (const candidate of active) {
-            if (
-              sharedWorkingDays.hasSharedWorkingDay(
-                candidate.assignment.calendar,
-                assignment.calendar,
-                Math.max(
-                  candidate.range.startOrdinal,
-                  range.startOrdinal,
-                ),
-                Math.min(candidate.range.endOrdinal, range.endOrdinal),
-              )
+
+        for (const activeGroup of activeGroups.values()) {
+          let eventIndex = activeGroup.events.length - 1;
+          let minimumEnd = Number.POSITIVE_INFINITY;
+          for (
+            let memberIndex = activeGroup.members.length - 1;
+            memberIndex >= 0;
+            memberIndex -= 1
+          ) {
+            const member = activeGroup.members[memberIndex]!;
+            while (
+              eventIndex >= 0 &&
+              activeGroup.events[eventIndex]!.afterOrder >
+                member.order
             ) {
-              potentialOverlapCount += 1;
-              overlapping.add(candidate.assignment);
-              overlapping.add(assignment);
+              minimumEnd = Math.min(
+                minimumEnd,
+                activeGroup.events[eventIndex]!.minimumEnd,
+              );
+              eventIndex -= 1;
+            }
+            if (member.range.endOrdinal >= minimumEnd) {
+              overlapping.add(member.assignment);
             }
           }
-          active.push({ assignment, range });
         }
       }
 

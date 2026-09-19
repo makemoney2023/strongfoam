@@ -14,17 +14,20 @@ import {
   buildPortfolioProjects,
   createPortfolioOverlapDiagnostics,
   filterPortfolioProjects,
+  getPortfolioBaselineState,
   getPortfolioJobScheduleState,
   getPortfolioProjectRange,
   getPortfolioProjectState,
   getPortfolioResourceGeometry,
   getPortfolioTaskScheduleState,
+  isPortfolioWorkingDay,
   localScheduleDateKey,
   normalizePortfolioScheduleDates,
   portfolioCalendarDate,
   PORTFOLIO_UNASSIGNED_RESOURCE_KEY,
   serializePortfolioSchedule,
   type PortfolioProjectionFilter,
+  type PortfolioScheduleAssignment,
   type PortfolioScheduleProject,
 } from "@/lib/ops/portfolio-schedule";
 import {
@@ -1312,6 +1315,76 @@ function threeDayWindow(): ScheduleWindow {
   };
 }
 
+function assignmentIdentity(
+  assignment: Pick<PortfolioScheduleAssignment, "projectId" | "id">,
+): string {
+  return `${assignment.projectId}:${assignment.id}`;
+}
+
+function bruteForceOverlap(assignments: PortfolioScheduleAssignment[]): {
+  count: number;
+  conflicting: Set<string>;
+} {
+  let count = 0;
+  const conflicting = new Set<string>();
+  for (let leftIndex = 0; leftIndex < assignments.length; leftIndex += 1) {
+    const left = assignments[leftIndex]!;
+    if (!left.plannedStartAt || !left.plannedEndAt) continue;
+    const leftStart = portfolioCalendarDate(
+      left.plannedStartAt,
+      left.calendar,
+    );
+    const leftEnd = portfolioCalendarDate(left.plannedEndAt, left.calendar);
+    if (!leftStart || !leftEnd) continue;
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < assignments.length;
+      rightIndex += 1
+    ) {
+      const right = assignments[rightIndex]!;
+      if (!right.plannedStartAt || !right.plannedEndAt) continue;
+      const rightStart = portfolioCalendarDate(
+        right.plannedStartAt,
+        right.calendar,
+      );
+      const rightEnd = portfolioCalendarDate(
+        right.plannedEndAt,
+        right.calendar,
+      );
+      if (!rightStart || !rightEnd) continue;
+      const start = Math.max(
+        Date.parse(`${leftStart}T00:00:00.000Z`),
+        Date.parse(`${rightStart}T00:00:00.000Z`),
+      );
+      const end = Math.min(
+        Date.parse(`${leftEnd}T00:00:00.000Z`),
+        Date.parse(`${rightEnd}T00:00:00.000Z`),
+      );
+      let overlaps = false;
+      for (
+        let cursor = start;
+        cursor <= end;
+        cursor += 86_400_000
+      ) {
+        const date = new Date(cursor).toISOString().slice(0, 10);
+        if (
+          isPortfolioWorkingDay(date, left.calendar) &&
+          isPortfolioWorkingDay(date, right.calendar)
+        ) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) {
+        count += 1;
+        conflicting.add(assignmentIdentity(left));
+        conflicting.add(assignmentIdentity(right));
+      }
+    }
+  }
+  return { count, conflicting };
+}
+
 describe("portfolio resource projection", () => {
   it("keeps a positive-offset local schedule column on its local date", () => {
     const previousTimeZone = process.env.TZ;
@@ -1380,6 +1453,10 @@ describe("portfolio resource projection", () => {
     expect(html).toContain("before:h-11");
     expect(html).toContain("before:min-w-11");
     expect(html).toContain("before:size-11");
+    expect(html).toContain('class="relative flex min-h-14 items-center"');
+    expect(html).not.toContain(
+      'class="relative flex min-h-14 items-center px-2"',
+    );
     expect(html).toContain(
       'aria-label="Open source job JOB-1 · North wall" class="inline-flex min-h-11 min-w-11',
     );
@@ -1432,6 +1509,95 @@ describe("portfolio resource projection", () => {
     expect(html).not.toContain("Start ");
     expect(html).not.toContain("Not baselined");
     expect(html).not.toContain("border-muted-foreground bg-transparent");
+    expect(html.match(/Invalid baseline date/g)?.length).toBeGreaterThanOrEqual(
+      2,
+    );
+  });
+
+  it("renders none, not-baselined, and added states in chart and table", () => {
+    const baselineHeader = (id: string) => ({
+      id: `baseline-${id}`,
+      name: "Latest",
+      capturedAt: "2026-09-01",
+      items: [],
+    });
+    const projects = buildPortfolioProjects(
+      [
+        project({
+          id: "project-no-baseline",
+          name: "No baseline",
+          latestBaseline: null,
+          jobs: [
+            job({
+              id: "job-no-baseline",
+              projectManager: "Alex",
+              foreman: null,
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+        }),
+        project({
+          id: "project-added",
+          name: "Added",
+          latestBaseline: baselineHeader("added"),
+          jobs: [
+            job({
+              id: "job-added",
+              projectManager: "Alex",
+              foreman: null,
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+        }),
+        project({
+          id: "project-null-item",
+          name: "Null item",
+          latestBaseline: {
+            ...baselineHeader("null-item"),
+            items: [
+              {
+                id: "item-null",
+                baselineId: "baseline-null-item",
+                entityType: "job",
+                entityId: "job-null-item",
+                plannedStartAt: null,
+                plannedEndAt: null,
+                dueAt: null,
+              },
+            ],
+          },
+          jobs: [
+            job({
+              id: "job-null-item",
+              projectManager: "Alex",
+              foreman: null,
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+        }),
+      ],
+      now,
+    );
+    const render = (baseline: "latest" | "none") =>
+      renderToStaticMarkup(
+        createElement(PortfolioResourceSchedule, {
+          projects,
+          window: threeDayWindow(),
+          now: now.toISOString(),
+          baseline,
+        }),
+      );
+    const latest = render("latest");
+    const none = render("none");
+
+    expect(latest.match(/Added since baseline/g)?.length).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(latest.match(/Not baselined/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(none.match(/None selected/g)?.length).toBeGreaterThanOrEqual(6);
   });
 
   it("projects PM, foreman, and task roles with project and calendar provenance", () => {
@@ -1629,6 +1795,53 @@ describe("portfolio resource projection", () => {
       plannedStartAt: null,
       plannedEndAt: null,
       dueAt: null,
+    });
+  });
+
+  it("distinguishes every portfolio baseline state", () => {
+    const header = {
+      id: "baseline-state",
+      name: "State",
+      capturedAt: "2026-09-01",
+      items: [],
+    };
+
+    expect(getPortfolioBaselineState("none", header, undefined)).toEqual({
+      kind: "none",
+    });
+    expect(
+      getPortfolioBaselineState("latest", null, undefined),
+    ).toEqual({ kind: "not-baselined" });
+    expect(
+      getPortfolioBaselineState("latest", header, undefined),
+    ).toEqual({ kind: "added" });
+    expect(
+      getPortfolioBaselineState("latest", header, {
+        plannedStartAt: null,
+        plannedEndAt: null,
+        dueAt: null,
+      }),
+    ).toEqual({ kind: "not-baselined" });
+    expect(
+      getPortfolioBaselineState("latest", header, {
+        plannedStartAt: "2026-02-30",
+        plannedEndAt: null,
+        dueAt: null,
+      }),
+    ).toEqual({ kind: "invalid" });
+    expect(
+      getPortfolioBaselineState("latest", header, {
+        plannedStartAt: "2026-09-21",
+        plannedEndAt: "2026-09-22",
+        dueAt: null,
+      }),
+    ).toEqual({
+      kind: "scheduled",
+      dates: {
+        plannedStartAt: "2026-09-21",
+        plannedEndAt: "2026-09-22",
+        dueAt: null,
+      },
     });
   });
 
@@ -1990,6 +2203,181 @@ describe("portfolio resource projection", () => {
     );
   });
 
+  it("aggregates 9,000 dense same-day assignments without enumerating pairs", () => {
+    const assignments = buildPortfolioScheduleAssignments([
+      project({
+        id: "project-dense",
+        jobs: [
+          job({
+            id: "job-dense",
+            projectManager: "Alex",
+            foreman: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-21",
+            tasks: Array.from({ length: 8_998 }, (_, index) =>
+              task({
+                id: `dense-task-${index}`,
+                jobId: "job-dense",
+                assignee: "Alex",
+                plannedStartAt: "2026-09-21",
+                plannedEndAt: "2026-09-21",
+              }),
+            ),
+          }),
+        ],
+      }),
+    ]);
+    const diagnostics = createPortfolioOverlapDiagnostics();
+    const lane = buildPortfolioResourceLanes(assignments, diagnostics).find(
+      (candidate) => candidate.key === "alex",
+    );
+
+    expect(lane?.assignments).toHaveLength(9_000);
+    expect(lane?.potentialOverlapCount).toBe(40_495_500);
+    expect(
+      lane?.assignments.every(
+        (assignment) => assignment.hasPotentialOverlap,
+      ),
+    ).toBe(true);
+    expect(diagnostics.rangeQueries).toBe(8_999);
+    expect(diagnostics.pairIndexBuilds).toBe(1);
+    expect(diagnostics.workingDateEvaluations).toBeLessThan(10);
+  });
+
+  it("canonicalizes equivalent cloned project calendars onto one cache path", () => {
+    const firstCalendar = calendar({
+      id: "calendar-first",
+      weekendDays: [6, 0],
+      exceptions: [
+        { date: "2026-12-26", isWorkingDay: true },
+        { date: "2026-12-25", isWorkingDay: false },
+      ],
+    });
+    const secondCalendar = calendar({
+      id: "calendar-second",
+      weekendDays: [0, 6],
+      exceptions: [
+        { date: "2026-12-25", isWorkingDay: false },
+        { date: "2026-12-26", isWorkingDay: true },
+      ],
+    });
+    const assignments = buildPortfolioScheduleAssignments([
+      project({
+        id: "project-equivalent-a",
+        calendar: firstCalendar,
+        jobs: [
+          job({
+            id: "job-equivalent-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-21",
+          }),
+        ],
+      }),
+      project({
+        id: "project-equivalent-b",
+        calendar: secondCalendar,
+        jobs: [
+          job({
+            id: "job-equivalent-b",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-21",
+          }),
+        ],
+      }),
+    ]);
+    const diagnostics = createPortfolioOverlapDiagnostics();
+    const lane = buildPortfolioResourceLanes(assignments, diagnostics).find(
+      (candidate) => candidate.key === "alex",
+    );
+
+    expect(assignments[0]?.calendar).not.toBe(assignments[2]?.calendar);
+    expect(lane?.potentialOverlapCount).toBe(1);
+    expect(diagnostics.calendarIndexBuilds).toBe(1);
+    expect(diagnostics.pairIndexBuilds).toBe(1);
+  });
+
+  it("matches a brute-force oracle for mixed ranges, ends, and calendars", () => {
+    const assignments = buildPortfolioScheduleAssignments([
+      project({
+        id: "project-mixed-a",
+        calendar: calendar({
+          id: "calendar-mixed-a",
+          exceptions: [
+            { date: "2026-09-21", isWorkingDay: false },
+          ],
+        }),
+        jobs: [
+          job({
+            id: "mixed-a-long",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-18",
+            plannedEndAt: "2026-09-25",
+          }),
+          job({
+            id: "mixed-a-short",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-21",
+          }),
+        ],
+      }),
+      project({
+        id: "project-mixed-b",
+        calendar: calendar({
+          id: "calendar-mixed-b",
+          weekendDays: [5, 6],
+          exceptions: [
+            { date: "2026-09-19", isWorkingDay: true },
+          ],
+        }),
+        jobs: [
+          job({
+            id: "mixed-b-nested",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-19",
+            plannedEndAt: "2026-09-23",
+          }),
+          job({
+            id: "mixed-b-late",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-24",
+            plannedEndAt: "2026-09-28",
+          }),
+        ],
+      }),
+      project({
+        id: "project-mixed-c",
+        calendar: calendar({
+          id: "calendar-mixed-c",
+          weekendDays: [0, 1, 2, 3, 4, 5, 6],
+          exceptions: [
+            { date: "2026-09-22", isWorkingDay: true },
+          ],
+        }),
+        jobs: [
+          job({
+            id: "mixed-c-exception",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-20",
+            plannedEndAt: "2026-09-24",
+          }),
+        ],
+      }),
+    ]).filter((assignment) => assignment.resource === "Alex");
+    const oracle = bruteForceOverlap(assignments);
+    const lane = buildPortfolioResourceLanes(assignments)[0]!;
+    const actualConflicting = new Set(
+      lane.assignments
+        .filter((assignment) => assignment.hasPotentialOverlap)
+        .map(assignmentIdentity),
+    );
+
+    expect(lane.potentialOverlapCount).toBe(oracle.count);
+    expect(actualConflicting).toEqual(oracle.conflicting);
+  });
+
   it("builds bounded lazy calendar-pair indexes for many long-range conflicts", () => {
     const exceptions = Array.from({ length: 300 }, (_, index) => ({
       date: new Date(Date.UTC(2020, 0, 1 + index * 10))
@@ -2032,10 +2420,10 @@ describe("portfolio resource projection", () => {
     );
 
     expect(lane?.potentialOverlapCount).toBe(780);
-    expect(diagnostics.rangeQueries).toBe(780);
+    expect(diagnostics.rangeQueries).toBeLessThan(80);
     expect(diagnostics.calendarIndexBuilds).toBe(2);
     expect(diagnostics.pairIndexBuilds).toBe(3);
-    expect(diagnostics.workingDateEvaluations).toBeLessThan(12_100);
+    expect(diagnostics.workingDateEvaluations).toBeLessThan(1_000);
   });
 
   it("uses deterministic lexical lane and assignment order for every input permutation", () => {
