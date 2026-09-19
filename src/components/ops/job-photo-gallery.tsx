@@ -67,14 +67,12 @@ export function JobPhotoGallery({
   documents,
   storageMode,
   returnTo,
-  areaName,
 }: {
   jobId: string;
   areas: AreaOption[];
   documents: GalleryDocument[];
   storageMode: StorageMode;
   returnTo: string;
-  areaName: (workAreaId: string | null) => string | undefined;
 }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +81,8 @@ export function JobPhotoGallery({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const areaName = (workAreaId: string | null) =>
+    areas.find((area) => area.id === workAreaId)?.name;
 
   async function uploadFiles(files: File[]) {
     if (storageMode === "unavailable") {

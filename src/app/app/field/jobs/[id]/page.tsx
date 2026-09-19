@@ -464,7 +464,6 @@ export default async function FieldJobPage({
             documents={documents}
             storageMode={documentStorageMode}
             returnTo={returnTo}
-            areaName={areaName}
           />
         </CardContent>
       </Card>
