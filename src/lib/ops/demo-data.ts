@@ -6,6 +6,7 @@ import {
   estimateRequestTasks,
   jobDocuments,
   jobEvents,
+  jobFieldNotes,
   jobTasks,
   jobs,
   leads,
@@ -29,11 +30,13 @@ export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
 
 const now = Date.now();
@@ -275,6 +278,23 @@ export function demoJobTasks(): JobTaskRow[] {
 
 export function demoJobDocuments(): JobDocumentRow[] {
   return [];
+}
+
+export function demoJobFieldNotes(): JobFieldNoteRow[] {
+  return [
+    {
+      id: DEMO_FIELD_NOTE_ID,
+      createdAt: new Date(now - 6 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: DEMO_JOB_TASK_ID,
+      kind: "note",
+      body: "Staging is complete. Start closed-cell at the podium deck after the morning safety talk.",
+      quantity: null,
+      unit: null,
+      createdBy: "morgan.cole@strongfoam.com",
+    },
+  ];
 }
 
 export function demoEstimateEvents(): EstimateRequestEvent[] {

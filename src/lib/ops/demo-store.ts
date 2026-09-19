@@ -7,6 +7,7 @@ import {
   demoEstimateTasks,
   demoJobDocuments,
   demoJobEvents,
+  demoJobFieldNotes,
   demoJobTasks,
   demoJobs,
   demoOpportunities,
@@ -21,6 +22,7 @@ import {
   type EstimateRequestTask,
   type JobDocumentRow,
   type JobEventRow,
+  type JobFieldNoteRow,
   type JobRow,
   type JobTaskRow,
   type OpportunityRow,
@@ -32,21 +34,40 @@ import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
   canConvertWonWork,
   type JobConversionInput,
+  type JobDetailsInput,
   type JobStatus,
 } from "@/lib/ops/jobs";
 import {
+  clearJobDocumentBytes,
   setJobDocumentBytes,
   getStoredJobDocumentBytes,
 } from "@/lib/ops/job-document-bytes";
+import { isInDateRange, matchesQuery } from "@/lib/ops/filters";
 import {
   sortJobTaskRows,
   type JobDocumentInput,
+  type JobDocumentKind,
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import type {
+  CompanyInput,
+  ContactInput,
+  OpportunityUpdateInput,
+  ProjectUpdateInput,
+  SiteInput,
+} from "@/lib/ops/records";
+import type {
+  CompanyListFilters,
   EstimateRequestFilters,
   EstimateRequestUpdate,
+  JobDocumentListFilters,
+  JobFieldNoteListFilters,
+  JobListFilters,
+  JobTaskListFilters,
+  OpportunityListFilters,
+  ProjectListFilters,
 } from "@/lib/ops/store";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
 
@@ -65,6 +86,7 @@ type DemoOpsState = {
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
   jobDocuments: JobDocumentRow[];
+  jobFieldNotes: JobFieldNoteRow[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -89,7 +111,10 @@ function getDemoState(): DemoOpsState {
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
       jobDocuments: demoJobDocuments(),
+      jobFieldNotes: demoJobFieldNotes(),
     };
+  } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
+    globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -109,6 +134,7 @@ const {
   workAreas,
   jobTasks,
   jobDocuments,
+  jobFieldNotes,
 } = getDemoState();
 
 export function isDemoOpsStore(
@@ -145,6 +171,7 @@ export function matchesEstimateRequestFilters(
   ) {
     if (request.status !== filters.qualification) return false;
   }
+  if (!isInDateRange(request.createdAt, filters)) return false;
   return true;
 }
 
@@ -334,8 +361,18 @@ export function addDemoEstimateRequestComment(args: {
   return comment;
 }
 
-export function listDemoCompanies(): CompanyRow[] {
-  return [...companies].sort((a, b) => a.name.localeCompare(b.name));
+export function listDemoCompanies(filters: CompanyListFilters = {}): CompanyRow[] {
+  return companies
+    .filter((company) =>
+      matchesQuery(filters.q, [
+        company.name,
+        company.email,
+        company.phone,
+        company.city,
+        company.province,
+      ]),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function getDemoCompany(id: string): CompanyRow | null {
@@ -362,10 +399,28 @@ export function getDemoSite(id: string): SiteRow | null {
   return sites.find((site) => site.id === id) ?? null;
 }
 
-export function listDemoOpportunities(): OpportunityRow[] {
-  return [...opportunities].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-  );
+export function listDemoOpportunities(
+  filters: OpportunityListFilters = {},
+): OpportunityRow[] {
+  return opportunities
+    .filter((opportunity) => {
+      if (filters.companyId && opportunity.companyId !== filters.companyId) {
+        return false;
+      }
+      if (filters.stage && opportunity.stage !== filters.stage) return false;
+      if (
+        !matchesQuery(filters.q, [
+          opportunity.name,
+          opportunity.owner,
+          opportunity.source,
+          opportunity.projectType,
+        ])
+      ) {
+        return false;
+      }
+      return isInDateRange(opportunity.createdAt, filters);
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 export function getDemoOpportunity(id: string): OpportunityRow | null {
@@ -517,9 +572,24 @@ export function convertDemoRequestToCrm(args: {
   };
 }
 
-export function listDemoProjects(companyId?: string): ProjectRow[] {
+export function listDemoProjects(
+  filters: string | ProjectListFilters = {},
+): ProjectRow[] {
+  const resolved =
+    typeof filters === "string" ? { companyId: filters } : filters;
   return projects
-    .filter((project) => !companyId || project.companyId === companyId)
+    .filter((project) => {
+      if (resolved.companyId && project.companyId !== resolved.companyId) {
+        return false;
+      }
+      if (resolved.status && project.status !== resolved.status) return false;
+      if (
+        !matchesQuery(resolved.q, [project.name, project.projectManager])
+      ) {
+        return false;
+      }
+      return isInDateRange(project.createdAt, resolved);
+    })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
@@ -527,17 +597,23 @@ export function getDemoProject(id: string): ProjectRow | null {
   return projects.find((project) => project.id === id) ?? null;
 }
 
-export function listDemoJobs(filters: {
-  projectId?: string;
-  companyId?: string;
-  status?: string;
-} = {}): JobRow[] {
+export function listDemoJobs(filters: JobListFilters = {}): JobRow[] {
   return jobsList
     .filter((job) => {
       if (filters.projectId && job.projectId !== filters.projectId) return false;
       if (filters.companyId && job.companyId !== filters.companyId) return false;
       if (filters.status && job.status !== filters.status) return false;
-      return true;
+      if (
+        !matchesQuery(filters.q, [
+          job.name,
+          job.scope,
+          job.foreman,
+          job.projectManager,
+        ])
+      ) {
+        return false;
+      }
+      return isInDateRange(job.plannedStartAt ?? job.createdAt, filters);
     })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
@@ -770,8 +846,17 @@ export function addDemoWorkArea(args: {
   return area;
 }
 
-export function listDemoJobTasks(jobId: string): JobTaskRow[] {
-  return sortJobTaskRows(jobTasks.filter((task) => task.jobId === jobId));
+export function listDemoJobTasks(
+  jobId: string,
+  filters: JobTaskListFilters = {},
+): JobTaskRow[] {
+  return sortJobTaskRows(
+    jobTasks.filter((task) => {
+      if (task.jobId !== jobId) return false;
+      if (filters.status && task.status !== filters.status) return false;
+      return isInDateRange(task.dueAt ?? task.createdAt, filters);
+    }),
+  );
 }
 
 export function addDemoJobTask(args: {
@@ -832,9 +917,16 @@ export function setDemoJobTaskStatus(args: {
   return task;
 }
 
-export function listDemoJobDocuments(jobId: string): JobDocumentRow[] {
+export function listDemoJobDocuments(
+  jobId: string,
+  filters: JobDocumentListFilters = {},
+): JobDocumentRow[] {
   return jobDocuments
-    .filter((document) => document.jobId === jobId)
+    .filter((document) => {
+      if (document.jobId !== jobId) return false;
+      if (filters.kind && document.kind !== filters.kind) return false;
+      return isInDateRange(document.createdAt, filters);
+    })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
@@ -900,4 +992,568 @@ export function getDemoJobDocumentDownload(
   const bytes = getStoredJobDocumentBytes(document.id);
   if (!bytes) return null;
   return { document, bytes };
+}
+
+export function listDemoJobFieldNotes(
+  jobId: string,
+  filters: JobFieldNoteListFilters = {},
+): JobFieldNoteRow[] {
+  return jobFieldNotes
+    .filter((note) => {
+      if (note.jobId !== jobId) return false;
+      if (filters.kind && note.kind !== filters.kind) return false;
+      if (filters.workAreaId && note.workAreaId !== filters.workAreaId) {
+        return false;
+      }
+      return isInDateRange(note.createdAt, filters);
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function addDemoJobFieldNote(args: {
+  jobId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): JobFieldNoteRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  if (
+    args.input.taskId &&
+    !jobTasks.some(
+      (task) => task.id === args.input.taskId && task.jobId === args.jobId,
+    )
+  ) {
+    return null;
+  }
+
+  const note: JobFieldNoteRow = {
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    jobId: args.jobId,
+    workAreaId: args.input.workAreaId,
+    taskId: args.input.taskId,
+    kind: args.input.kind,
+    body: args.input.body,
+    quantity: args.input.quantity,
+    unit: args.input.unit,
+    createdBy: args.actor,
+  };
+  jobFieldNotes.unshift(note);
+
+  const labels: Record<FieldNoteInput["kind"], string> = {
+    note: "field note added",
+    quantity: "quantity recorded",
+    blocker: "blocker reported",
+    material_request: "material request added",
+    daily_report: "daily report submitted",
+  };
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: `field_${args.input.kind}`,
+    summary: `${labels[args.input.kind]}: ${note.body.slice(0, 80)}`,
+    payload: {
+      noteId: note.id,
+      kind: note.kind,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      quantity: note.quantity,
+      unit: note.unit,
+    },
+  });
+  return note;
+}
+
+function removeById<T extends { id: string }>(items: T[], id: string): T | null {
+  const index = items.findIndex((item) => item.id === id);
+  if (index === -1) return null;
+  return items.splice(index, 1)[0] ?? null;
+}
+
+export function addDemoCompany(input: CompanyInput): CompanyRow {
+  const now = new Date();
+  const company: CompanyRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  companies.unshift(company);
+  return company;
+}
+
+export function updateDemoCompany(
+  id: string,
+  input: CompanyInput,
+): CompanyRow | null {
+  const company = getDemoCompany(id);
+  if (!company) return null;
+  Object.assign(company, input, { updatedAt: new Date() });
+  return company;
+}
+
+export function deleteDemoCompany(
+  id: string,
+): { ok: true } | { ok: false; error: string } {
+  if (contacts.some((item) => item.companyId === id)) {
+    return { ok: false, error: "Remove or reassign contacts before deleting this company." };
+  }
+  if (sites.some((item) => item.companyId === id)) {
+    return { ok: false, error: "Remove sites before deleting this company." };
+  }
+  if (opportunities.some((item) => item.companyId === id)) {
+    return { ok: false, error: "This company still has opportunities." };
+  }
+  if (projects.some((item) => item.companyId === id) || jobsList.some((item) => item.companyId === id)) {
+    return { ok: false, error: "This company still has projects or jobs." };
+  }
+  return removeById(companies, id)
+    ? { ok: true }
+    : { ok: false, error: "That company could not be found." };
+}
+
+export function addDemoContact(args: {
+  companyId: string;
+  input: ContactInput;
+}): ContactRow | null {
+  if (!getDemoCompany(args.companyId)) return null;
+  const now = new Date();
+  const contact: ContactRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    companyId: args.companyId,
+    ...args.input,
+  };
+  contacts.unshift(contact);
+  return contact;
+}
+
+export function updateDemoContact(
+  id: string,
+  input: ContactInput,
+): ContactRow | null {
+  const contact = getDemoContact(id);
+  if (!contact) return null;
+  Object.assign(contact, input, { updatedAt: new Date() });
+  return contact;
+}
+
+export function deleteDemoContact(id: string): ContactRow | null {
+  return removeById(contacts, id);
+}
+
+export function addDemoSite(args: {
+  companyId: string;
+  input: SiteInput;
+}): SiteRow | null {
+  if (!getDemoCompany(args.companyId)) return null;
+  const now = new Date();
+  const site: SiteRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    companyId: args.companyId,
+    ...args.input,
+  };
+  sites.unshift(site);
+  return site;
+}
+
+export function updateDemoSite(id: string, input: SiteInput): SiteRow | null {
+  const site = getDemoSite(id);
+  if (!site) return null;
+  Object.assign(site, input, { updatedAt: new Date() });
+  return site;
+}
+
+export function deleteDemoSite(
+  id: string,
+): { ok: true } | { ok: false; error: string } {
+  if (
+    opportunities.some((item) => item.siteId === id) ||
+    projects.some((item) => item.siteId === id) ||
+    jobsList.some((item) => item.siteId === id)
+  ) {
+    return { ok: false, error: "This site is still used by an opportunity, project, or job." };
+  }
+  return removeById(sites, id)
+    ? { ok: true }
+    : { ok: false, error: "That site could not be found." };
+}
+
+export function updateDemoOpportunity(args: {
+  id: string;
+  input: OpportunityUpdateInput;
+}): OpportunityRow | null {
+  const opportunity = getDemoOpportunity(args.id);
+  if (!opportunity) return null;
+  opportunity.name = args.input.name;
+  opportunity.stage = args.input.stage;
+  opportunity.owner = args.input.owner;
+  opportunity.updatedAt = new Date();
+  return opportunity;
+}
+
+export function deleteDemoOpportunity(
+  id: string,
+): { ok: true } | { ok: false; error: string } {
+  const opportunity = getDemoOpportunity(id);
+  if (!opportunity) return { ok: false, error: "That opportunity could not be found." };
+  if (opportunity.projectId) {
+    return { ok: false, error: "Convert or unlink the project before deleting this opportunity." };
+  }
+  return removeById(opportunities, id)
+    ? { ok: true }
+    : { ok: false, error: "That opportunity could not be found." };
+}
+
+export function updateDemoProject(args: {
+  id: string;
+  input: ProjectUpdateInput;
+}): ProjectRow | null {
+  const project = getDemoProject(args.id);
+  if (!project) return null;
+  project.name = args.input.name;
+  project.status = args.input.status;
+  project.projectManager = args.input.projectManager;
+  project.updatedAt = new Date();
+  return project;
+}
+
+export function deleteDemoProject(
+  id: string,
+): { ok: true } | { ok: false; error: string } {
+  if (jobsList.some((job) => job.projectId === id)) {
+    return { ok: false, error: "Remove jobs before deleting this project." };
+  }
+  return removeById(projects, id)
+    ? { ok: true }
+    : { ok: false, error: "That project could not be found." };
+}
+
+export function updateDemoJobDetails(args: {
+  jobId: string;
+  actor: string;
+  input: JobDetailsInput;
+}): JobRow | null {
+  const job = getDemoJob(args.jobId);
+  if (!job) return null;
+  job.name = args.input.name;
+  job.scope = args.input.scope;
+  job.projectManager = args.input.projectManager;
+  job.foreman = args.input.foreman;
+  job.plannedStartAt = args.input.plannedStartAt;
+  job.plannedEndAt = args.input.plannedEndAt;
+  job.updatedAt = new Date();
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_updated",
+    summary: `job details updated: ${job.name}`,
+    payload: { name: job.name, scope: job.scope },
+  });
+  return job;
+}
+
+export function deleteDemoJob(
+  jobId: string,
+): { ok: true } | { ok: false; error: string } {
+  if (!getDemoJob(jobId)) {
+    return { ok: false, error: "That job could not be found." };
+  }
+  for (let i = jobFieldNotes.length - 1; i >= 0; i -= 1) {
+    if (jobFieldNotes[i]?.jobId === jobId) jobFieldNotes.splice(i, 1);
+  }
+  for (let i = jobDocuments.length - 1; i >= 0; i -= 1) {
+    const document = jobDocuments[i];
+    if (document?.jobId === jobId) {
+      clearJobDocumentBytes(document.id);
+      jobDocuments.splice(i, 1);
+    }
+  }
+  for (let i = jobTasks.length - 1; i >= 0; i -= 1) {
+    if (jobTasks[i]?.jobId === jobId) jobTasks.splice(i, 1);
+  }
+  for (let i = workAreas.length - 1; i >= 0; i -= 1) {
+    if (workAreas[i]?.jobId === jobId) workAreas.splice(i, 1);
+  }
+  for (let i = jobEvents.length - 1; i >= 0; i -= 1) {
+    if (jobEvents[i]?.jobId === jobId) jobEvents.splice(i, 1);
+  }
+  removeById(jobsList, jobId);
+  return { ok: true };
+}
+
+export function updateDemoWorkArea(args: {
+  jobId: string;
+  workAreaId: string;
+  actor: string;
+  input: WorkAreaInput;
+}): WorkAreaRow | null {
+  const area = getDemoWorkArea(args.jobId, args.workAreaId);
+  if (!area) return null;
+  area.name = args.input.name;
+  area.kind = args.input.kind;
+  area.notes = args.input.notes;
+  area.updatedAt = new Date();
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_updated",
+    summary: `work area updated: ${area.name}`,
+    payload: { workAreaId: area.id, kind: area.kind },
+  });
+  return area;
+}
+
+export function deleteDemoWorkArea(args: {
+  jobId: string;
+  workAreaId: string;
+  actor: string;
+}): WorkAreaRow | null {
+  const area = getDemoWorkArea(args.jobId, args.workAreaId);
+  if (!area) return null;
+  for (const task of jobTasks) {
+    if (task.jobId === args.jobId && task.workAreaId === args.workAreaId) {
+      task.workAreaId = null;
+    }
+  }
+  for (const document of jobDocuments) {
+    if (document.jobId === args.jobId && document.workAreaId === args.workAreaId) {
+      document.workAreaId = null;
+    }
+  }
+  for (const note of jobFieldNotes) {
+    if (note.jobId === args.jobId && note.workAreaId === args.workAreaId) {
+      note.workAreaId = null;
+    }
+  }
+  removeById(workAreas, args.workAreaId);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_deleted",
+    summary: `work area deleted: ${area.name}`,
+    payload: { workAreaId: area.id },
+  });
+  return area;
+}
+
+export function updateDemoJobTask(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+  input: JobTaskInput;
+}): JobTaskRow | null {
+  const task = jobTasks.find(
+    (item) => item.id === args.taskId && item.jobId === args.jobId,
+  );
+  if (!task) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  task.title = args.input.title;
+  task.assignee = args.input.assignee;
+  task.dueAt = args.input.dueAt;
+  task.workAreaId = args.input.workAreaId;
+  task.updatedAt = new Date();
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_updated",
+    summary: `task updated: ${task.title}`,
+    payload: { taskId: task.id, workAreaId: task.workAreaId },
+  });
+  return task;
+}
+
+export function deleteDemoJobTask(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+}): JobTaskRow | null {
+  const task = jobTasks.find(
+    (item) => item.id === args.taskId && item.jobId === args.jobId,
+  );
+  if (!task) return null;
+  for (const note of jobFieldNotes) {
+    if (note.jobId === args.jobId && note.taskId === args.taskId) {
+      note.taskId = null;
+    }
+  }
+  removeById(jobTasks, args.taskId);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_deleted",
+    summary: `task deleted: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export function updateDemoJobDocument(args: {
+  jobId: string;
+  documentId: string;
+  actor: string;
+  input: { kind: JobDocumentKind; workAreaId: string | null };
+}): JobDocumentRow | null {
+  const document = getDemoJobDocument(args.jobId, args.documentId);
+  if (!document) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  document.kind = args.input.kind;
+  document.workAreaId = args.input.workAreaId;
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_updated",
+    summary: `document updated: ${document.filename}`,
+    payload: { documentId: document.id, kind: document.kind },
+  });
+  return document;
+}
+
+export function deleteDemoJobDocument(args: {
+  jobId: string;
+  documentId: string;
+  actor: string;
+}): JobDocumentRow | null {
+  const document = getDemoJobDocument(args.jobId, args.documentId);
+  if (!document) return null;
+  clearJobDocumentBytes(document.id);
+  removeById(jobDocuments, args.documentId);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_deleted",
+    summary: `document deleted: ${document.filename}`,
+    payload: { documentId: document.id },
+  });
+  return document;
+}
+
+export function updateDemoJobFieldNote(args: {
+  jobId: string;
+  noteId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): JobFieldNoteRow | null {
+  const note = jobFieldNotes.find(
+    (item) => item.id === args.noteId && item.jobId === args.jobId,
+  );
+  if (!note) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  if (
+    args.input.taskId &&
+    !jobTasks.some((task) => task.id === args.input.taskId && task.jobId === args.jobId)
+  ) {
+    return null;
+  }
+  note.kind = args.input.kind;
+  note.body = args.input.body;
+  note.workAreaId = args.input.workAreaId;
+  note.taskId = args.input.taskId;
+  note.quantity = args.input.quantity;
+  note.unit = args.input.unit;
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "field_note_updated",
+    summary: `field entry updated: ${note.body.slice(0, 80)}`,
+    payload: { noteId: note.id, kind: note.kind as FieldNoteKind },
+  });
+  return note;
+}
+
+export function deleteDemoJobFieldNote(args: {
+  jobId: string;
+  noteId: string;
+  actor: string;
+}): JobFieldNoteRow | null {
+  const note = jobFieldNotes.find(
+    (item) => item.id === args.noteId && item.jobId === args.jobId,
+  );
+  if (!note) return null;
+  removeById(jobFieldNotes, args.noteId);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "field_note_deleted",
+    summary: `field entry deleted: ${note.body.slice(0, 80)}`,
+    payload: { noteId: note.id, kind: note.kind },
+  });
+  return note;
+}
+
+export function updateDemoEstimateRequestTask(args: {
+  leadId: string;
+  taskId: string;
+  actor: string;
+  title: string;
+  assignee: string | null;
+  dueAt: Date | null;
+}): EstimateRequestTask | null {
+  const task = tasks.find(
+    (item) => item.id === args.taskId && item.leadId === args.leadId,
+  );
+  if (!task) return null;
+  task.title = args.title;
+  task.assignee = args.assignee;
+  task.dueAt = args.dueAt;
+  task.updatedAt = new Date();
+  recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "task_updated",
+    summary: `task updated: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export function deleteDemoEstimateRequestTask(args: {
+  leadId: string;
+  taskId: string;
+  actor: string;
+}): EstimateRequestTask | null {
+  const task = tasks.find(
+    (item) => item.id === args.taskId && item.leadId === args.leadId,
+  );
+  if (!task) return null;
+  removeById(tasks, args.taskId);
+  recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "task_deleted",
+    summary: `task deleted: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export function deleteDemoEstimateRequestComment(args: {
+  leadId: string;
+  commentId: string;
+  actor: string;
+}): EstimateRequestComment | null {
+  const comment = comments.find(
+    (item) => item.id === args.commentId && item.leadId === args.leadId,
+  );
+  if (!comment) return null;
+  removeById(comments, args.commentId);
+  recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "comment_deleted",
+    summary: "internal comment deleted",
+    payload: { commentId: comment.id },
+  });
+  return comment;
 }

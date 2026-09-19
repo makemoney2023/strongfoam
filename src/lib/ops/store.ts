@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
@@ -8,6 +8,7 @@ import {
   estimateRequestTasks,
   jobDocuments,
   jobEvents,
+  jobFieldNotes,
   jobTasks,
   jobs,
   leads,
@@ -19,14 +20,30 @@ import {
 import { signLeadId } from "@/lib/leads/hmac";
 import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
+  addDemoCompany,
+  addDemoContact,
   addDemoEstimateRequestComment,
   addDemoEstimateRequestTask,
   addDemoJobDocument,
+  addDemoJobFieldNote,
   addDemoJobTask,
   addDemoJobToProject,
+  addDemoSite,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
+  deleteDemoCompany,
+  deleteDemoContact,
+  deleteDemoEstimateRequestComment,
+  deleteDemoEstimateRequestTask,
+  deleteDemoJob,
+  deleteDemoJobDocument,
+  deleteDemoJobFieldNote,
+  deleteDemoJobTask,
+  deleteDemoOpportunity,
+  deleteDemoProject,
+  deleteDemoSite,
+  deleteDemoWorkArea,
   getDemoCompany,
   getDemoContact,
   getDemoEstimateRequest,
@@ -43,6 +60,7 @@ import {
   listDemoEstimateRequests,
   listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoJobs,
   listDemoOpportunities,
@@ -52,21 +70,46 @@ import {
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
   setDemoJobTaskStatus,
+  updateDemoCompany,
+  updateDemoContact,
   updateDemoEstimateRequest,
+  updateDemoEstimateRequestTask,
+  updateDemoJobDetails,
+  updateDemoJobDocument,
+  updateDemoJobFieldNote,
+  updateDemoJobTask,
+  updateDemoOpportunity,
+  updateDemoProject,
+  updateDemoSite,
+  updateDemoWorkArea,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
-import { getStoredJobDocumentBytes } from "@/lib/ops/job-document-bytes";
+import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
+import {
+  clearJobDocumentBytes,
+  getStoredJobDocumentBytes,
+} from "@/lib/ops/job-document-bytes";
 import {
   sortJobTaskRows,
   type JobDocumentInput,
+  type JobDocumentKind,
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import type { FieldNoteInput } from "@/lib/ops/field-workspace";
 import {
   canConvertWonWork,
   type JobConversionInput,
+  type JobDetailsInput,
   type JobStatus,
 } from "@/lib/ops/jobs";
+import type {
+  CompanyInput,
+  ContactInput,
+  OpportunityUpdateInput,
+  ProjectUpdateInput,
+  SiteInput,
+} from "@/lib/ops/records";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   isWorkflowStatus,
@@ -88,6 +131,7 @@ export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
 export type JobDocumentDownload = {
   filename: string;
@@ -115,11 +159,54 @@ export type RequestCrmRecords = {
   opportunity: OpportunityRow | null;
 };
 
-export type EstimateRequestFilters = {
+export type DateListFilters = {
+  from?: string;
+  to?: string;
+};
+
+export type EstimateRequestFilters = DateListFilters & {
   q?: string;
   workflowStatus?: string;
   qualification?: string;
 };
+
+export type CompanyListFilters = {
+  q?: string;
+};
+
+export type OpportunityListFilters = DateListFilters & {
+  q?: string;
+  stage?: string;
+  companyId?: string;
+};
+
+export type ProjectListFilters = DateListFilters & {
+  q?: string;
+  status?: string;
+  companyId?: string;
+};
+
+export type JobListFilters = DateListFilters & {
+  projectId?: string;
+  companyId?: string;
+  status?: string;
+  q?: string;
+};
+
+export type JobTaskListFilters = DateListFilters & {
+  status?: string;
+};
+
+export type JobDocumentListFilters = DateListFilters & {
+  kind?: string;
+};
+
+export type JobFieldNoteListFilters = DateListFilters & {
+  kind?: string;
+  workAreaId?: string;
+};
+
+export type { JobDetailsInput };
 
 export type EstimateRequestUpdate = {
   workflowStatus: WorkflowStatus;
@@ -201,6 +288,9 @@ export async function listEstimateRequests(
   ) {
     conditions.push(eq(leads.status, filters.qualification));
   }
+  const range = parseDateRange(filters);
+  if (range.from) conditions.push(gte(leads.createdAt, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(leads.createdAt, endOfDay(range.to)));
 
   return db
     .select()
@@ -456,10 +546,26 @@ export function staffFileHref(
   return `/api/files/${leadId}/${fileIndex}?token=${token}`;
 }
 
-export async function listCompanies(): Promise<CompanyRow[]> {
-  if (isDemoOpsStore()) return listDemoCompanies();
+export async function listCompanies(
+  filters: CompanyListFilters = {},
+): Promise<CompanyRow[]> {
+  if (isDemoOpsStore()) return listDemoCompanies(filters);
   const db = getDb();
-  return db.select().from(companies).orderBy(companies.name);
+  const query = filters.q?.trim();
+  return db
+    .select()
+    .from(companies)
+    .where(
+      query
+        ? or(
+            ilike(companies.name, like(query)),
+            ilike(companies.email, like(query)),
+            ilike(companies.city, like(query)),
+            ilike(companies.phone, like(query)),
+          )
+        : undefined,
+    )
+    .orderBy(companies.name);
 }
 
 export async function getCompany(id: string): Promise<CompanyRow | null> {
@@ -503,10 +609,32 @@ export async function getSite(id: string): Promise<SiteRow | null> {
   return rows[0] ?? null;
 }
 
-export async function listOpportunities(): Promise<OpportunityRow[]> {
-  if (isDemoOpsStore()) return listDemoOpportunities();
+export async function listOpportunities(
+  filters: OpportunityListFilters = {},
+): Promise<OpportunityRow[]> {
+  if (isDemoOpsStore()) return listDemoOpportunities(filters);
   const db = getDb();
-  return db.select().from(opportunities).orderBy(desc(opportunities.createdAt));
+  const conditions = [];
+  const query = filters.q?.trim();
+  if (filters.companyId) conditions.push(eq(opportunities.companyId, filters.companyId));
+  if (filters.stage) conditions.push(eq(opportunities.stage, filters.stage));
+  if (query) {
+    conditions.push(
+      or(
+        ilike(opportunities.name, like(query)),
+        ilike(opportunities.owner, like(query)),
+        ilike(opportunities.source, like(query)),
+      ),
+    );
+  }
+  const range = parseDateRange(filters);
+  if (range.from) conditions.push(gte(opportunities.createdAt, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(opportunities.createdAt, endOfDay(range.to)));
+  return db
+    .select()
+    .from(opportunities)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(opportunities.createdAt));
 }
 
 export async function getOpportunity(id: string): Promise<OpportunityRow | null> {
@@ -683,13 +811,31 @@ export async function convertRequestToCrm(args: {
   };
 }
 
-export async function listProjects(companyId?: string): Promise<ProjectRow[]> {
-  if (isDemoOpsStore()) return listDemoProjects(companyId);
+export async function listProjects(
+  filters: string | ProjectListFilters = {},
+): Promise<ProjectRow[]> {
+  const resolved = typeof filters === "string" ? { companyId: filters } : filters;
+  if (isDemoOpsStore()) return listDemoProjects(resolved);
   const db = getDb();
+  const conditions = [];
+  const query = resolved.q?.trim();
+  if (resolved.companyId) conditions.push(eq(projects.companyId, resolved.companyId));
+  if (resolved.status) conditions.push(eq(projects.status, resolved.status));
+  if (query) {
+    conditions.push(
+      or(
+        ilike(projects.name, like(query)),
+        ilike(projects.projectManager, like(query)),
+      ),
+    );
+  }
+  const range = parseDateRange(resolved);
+  if (range.from) conditions.push(gte(projects.createdAt, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(projects.createdAt, endOfDay(range.to)));
   return db
     .select()
     .from(projects)
-    .where(companyId ? eq(projects.companyId, companyId) : undefined)
+    .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(projects.createdAt));
 }
 
@@ -700,17 +846,28 @@ export async function getProject(id: string): Promise<ProjectRow | null> {
   return rows[0] ?? null;
 }
 
-export async function listJobs(filters: {
-  projectId?: string;
-  companyId?: string;
-  status?: string;
-} = {}): Promise<JobRow[]> {
+export async function listJobs(filters: JobListFilters = {}): Promise<JobRow[]> {
   if (isDemoOpsStore()) return listDemoJobs(filters);
   const db = getDb();
   const conditions = [];
+  const query = filters.q?.trim();
   if (filters.projectId) conditions.push(eq(jobs.projectId, filters.projectId));
   if (filters.companyId) conditions.push(eq(jobs.companyId, filters.companyId));
   if (filters.status) conditions.push(eq(jobs.status, filters.status));
+  if (query) {
+    conditions.push(
+      or(
+        ilike(jobs.name, like(query)),
+        ilike(jobs.scope, like(query)),
+        ilike(jobs.foreman, like(query)),
+        ilike(jobs.projectManager, like(query)),
+      ),
+    );
+  }
+  const range = parseDateRange(filters);
+  const dateExpr = sql`coalesce(${jobs.plannedStartAt}, ${jobs.createdAt})`;
+  if (range.from) conditions.push(gte(dateExpr, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(dateExpr, endOfDay(range.to)));
   return db
     .select()
     .from(jobs)
@@ -951,13 +1108,22 @@ export async function addWorkArea(args: {
   return area;
 }
 
-export async function listJobTasks(jobId: string): Promise<JobTaskRow[]> {
-  if (isDemoOpsStore()) return listDemoJobTasks(jobId);
+export async function listJobTasks(
+  jobId: string,
+  filters: JobTaskListFilters = {},
+): Promise<JobTaskRow[]> {
+  if (isDemoOpsStore()) return listDemoJobTasks(jobId, filters);
   const db = getDb();
+  const conditions = [eq(jobTasks.jobId, jobId)];
+  if (filters.status) conditions.push(eq(jobTasks.status, filters.status));
+  const range = parseDateRange(filters);
+  const dateExpr = sql`coalesce(${jobTasks.dueAt}, ${jobTasks.createdAt})`;
+  if (range.from) conditions.push(gte(dateExpr, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(dateExpr, endOfDay(range.to)));
   const rows = await db
     .select()
     .from(jobTasks)
-    .where(eq(jobTasks.jobId, jobId));
+    .where(and(...conditions));
   return sortJobTaskRows(rows);
 }
 
@@ -1025,13 +1191,21 @@ export async function setJobTaskStatus(args: {
   return task;
 }
 
-export async function listJobDocuments(jobId: string): Promise<JobDocumentRow[]> {
-  if (isDemoOpsStore()) return listDemoJobDocuments(jobId);
+export async function listJobDocuments(
+  jobId: string,
+  filters: JobDocumentListFilters = {},
+): Promise<JobDocumentRow[]> {
+  if (isDemoOpsStore()) return listDemoJobDocuments(jobId, filters);
   const db = getDb();
+  const conditions = [eq(jobDocuments.jobId, jobId)];
+  if (filters.kind) conditions.push(eq(jobDocuments.kind, filters.kind));
+  const range = parseDateRange(filters);
+  if (range.from) conditions.push(gte(jobDocuments.createdAt, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(jobDocuments.createdAt, endOfDay(range.to)));
   return db
     .select()
     .from(jobDocuments)
-    .where(eq(jobDocuments.jobId, jobId))
+    .where(and(...conditions))
     .orderBy(desc(jobDocuments.createdAt));
 }
 
@@ -1154,4 +1328,726 @@ export async function getJobDocumentDownload(
     kind: "bytes",
     bytes,
   };
+}
+
+export async function listJobFieldNotes(
+  jobId: string,
+  filters: JobFieldNoteListFilters = {},
+): Promise<JobFieldNoteRow[]> {
+  if (isDemoOpsStore()) return listDemoJobFieldNotes(jobId, filters);
+  const db = getDb();
+  const conditions = [eq(jobFieldNotes.jobId, jobId)];
+  if (filters.kind) conditions.push(eq(jobFieldNotes.kind, filters.kind));
+  if (filters.workAreaId) {
+    conditions.push(eq(jobFieldNotes.workAreaId, filters.workAreaId));
+  }
+  const range = parseDateRange(filters);
+  if (range.from) conditions.push(gte(jobFieldNotes.createdAt, startOfDay(range.from)));
+  if (range.to) conditions.push(lte(jobFieldNotes.createdAt, endOfDay(range.to)));
+  return db
+    .select()
+    .from(jobFieldNotes)
+    .where(and(...conditions))
+    .orderBy(desc(jobFieldNotes.createdAt));
+}
+
+export async function addJobFieldNote(args: {
+  jobId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): Promise<JobFieldNoteRow | null> {
+  if (isDemoOpsStore()) return addDemoJobFieldNote(args);
+  if (!(await getJob(args.jobId))) return null;
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  if (args.input.taskId) {
+    const tasks = await listJobTasks(args.jobId);
+    if (!tasks.some((task) => task.id === args.input.taskId)) return null;
+  }
+
+  const db = getDb();
+  const rows = await db
+    .insert(jobFieldNotes)
+    .values({
+      jobId: args.jobId,
+      workAreaId: args.input.workAreaId,
+      taskId: args.input.taskId,
+      kind: args.input.kind,
+      body: args.input.body,
+      quantity: args.input.quantity,
+      unit: args.input.unit,
+      createdBy: args.actor,
+    })
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+
+  const labels: Record<FieldNoteInput["kind"], string> = {
+    note: "field note added",
+    quantity: "quantity recorded",
+    blocker: "blocker reported",
+    material_request: "material request added",
+    daily_report: "daily report submitted",
+  };
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: `field_${args.input.kind}`,
+    summary: `${labels[args.input.kind]}: ${note.body.slice(0, 80)}`,
+    payload: {
+      noteId: note.id,
+      kind: note.kind,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      quantity: note.quantity,
+      unit: note.unit,
+    },
+  });
+  return note;
+}
+
+export async function addCompany(input: CompanyInput): Promise<CompanyRow> {
+  if (isDemoOpsStore()) return addDemoCompany(input);
+  const db = getDb();
+  const rows = await db.insert(companies).values(input).returning();
+  if (!rows[0]) throw new Error("The company could not be saved.");
+  return rows[0];
+}
+
+export async function updateCompany(
+  id: string,
+  input: CompanyInput,
+): Promise<CompanyRow | null> {
+  if (isDemoOpsStore()) return updateDemoCompany(id, input);
+  const db = getDb();
+  const rows = await db
+    .update(companies)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(companies.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function deleteCompany(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoCompany(id);
+  const [companyContacts, companySites, companyOpps, companyProjects, companyJobs] =
+    await Promise.all([
+      listContacts(id),
+      listSites(id),
+      listOpportunities({ companyId: id }),
+      listProjects({ companyId: id }),
+      listJobs({ companyId: id }),
+    ]);
+  if (companyContacts.length) {
+    return { ok: false, error: "Remove or reassign contacts before deleting this company." };
+  }
+  if (companySites.length) {
+    return { ok: false, error: "Remove sites before deleting this company." };
+  }
+  if (companyOpps.length) {
+    return { ok: false, error: "This company still has opportunities." };
+  }
+  if (companyProjects.length || companyJobs.length) {
+    return { ok: false, error: "This company still has projects or jobs." };
+  }
+  const db = getDb();
+  const rows = await db.delete(companies).where(eq(companies.id, id)).returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That company could not be found." };
+}
+
+export async function addContact(args: {
+  companyId: string;
+  input: ContactInput;
+}): Promise<ContactRow | null> {
+  if (isDemoOpsStore()) return addDemoContact(args);
+  if (!(await getCompany(args.companyId))) return null;
+  const db = getDb();
+  const rows = await db
+    .insert(contacts)
+    .values({ companyId: args.companyId, ...args.input })
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function updateContact(
+  id: string,
+  input: ContactInput,
+): Promise<ContactRow | null> {
+  if (isDemoOpsStore()) return updateDemoContact(id, input);
+  const db = getDb();
+  const rows = await db
+    .update(contacts)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(contacts.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function deleteContact(id: string): Promise<ContactRow | null> {
+  if (isDemoOpsStore()) return deleteDemoContact(id);
+  const db = getDb();
+  const rows = await db.delete(contacts).where(eq(contacts.id, id)).returning();
+  return rows[0] ?? null;
+}
+
+export async function addSite(args: {
+  companyId: string;
+  input: SiteInput;
+}): Promise<SiteRow | null> {
+  if (isDemoOpsStore()) return addDemoSite(args);
+  if (!(await getCompany(args.companyId))) return null;
+  const db = getDb();
+  const rows = await db
+    .insert(sites)
+    .values({ companyId: args.companyId, ...args.input })
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function updateSite(
+  id: string,
+  input: SiteInput,
+): Promise<SiteRow | null> {
+  if (isDemoOpsStore()) return updateDemoSite(id, input);
+  const db = getDb();
+  const rows = await db
+    .update(sites)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(sites.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function deleteSite(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoSite(id);
+  const db = getDb();
+  const [linkedOpps, linkedProjects, linkedJobs] = await Promise.all([
+    db.select({ id: opportunities.id }).from(opportunities).where(eq(opportunities.siteId, id)),
+    db.select({ id: projects.id }).from(projects).where(eq(projects.siteId, id)),
+    db.select({ id: jobs.id }).from(jobs).where(eq(jobs.siteId, id)),
+  ]);
+  if (linkedOpps.length || linkedProjects.length || linkedJobs.length) {
+    return { ok: false, error: "This site is still used by an opportunity, project, or job." };
+  }
+  const rows = await db.delete(sites).where(eq(sites.id, id)).returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That site could not be found." };
+}
+
+export async function updateOpportunity(args: {
+  id: string;
+  input: OpportunityUpdateInput;
+}): Promise<OpportunityRow | null> {
+  if (isDemoOpsStore()) return updateDemoOpportunity(args);
+  const db = getDb();
+  const rows = await db
+    .update(opportunities)
+    .set({ ...args.input, updatedAt: new Date() })
+    .where(eq(opportunities.id, args.id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function deleteOpportunity(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoOpportunity(id);
+  const opportunity = await getOpportunity(id);
+  if (!opportunity) return { ok: false, error: "That opportunity could not be found." };
+  if (opportunity.projectId) {
+    return { ok: false, error: "Convert or unlink the project before deleting this opportunity." };
+  }
+  const db = getDb();
+  const rows = await db.delete(opportunities).where(eq(opportunities.id, id)).returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That opportunity could not be found." };
+}
+
+export async function updateProject(args: {
+  id: string;
+  input: ProjectUpdateInput;
+}): Promise<ProjectRow | null> {
+  if (isDemoOpsStore()) return updateDemoProject(args);
+  const db = getDb();
+  const rows = await db
+    .update(projects)
+    .set({ ...args.input, updatedAt: new Date() })
+    .where(eq(projects.id, args.id))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function deleteProject(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoProject(id);
+  const projectJobs = await listJobs({ projectId: id });
+  if (projectJobs.length) {
+    return { ok: false, error: "Remove jobs before deleting this project." };
+  }
+  const db = getDb();
+  const rows = await db.delete(projects).where(eq(projects.id, id)).returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That project could not be found." };
+}
+
+export async function updateJobDetails(args: {
+  jobId: string;
+  actor: string;
+  input: JobDetailsInput;
+}): Promise<JobRow | null> {
+  if (isDemoOpsStore()) return updateDemoJobDetails(args);
+  const existing = await getJob(args.jobId);
+  if (!existing) return null;
+  const db = getDb();
+  const rows = await db
+    .update(jobs)
+    .set({
+      name: args.input.name,
+      scope: args.input.scope,
+      projectManager: args.input.projectManager,
+      foreman: args.input.foreman,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(jobs.id, args.jobId))
+    .returning();
+  const job = rows[0];
+  if (!job) return null;
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_updated",
+    summary: `job details updated: ${job.name}`,
+    payload: { name: job.name, scope: job.scope },
+  });
+  return job;
+}
+
+export async function deleteJob(
+  jobId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoJob(jobId);
+  if (!(await getJob(jobId))) {
+    return { ok: false, error: "That job could not be found." };
+  }
+  const db = getDb();
+  await db.delete(jobFieldNotes).where(eq(jobFieldNotes.jobId, jobId));
+  const documents = await db
+    .select()
+    .from(jobDocuments)
+    .where(eq(jobDocuments.jobId, jobId));
+  for (const document of documents) {
+    if (document.storage === "blob") {
+      try {
+        const { del } = await import("@vercel/blob");
+        await del(document.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      } catch (error) {
+        console.error("Could not delete a job document blob.", error);
+      }
+    } else {
+      clearJobDocumentBytes(document.id);
+    }
+  }
+  await db.delete(jobDocuments).where(eq(jobDocuments.jobId, jobId));
+  await db.delete(jobTasks).where(eq(jobTasks.jobId, jobId));
+  await db.delete(workAreas).where(eq(workAreas.jobId, jobId));
+  await db.delete(jobEvents).where(eq(jobEvents.jobId, jobId));
+  await db.delete(jobs).where(eq(jobs.id, jobId));
+  return { ok: true };
+}
+
+export async function updateWorkArea(args: {
+  jobId: string;
+  workAreaId: string;
+  actor: string;
+  input: WorkAreaInput;
+}): Promise<WorkAreaRow | null> {
+  if (isDemoOpsStore()) return updateDemoWorkArea(args);
+  const db = getDb();
+  const rows = await db
+    .update(workAreas)
+    .set({
+      name: args.input.name,
+      kind: args.input.kind,
+      notes: args.input.notes,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(workAreas.id, args.workAreaId), eq(workAreas.jobId, args.jobId)))
+    .returning();
+  const area = rows[0];
+  if (!area) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_updated",
+    summary: `work area updated: ${area.name}`,
+    payload: { workAreaId: area.id, kind: area.kind },
+  });
+  return area;
+}
+
+export async function deleteWorkArea(args: {
+  jobId: string;
+  workAreaId: string;
+  actor: string;
+}): Promise<WorkAreaRow | null> {
+  if (isDemoOpsStore()) return deleteDemoWorkArea(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(workAreas)
+    .where(and(eq(workAreas.id, args.workAreaId), eq(workAreas.jobId, args.jobId)))
+    .limit(1);
+  const area = existing[0];
+  if (!area) return null;
+  await db
+    .update(jobTasks)
+    .set({ workAreaId: null, updatedAt: new Date() })
+    .where(and(eq(jobTasks.jobId, args.jobId), eq(jobTasks.workAreaId, args.workAreaId)));
+  await db
+    .update(jobDocuments)
+    .set({ workAreaId: null })
+    .where(
+      and(eq(jobDocuments.jobId, args.jobId), eq(jobDocuments.workAreaId, args.workAreaId)),
+    );
+  await db
+    .update(jobFieldNotes)
+    .set({ workAreaId: null })
+    .where(
+      and(eq(jobFieldNotes.jobId, args.jobId), eq(jobFieldNotes.workAreaId, args.workAreaId)),
+    );
+  await db
+    .delete(workAreas)
+    .where(and(eq(workAreas.id, args.workAreaId), eq(workAreas.jobId, args.jobId)));
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_deleted",
+    summary: `work area deleted: ${area.name}`,
+    payload: { workAreaId: area.id },
+  });
+  return area;
+}
+
+export async function updateJobTask(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+  input: JobTaskInput;
+}): Promise<JobTaskRow | null> {
+  if (isDemoOpsStore()) return updateDemoJobTask(args);
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  const db = getDb();
+  const rows = await db
+    .update(jobTasks)
+    .set({
+      title: args.input.title,
+      assignee: args.input.assignee,
+      dueAt: args.input.dueAt,
+      workAreaId: args.input.workAreaId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_updated",
+    summary: `task updated: ${task.title}`,
+    payload: { taskId: task.id, workAreaId: task.workAreaId },
+  });
+  return task;
+}
+
+export async function deleteJobTask(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+}): Promise<JobTaskRow | null> {
+  if (isDemoOpsStore()) return deleteDemoJobTask(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(jobTasks)
+    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
+    .limit(1);
+  const task = existing[0];
+  if (!task) return null;
+  await db
+    .update(jobFieldNotes)
+    .set({ taskId: null })
+    .where(and(eq(jobFieldNotes.jobId, args.jobId), eq(jobFieldNotes.taskId, args.taskId)));
+  await db
+    .delete(jobTasks)
+    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)));
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_deleted",
+    summary: `task deleted: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export async function updateJobDocument(args: {
+  jobId: string;
+  documentId: string;
+  actor: string;
+  input: { kind: JobDocumentKind; workAreaId: string | null };
+}): Promise<JobDocumentRow | null> {
+  if (isDemoOpsStore()) return updateDemoJobDocument(args);
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  const db = getDb();
+  const rows = await db
+    .update(jobDocuments)
+    .set({ kind: args.input.kind, workAreaId: args.input.workAreaId })
+    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)))
+    .returning();
+  const document = rows[0];
+  if (!document) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_updated",
+    summary: `document updated: ${document.filename}`,
+    payload: { documentId: document.id, kind: document.kind },
+  });
+  return document;
+}
+
+export async function deleteJobDocument(args: {
+  jobId: string;
+  documentId: string;
+  actor: string;
+}): Promise<JobDocumentRow | null> {
+  if (isDemoOpsStore()) return deleteDemoJobDocument(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(jobDocuments)
+    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)))
+    .limit(1);
+  const document = existing[0];
+  if (!document) return null;
+  if (document.storage === "blob") {
+    try {
+      const { del } = await import("@vercel/blob");
+      await del(document.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+    } catch (error) {
+      console.error("Could not delete a job document blob.", error);
+    }
+  } else {
+    clearJobDocumentBytes(document.id);
+  }
+  await db
+    .delete(jobDocuments)
+    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)));
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_deleted",
+    summary: `document deleted: ${document.filename}`,
+    payload: { documentId: document.id },
+  });
+  return document;
+}
+
+export async function updateJobFieldNote(args: {
+  jobId: string;
+  noteId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): Promise<JobFieldNoteRow | null> {
+  if (isDemoOpsStore()) return updateDemoJobFieldNote(args);
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  if (args.input.taskId) {
+    const tasks = await listJobTasks(args.jobId);
+    if (!tasks.some((task) => task.id === args.input.taskId)) return null;
+  }
+  const db = getDb();
+  const rows = await db
+    .update(jobFieldNotes)
+    .set({
+      kind: args.input.kind,
+      body: args.input.body,
+      workAreaId: args.input.workAreaId,
+      taskId: args.input.taskId,
+      quantity: args.input.quantity,
+      unit: args.input.unit,
+    })
+    .where(and(eq(jobFieldNotes.id, args.noteId), eq(jobFieldNotes.jobId, args.jobId)))
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "field_note_updated",
+    summary: `field entry updated: ${note.body.slice(0, 80)}`,
+    payload: { noteId: note.id, kind: note.kind },
+  });
+  return note;
+}
+
+export async function deleteJobFieldNote(args: {
+  jobId: string;
+  noteId: string;
+  actor: string;
+}): Promise<JobFieldNoteRow | null> {
+  if (isDemoOpsStore()) return deleteDemoJobFieldNote(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(jobFieldNotes)
+    .where(and(eq(jobFieldNotes.id, args.noteId), eq(jobFieldNotes.jobId, args.jobId)))
+    .limit(1);
+  const note = existing[0];
+  if (!note) return null;
+  await db
+    .delete(jobFieldNotes)
+    .where(and(eq(jobFieldNotes.id, args.noteId), eq(jobFieldNotes.jobId, args.jobId)));
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "field_note_deleted",
+    summary: `field entry deleted: ${note.body.slice(0, 80)}`,
+    payload: { noteId: note.id, kind: note.kind },
+  });
+  return note;
+}
+
+export async function updateEstimateRequestTask(args: {
+  leadId: string;
+  taskId: string;
+  actor: string;
+  title: string;
+  assignee: string | null;
+  dueAt: Date | null;
+}): Promise<EstimateRequestTask | null> {
+  if (isDemoOpsStore()) return updateDemoEstimateRequestTask(args);
+  const db = getDb();
+  const rows = await db
+    .update(estimateRequestTasks)
+    .set({
+      title: args.title,
+      assignee: args.assignee,
+      dueAt: args.dueAt,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(estimateRequestTasks.id, args.taskId),
+        eq(estimateRequestTasks.leadId, args.leadId),
+      ),
+    )
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "task_updated",
+    summary: `task updated: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export async function deleteEstimateRequestTask(args: {
+  leadId: string;
+  taskId: string;
+  actor: string;
+}): Promise<EstimateRequestTask | null> {
+  if (isDemoOpsStore()) return deleteDemoEstimateRequestTask(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(estimateRequestTasks)
+    .where(
+      and(
+        eq(estimateRequestTasks.id, args.taskId),
+        eq(estimateRequestTasks.leadId, args.leadId),
+      ),
+    )
+    .limit(1);
+  const task = existing[0];
+  if (!task) return null;
+  await db
+    .delete(estimateRequestTasks)
+    .where(
+      and(
+        eq(estimateRequestTasks.id, args.taskId),
+        eq(estimateRequestTasks.leadId, args.leadId),
+      ),
+    );
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "task_deleted",
+    summary: `task deleted: ${task.title}`,
+    payload: { taskId: task.id },
+  });
+  return task;
+}
+
+export async function deleteEstimateRequestComment(args: {
+  leadId: string;
+  commentId: string;
+  actor: string;
+}): Promise<EstimateRequestComment | null> {
+  if (isDemoOpsStore()) return deleteDemoEstimateRequestComment(args);
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(estimateRequestComments)
+    .where(
+      and(
+        eq(estimateRequestComments.id, args.commentId),
+        eq(estimateRequestComments.leadId, args.leadId),
+      ),
+    )
+    .limit(1);
+  const comment = existing[0];
+  if (!comment) return null;
+  await db
+    .delete(estimateRequestComments)
+    .where(
+      and(
+        eq(estimateRequestComments.id, args.commentId),
+        eq(estimateRequestComments.leadId, args.leadId),
+      ),
+    );
+  await recordEvent({
+    leadId: args.leadId,
+    actor: args.actor,
+    kind: "comment_deleted",
+    summary: "internal comment deleted",
+    payload: { commentId: comment.id },
+  });
+  return comment;
 }

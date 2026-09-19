@@ -95,6 +95,46 @@ export function parseJobConversion(input: {
   };
 }
 
+export type JobDetailsInput = {
+  name: string;
+  scope: string | null;
+  projectManager: string | null;
+  foreman: string | null;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+};
+
+export function parseJobDetails(input: {
+  name?: string;
+  scope?: string;
+  projectManager?: string | null;
+  foreman?: string | null;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
+}): { ok: true; value: JobDetailsInput } | { ok: false; error: string } {
+  const parsed = parseJobConversion({
+    projectName: "Project",
+    jobName: input.name,
+    scope: input.scope,
+    projectManager: input.projectManager,
+    foreman: input.foreman,
+    plannedStartAt: input.plannedStartAt,
+    plannedEndAt: input.plannedEndAt,
+  });
+  if (!parsed.ok) return parsed;
+  return {
+    ok: true,
+    value: {
+      name: parsed.value.jobName,
+      scope: parsed.value.scope || null,
+      projectManager: parsed.value.projectManager,
+      foreman: parsed.value.foreman,
+      plannedStartAt: parsed.value.plannedStartAt,
+      plannedEndAt: parsed.value.plannedEndAt,
+    },
+  };
+}
+
 export function parseJobStatusUpdate(input: {
   status?: string;
   blockerNote?: string;

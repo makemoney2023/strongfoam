@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Flash } from "@/components/ops/flash";
+import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { SubmitButton } from "@/components/ops/submit-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +24,12 @@ import {
   getSite,
   listJobs,
 } from "@/lib/ops/store";
+import {
+  PROJECT_STATUS_LABELS,
+  PROJECT_STATUSES,
+} from "@/lib/ops/records";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
+import { removeProject, saveProject } from "../actions";
 import { addProjectJob } from "../../jobs/actions";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +66,60 @@ export default async function ProjectDetailPage({
         ]}
         title={project.name}
         description={`${project.projectManager ?? "Unassigned"}${company ? ` · ${company.name}` : ""}`}
-        actions={<StatusBadge status={project.status} label={project.status} />}
+        actions={
+          <StatusBadge
+            status={project.status}
+            label={
+              PROJECT_STATUS_LABELS[project.status as keyof typeof PROJECT_STATUS_LABELS] ??
+              project.status
+            }
+          />
+        }
       />
       <Flash saved={query.saved} error={query.error} savedMessage="Project saved." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Project details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form action={saveProject} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="id" value={project.id} />
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" className="h-11" defaultValue={project.name} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <NativeSelect id="status" name="status" defaultValue={project.status} className="h-11">
+                {PROJECT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {PROJECT_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectManagerEdit">Project manager</Label>
+              <Input
+                id="projectManagerEdit"
+                name="projectManager"
+                className="h-11"
+                defaultValue={project.projectManager ?? ""}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <SubmitButton className="min-h-11">Save project</SubmitButton>
+            </div>
+          </form>
+          <form action={removeProject}>
+            <input type="hidden" name="id" value={project.id} />
+            <SubmitButton variant="destructive" className="min-h-11" pendingLabel="Deleting…">
+              Delete project
+            </SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="grid gap-4 sm:grid-cols-2">

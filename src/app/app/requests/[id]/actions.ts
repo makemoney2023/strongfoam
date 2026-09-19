@@ -18,12 +18,15 @@ import {
   addEstimateRequestComment,
   addEstimateRequestTask,
   convertRequestToCrm,
+  deleteEstimateRequestComment,
+  deleteEstimateRequestTask,
   getEstimateRequest,
   listCompanies,
   listContacts,
   parseEstimateRequestUpdate,
   setEstimateRequestTaskStatus,
   updateEstimateRequest,
+  updateEstimateRequestTask,
 } from "@/lib/ops/store";
 
 export async function saveEstimateRequestReview(formData: FormData) {
@@ -99,6 +102,65 @@ export async function setRequestTaskStatus(formData: FormData) {
     actor: session.email,
     status,
   });
+  revalidatePath(`/app/requests/${id}`);
+  redirect(`/app/requests/${id}?saved=1`);
+}
+
+export async function saveRequestTask(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const id = String(formData.get("id") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const parsed = parseTaskInput({
+    title: String(formData.get("title") ?? ""),
+    assignee: String(formData.get("assignee") ?? ""),
+    dueAt: String(formData.get("dueAt") ?? ""),
+  });
+  if (!id || !taskId) fail(id, "That task could not be updated.");
+  if (!parsed.ok) fail(id, parsed.error);
+
+  const task = await updateEstimateRequestTask({
+    leadId: id,
+    taskId,
+    actor: session.email,
+    ...parsed.value,
+  });
+  if (!task) fail(id, "That task could not be updated.");
+  revalidatePath(`/app/requests/${id}`);
+  redirect(`/app/requests/${id}?saved=1`);
+}
+
+export async function removeRequestTask(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const id = String(formData.get("id") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  if (!id || !taskId) fail(id, "That task could not be deleted.");
+  const task = await deleteEstimateRequestTask({
+    leadId: id,
+    taskId,
+    actor: session.email,
+  });
+  if (!task) fail(id, "That task could not be deleted.");
+  revalidatePath(`/app/requests/${id}`);
+  redirect(`/app/requests/${id}?saved=1`);
+}
+
+export async function removeRequestComment(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const id = String(formData.get("id") ?? "");
+  const commentId = String(formData.get("commentId") ?? "");
+  if (!id || !commentId) fail(id, "That comment could not be deleted.");
+  const comment = await deleteEstimateRequestComment({
+    leadId: id,
+    commentId,
+    actor: session.email,
+  });
+  if (!comment) fail(id, "That comment could not be deleted.");
   revalidatePath(`/app/requests/${id}`);
   redirect(`/app/requests/${id}?saved=1`);
 }

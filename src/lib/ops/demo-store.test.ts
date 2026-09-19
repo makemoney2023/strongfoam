@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import { draftCrmFromRequest, parseCrmConversion } from "@/lib/ops/crm";
 import { demoEstimateRequests } from "@/lib/ops/demo-data";
 import {
+  addDemoCompany,
   addDemoJobDocument,
+  addDemoJobFieldNote,
   addDemoJobTask,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
+  deleteDemoJobFieldNote,
+  deleteDemoWorkArea,
   getDemoCompany,
   getDemoEstimateRequest,
   getDemoJob,
@@ -14,12 +18,16 @@ import {
   getDemoProject,
   listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobFieldNotes,
   listDemoJobTasks,
+  listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
   matchesEstimateRequestFilters,
   setDemoJobTaskStatus,
   updateDemoEstimateRequest,
+  updateDemoJobFieldNote,
+  updateDemoWorkArea,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { DEMO_JOB_ID } from "@/lib/ops/demo-data";
@@ -226,6 +234,21 @@ describe("job workspace", () => {
         (event) => event.kind === "document_uploaded",
       ),
     ).toBe(true);
+
+    const quantity = addDemoJobFieldNote({
+      jobId: DEMO_JOB_ID,
+      actor: "morgan.cole@strongfoam.com",
+      input: {
+        kind: "quantity",
+        body: "Closed-cell at podium",
+        workAreaId: area?.id ?? null,
+        taskId: task?.id ?? null,
+        quantity: 240,
+        unit: "board_feet",
+      },
+    });
+    expect(quantity?.quantity).toBe(240);
+    expect(listDemoJobFieldNotes(DEMO_JOB_ID)[0]?.id).toBe(quantity?.id);
   });
 
   it("shares document bytes across module lookups", () => {
@@ -268,5 +291,83 @@ describe("job workspace", () => {
         },
       }),
     ).toBeNull();
+  });
+});
+
+describe("workspace CRUD and filters", () => {
+  it("updates and deletes work areas and field notes", () => {
+    const area = addDemoWorkArea({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: { name: "Stair 2", kind: "zone", notes: null },
+    });
+    expect(area).not.toBeNull();
+    const updated = updateDemoWorkArea({
+      jobId: DEMO_JOB_ID,
+      workAreaId: area?.id ?? "",
+      actor: "estimating@strongfoam.com",
+      input: { name: "Stair 2 west", kind: "zone", notes: "Updated" },
+    });
+    expect(updated?.name).toBe("Stair 2 west");
+
+    const note = addDemoJobFieldNote({
+      jobId: DEMO_JOB_ID,
+      actor: "morgan.cole@strongfoam.com",
+      input: {
+        kind: "note",
+        body: "Access cleared",
+        workAreaId: area?.id ?? null,
+        taskId: null,
+        quantity: null,
+        unit: null,
+      },
+    });
+    expect(
+      updateDemoJobFieldNote({
+        jobId: DEMO_JOB_ID,
+        noteId: note?.id ?? "",
+        actor: "morgan.cole@strongfoam.com",
+        input: {
+          kind: "blocker",
+          body: "Still waiting on access",
+          workAreaId: area?.id ?? null,
+          taskId: null,
+          quantity: null,
+          unit: null,
+        },
+      })?.kind,
+    ).toBe("blocker");
+    expect(
+      deleteDemoJobFieldNote({
+        jobId: DEMO_JOB_ID,
+        noteId: note?.id ?? "",
+        actor: "morgan.cole@strongfoam.com",
+      })?.id,
+    ).toBe(note?.id);
+    expect(deleteDemoWorkArea({
+      jobId: DEMO_JOB_ID,
+      workAreaId: area?.id ?? "",
+      actor: "estimating@strongfoam.com",
+    })?.id).toBe(area?.id);
+  });
+
+  it("filters jobs by status and planned date", () => {
+    const inProgress = listDemoJobs({ status: "in_progress" });
+    expect(inProgress.some((job) => job.id === DEMO_JOB_ID)).toBe(true);
+    expect(listDemoJobs({ status: "closed" })).toEqual([]);
+    expect(listDemoJobs({ q: "north elevation" }).some((job) => job.id === DEMO_JOB_ID)).toBe(
+      true,
+    );
+  });
+
+  it("creates a company record from a parsed input", () => {
+    const company = addDemoCompany({
+      name: "Northside Builders",
+      email: "office@northside.example",
+      phone: "519-555-0199",
+      city: "Waterloo",
+      province: "ON",
+    });
+    expect(getDemoCompany(company.id)?.city).toBe("Waterloo");
   });
 });

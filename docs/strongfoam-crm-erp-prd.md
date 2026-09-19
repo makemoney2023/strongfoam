@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.9
+**Version:** 1.0
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -59,9 +59,11 @@ sign in to a session-gated review workspace, search and update requests, add
 tasks and comments, convert a request into company, contact, site, and
 opportunity records, and convert won work into a project plus one or more
 jobs. A job can hold work areas, tasks, and authenticated plan or photo
-uploads. The staff workspace uses shadcn/ui. The application does not yet
-provide full organization RBAC, crews, document markup, transcription,
-scheduling, or financial workflows.
+uploads. Field staff have a mobile-first landing page for active assignments
+plus a job view for task completion, notes, quantities, photos, blockers,
+material requests, and daily reports. The staff workspace uses shadcn/ui.
+The application does not yet provide full organization RBAC, crews, document
+markup, offline sync, transcription, scheduling, or financial workflows.
 
 ## 4. Product vision
 
@@ -1278,11 +1280,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Use shadcn/ui for the authenticated operations product | Replaces the custom Industrial Precision staff chrome with a standard dashboard system while keeping the marketing site branded |
 | 2026-09-19 | Add job work areas, job tasks, and session-gated job documents before annotation or speech-to-text | Delivers JOB-002/JOB-003 plans and checklists so field evidence has a place to live; demo stores file bytes in memory and production uses Vercel Blob when a token is present |
 | 2026-09-19 | Upload production job files directly to private Blob storage with job-scoped tokens | Supports the 25 MB policy without routing file bodies through Vercel functions; token issuance still requires a staff session and the completion callback records immutable metadata |
+| 2026-09-19 | Ship a mobile-first field landing and job view before blueprint annotation | Delivers FLD-001/002 and the first FLD-003 actions so technicians can work from today's assignment without waiting on markup or offline sync |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.0 | 2026-09-19 | Added the mobile field landing page and job field log for tasks, notes, quantities, photos, blockers, material requests, and daily reports |
 | 0.9 | 2026-09-19 | Hardened job document validation and direct private uploads, then improved the field workspace hierarchy, progress, feedback, touch targets, and accessibility |
 | 0.8 | 2026-09-19 | Added job work areas, job tasks, and authenticated plan/photo uploads on the job record |
 | 0.7 | 2026-09-18 | Adopted shadcn/ui as the operations design system and rebuilt the staff workspace |

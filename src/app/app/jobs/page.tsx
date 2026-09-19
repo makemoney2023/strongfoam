@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; from?: string; to?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
@@ -32,7 +33,12 @@ export default async function JobsPage({
 
   const params = await searchParams;
   const [jobs, projects, companies] = await Promise.all([
-    listJobs({ status: params.status }),
+    listJobs({
+      status: params.status,
+      q: params.q,
+      from: params.from,
+      to: params.to,
+    }),
     listProjects(),
     listCompanies(),
   ]);
@@ -49,16 +55,24 @@ export default async function JobsPage({
         }
       />
 
-      <Card>
-        <CardContent>
-          <form className="flex flex-wrap items-end gap-3">
+      <ListFilters>
+            <div className="space-y-2">
+              <Label htmlFor="q">Search</Label>
+              <Input
+                id="q"
+                name="q"
+                defaultValue={params.q ?? ""}
+                placeholder="Job, scope, crew"
+                className="h-11 min-w-56"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <NativeSelect
                 id="status"
                 name="status"
                 defaultValue={params.status ?? ""}
-                className="w-56"
+                className="h-11 w-56"
               >
                 <option value="">All statuses</option>
                 {JOB_STATUSES.map((status) => (
@@ -68,10 +82,14 @@ export default async function JobsPage({
                 ))}
               </NativeSelect>
             </div>
-            <Button type="submit">Filter</Button>
-          </form>
-        </CardContent>
-      </Card>
+            <DateRangeFields
+              from={params.from}
+              to={params.to}
+              fromLabel="Planned from"
+              toLabel="Planned to"
+            />
+            <FilterSubmit />
+      </ListFilters>
 
       <Card>
         <Table>

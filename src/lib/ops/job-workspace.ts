@@ -224,6 +224,23 @@ export function parseJobDocumentInput(input: {
   };
 }
 
+export function parseJobDocumentMeta(input: {
+  kind?: string;
+  workAreaId?: string | null;
+}):
+  | { ok: true; value: { kind: JobDocumentKind; workAreaId: string | null } }
+  | { ok: false; error: string } {
+  const kind = input.kind?.trim() || "plan";
+  if (!isJobDocumentKind(kind)) {
+    return { ok: false, error: "Choose a valid document type." };
+  }
+  const workAreaId = input.workAreaId?.trim() || null;
+  if (workAreaId && !isUuid(workAreaId)) {
+    return { ok: false, error: "Choose a valid work area." };
+  }
+  return { ok: true, value: { kind, workAreaId } };
+}
+
 export function isOwnedJobUploadPath(jobId: string, pathname: string): boolean {
   if (!isUuid(jobId) || pathname.includes("..") || pathname.startsWith("/")) {
     return false;

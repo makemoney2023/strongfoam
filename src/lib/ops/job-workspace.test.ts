@@ -5,6 +5,7 @@ import {
   isOwnedJobUploadPath,
   jobDocumentHref,
   parseJobDocumentInput,
+  parseJobDocumentMeta,
   parseJobTaskInput,
   parseWorkAreaInput,
   sortJobTaskRows,
@@ -84,6 +85,22 @@ describe("job workspace parsers", () => {
       "/api/ops/jobs/job-1/documents/doc-1",
     );
     expect(formatFileSize(2048)).toBe("2.0 KB");
+  });
+
+  it("updates document kind and work area without a file", () => {
+    expect(parseJobDocumentMeta({ kind: "drawing" }).ok).toBe(false);
+    expect(
+      parseJobDocumentMeta({
+        kind: "photo",
+        workAreaId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        kind: "photo",
+        workAreaId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      },
+    });
   });
 
   it("rejects mismatched extensions, unsafe paths, and spoofed file bytes", () => {

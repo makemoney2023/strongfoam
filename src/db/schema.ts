@@ -249,6 +249,33 @@ export const jobDocuments = pgTable(
   ],
 );
 
+export const jobFieldNotes = pgTable(
+  "job_field_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    workAreaId: uuid("work_area_id"),
+    taskId: uuid("task_id").references(() => jobTasks.id),
+    kind: text("kind").notNull().default("note"),
+    body: text("body").notNull(),
+    quantity: integer("quantity"),
+    unit: text("unit"),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workAreaId, table.jobId],
+      foreignColumns: [workAreas.id, workAreas.jobId],
+      name: "job_field_notes_work_area_job_fk",
+    }),
+  ],
+);
+
 export const estimateRequestTasks = pgTable("estimate_request_tasks", {
   id: uuid("id").defaultRandom().primaryKey(),
   leadId: uuid("lead_id")

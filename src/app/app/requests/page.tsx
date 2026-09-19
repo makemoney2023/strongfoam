@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,7 +34,13 @@ export const dynamic = "force-dynamic";
 export default async function EstimateRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; workflow?: string; qualification?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    workflow?: string;
+    qualification?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
@@ -45,6 +51,8 @@ export default async function EstimateRequestsPage({
     q: params.q,
     workflowStatus: params.workflow,
     qualification: params.qualification,
+    from: params.from,
+    to: params.to,
   });
 
   return (
@@ -59,9 +67,7 @@ export default async function EstimateRequestsPage({
         }
       />
 
-      <Card>
-        <CardContent>
-          <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_12rem_auto]">
+      <ListFilters>
             <div className="space-y-2">
               <Label htmlFor="q">Search</Label>
               <Input
@@ -69,11 +75,12 @@ export default async function EstimateRequestsPage({
                 name="q"
                 defaultValue={params.q ?? ""}
                 placeholder="Company, contact, city, email"
+                className="h-11 min-w-56"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="workflow">Status</Label>
-              <NativeSelect id="workflow" name="workflow" defaultValue={params.workflow ?? ""}>
+              <NativeSelect id="workflow" name="workflow" defaultValue={params.workflow ?? ""} className="h-11 w-48">
                 <option value="">All statuses</option>
                 {WORKFLOW_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -88,18 +95,16 @@ export default async function EstimateRequestsPage({
                 id="qualification"
                 name="qualification"
                 defaultValue={params.qualification ?? ""}
+                className="h-11 w-44"
               >
                 <option value="">All</option>
                 <option value="qualified">Qualified</option>
                 <option value="secondary">Secondary</option>
               </NativeSelect>
             </div>
-            <div className="flex items-end">
-              <Button type="submit">Filter</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            <DateRangeFields from={params.from} to={params.to} />
+            <FilterSubmit />
+      </ListFilters>
 
       <Card>
         <Table>
