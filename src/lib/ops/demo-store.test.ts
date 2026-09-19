@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { draftCrmFromRequest, parseCrmConversion } from "@/lib/ops/crm";
 import {
+  DEMO_SCHEDULE_NOW,
   demoEstimateRequests,
+  demoPortfolioScheduleSeed,
   type JobRow,
   type JobTaskDependencyRow,
   type JobTaskRow,
@@ -11,6 +13,13 @@ import {
   type ScheduleCalendarExceptionRow,
   type ScheduleCalendarRow,
 } from "@/lib/ops/demo-data";
+import {
+  buildPortfolioProjects,
+  buildPortfolioResourceLanes,
+  buildPortfolioScheduleAssignments,
+  buildPortfolioScheduleSummary,
+  serializePortfolioSchedule,
+} from "@/lib/ops/portfolio-schedule";
 import {
   addDemoCompany,
   addDemoJobDocument,
@@ -345,6 +354,127 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
 }
 
 describe("demo ops store", () => {
+  it("seeds every deterministic portfolio browser-acceptance fact", () => {
+    const seed = demoPortfolioScheduleSeed();
+    const data = serializePortfolioSchedule({
+      ...seed,
+      truncation: {
+        projects: false,
+        jobs: false,
+        tasks: false,
+        dependencies: false,
+        calendarExceptions: false,
+        baselineItems: false,
+      },
+    });
+    const now = new Date(DEMO_SCHEDULE_NOW);
+    const projected = buildPortfolioProjects(data.projects, now);
+    const active = projected.filter((project) => project.status === "active");
+    const closed = projected.filter((project) => project.status === "closed");
+
+    expect(active).toHaveLength(3);
+    expect(closed).toHaveLength(1);
+    expect(active.some((project) => project.jobs.length === 0)).toBe(true);
+    expect(
+      active.flatMap((project) => project.jobs).some(
+        (job) =>
+          job.status !== "complete" &&
+          job.status !== "closed" &&
+          !job.plannedStartAt &&
+          !job.plannedEndAt,
+      ),
+    ).toBe(true);
+    expect(
+      active
+        .flatMap((project) => project.jobs)
+        .flatMap((job) => job.tasks)
+        .some(
+          (task) =>
+            task.status === "open" &&
+            !task.plannedStartAt &&
+            !task.plannedEndAt &&
+            !task.dueAt,
+        ),
+    ).toBe(true);
+    expect(
+      active.flatMap((project) => project.jobs).some(
+        (job) => job.status === "blocked",
+      ),
+    ).toBe(true);
+
+    const summary = buildPortfolioScheduleSummary(data, now);
+    expect(summary.overdueTasks).toBeGreaterThanOrEqual(2);
+    expect(summary.upcomingEvents).toHaveLength(5);
+    expect(
+      active
+        .flatMap((project) => project.jobs)
+        .flatMap((job) => job.tasks)
+        .filter(
+          (task) =>
+            task.status === "open" &&
+            task.dueAt !== null &&
+            task.dueAt.slice(0, 10) >= "2026-09-19" &&
+            task.dueAt.slice(0, 10) <= "2026-10-03",
+        ),
+    ).toHaveLength(6);
+
+    const calendarIds = new Set(
+      active.slice(0, 2).map((project) => project.calendar.id),
+    );
+    expect(calendarIds.size).toBe(2);
+    expect(
+      active.slice(0, 2).every(
+        (project) => project.calendar.exceptions.length > 0,
+      ),
+    ).toBe(true);
+
+    for (const project of active.slice(0, 2)) {
+      const tasks = project.jobs.flatMap((job) => job.tasks);
+      expect(project.dependencies.length).toBeGreaterThanOrEqual(1);
+      expect(project.criticalTaskIds.size).toBeGreaterThanOrEqual(2);
+      expect(
+        tasks.some(
+          (task) =>
+            task.title.includes("Parallel") &&
+            !project.criticalTaskIds.has(task.id),
+        ),
+      ).toBe(true);
+    }
+
+    expect(
+      active.map((project) => project.baselineFinishVarianceDays),
+    ).toEqual(expect.arrayContaining([
+      expect.any(Number),
+      expect.any(Number),
+      null,
+    ]));
+    expect(
+      active.some((project) => (project.baselineFinishVarianceDays ?? 0) > 0),
+    ).toBe(true);
+    expect(
+      active.some((project) => (project.baselineFinishVarianceDays ?? 0) < 0),
+    ).toBe(true);
+    expect(active.some((project) => project.latestBaseline === null)).toBe(
+      true,
+    );
+
+    const morgan = buildPortfolioResourceLanes(
+      buildPortfolioScheduleAssignments(projected),
+    ).find((lane) => lane.key === "morgan cole");
+    expect(morgan).toBeDefined();
+    expect(morgan?.potentialOverlapCount).toBeGreaterThanOrEqual(1);
+    expect(
+      morgan?.assignments.filter((assignment) =>
+        assignment.label.includes("Weekend-only"),
+      ),
+    ).toHaveLength(2);
+    expect(
+      morgan?.assignments
+        .filter((assignment) => assignment.label.includes("Weekend-only"))
+        .every((assignment) => !assignment.hasPotentialOverlap),
+    ).toBe(true);
+  });
+
   it("uses demo data when the database URL is absent", () => {
     expect(isDemoOpsStore({})).toBe(true);
     expect(isDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
