@@ -220,8 +220,7 @@ export function JobPhotoGallery({
         type="file"
         accept="image/*"
         capture="environment"
-        className="sr-only"
-        tabIndex={-1}
+        hidden
         onChange={(event) => {
           const files = [...(event.target.files ?? [])];
           void uploadFiles(files);
@@ -232,8 +231,7 @@ export function JobPhotoGallery({
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf"
         multiple
-        className="sr-only"
-        tabIndex={-1}
+        hidden
         onChange={(event) => {
           const files = [...(event.target.files ?? [])];
           void uploadFiles(files);
