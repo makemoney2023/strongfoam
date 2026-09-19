@@ -725,15 +725,21 @@ export function listDemoPortfolioSchedule(
     PORTFOLIO_DEPENDENCY_LIMIT,
   );
 
-  const defaultCalendar = ensureDemoDefaultScheduleCalendar();
+  const defaultCalendar =
+    findDemoDefaultScheduleCalendar() ?? createDemoDefaultScheduleCalendar();
   const calendarIds = new Set([
     defaultCalendar.id,
     ...selectedProjects.flatMap((project) =>
       project.scheduleCalendarId ? [project.scheduleCalendarId] : [],
     ),
   ]);
-  const selectedCalendars = scheduleCalendars
-    .filter((calendar) => calendarIds.has(calendar.id))
+  const selectedCalendars = [
+    defaultCalendar,
+    ...scheduleCalendars.filter(
+      (calendar) =>
+        calendar.id !== defaultCalendar.id && calendarIds.has(calendar.id),
+    ),
+  ]
     .sort(
       (a, b) =>
         a.createdAt.getTime() - b.createdAt.getTime() ||
@@ -1444,19 +1450,21 @@ function validIsoDate(value: string): boolean {
   );
 }
 
-function ensureDemoDefaultScheduleCalendar(
-  actor = "system@strongfoam.com",
-): ScheduleCalendarRow {
-  const existing = scheduleCalendars
+function findDemoDefaultScheduleCalendar(): ScheduleCalendarRow | undefined {
+  return scheduleCalendars
     .filter((calendar) => calendar.isDefault)
     .sort(
       (a, b) =>
         a.createdAt.getTime() - b.createdAt.getTime() ||
         a.id.localeCompare(b.id),
     )[0];
-  if (existing) return existing;
+}
+
+function createDemoDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): ScheduleCalendarRow {
   const now = new Date();
-  const calendar: ScheduleCalendarRow = {
+  return {
     id: crypto.randomUUID(),
     createdAt: now,
     updatedAt: now,
@@ -1466,6 +1474,14 @@ function ensureDemoDefaultScheduleCalendar(
     weekendDays: [0, 6],
     isDefault: true,
   };
+}
+
+function ensureDemoDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): ScheduleCalendarRow {
+  const existing = findDemoDefaultScheduleCalendar();
+  if (existing) return existing;
+  const calendar = createDemoDefaultScheduleCalendar(actor);
   scheduleCalendars.push(calendar);
   return calendar;
 }

@@ -1128,6 +1128,29 @@ describe("portfolio Schedule store", () => {
     );
   });
 
+  it("does not persist a fallback calendar during a portfolio read", () => {
+    state.scheduleCalendars.splice(0);
+    state.scheduleCalendarExceptions.splice(0);
+    const calendarsBefore = structuredClone(state.scheduleCalendars);
+    const exceptionsBefore = structuredClone(state.scheduleCalendarExceptions);
+
+    const result = listDemoPortfolioSchedule({ q: "South Yard" });
+
+    expect(result.calendars).toHaveLength(1);
+    expect(result.calendars[0]).toMatchObject({
+      name: "Standard Monday–Friday",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: true,
+    });
+    expect(state.scheduleCalendars).toHaveLength(calendarsBefore.length);
+    expect(state.scheduleCalendars).toEqual(calendarsBefore);
+    expect(state.scheduleCalendarExceptions).toHaveLength(
+      exceptionsBefore.length,
+    );
+    expect(state.scheduleCalendarExceptions).toEqual(exceptionsBefore);
+  });
+
   it("distinguishes exact-bound and over-bound rows", () => {
     expect(boundedRows(["a", "b"], 2)).toEqual({
       rows: ["a", "b"],
