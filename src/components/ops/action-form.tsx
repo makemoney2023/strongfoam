@@ -4,7 +4,6 @@ import {
   createContext,
   useEffect,
   useContext,
-  useRef,
   type ComponentProps,
   type ReactNode,
 } from "react";
@@ -55,7 +54,6 @@ export function ActionForm({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(
     async (_prev: ActionState, formData: FormData) => {
       const result = (await action(formData)) ?? EMPTY_ACTION_STATE;
@@ -67,15 +65,12 @@ export function ActionForm({
 
   useEffect(() => {
     if (state.notice?.kind !== "success") return;
-    formRef.current?.dispatchEvent(
-      new CustomEvent("ops-action-success", { bubbles: true }),
-    );
+    window.dispatchEvent(new CustomEvent("ops-action-success"));
   }, [state.notice]);
 
   return (
     <ActionStateContext.Provider value={state}>
       <form
-        ref={formRef}
         action={formAction}
         className={cn(className)}
         {...props}
