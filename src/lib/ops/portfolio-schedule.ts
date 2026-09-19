@@ -901,6 +901,7 @@ type PortfolioCalendarProfile = {
 };
 
 export type PortfolioOverlapDiagnostics = {
+  signatureBuilds: number;
   calendarIndexBuilds: number;
   pairIndexBuilds: number;
   workingDateEvaluations: number;
@@ -909,6 +910,7 @@ export type PortfolioOverlapDiagnostics = {
 
 export function createPortfolioOverlapDiagnostics(): PortfolioOverlapDiagnostics {
   return {
+    signatureBuilds: 0,
     calendarIndexBuilds: 0,
     pairIndexBuilds: 0,
     workingDateEvaluations: 0,
@@ -942,8 +944,15 @@ export function portfolioCalendarSignature(
   calendar: PortfolioScheduleCalendar,
 ): string {
   const normalized = normalizedCalendarParts(calendar);
+  return normalizedCalendarSignature(calendar.timeZone, normalized);
+}
+
+function normalizedCalendarSignature(
+  timeZone: string,
+  normalized: ReturnType<typeof normalizedCalendarParts>,
+): string {
   return JSON.stringify([
-    calendar.timeZone,
+    timeZone,
     normalized.weekendDays,
     normalized.exceptions,
   ]);
@@ -956,25 +965,35 @@ type CalendarPairSearch = {
 };
 
 class PortfolioCalendarQueryCache {
-  private readonly signatures = new WeakMap<
+  private readonly calendarProfileIds = new WeakMap<
     PortfolioScheduleCalendar,
-    string
+    number
   >();
-  private readonly profiles = new Map<string, PortfolioCalendarProfile>();
-  private readonly pairs = new Map<string, CalendarPairSearch>();
+  private readonly signatureProfileIds = new Map<string, number>();
+  private readonly profiles = new Map<number, PortfolioCalendarProfile>();
+  private readonly pairs = new Map<
+    number,
+    Map<number, CalendarPairSearch>
+  >();
 
   constructor(
     private readonly diagnostics?: PortfolioOverlapDiagnostics,
   ) {}
 
-  signature(calendar: PortfolioScheduleCalendar): string {
-    const existing = this.signatures.get(calendar);
-    if (existing) return existing;
-    const signature = portfolioCalendarSignature(calendar);
-    this.signatures.set(calendar, signature);
-    if (!this.profiles.has(signature)) {
-      const normalized = normalizedCalendarParts(calendar);
-      this.profiles.set(signature, {
+  profileId(calendar: PortfolioScheduleCalendar): number {
+    const existing = this.calendarProfileIds.get(calendar);
+    if (existing !== undefined) return existing;
+    const normalized = normalizedCalendarParts(calendar);
+    const signature = normalizedCalendarSignature(
+      calendar.timeZone,
+      normalized,
+    );
+    if (this.diagnostics) this.diagnostics.signatureBuilds += 1;
+    let profileId = this.signatureProfileIds.get(signature);
+    if (profileId === undefined) {
+      profileId = this.profiles.size;
+      this.signatureProfileIds.set(signature, profileId);
+      this.profiles.set(profileId, {
         weekendDays: new Set(normalized.weekendDays),
         exceptions: new Map(normalized.exceptions),
         exceptionOrdinals: normalized.exceptions.map(([date]) =>
@@ -983,11 +1002,12 @@ class PortfolioCalendarQueryCache {
       });
       if (this.diagnostics) this.diagnostics.calendarIndexBuilds += 1;
     }
-    return signature;
+    this.calendarProfileIds.set(calendar, profileId);
+    return profileId;
   }
 
-  isWorkingOrdinal(signature: string, ordinal: number): boolean {
-    const profile = this.profiles.get(signature)!;
+  isWorkingOrdinal(profileId: number, ordinal: number): boolean {
+    const profile = this.profiles.get(profileId)!;
     const exception = profile.exceptions.get(dateFromOrdinal(ordinal));
     if (exception !== undefined) return exception;
     const day = ((ordinal + 4) % 7 + 7) % 7;
@@ -995,13 +1015,13 @@ class PortfolioCalendarQueryCache {
   }
 
   firstSharedWorkingOrdinal(
-    leftSignature: string,
-    rightSignature: string,
+    leftProfileId: number,
+    rightProfileId: number,
     start: number,
     end: number,
   ): number | null {
     if (this.diagnostics) this.diagnostics.rangeQueries += 1;
-    const pair = this.getPair(leftSignature, rightSignature);
+    const pair = this.getPair(leftProfileId, rightProfileId);
     if (!pair.regularSharedWorkingDay) {
       const index = lowerBound(pair.sharedExceptionOrdinals, start);
       const candidate = pair.sharedExceptionOrdinals[index];
@@ -1015,8 +1035,8 @@ class PortfolioCalendarQueryCache {
       trail.push(cursor);
       if (this.diagnostics) this.diagnostics.workingDateEvaluations += 1;
       if (
-        this.isWorkingOrdinal(leftSignature, cursor) &&
-        this.isWorkingOrdinal(rightSignature, cursor)
+        this.isWorkingOrdinal(leftProfileId, cursor) &&
+        this.isWorkingOrdinal(rightProfileId, cursor)
       ) {
         result = cursor;
         break;
@@ -1031,18 +1051,16 @@ class PortfolioCalendarQueryCache {
   }
 
   private getPair(
-    leftSignature: string,
-    rightSignature: string,
+    leftProfileId: number,
+    rightProfileId: number,
   ): CalendarPairSearch {
-    const [firstSignature, secondSignature] =
-      compareLexical(leftSignature, rightSignature) <= 0
-        ? [leftSignature, rightSignature]
-        : [rightSignature, leftSignature];
-    const key = JSON.stringify([firstSignature, secondSignature]);
-    const existing = this.pairs.get(key);
+    const firstProfileId = Math.min(leftProfileId, rightProfileId);
+    const secondProfileId = Math.max(leftProfileId, rightProfileId);
+    const firstPairs = this.pairs.get(firstProfileId);
+    const existing = firstPairs?.get(secondProfileId);
     if (existing) return existing;
-    const first = this.profiles.get(firstSignature)!;
-    const second = this.profiles.get(secondSignature)!;
+    const first = this.profiles.get(firstProfileId)!;
+    const second = this.profiles.get(secondProfileId)!;
     const regularSharedWorkingDay = Array.from(
       { length: 7 },
       (_, day) =>
@@ -1058,24 +1076,27 @@ class PortfolioCalendarQueryCache {
       ? []
       : exceptionOrdinals.filter(
           (ordinal) =>
-            this.isWorkingOrdinal(firstSignature, ordinal) &&
-            this.isWorkingOrdinal(secondSignature, ordinal),
+            this.isWorkingOrdinal(firstProfileId, ordinal) &&
+            this.isWorkingOrdinal(secondProfileId, ordinal),
         );
     if (this.diagnostics) {
       this.diagnostics.pairIndexBuilds += 1;
-      this.diagnostics.workingDateEvaluations += exceptionOrdinals.length;
+      if (!regularSharedWorkingDay) {
+        this.diagnostics.workingDateEvaluations +=
+          exceptionOrdinals.length;
+      }
     }
     const pair = {
       regularSharedWorkingDay,
       sharedExceptionOrdinals,
       nextWorkingMemo: new Map<number, number>(),
     };
-    this.pairs.set(key, pair);
+    const pairs = firstPairs ?? new Map<number, CalendarPairSearch>();
+    pairs.set(secondProfileId, pair);
+    if (!firstPairs) this.pairs.set(firstProfileId, pairs);
     return pair;
   }
 }
-
-const defaultPortfolioCalendarQueries = new PortfolioCalendarQueryCache();
 
 export function isPortfolioWorkingDay(
   date: string,
@@ -1083,11 +1104,64 @@ export function isPortfolioWorkingDay(
 ): boolean {
   const localDate = portfolioCalendarDate(date, calendar);
   if (!localDate) return false;
-  const signature = defaultPortfolioCalendarQueries.signature(calendar);
-  return defaultPortfolioCalendarQueries.isWorkingOrdinal(
-    signature,
+  const queries = new PortfolioCalendarQueryCache();
+  const profileId = queries.profileId(calendar);
+  return queries.isWorkingOrdinal(
+    profileId,
     dateOrdinal(localDate),
   );
+}
+
+export type PortfolioWorkingDaySegment = {
+  startPercent: number;
+  endPercent: number;
+  isWorkingDay: boolean;
+};
+
+export function getPortfolioWorkingDaySegments(
+  window: ScheduleWindow,
+  calendar: PortfolioScheduleCalendar,
+): PortfolioWorkingDaySegment[] {
+  const queries = new PortfolioCalendarQueryCache();
+  const profileId = queries.profileId(calendar);
+  return window.columns.map((column, index) => {
+    const date = localScheduleDateKey(column.start);
+    const isWorking =
+      window.columns.length !== 42 ||
+      !date ||
+      queries.isWorkingOrdinal(profileId, dateOrdinal(date));
+    return {
+      startPercent: (index * 100) / window.columns.length,
+      endPercent: ((index + 1) * 100) / window.columns.length,
+      isWorkingDay: isWorking,
+    };
+  });
+}
+
+export function getPortfolioWorkingDayGradient(
+  window: ScheduleWindow,
+  calendar: PortfolioScheduleCalendar,
+): string {
+  const stops = getPortfolioWorkingDaySegments(window, calendar).flatMap(
+    (segment, index) => {
+      const fill = segment.isWorkingDay
+        ? "transparent"
+        : "color-mix(in oklab, var(--muted) 50%, transparent)";
+      if (index === 0) {
+        return [
+          `${fill} ${segment.startPercent}%`,
+          `${fill} ${segment.endPercent}%`,
+        ];
+      }
+      return [
+        `var(--border) ${segment.startPercent}%`,
+        `var(--border) calc(${segment.startPercent}% + 1px)`,
+        `${fill} calc(${segment.startPercent}% + 1px)`,
+        `${fill} ${segment.endPercent}%`,
+      ];
+    },
+  );
+  return `linear-gradient(to right, ${stops.join(", ")})`;
 }
 
 function lowerBound(values: readonly number[], target: number): number {
@@ -1212,7 +1286,7 @@ export function buildPortfolioResourceLanes(
                   {
                     assignment,
                     range,
-                    signature: calendarQueries.signature(
+                    profileId: calendarQueries.profileId(
                       assignment.calendar,
                     ),
                   },
@@ -1228,17 +1302,17 @@ export function buildPortfolioResourceLanes(
               ),
           )
           .map((item, order) => ({ ...item, order }));
-        const membersBySignature = new Map<
-          string,
+        const membersByProfile = new Map<
+          number,
           typeof ranged
         >();
         for (const item of ranged) {
-          const members = membersBySignature.get(item.signature);
+          const members = membersByProfile.get(item.profileId);
           if (members) members.push(item);
-          else membersBySignature.set(item.signature, [item]);
+          else membersByProfile.set(item.profileId, [item]);
         }
         const activeGroups = new Map<
-          string,
+          number,
           {
             ends: FenwickMultiset;
             maxInsertedEnd: number;
@@ -1246,11 +1320,11 @@ export function buildPortfolioResourceLanes(
             events: Array<{ afterOrder: number; minimumEnd: number }>;
           }
         >();
-        for (const [signature, members] of membersBySignature) {
+        for (const [profileId, members] of membersByProfile) {
           const endValues = [
             ...new Set(members.map((item) => item.range.endOrdinal)),
           ].sort((left, right) => left - right);
-          activeGroups.set(signature, {
+          activeGroups.set(profileId, {
             ends: new FenwickMultiset(endValues),
             maxInsertedEnd: Number.NEGATIVE_INFINITY,
             members,
@@ -1258,22 +1332,22 @@ export function buildPortfolioResourceLanes(
           });
         }
 
-        const activeSignatures = new Set<string>();
+        const activeProfileIds = new Set<number>();
         for (const item of ranged) {
           let currentConflictCount = 0;
-          for (const activeSignature of activeSignatures) {
-            const activeGroup = activeGroups.get(activeSignature)!;
+          for (const activeProfileId of activeProfileIds) {
+            const activeGroup = activeGroups.get(activeProfileId)!;
             if (
               activeGroup.maxInsertedEnd <
               item.range.startOrdinal
             ) {
-              activeSignatures.delete(activeSignature);
+              activeProfileIds.delete(activeProfileId);
               continue;
             }
             const firstShared =
               calendarQueries.firstSharedWorkingOrdinal(
-                activeSignature,
-                item.signature,
+                activeProfileId,
+                item.profileId,
                 item.range.startOrdinal,
                 item.range.endOrdinal,
               );
@@ -1291,13 +1365,13 @@ export function buildPortfolioResourceLanes(
             potentialOverlapCount += currentConflictCount;
             overlapping.add(item.assignment);
           }
-          const ownGroup = activeGroups.get(item.signature)!;
+          const ownGroup = activeGroups.get(item.profileId)!;
           ownGroup.ends.add(item.range.endOrdinal);
           ownGroup.maxInsertedEnd = Math.max(
             ownGroup.maxInsertedEnd,
             item.range.endOrdinal,
           );
-          activeSignatures.add(item.signature);
+          activeProfileIds.add(item.profileId);
         }
 
         for (const activeGroup of activeGroups.values()) {

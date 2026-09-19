@@ -2,6 +2,7 @@
 
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -18,8 +19,7 @@ import {
   getPortfolioJobScheduleState,
   getPortfolioResourceGeometry,
   getPortfolioTaskScheduleState,
-  isPortfolioWorkingDay,
-  localScheduleDateKey,
+  getPortfolioWorkingDayGradient,
   portfolioCalendarDate,
   type PortfolioBaselineState,
   type PortfolioScheduleCalendar,
@@ -40,6 +40,8 @@ import { cn } from "@/lib/utils";
 type ProjectedPortfolioAssignment = PortfolioScheduleAssignment & {
   hasPotentialOverlap: boolean;
 };
+
+export const PORTFOLIO_RESOURCE_PAGE_SIZE = 200;
 
 const MONTH_LABELS = [
   "Jan",
@@ -215,10 +217,12 @@ function AssignmentTimelineBackdrop({
   window,
   now,
   calendar,
+  gradient,
 }: {
   window: ScheduleWindow;
   now: string;
   calendar: PortfolioScheduleCalendar;
+  gradient: string;
 }) {
   const todayGeometry = getPortfolioResourceGeometry(
     { dueAt: now },
@@ -232,29 +236,13 @@ function AssignmentTimelineBackdrop({
   return (
     <>
       <div
+        data-resource-backdrop="true"
         className="pointer-events-none absolute inset-0 grid"
         style={{
-          gridTemplateColumns: `repeat(${window.columns.length}, minmax(0, 1fr))`,
+          backgroundImage: gradient,
         }}
         aria-hidden="true"
-      >
-        {window.columns.map((column) => {
-          const columnDate = localScheduleDateKey(column.start);
-          const working =
-            window.columns.length !== 42 ||
-            !columnDate ||
-            isPortfolioWorkingDay(columnDate, calendar);
-          return (
-            <span
-              key={column.key}
-              className={cn(
-                "border-l first:border-l-0",
-                !working && "bg-muted/50",
-              )}
-            />
-          );
-        })}
-      </div>
+      />
       {todayPosition !== null ? (
         <span
           className="pointer-events-none absolute inset-y-0 z-10 border-l-2 border-primary"
@@ -278,9 +266,69 @@ export function PortfolioResourceSchedule({
   now: string;
   baseline: "latest" | "none";
 }) {
-  const lanes = buildPortfolioResourceLanes(
-    buildPortfolioScheduleAssignments(projects),
+  const lanes = useMemo(
+    () =>
+      buildPortfolioResourceLanes(
+        buildPortfolioScheduleAssignments(projects),
+      ),
+    [projects],
   );
+  const entries = useMemo(
+    () =>
+      lanes.flatMap((lane) =>
+        lane.assignments.map((assignment) => ({ lane, assignment })),
+      ),
+    [lanes],
+  );
+  const pageCount = Math.max(
+    1,
+    Math.ceil(entries.length / PORTFOLIO_RESOURCE_PAGE_SIZE),
+  );
+  const [pagination, setPagination] = useState({
+    projects,
+    page: 0,
+  });
+  const requestedPage =
+    pagination.projects === projects ? pagination.page : 0;
+  const page = Math.min(requestedPage, pageCount - 1);
+  const pageEntries = useMemo(
+    () =>
+      entries.slice(
+        page * PORTFOLIO_RESOURCE_PAGE_SIZE,
+        (page + 1) * PORTFOLIO_RESOURCE_PAGE_SIZE,
+      ),
+    [entries, page],
+  );
+  const pagedLanes = useMemo(() => {
+    const pageLaneMap = new Map<
+      string,
+      (typeof lanes)[number]
+    >();
+    for (const { lane, assignment } of pageEntries) {
+      const existing = pageLaneMap.get(lane.key);
+      if (existing) existing.assignments.push(assignment);
+      else pageLaneMap.set(lane.key, { ...lane, assignments: [assignment] });
+    }
+    return [...pageLaneMap.values()];
+  }, [pageEntries]);
+  const [tableOpen, setTableOpen] = useState(false);
+  const firstVisible =
+    entries.length === 0 ? 0 : page * PORTFOLIO_RESOURCE_PAGE_SIZE + 1;
+  const lastVisible = Math.min(
+    entries.length,
+    (page + 1) * PORTFOLIO_RESOURCE_PAGE_SIZE,
+  );
+  const gradients = new Map<PortfolioScheduleCalendar, string>();
+  const gradientFor = (calendar: PortfolioScheduleCalendar): string => {
+    const existing = gradients.get(calendar);
+    if (existing) return existing;
+    const gradient = getPortfolioWorkingDayGradient(
+      window,
+      calendar,
+    );
+    gradients.set(calendar, gradient);
+    return gradient;
+  };
   const projectsById = new Map(projects.map((project) => [project.id, project]));
   const jobsById = new Map(
     projects.flatMap((project) =>
@@ -347,6 +395,46 @@ export function PortfolioResourceSchedule({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
+        <p className="text-sm" aria-live="polite">
+          Showing {firstVisible}–{lastVisible} of {entries.length} assignments.
+          {" "}
+          {lanes.length} resource {lanes.length === 1 ? "lane" : "lanes"}.
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Previous resource assignments page"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={page === 0}
+            onClick={() =>
+              setPagination({
+                projects,
+                page: Math.max(0, page - 1),
+              })
+            }
+          >
+            Previous
+          </button>
+          <span className="min-w-20 text-center text-sm">
+            Page {page + 1} of {pageCount}
+          </span>
+          <button
+            type="button"
+            aria-label="Next resource assignments page"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={page >= pageCount - 1}
+            onClick={() =>
+              setPagination({
+                projects,
+                page: Math.min(pageCount - 1, page + 1),
+              })
+            }
+          >
+            Next
+          </button>
+        </div>
+      </div>
       <div className="overflow-x-auto rounded-lg border">
         <div className="min-w-[64rem]">
           <div className="grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]">
@@ -380,7 +468,7 @@ export function PortfolioResourceSchedule({
             </div>
           </div>
 
-          {lanes.map((lane) => (
+          {pagedLanes.map((lane) => (
             <div key={lane.key}>
               <div className="grid min-h-11 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)] border-t bg-muted/10">
                 <div className="sticky left-0 z-20 border-r bg-card px-3 py-2">
@@ -419,6 +507,8 @@ export function PortfolioResourceSchedule({
                 return (
                   <div
                     key={`${assignment.projectId}:${assignment.id}`}
+                    data-resource-assignment-row="true"
+                    data-assignment-key={`${assignment.projectId}:${assignment.id}`}
                     className="grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)] border-t"
                   >
                     <div className="sticky left-0 z-20 min-w-0 border-r bg-card px-3 py-2 pl-8">
@@ -448,7 +538,12 @@ export function PortfolioResourceSchedule({
                             )}
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
-                            <Badge variant="outline">{assignment.role}</Badge>
+                            <Badge
+                              variant="outline"
+                              aria-label={`Assignment role: ${assignment.role}`}
+                            >
+                              {assignment.role}
+                            </Badge>
                             <span className="text-xs text-muted-foreground">
                               {baselineStateLabel(
                                 baselineState,
@@ -475,6 +570,7 @@ export function PortfolioResourceSchedule({
                         window={window}
                         now={now}
                         calendar={assignment.calendar}
+                        gradient={gradientFor(assignment.calendar)}
                       />
                       <div className="relative z-10 min-w-0 flex-1">
                         {baselineState.kind === "scheduled" ? (
@@ -503,11 +599,21 @@ export function PortfolioResourceSchedule({
         </div>
       </div>
 
-      <details className="rounded-lg border">
-        <summary className="flex min-h-11 cursor-pointer items-center px-4 py-3 text-sm font-medium">
-          View portfolio resources as table
-        </summary>
-        <div className="overflow-x-auto border-t">
+      <section className="rounded-lg border">
+        <button
+          type="button"
+          aria-expanded={tableOpen}
+          aria-controls="portfolio-resource-table"
+          className="flex min-h-11 min-w-11 w-full cursor-pointer items-center px-4 py-3 text-left text-sm font-medium"
+          onClick={() => setTableOpen((open) => !open)}
+        >
+          {tableOpen ? "Hide" : "View"} current assignment page as table
+        </button>
+        {tableOpen ? (
+          <div
+            id="portfolio-resource-table"
+            className="overflow-x-auto border-t"
+          >
           <Table>
             <TableHeader>
               <TableRow>
@@ -521,7 +627,7 @@ export function PortfolioResourceSchedule({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lanes.flatMap((lane) =>
+              {pagedLanes.flatMap((lane) =>
                 lane.assignments.map((assignment) => {
                   const baselineItem = baselineByEntity.get(
                     `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
@@ -537,7 +643,10 @@ export function PortfolioResourceSchedule({
                     baselineState,
                   );
                   return (
-                    <TableRow key={`${assignment.projectId}:${assignment.id}`}>
+                    <TableRow
+                      key={`${assignment.projectId}:${assignment.id}`}
+                      data-assignment-key={`${assignment.projectId}:${assignment.id}`}
+                    >
                       <TableCell>{lane.displayName}</TableCell>
                       <TableCell
                         aria-label={`Assignment role: ${assignment.role}`}
@@ -582,8 +691,9 @@ export function PortfolioResourceSchedule({
               )}
             </TableBody>
           </Table>
-        </div>
-      </details>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

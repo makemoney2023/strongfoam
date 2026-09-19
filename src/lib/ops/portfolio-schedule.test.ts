@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createElement } from "react";
+// @ts-expect-error jsdom does not publish bundled TypeScript declarations.
+import { JSDOM } from "jsdom";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PortfolioResourceSchedule } from "@/components/ops/portfolio-resource-schedule";
+import {
+  PORTFOLIO_RESOURCE_PAGE_SIZE,
+  PortfolioResourceSchedule,
+} from "@/components/ops/portfolio-resource-schedule";
 import type {
   ProjectScheduleJob,
   ProjectScheduleTask,
@@ -20,6 +26,8 @@ import {
   getPortfolioProjectState,
   getPortfolioResourceGeometry,
   getPortfolioTaskScheduleState,
+  getPortfolioWorkingDayGradient,
+  getPortfolioWorkingDaySegments,
   isPortfolioWorkingDay,
   localScheduleDateKey,
   normalizePortfolioScheduleDates,
@@ -1465,6 +1473,177 @@ describe("portfolio resource projection", () => {
     );
   });
 
+  it("bounds chart and closed-table DOM while pagination exposes every assignment", async () => {
+    expect(PORTFOLIO_RESOURCE_PAGE_SIZE).toBe(200);
+    const projects = buildPortfolioProjects(
+      [
+        project({
+          id: "project-page",
+          name: "Paged project",
+          jobs: [
+            job({
+              id: "job-page",
+              projectManager: "Alex",
+              foreman: "Alex",
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+              tasks: Array.from({ length: 218 }, (_, index) =>
+                task({
+                  id: `paged-task-${index}`,
+                  jobId: "job-page",
+                  title: `Paged task ${index}`,
+                  assignee: "Alex",
+                  dueAt: "2026-09-21",
+                }),
+              ),
+            }),
+          ],
+        }),
+      ],
+      now,
+    );
+    const dom = new JSDOM('<div id="root"></div>');
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const previousGlobals = new Map(
+      ["window", "self", "document", "HTMLElement", "Node"].map(
+        (key) => [key, globals[key]] as const,
+      ),
+    );
+    const previousActEnvironment = globals.IS_REACT_ACT_ENVIRONMENT;
+    globals.window = dom.window;
+    globals.self = dom.window;
+    globals.document = dom.window.document;
+    globals.HTMLElement = dom.window.HTMLElement;
+    globals.Node = dom.window.Node;
+    globals.IS_REACT_ACT_ENVIRONMENT = true;
+    const container = dom.window.document.querySelector("#root")!;
+    const root = createRoot(container);
+    const scheduleWindow = createScheduleWindow(
+      "week",
+      new Date(2026, 8, 21, 12, 0, 0, 0),
+    );
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(PortfolioResourceSchedule, {
+            projects,
+            window: scheduleWindow,
+            now: now.toISOString(),
+            baseline: "none",
+          }),
+        );
+      });
+
+      const chartRows = () => [
+        ...container.querySelectorAll(
+          '[data-resource-assignment-row="true"]',
+        ),
+      ];
+      const rowKeys = () =>
+        chartRows().map((row) => row.getAttribute("data-assignment-key"));
+      const firstPageKeys = new Set(rowKeys());
+      expect(chartRows()).toHaveLength(200);
+      expect(container.querySelector("tbody")).toBeNull();
+      expect(
+        container.querySelectorAll("[data-resource-backdrop] > span"),
+      ).toHaveLength(0);
+      expect(
+        container.querySelectorAll("[data-resource-backdrop]"),
+      ).toHaveLength(200);
+      expect(container.textContent).toContain(
+        "Showing 1–200 of 220 assignments. 1 resource lane.",
+      );
+
+      const next = container.querySelector(
+        '[aria-label="Next resource assignments page"]',
+      )!;
+      await act(async () => {
+        next.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+
+      expect(chartRows()).toHaveLength(20);
+      expect(container.textContent).toContain("Page 2 of 2");
+      const allKeys = new Set([...firstPageKeys, ...rowKeys()]);
+      expect(allKeys.size).toBe(220);
+
+      const tableToggle = container.querySelector(
+        '[aria-controls="portfolio-resource-table"]',
+      )!;
+      expect(tableToggle.getAttribute("aria-expanded")).toBe("false");
+      await act(async () => {
+        tableToggle.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(tableToggle.getAttribute("aria-expanded")).toBe("true");
+      expect(container.querySelectorAll("tbody tr")).toHaveLength(20);
+      expect(
+        new Set(
+          [...container.querySelectorAll("tbody tr")].map((row) =>
+            row.getAttribute("data-assignment-key"),
+          ),
+        ),
+      ).toEqual(new Set(rowKeys()));
+
+      const filteredProjects = buildPortfolioProjects(
+        [
+          project({
+            id: "project-filtered",
+            jobs: [
+              job({
+                id: "job-filtered",
+                projectManager: "Alex",
+                foreman: "Alex",
+                tasks: Array.from({ length: 8 }, (_, index) =>
+                  task({
+                    id: `filtered-task-${index}`,
+                    jobId: "job-filtered",
+                    assignee: "Alex",
+                  }),
+                ),
+              }),
+            ],
+          }),
+        ],
+        now,
+      );
+      await act(async () => {
+        root.render(
+          createElement(PortfolioResourceSchedule, {
+            projects: filteredProjects,
+            window: scheduleWindow,
+            now: now.toISOString(),
+            baseline: "none",
+          }),
+        );
+      });
+      expect(chartRows()).toHaveLength(10);
+      expect(container.textContent).toContain("Page 1 of 1");
+      expect(
+        (
+          container.querySelector(
+            '[aria-label="Previous resource assignments page"]',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    } finally {
+      await act(async () => root.unmount());
+      dom.window.close();
+      for (const [key, value] of previousGlobals) {
+        if (value === undefined) delete globals[key];
+        else globals[key] = value;
+      }
+      if (previousActEnvironment === undefined) {
+        delete globals.IS_REACT_ACT_ENVIRONMENT;
+      } else {
+        globals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+      }
+    }
+  });
+
   it("renders no baseline mark or variance for malformed baseline dates", () => {
     const projects = buildPortfolioProjects(
       [
@@ -1729,6 +1908,56 @@ describe("portfolio resource projection", () => {
       left: 100 / 6,
       width: 200 / 6,
     });
+  });
+
+  it("builds exact weekend and exception gradient segments", () => {
+    const window = createScheduleWindow(
+      "week",
+      new Date(2026, 8, 14, 12, 0, 0, 0),
+    );
+    const segments = getPortfolioWorkingDaySegments(
+      window,
+      calendar({
+        exceptions: [
+          { date: "2026-09-14", isWorkingDay: false },
+          { date: "2026-09-19", isWorkingDay: true },
+        ],
+      }),
+    );
+
+    expect(segments).toHaveLength(42);
+    expect(segments[0]).toEqual({
+      startPercent: 0,
+      endPercent: 100 / 42,
+      isWorkingDay: false,
+    });
+    expect(segments[5]?.isWorkingDay).toBe(true);
+    expect(segments[6]?.isWorkingDay).toBe(false);
+    expect(segments[41]?.endPercent).toBe(100);
+    const weekGradient = getPortfolioWorkingDayGradient(
+      window,
+      calendar({
+        exceptions: [
+          { date: "2026-09-14", isWorkingDay: false },
+          { date: "2026-09-19", isWorkingDay: true },
+        ],
+      }),
+    );
+    expect(weekGradient).toContain("linear-gradient(to right");
+    expect(weekGradient).toContain("var(--border)");
+    expect(weekGradient).toContain("color-mix(in oklab, var(--muted)");
+
+    const monthGradient = getPortfolioWorkingDayGradient(
+      createScheduleWindow(
+        "month",
+        new Date(2026, 8, 14, 12, 0, 0, 0),
+      ),
+      calendar(),
+    );
+    expect(monthGradient).toContain(
+      "var(--border) 16.666666666666668%",
+    );
+    expect(monthGradient).toContain("transparent 100%");
   });
 
   it("uses project-calendar state at UTC boundaries independent of viewer timezone", () => {
@@ -2203,10 +2432,17 @@ describe("portfolio resource projection", () => {
     );
   });
 
-  it("aggregates 9,000 dense same-day assignments without enumerating pairs", () => {
+  it("aggregates 9,000 assignments and 5,000 exceptions without rebuilding signatures", () => {
+    const exceptions = Array.from({ length: 5_000 }, (_, index) => ({
+      date: new Date(Date.UTC(2030, 0, 1 + index))
+        .toISOString()
+        .slice(0, 10),
+      isWorkingDay: index % 3 !== 0,
+    }));
     const assignments = buildPortfolioScheduleAssignments([
       project({
         id: "project-dense",
+        calendar: calendar({ exceptions }),
         jobs: [
           job({
             id: "job-dense",
@@ -2240,6 +2476,8 @@ describe("portfolio resource projection", () => {
       ),
     ).toBe(true);
     expect(diagnostics.rangeQueries).toBe(8_999);
+    expect(diagnostics.signatureBuilds).toBe(1);
+    expect(diagnostics.calendarIndexBuilds).toBe(1);
     expect(diagnostics.pairIndexBuilds).toBe(1);
     expect(diagnostics.workingDateEvaluations).toBeLessThan(10);
   });
@@ -2294,6 +2532,7 @@ describe("portfolio resource projection", () => {
 
     expect(assignments[0]?.calendar).not.toBe(assignments[2]?.calendar);
     expect(lane?.potentialOverlapCount).toBe(1);
+    expect(diagnostics.signatureBuilds).toBe(2);
     expect(diagnostics.calendarIndexBuilds).toBe(1);
     expect(diagnostics.pairIndexBuilds).toBe(1);
   });
@@ -2421,6 +2660,7 @@ describe("portfolio resource projection", () => {
 
     expect(lane?.potentialOverlapCount).toBe(780);
     expect(diagnostics.rangeQueries).toBeLessThan(80);
+    expect(diagnostics.signatureBuilds).toBe(2);
     expect(diagnostics.calendarIndexBuilds).toBe(2);
     expect(diagnostics.pairIndexBuilds).toBe(3);
     expect(diagnostics.workingDateEvaluations).toBeLessThan(1_000);
