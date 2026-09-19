@@ -256,7 +256,8 @@ export function positionInWindow(
   if (Number.isNaN(parsed.getTime())) return null;
   const date = startOfLocalDay(parsed);
   if (date < window.start || date > window.end) return null;
-  const span = window.end.getTime() - window.start.getTime();
+  const windowEnd = startOfLocalDay(window.end);
+  const span = windowEnd.getTime() - window.start.getTime();
   if (span <= 0) return 0;
   return ((date.getTime() - window.start.getTime()) / span) * 100;
 }
