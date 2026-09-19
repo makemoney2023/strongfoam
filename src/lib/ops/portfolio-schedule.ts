@@ -14,9 +14,13 @@ import {
 import { formatJobNumber, isJobStatus } from "@/lib/ops/jobs";
 import {
   DEFAULT_WORKING_CALENDAR,
+  buildScheduleAssignments,
   calendarDate,
+  isWorkingDay,
   workingDayDifference,
   type ResolvedWorkingCalendar,
+  type ScheduleAssignment,
+  type ScheduleAssignmentRole,
 } from "@/lib/ops/project-schedule-planning";
 import type { PortfolioScheduleStoreResult } from "@/lib/ops/store";
 
@@ -66,6 +70,23 @@ export type ProjectedPortfolioProject = PortfolioScheduleProject & {
     critical: number;
   };
   baselineFinishVarianceDays: number | null;
+};
+
+export type PortfolioScheduleAssignment = ScheduleAssignment & {
+  projectId: string;
+  projectName: string;
+  calendar: ResolvedWorkingCalendar;
+};
+
+export type PortfolioResourceLane = {
+  key: string;
+  displayName: string;
+  roles: ScheduleAssignmentRole[];
+  assignments: Array<
+    PortfolioScheduleAssignment & { hasPotentialOverlap: boolean }
+  >;
+  /** The number of unique conflicting assignment pairs in this lane. */
+  potentialOverlapCount: number;
 };
 
 export type PortfolioProjectionFilter = {
@@ -584,6 +605,218 @@ export function buildPortfolioProjects(
           : null,
     };
   });
+}
+
+function cloneAssignmentCalendar(
+  calendar: ResolvedWorkingCalendar,
+): ResolvedWorkingCalendar {
+  return cloneResolvedCalendar(calendar);
+}
+
+export function buildPortfolioScheduleAssignments(
+  projects: readonly ProjectedPortfolioProject[],
+): PortfolioScheduleAssignment[] {
+  return projects.flatMap((project) =>
+    buildScheduleAssignments(project.jobs).map((assignment) => ({
+      ...assignment,
+      plannedStartAt: validScheduleDate(assignment.plannedStartAt ?? null),
+      plannedEndAt: validScheduleDate(assignment.plannedEndAt ?? null),
+      dueAt: validScheduleDate(assignment.dueAt ?? null),
+      projectId: project.id,
+      projectName: project.name,
+      calendar: cloneAssignmentCalendar(project.calendar),
+    })),
+  );
+}
+
+function normalizedResource(value: string | null): {
+  key: string;
+  displayName: string;
+} {
+  const displayName = value?.trim().replace(/\s+/g, " ") || "Unassigned";
+  return { key: displayName.toLocaleLowerCase(), displayName };
+}
+
+function dateOrdinal(value: string): number {
+  const [year, month, day] = value.split("-").map(Number);
+  return Math.floor(Date.UTC(year!, month! - 1, day!) / 86_400_000);
+}
+
+function dateFromOrdinal(value: number): string {
+  return new Date(value * 86_400_000).toISOString().slice(0, 10);
+}
+
+type PortfolioAssignmentRange = {
+  start: string;
+  end: string;
+};
+
+function portfolioAssignmentRange(
+  assignment: PortfolioScheduleAssignment,
+): PortfolioAssignmentRange | null {
+  if (!assignment.plannedStartAt || !assignment.plannedEndAt) return null;
+  const start = calendarDate(assignment.plannedStartAt, assignment.calendar);
+  const end = calendarDate(assignment.plannedEndAt, assignment.calendar);
+  if (!start || !end || dateOrdinal(start) > dateOrdinal(end)) return null;
+  return { start, end };
+}
+
+function rangesSharePortfolioWorkingDay(
+  left: PortfolioScheduleAssignment,
+  leftRange: PortfolioAssignmentRange,
+  right: PortfolioScheduleAssignment,
+  rightRange: PortfolioAssignmentRange,
+): boolean {
+  const start = Math.max(
+    dateOrdinal(leftRange.start),
+    dateOrdinal(rightRange.start),
+  );
+  const end = Math.min(
+    dateOrdinal(leftRange.end),
+    dateOrdinal(rightRange.end),
+  );
+  for (let cursor = start; cursor <= end; cursor += 1) {
+    const date = dateFromOrdinal(cursor);
+    if (
+      isWorkingDay(date, left.calendar) &&
+      isWorkingDay(date, right.calendar)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const PORTFOLIO_ROLE_ORDER: ScheduleAssignmentRole[] = [
+  "Project manager",
+  "Foreman",
+  "Task assignee",
+];
+
+function assignmentSortDate(
+  assignment: PortfolioScheduleAssignment,
+): number | null {
+  const value =
+    assignment.plannedStartAt ??
+    assignment.plannedEndAt ??
+    assignment.dueAt;
+  if (!value) return null;
+  const localDate = calendarDate(value, assignment.calendar);
+  return localDate ? dateOrdinal(localDate) : null;
+}
+
+function comparePortfolioAssignments(
+  left: PortfolioScheduleAssignment,
+  right: PortfolioScheduleAssignment,
+): number {
+  const leftDate = assignmentSortDate(left);
+  const rightDate = assignmentSortDate(right);
+  if (leftDate !== null && rightDate === null) return -1;
+  if (leftDate === null && rightDate !== null) return 1;
+  if (leftDate !== rightDate) return (leftDate ?? 0) - (rightDate ?? 0);
+  return (
+    left.projectName.localeCompare(right.projectName) ||
+    left.projectId.localeCompare(right.projectId) ||
+    left.label.localeCompare(right.label) ||
+    PORTFOLIO_ROLE_ORDER.indexOf(left.role) -
+      PORTFOLIO_ROLE_ORDER.indexOf(right.role) ||
+    left.entityType.localeCompare(right.entityType) ||
+    left.entityId.localeCompare(right.entityId) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function clonePortfolioAssignment(
+  assignment: PortfolioScheduleAssignment,
+): PortfolioScheduleAssignment {
+  return {
+    ...assignment,
+    calendar: cloneAssignmentCalendar(assignment.calendar),
+  };
+}
+
+export function buildPortfolioResourceLanes(
+  assignments: readonly PortfolioScheduleAssignment[],
+): PortfolioResourceLane[] {
+  const groups = new Map<
+    string,
+    {
+      displayName: string;
+      roles: Set<ScheduleAssignmentRole>;
+      assignments: PortfolioScheduleAssignment[];
+    }
+  >();
+  for (const assignment of assignments) {
+    const resource = normalizedResource(assignment.resource);
+    const group = groups.get(resource.key) ?? {
+      displayName: resource.displayName,
+      roles: new Set<ScheduleAssignmentRole>(),
+      assignments: [],
+    };
+    group.roles.add(assignment.role);
+    group.assignments.push(assignment);
+    groups.set(resource.key, group);
+  }
+
+  return [...groups.entries()]
+    .map(([key, group]) => {
+      const sorted = [...group.assignments].sort(comparePortfolioAssignments);
+      const overlapping = new Set<PortfolioScheduleAssignment>();
+      let potentialOverlapCount = 0;
+
+      if (key !== "unassigned") {
+        const active: Array<{
+          assignment: PortfolioScheduleAssignment;
+          range: PortfolioAssignmentRange;
+        }> = [];
+        for (const assignment of sorted) {
+          const range = portfolioAssignmentRange(assignment);
+          if (!range) continue;
+          for (let index = active.length - 1; index >= 0; index -= 1) {
+            if (
+              dateOrdinal(active[index]!.range.end) <
+              dateOrdinal(range.start)
+            ) {
+              active.splice(index, 1);
+            }
+          }
+          for (const candidate of active) {
+            if (
+              rangesSharePortfolioWorkingDay(
+                candidate.assignment,
+                candidate.range,
+                assignment,
+                range,
+              )
+            ) {
+              potentialOverlapCount += 1;
+              overlapping.add(candidate.assignment);
+              overlapping.add(assignment);
+            }
+          }
+          active.push({ assignment, range });
+        }
+      }
+
+      return {
+        key,
+        displayName: group.displayName,
+        roles: PORTFOLIO_ROLE_ORDER.filter((role) => group.roles.has(role)),
+        assignments: sorted.map((assignment) => ({
+          ...clonePortfolioAssignment(assignment),
+          hasPotentialOverlap: overlapping.has(assignment),
+        })),
+        potentialOverlapCount,
+      };
+    })
+    .sort((left, right) => {
+      if (left.key === "unassigned") return 1;
+      if (right.key === "unassigned") return -1;
+      return (
+        left.displayName.localeCompare(right.displayName) ||
+        left.key.localeCompare(right.key)
+      );
+    });
 }
 
 function calendarDayOrdinal(

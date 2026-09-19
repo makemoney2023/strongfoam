@@ -4,6 +4,8 @@ import type {
   ProjectScheduleTask,
 } from "@/lib/ops/project-schedule";
 import {
+  buildPortfolioResourceLanes,
+  buildPortfolioScheduleAssignments,
   buildPortfolioProjects,
   filterPortfolioProjects,
   getPortfolioProjectRange,
@@ -12,7 +14,10 @@ import {
   type PortfolioProjectionFilter,
   type PortfolioScheduleProject,
 } from "@/lib/ops/portfolio-schedule";
-import { DEFAULT_WORKING_CALENDAR } from "@/lib/ops/project-schedule-planning";
+import {
+  DEFAULT_WORKING_CALENDAR,
+  type ResolvedWorkingCalendar,
+} from "@/lib/ops/project-schedule-planning";
 import type { PortfolioScheduleStoreResult } from "@/lib/ops/store";
 
 const now = new Date("2026-09-19T12:00:00.000Z");
@@ -1256,5 +1261,331 @@ describe("portfolio schedule", () => {
     expect(result?.jobs[0]).not.toBe(source.jobs[0]);
     expect(result?.jobs[0]?.tasks).not.toBe(source.jobs[0]?.tasks);
     expect(result?.dependencies).not.toBe(source.dependencies);
+  });
+});
+
+function calendar(
+  overrides: Partial<ResolvedWorkingCalendar> = {},
+): ResolvedWorkingCalendar {
+  return {
+    id: "calendar",
+    name: "Calendar",
+    timeZone: "America/Toronto",
+    weekendDays: [0, 6],
+    exceptions: [],
+    ...overrides,
+  };
+}
+
+function resourceLanes(projects: PortfolioScheduleProject[]) {
+  return buildPortfolioResourceLanes(
+    buildPortfolioScheduleAssignments(buildPortfolioProjects(projects, now)),
+  );
+}
+
+describe("portfolio resource projection", () => {
+  it("groups a normalized person across projects with combined roles and first display spelling", () => {
+    const lanes = resourceLanes([
+      project({
+        id: "project-a",
+        name: "Alpha",
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "  Alex   Smith  ",
+            plannedStartAt: "2026-09-14",
+            plannedEndAt: "2026-09-15",
+          }),
+        ],
+      }),
+      project({
+        id: "project-b",
+        name: "Beta",
+        jobs: [
+          job({
+            id: "job-b",
+            projectManager: null,
+            tasks: [
+              task({
+                id: "task-b",
+                jobId: "job-b",
+                assignee: "alex smith",
+                dueAt: "2026-09-18",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(lanes.filter((lane) => lane.key === "alex smith")).toHaveLength(1);
+    expect(lanes.find((lane) => lane.key === "alex smith")).toMatchObject({
+      displayName: "Alex Smith",
+      roles: ["Project manager", "Task assignee"],
+      assignments: [
+        { projectId: "project-a", projectName: "Alpha" },
+        { projectId: "project-b", projectName: "Beta" },
+      ],
+    });
+  });
+
+  it("flags both assignments and one unique pair on a shared working date", () => {
+    const lane = resourceLanes([
+      project({
+        id: "project-a",
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-14",
+            plannedEndAt: "2026-09-15",
+          }),
+        ],
+      }),
+      project({
+        id: "project-b",
+        jobs: [
+          job({
+            id: "job-b",
+            projectManager: "alex",
+            plannedStartAt: "2026-09-15",
+            plannedEndAt: "2026-09-16",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.potentialOverlapCount).toBe(1);
+    expect(lane?.assignments.map((assignment) => assignment.hasPotentialOverlap)).toEqual(
+      [true, true],
+    );
+  });
+
+  it("does not flag a weekend-only intersection", () => {
+    const lane = resourceLanes([
+      project({
+        id: "project-a",
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-19",
+            plannedEndAt: "2026-09-20",
+          }),
+        ],
+      }),
+      project({
+        id: "project-b",
+        jobs: [
+          job({
+            id: "job-b",
+            projectManager: "alex",
+            plannedStartAt: "2026-09-19",
+            plannedEndAt: "2026-09-20",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.potentialOverlapCount).toBe(0);
+  });
+
+  it("does not flag when one calendar exception closes the only shared date", () => {
+    const lanes = resourceLanes([
+      project({
+        id: "project-a",
+        calendar: calendar({
+          id: "calendar-a",
+          exceptions: [
+            { date: "2026-09-21", isWorkingDay: false },
+          ],
+        }),
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-18",
+            plannedEndAt: "2026-09-21",
+          }),
+        ],
+      }),
+      project({
+        id: "project-b",
+        calendar: calendar({ id: "calendar-b" }),
+        jobs: [
+          job({
+            id: "job-b",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-22",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(lanes.find((lane) => lane.key === "alex")?.potentialOverlapCount).toBe(0);
+  });
+
+  it("flags a weekend date when both calendars make it a working exception", () => {
+    const saturdayWorking = {
+      exceptions: [{ date: "2026-09-19", isWorkingDay: true }],
+    };
+    const lane = resourceLanes([
+      project({
+        id: "project-a",
+        calendar: calendar({ id: "calendar-a", ...saturdayWorking }),
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-19",
+            plannedEndAt: "2026-09-19",
+          }),
+        ],
+      }),
+      project({
+        id: "project-b",
+        calendar: calendar({ id: "calendar-b", ...saturdayWorking }),
+        jobs: [
+          job({
+            id: "job-b",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-19",
+            plannedEndAt: "2026-09-19",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.potentialOverlapCount).toBe(1);
+  });
+
+  it("keeps due-only milestones visible but excludes them from overlap detection", () => {
+    const lane = resourceLanes([
+      project({
+        jobs: [
+          job({
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-22",
+            tasks: [
+              task({
+                assignee: "Alex",
+                dueAt: "2026-09-21",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.assignments).toHaveLength(2);
+    expect(lane?.assignments.find((assignment) => assignment.entityType === "task")).toMatchObject({
+      dueAt: "2026-09-21",
+      hasPotentialOverlap: false,
+    });
+    expect(lane?.potentialOverlapCount).toBe(0);
+  });
+
+  it("keeps an Unassigned lane visible without overlap warnings", () => {
+    const lane = resourceLanes([
+      project({
+        jobs: [
+          job({
+            projectManager: null,
+            foreman: null,
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-22",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "unassigned");
+
+    expect(lane?.displayName).toBe("Unassigned");
+    expect(lane?.assignments).toHaveLength(2);
+    expect(lane?.assignments.every((assignment) => !assignment.hasPotentialOverlap)).toBe(
+      true,
+    );
+    expect(lane?.potentialOverlapCount).toBe(0);
+  });
+
+  it("treats malformed dates as unscheduled and never creates a false overlap", () => {
+    const lane = resourceLanes([
+      project({
+        jobs: [
+          job({
+            id: "job-a",
+            projectManager: "Alex",
+            plannedStartAt: "2026-02-30",
+            plannedEndAt: "not-a-date",
+          }),
+          job({
+            id: "job-b",
+            projectManager: "Alex",
+            plannedStartAt: "2026-02-30",
+            plannedEndAt: "2026-02-30T12:00:00.000Z",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.assignments).toMatchObject([
+      { plannedStartAt: null, plannedEndAt: null },
+      { plannedStartAt: null, plannedEndAt: null },
+    ]);
+    expect(lane?.potentialOverlapCount).toBe(0);
+  });
+
+  it("counts three mutually overlapping assignments as three unique pairs", () => {
+    const lane = resourceLanes(
+      ["a", "b", "c"].map((id) =>
+        project({
+          id: `project-${id}`,
+          jobs: [
+            job({
+              id: `job-${id}`,
+              projectManager: "Alex",
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-23",
+            }),
+          ],
+        }),
+      ),
+    ).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.potentialOverlapCount).toBe(3);
+    expect(lane?.assignments.every((assignment) => assignment.hasPotentialOverlap)).toBe(
+      true,
+    );
+  });
+
+  it("does not mutate or retain aliases to project input", () => {
+    const source = buildPortfolioProjects(
+      [
+        project({
+          calendar: calendar({
+            exceptions: [
+              { date: "2026-09-21", name: "Closure", isWorkingDay: false },
+            ],
+          }),
+          jobs: [job({ projectManager: "Alex" })],
+        }),
+      ],
+      now,
+    );
+    const snapshot = structuredClone(source);
+    const assignments = buildPortfolioScheduleAssignments(source);
+    const lanes = buildPortfolioResourceLanes(assignments);
+
+    expect(source).toEqual(snapshot);
+    expect(assignments[0]?.calendar).not.toBe(source[0]?.calendar);
+    expect(assignments[0]?.calendar.weekendDays).not.toBe(
+      source[0]?.calendar.weekendDays,
+    );
+    expect(lanes[0]?.assignments[0]).not.toBe(assignments[0]);
+
+    assignments[0]!.calendar.weekendDays.push(4);
+    lanes[0]!.assignments[0]!.calendar.exceptions[0]!.name = "Changed";
+    expect(source).toEqual(snapshot);
   });
 });
