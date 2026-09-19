@@ -1,4 +1,3 @@
-import { normalizeEmail } from "@/lib/ops/auth";
 import { isUuid } from "@/lib/ops/job-workspace";
 
 export const STRONG_FOAM_ORGANIZATION_ID =
@@ -99,7 +98,7 @@ export function parseUserInput(input: {
     };
   }
 
-  const email = normalizeEmail(input.email ?? "");
+  const email = (input.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
     return {
       ok: false,
