@@ -375,7 +375,7 @@ function ScheduleDragGrip({
   return (
     <button
       type="button"
-      className="absolute top-1/2 z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-md border bg-card text-muted-foreground shadow-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="absolute top-1/2 z-20 flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-md border bg-card text-muted-foreground shadow-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       style={{ left: `${position}%` }}
       aria-label={`Drag to reschedule ${label}`}
       aria-describedby="schedule-drag-instructions"
@@ -664,7 +664,7 @@ export function ProjectSchedule({
                 type="button"
                 variant={view === option ? "secondary" : "ghost"}
                 aria-pressed={view === option}
-                className="min-h-9"
+                className="min-h-11"
                 onClick={() => setView(option)}
               >
                 {option === "work" ? "Work" : "Resources"}
@@ -714,7 +714,7 @@ export function ProjectSchedule({
                 type="button"
                 variant={zoom === option ? "secondary" : "ghost"}
                 aria-pressed={zoom === option}
-                className="min-h-9"
+                className="min-h-11"
                 onClick={() => setZoom(option)}
               >
                 {option === "week" ? "Week" : "Month"}
@@ -725,6 +725,7 @@ export function ProjectSchedule({
             type="button"
             variant="outline"
             size="icon-lg"
+            className="size-11"
             aria-label="Previous schedule window"
             onClick={() =>
               setAnchor((current) => moveScheduleAnchor(current, zoom, -1))
@@ -744,6 +745,7 @@ export function ProjectSchedule({
             type="button"
             variant="outline"
             size="icon-lg"
+            className="size-11"
             aria-label="Next schedule window"
             onClick={() =>
               setAnchor((current) => moveScheduleAnchor(current, zoom, 1))
@@ -860,6 +862,7 @@ export function ProjectSchedule({
                           type="button"
                           variant="ghost"
                           size="icon-lg"
+                          className="size-11 shrink-0"
                           aria-expanded={isExpanded}
                           aria-label={`${isExpanded ? "Collapse" : "Expand"} ${job.number} ${job.name}`}
                           onClick={() => toggleJob(job.id)}
@@ -899,6 +902,7 @@ export function ProjectSchedule({
                           type="button"
                           variant="ghost"
                           size="icon-lg"
+                          className="size-11 shrink-0"
                           aria-label={`Reschedule ${job.number} ${job.name}`}
                           onClick={() => proposeJobReschedule(job)}
                         >
@@ -1033,6 +1037,7 @@ export function ProjectSchedule({
                                   type="button"
                                   variant="ghost"
                                   size="icon-lg"
+                                  className="size-11 shrink-0"
                                   aria-label={`Reschedule ${task.title}`}
                                   onClick={() =>
                                     proposeTaskReschedule(task, job)
