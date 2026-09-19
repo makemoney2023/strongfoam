@@ -30,7 +30,7 @@ describe("project schedule planning", () => {
       calculateBaselineVariance(
         {
           plannedStartAt: "2026-09-10",
-          plannedEndAt: "2026-09-12",
+          plannedEndAt: "2026-09-14",
         },
         {
           plannedStartAt: "2026-09-08",
@@ -88,8 +88,8 @@ describe("project schedule planning", () => {
     });
     const lanes = buildResourceLanes(
       [
-        assignment("one", " Alex Smith ", "2026-09-10", "2026-09-12"),
-        assignment("two", "alex  smith", "2026-09-12", "2026-09-14"),
+        assignment("one", " Alex Smith ", "2026-09-10", "2026-09-11"),
+        assignment("two", "alex  smith", "2026-09-11", "2026-09-14"),
       ],
       DEFAULT_WORKING_CALENDAR,
     );
