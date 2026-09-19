@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.0
+**Version:** 1.2
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -61,7 +61,11 @@ opportunity records, and convert won work into a project plus one or more
 jobs. A job can hold work areas, tasks, and authenticated plan or photo
 uploads. Field staff have a mobile-first landing page for active assignments
 plus a job view for task completion, notes, quantities, photos, blockers,
-material requests, and daily reports. The staff workspace uses shadcn/ui.
+material requests, and daily reports. Every one of these records can be
+created, edited, and deleted from the app, and each list filters by status,
+type, and date range. Staff land on a Home dashboard after sign-in; creation
+happens behind labelled buttons, detail pages read first and edit in dialogs,
+and deletes are confirmed. The staff workspace uses shadcn/ui.
 The application does not yet provide full organization RBAC, crews, document
 markup, offline sync, transcription, scheduling, or financial workflows.
 
@@ -766,6 +770,46 @@ status.
 - Page-specific exceptions must be documented rather than silently overriding
   global tokens.
 
+### 22.10 Ease-of-use requirements and backlog
+
+The operations app must let staff finish a task without hunting for the
+action. The following conventions are in place and every new surface must
+follow them:
+
+- **UX-001 (shipped):** Creating a record happens behind a labelled primary
+  button ("Add company", "New job", "Add contact") that opens a dialog. List
+  and detail pages never render a permanently expanded create form.
+- **UX-002 (shipped):** Detail pages read first and edit on demand. Records
+  render a read-only summary with an **Edit** dialog pre-filled with current
+  values.
+- **UX-003 (shipped):** Every delete is confirmed before it runs, and
+  record-level deletes sit in a separate "Remove …" card away from safe
+  actions.
+- **UX-004 (shipped):** Empty lists explain what belongs there and offer the
+  action that fills them; filtered-out lists offer a "Clear filters" action.
+- **UX-005 (shipped):** Login lands on a Home dashboard that shows attention
+  counts linking to pre-filtered lists, the next open requests by due date,
+  and a short "how work flows" guide.
+- **UX-006 (shipped):** Field capture on a phone stays inline; only edits and
+  deletes use dialogs so a technician can log a note in one tap.
+
+Backlog for the next usability pass, in priority order:
+
+| ID | Requirement | Why | Notes |
+|---|---|---|---|
+| UX-007 | Replace `?saved=1` query-param banners with transient toasts (shadcn Sonner) for save, delete, and upload feedback | Banners linger in the URL and reappear on refresh; toasts confirm the action and get out of the way | Keep a non-visual `aria-live` announcement; remove `saved`/`error` params from redirects once toasts exist |
+| UX-008 | Global command palette (`Cmd+K`) searching companies, contacts, requests, projects, and jobs with recent items | Sidebar plus per-page search will not scale once data grows | Component already listed in 22.6; server search must reuse the existing list filters |
+| UX-009 | Explicit "Link to existing company" picker when reviewing a request or converting it, with duplicate-match suggestions surfaced before creation | Prevents duplicate companies from implicit creation during conversion | Extends the EST-009 duplicate-match behaviour |
+| UX-010 | Optimistic task complete/reopen on job and field pages using `useOptimistic`, with rollback on failure | Round-tripping a full page refresh for a checkbox feels slow on jobsite connections | Must preserve the activity log entry and confirmation of failure |
+| UX-011 | Replace `window.confirm` in `ConfirmForm` with a shadcn `AlertDialog` that names the record and its dependents | Consistent look, keyboard handling, and room to state consequences (for example, "This removes 3 tasks") | `ConfirmForm` is the single swap point |
+| UX-012 | Date-range presets ("Today", "This week", "Overdue", "Last 30 days") beside the from/to inputs on every filter bar | Typing two dates is the slowest way to answer "what is due this week" | Presets set the same `from`/`to` params the lists already parse |
+| UX-013 | Unsaved-change protection on edit dialogs (confirm before closing a dirty form) | Required by 22.6 form rules; dialogs currently discard silently on Escape or overlay click | Track dirty state in `FormDialog` |
+| UX-014 | Inline field validation with messages under the input rather than a page-level error banner after redirect | Errors should appear where the user can fix them | Requires server actions to return field errors instead of redirecting with `error=` |
+
+Each backlog item is complete when it is applied on every surface where the
+pattern occurs, passes keyboard and 375px checks, and is browser-verified in
+demo mode.
+
 ## 23. Technical and deployment architecture
 
 ### 23.1 Chosen platform
@@ -1195,6 +1239,16 @@ policy and human review.
 3. Build the mobile field workspace and offline-safe drafts.
 4. Add daily notes, photos, quantities, blockers, and completion workflow.
 
+### Usability pass
+
+1. Full create, edit, and delete coverage plus status, type, and date filters
+   on every surface (done).
+2. Create behind buttons, read-first detail pages, confirmed deletes, empty
+   states, and the Home dashboard (UX-001 to UX-006, done).
+3. Toasts, command palette, company linking, optimistic tasks, alert dialogs,
+   date presets, dirty-form protection, and inline validation (UX-007 to
+   UX-014, next).
+
 ### Plans and voice
 
 1. Add document versioning and plan rendering.
@@ -1281,11 +1335,15 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Add job work areas, job tasks, and session-gated job documents before annotation or speech-to-text | Delivers JOB-002/JOB-003 plans and checklists so field evidence has a place to live; demo stores file bytes in memory and production uses Vercel Blob when a token is present |
 | 2026-09-19 | Upload production job files directly to private Blob storage with job-scoped tokens | Supports the 25 MB policy without routing file bodies through Vercel functions; token issuance still requires a staff session and the completion callback records immutable metadata |
 | 2026-09-19 | Ship a mobile-first field landing and job view before blueprint annotation | Delivers FLD-001/002 and the first FLD-003 actions so technicians can work from today's assignment without waiting on markup or offline sync |
+| 2026-09-19 | Put every create form behind a button and every edit behind a dialog; keep field capture inline | Staff reported not finding "add company" and "add job"; progressive disclosure makes pages readable while a technician on a phone still logs a note in one tap |
+| 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.2 | 2026-09-19 | Moved create forms behind buttons, added New job entry points, read-first detail pages with Edit dialogs, confirmed deletes, empty states, and the Home dashboard; recorded UX-001 to UX-014 |
+| 1.1 | 2026-09-19 | Added create, edit, and delete for every record type plus status, type, and date-range filters on every list |
 | 1.0 | 2026-09-19 | Added the mobile field landing page and job field log for tasks, notes, quantities, photos, blockers, material requests, and daily reports |
 | 0.9 | 2026-09-19 | Hardened job document validation and direct private uploads, then improved the field workspace hierarchy, progress, feedback, touch targets, and accessibility |
 | 0.8 | 2026-09-19 | Added job work areas, job tasks, and authenticated plan/photo uploads on the job record |
