@@ -6,6 +6,9 @@ import {
   jobDocumentHref,
   listJobUploadFiles,
   MAX_JOB_UPLOAD_FILES,
+  createCapturedPhotoFile,
+  isJobImageContentType,
+  normalizeJobPhotoFile,
   parseJobDocumentInput,
   parseJobDocumentMeta,
   parseJobTaskInput,
@@ -57,6 +60,20 @@ describe("job workspace parsers", () => {
     formData.append("file", new File([new Uint8Array([4, 5])], "b.png", { type: "image/png" }));
     expect(listJobUploadFiles(formData).map((file) => file.name)).toEqual(["a.jpg", "b.png"]);
     expect(MAX_JOB_UPLOAD_FILES).toBe(30);
+  });
+
+  it("names a captured camera still as a JPEG photo", () => {
+    const file = createCapturedPhotoFile(
+      new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }),
+      1_700_000_000_000,
+    );
+    expect(file.name).toBe("job-photo-1700000000000.jpg");
+    expect(file.type).toBe("image/jpeg");
+    expect(isJobImageContentType("image/jpeg")).toBe(true);
+    expect(isJobImageContentType("application/pdf")).toBe(false);
+    expect(
+      normalizeJobPhotoFile(new File([new Uint8Array([1])], "site.jpg")).type,
+    ).toBe("image/jpeg");
   });
 
   it("accepts only allowed plan and photo uploads", () => {

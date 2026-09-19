@@ -16,7 +16,7 @@ import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { FormDialog } from "@/components/ops/form-dialog";
-import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
+import { JobPhotoGallery } from "@/components/ops/job-photo-gallery";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
@@ -42,7 +42,6 @@ import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
 import {
   JOB_DOCUMENT_KINDS,
   JOB_DOCUMENT_LABELS,
-  formatFileSize,
   jobDocumentHref,
 } from "@/lib/ops/job-workspace";
 import {
@@ -60,14 +59,12 @@ import {
 import { formatServices } from "@/lib/ops/workflow";
 import {
   addJobFieldEntry,
-  removeJobDocument,
   removeJobFieldEntry,
   removeJobWorkspaceTask,
-  saveJobDocumentMeta,
   saveJobFieldEntry,
   setJobWorkspaceTaskStatus,
 } from "../../../jobs/actions";
-import { DocumentMetaFields, FieldEntryFields } from "../../../jobs/workspace-fields";
+import { FieldEntryFields } from "../../../jobs/workspace-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -453,94 +450,22 @@ export default async function FieldJobPage({
               <CameraIcon className="size-4" aria-hidden="true" />
             </span>
             <div>
-              <CardTitle>Photos and evidence</CardTitle>
+              <CardTitle>Photos</CardTitle>
               <CardDescription>
-                Attach many photos or a plan to this job or a work area in one upload.
+                Snap a photo or add several from the library.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <JobDocumentUploader
+        <CardContent>
+          <JobPhotoGallery
             jobId={job.id}
             areas={areaOptions}
+            documents={documents}
             storageMode={documentStorageMode}
-            defaultKind="photo"
             returnTo={returnTo}
+            areaName={areaName}
           />
-          <div className="space-y-3 border-t pt-5">
-            <h3 className="text-sm font-semibold">Files on this job</h3>
-            {documents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No photos or plans uploaded yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {documents.map((document) => (
-                  <li key={document.id} className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                    <div>
-                      <p className="break-all font-medium">{document.filename}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {JOB_DOCUMENT_LABELS[document.kind as keyof typeof JOB_DOCUMENT_LABELS] ??
-                          document.kind}
-                        {areaName(document.workAreaId) ? ` · ${areaName(document.workAreaId)}` : ""}
-                        {` · ${formatFileSize(document.sizeBytes)}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        className="min-h-11 flex-1"
-                        nativeButton={false}
-                        render={<a href={jobDocumentHref(job.id, document.id)} />}
-                      >
-                        <FileTextIcon aria-hidden="true" />
-                        Open file
-                      </Button>
-                      <FormDialog
-                        triggerLabel="Edit"
-                        triggerIcon={<PencilIcon aria-hidden="true" />}
-                        triggerVariant="ghost"
-                        triggerAriaLabel={`Edit ${document.filename}`}
-                        title="Edit file"
-                        description={document.filename}
-                      >
-                        <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
-                          <input type="hidden" name="jobId" value={job.id} />
-                          <input type="hidden" name="documentId" value={document.id} />
-                          <input type="hidden" name="returnTo" value={returnTo} />
-                          <DocumentMetaFields
-                            idPrefix={`doc-${document.id}`}
-                            areas={areaOptions}
-                            defaults={document}
-                          />
-                          <div className="sm:col-span-2">
-                            <SubmitButton variant="default" className="min-h-11 w-full">
-                              Save file
-                            </SubmitButton>
-                          </div>
-                        </ActionForm>
-                      </FormDialog>
-                      <ConfirmForm
-                        action={removeJobDocument}
-                        message={`Delete ${document.filename}? The file is removed permanently.`}
-                      >
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="documentId" value={document.id} />
-                        <input type="hidden" name="returnTo" value={returnTo} />
-                        <SubmitButton
-                          variant="ghost"
-                          className="min-h-11 text-muted-foreground hover:text-destructive"
-                          pendingLabel="Deleting…"
-                        >
-                          <Trash2Icon aria-hidden="true" />
-                          <span className="sr-only">Delete file</span>
-                        </SubmitButton>
-                      </ConfirmForm>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>

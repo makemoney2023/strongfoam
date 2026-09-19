@@ -87,6 +87,40 @@ export function listJobUploadFiles(formData: FormData): File[] {
     .filter((value): value is File => value instanceof File && value.size > 0);
 }
 
+export function isJobImageContentType(contentType: string): boolean {
+  return (
+    contentType === "image/jpeg" ||
+    contentType === "image/png" ||
+    contentType === "image/webp"
+  );
+}
+
+export function createCapturedPhotoFile(
+  blob: Blob,
+  takenAt = Date.now(),
+): File {
+  const type = blob.type || "image/jpeg";
+  const extension =
+    type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  return new File([blob], `job-photo-${takenAt}.${extension}`, {
+    type,
+    lastModified: takenAt,
+  });
+}
+
+export function normalizeJobPhotoFile(file: File): File {
+  if (file.type) return file;
+  const name = file.name.toLowerCase();
+  const type = name.endsWith(".png")
+    ? "image/png"
+    : name.endsWith(".webp")
+      ? "image/webp"
+      : name.endsWith(".jpg") || name.endsWith(".jpeg")
+        ? "image/jpeg"
+        : "";
+  return type ? new File([file], file.name, { type, lastModified: file.lastModified }) : file;
+}
+
 export function parseWorkAreaInput(input: {
   name?: string;
   kind?: string;
