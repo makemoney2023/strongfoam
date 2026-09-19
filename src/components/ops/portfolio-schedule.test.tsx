@@ -16,6 +16,7 @@ import {
   paginatePortfolioWorkRows,
   portfolioControlHref,
   reconcilePortfolioOptimisticQuery,
+  reconcilePortfolioSearchDraft,
 } from "@/components/ops/portfolio-schedule";
 import {
   buildPortfolioProjects,
@@ -295,6 +296,7 @@ describe("portfolio work model", () => {
         to: null,
         hideCompleted: false,
         overlapProjectIds: new Set(),
+        baselineItemsComplete: true,
       },
       new Date(NOW),
     );
@@ -533,6 +535,18 @@ describe("PortfolioSchedule", () => {
     });
   });
 
+  it("keeps a local search draft until the server q actually changes", () => {
+    expect(
+      reconcilePortfolioSearchDraft("tower", "tower crane", "tower"),
+    ).toBe("tower crane");
+    expect(
+      reconcilePortfolioSearchDraft("tower", "tower crane", ""),
+    ).toBe("");
+    expect(
+      reconcilePortfolioSearchDraft("tower", "tower crane", "harbour"),
+    ).toBe("harbour");
+  });
+
   it("counts conflicting assignments per project in chart and table", async () => {
     const projected = buildPortfolioProjects(
       [
@@ -732,6 +746,77 @@ describe("PortfolioSchedule", () => {
     expect(html).not.toContain("Toggle current assignment page table");
   });
 
+  it("filters authoritative resource lanes by visible entity keys", () => {
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data([
+          project("resource-visible", {
+            jobs: [
+              job("resource-visible-job", {
+                projectManager: "Morgan",
+                plannedStartAt: "2026-09-21",
+                plannedEndAt: "2026-09-22",
+                tasks: [
+                  task("resource-visible-task", {
+                    jobId: "resource-visible-job",
+                    title: "Visible overlapping task",
+                    assignee: "Alex",
+                    plannedStartAt: "2026-09-21",
+                    plannedEndAt: "2026-09-22",
+                  }),
+                  task("resource-hidden-task", {
+                    jobId: "resource-visible-job",
+                    title: "Hidden completed task",
+                    assignee: "Alex",
+                    status: "done",
+                    plannedStartAt: "2026-09-21",
+                    plannedEndAt: "2026-09-22",
+                  }),
+                ],
+              }),
+            ],
+          }),
+          project("resource-counterpart", {
+            status: "closed",
+            jobs: [
+              job("resource-counterpart-job", {
+                projectManager: "Taylor",
+                plannedStartAt: "2026-09-21",
+                plannedEndAt: "2026-09-22",
+                tasks: [
+                  task("resource-counterpart-task", {
+                    jobId: "resource-counterpart-job",
+                    title: "Hidden counterpart task",
+                    assignee: "Alex",
+                    status: "done",
+                    plannedStartAt: "2026-09-21",
+                    plannedEndAt: "2026-09-22",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ]),
+        query: query({
+          view: "resources",
+          state: "remaining",
+          hideCompleted: true,
+        }),
+        now: NOW,
+      }),
+    );
+
+    expect(html).toContain("Visible overlapping task");
+    expect(html).toContain("Potential overlap · 1 assignment");
+    expect(html).toContain("Task assignee");
+    expect(html).toContain("Project manager");
+    expect(html).toContain("Morgan");
+    expect(html).not.toContain("Taylor");
+    expect(html).not.toContain("Hidden completed task");
+    expect(html).not.toContain("Hidden counterpart task");
+    expect(html).not.toMatch(/<span[^>]*>Unscheduled<\/span>/);
+  });
+
   it("renders all truncation alerts, empty hierarchy facts, controls, and one scroller", () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioSchedule, {
@@ -779,6 +864,104 @@ describe("PortfolioSchedule", () => {
       "grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]",
     );
     expect(html).toContain('class="min-w-[72rem]"');
+  });
+
+  it("does not evaluate behind-baseline attention from partial baseline items", () => {
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data(
+          [
+            project("partial-attention", {
+              latestBaseline: {
+                id: "partial-attention-baseline",
+                name: "Partial baseline",
+                capturedAt: "2026-09-01",
+                items: [
+                  {
+                    id: "partial-attention-item",
+                    baselineId: "partial-attention-baseline",
+                    entityType: "job",
+                    entityId: "partial-attention-job",
+                    plannedStartAt: "2026-09-01",
+                    plannedEndAt: "2026-09-10",
+                  },
+                ],
+              },
+              jobs: [
+                job("partial-attention-job", {
+                  plannedStartAt: "2026-09-01",
+                  plannedEndAt: "2026-09-15",
+                }),
+              ],
+            }),
+          ],
+          { baselineItems: true },
+        ),
+        query: query({ attention: "behind-baseline" }),
+        now: NOW,
+      }),
+    );
+
+    expect(html).toContain("Baseline item results are partial");
+    expect(html).toContain(
+      "Behind-baseline filter unavailable—partial baseline data.",
+    );
+    expect(html).toContain("0 projects · 0 jobs · 0 tasks");
+    expect(html).not.toContain(
+      "No portfolio schedule rows match these filters.",
+    );
+  });
+
+  it("synchronizes the controlled search draft when the server q changes", async () => {
+    const dom = new JSDOM('<div id="root"></div>');
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const previousGlobals = new Map(
+      ["window", "self", "document", "HTMLElement", "Node"].map(
+        (key) => [key, globals[key]] as const,
+      ),
+    );
+    const previousActEnvironment = globals.IS_REACT_ACT_ENVIRONMENT;
+    globals.window = dom.window;
+    globals.self = dom.window;
+    globals.document = dom.window.document;
+    globals.HTMLElement = dom.window.HTMLElement;
+    globals.Node = dom.window.Node;
+    globals.IS_REACT_ACT_ENVIRONMENT = true;
+    const container = dom.window.document.querySelector("#root")!;
+    const root = createRoot(container);
+    const renderWithQ = async (q: string) => {
+      await act(async () => {
+        root.render(
+          createElement(PortfolioSchedule, {
+            data: data([project("search-draft")]),
+            query: query({ q }),
+            now: NOW,
+          }),
+        );
+      });
+    };
+
+    try {
+      await renderWithQ("tower");
+      const search = container.querySelector<HTMLInputElement>(
+        'input[name="q"]',
+      )!;
+      expect(search.value).toBe("tower");
+
+      await renderWithQ("");
+      expect(search.value).toBe("");
+
+      await renderWithQ("harbour");
+      expect(search.value).toBe("harbour");
+    } finally {
+      await act(async () => root.unmount());
+      for (const [key, value] of previousGlobals) {
+        if (value === undefined) delete globals[key];
+        else globals[key] = value;
+      }
+      globals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+      dom.window.close();
+    }
   });
 
   it("renders partial chart and table facts without definitive claims", async () => {

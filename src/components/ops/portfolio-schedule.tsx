@@ -219,6 +219,14 @@ export function reconcilePortfolioOptimisticQuery(
   return next;
 }
 
+export function reconcilePortfolioSearchDraft(
+  previousServerQ: string,
+  draft: string,
+  nextServerQ: string,
+): string {
+  return nextServerQ === previousServerQ ? draft : nextServerQ;
+}
+
 export function defaultPortfolioExpansion(
   projects: readonly ProjectedPortfolioProject[] | readonly PortfolioScheduleData["projects"][number][],
 ): { projects: Set<string>; jobs: Set<string> } {
@@ -957,6 +965,8 @@ function Controls({
   const [optimisticQuery, setOptimisticQuery] = useState(query);
   const optimisticQueryRef = useRef(query);
   const serverQueryRef = useRef(query);
+  const [searchDraft, setSearchDraft] = useState(query.q);
+  const searchServerQRef = useRef(query.q);
   useEffect(() => {
     const next = reconcilePortfolioOptimisticQuery(
       serverQueryRef.current,
@@ -966,6 +976,15 @@ function Controls({
     serverQueryRef.current = query;
     optimisticQueryRef.current = next;
     setOptimisticQuery(next);
+    const previousServerQ = searchServerQRef.current;
+    searchServerQRef.current = query.q;
+    setSearchDraft((current) =>
+      reconcilePortfolioSearchDraft(
+        previousServerQ,
+        current,
+        query.q,
+      ),
+    );
   }, [query]);
   const managers = [
     ...new Set(
@@ -998,8 +1017,7 @@ function Controls({
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    navigate({ q: String(form.get("q") ?? "") });
+    navigate({ q: searchDraft });
   }
 
   return (
@@ -1014,7 +1032,8 @@ function Controls({
           <span>Search projects</span>
           <Input
             name="q"
-            defaultValue={optimisticQuery.q}
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Project or manager"
             className="h-11"
           />
@@ -1271,6 +1290,7 @@ export function PortfolioSchedule({
           to: query.to,
           hideCompleted: query.hideCompleted,
           overlapProjectIds,
+          baselineItemsComplete: !data.truncation.baselineItems,
         },
         new Date(now),
       ),
@@ -1282,6 +1302,7 @@ export function PortfolioSchedule({
       query.to,
       query.hideCompleted,
       overlapProjectIds,
+      data.truncation.baselineItems,
       now,
     ],
   );
@@ -1443,6 +1464,9 @@ export function PortfolioSchedule({
     query.projectStatus === "active" &&
     !query.q &&
     !query.projectManager;
+  const behindBaselineUnavailable =
+    query.attention === "behind-baseline" &&
+    data.truncation.baselineItems;
 
   function toggleProject(id: string) {
     setExpandedProjects((current) => {
@@ -1492,7 +1516,16 @@ export function PortfolioSchedule({
         ) : null}
       </div>
 
-      {defaultActiveEmpty ? (
+      {behindBaselineUnavailable ? (
+        <div
+          className="rounded-lg border border-dashed px-4 py-10 text-center"
+          role="status"
+        >
+          <p className="font-medium">
+            Behind-baseline filter unavailable—partial baseline data.
+          </p>
+        </div>
+      ) : defaultActiveEmpty ? (
         <div className="rounded-lg border border-dashed px-4 py-10 text-center">
           <GanttChartIcon className="mx-auto mb-3 size-8" aria-hidden="true" />
           <p className="font-medium">No active projects have schedule work.</p>

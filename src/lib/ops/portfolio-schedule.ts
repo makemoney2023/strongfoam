@@ -111,6 +111,7 @@ export type PortfolioProjectionFilter = {
   to: string | null;
   hideCompleted: boolean;
   overlapProjectIds: ReadonlySet<string>;
+  baselineItemsComplete: boolean;
 };
 
 type RawCalendar = PortfolioScheduleStoreResult["calendars"][number];
@@ -1483,6 +1484,7 @@ function matchesAttention(
   filter: PortfolioProjectionFilter,
 ): boolean {
   if (filter.attention === "behind-baseline") {
+    if (!filter.baselineItemsComplete) return false;
     return (project.baselineFinishVarianceDays ?? 0) > 0;
   }
   if (filter.attention === "resource-overlap") {

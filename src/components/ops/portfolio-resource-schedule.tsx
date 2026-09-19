@@ -278,8 +278,21 @@ export function PortfolioResourceSchedule({
   baselineItemsTruncated?: boolean;
   showOnlyOverlappingAssignments?: boolean;
 }) {
-  const visibleProjectIds = useMemo(
-    () => new Set(projects.map((project) => project.id)),
+  const visibleEntityKeys = useMemo(
+    () => ({
+      jobs: new Set(
+        projects.flatMap((project) =>
+          project.jobs.map((job) => `${project.id}:job:${job.id}`),
+        ),
+      ),
+      tasks: new Set(
+        projects.flatMap((project) =>
+          project.jobs.flatMap((job) =>
+            job.tasks.map((task) => `${project.id}:task:${task.id}`),
+          ),
+        ),
+      ),
+    }),
     [projects],
   );
   const lanes = useMemo(
@@ -292,12 +305,29 @@ export function PortfolioResourceSchedule({
       return source.flatMap((lane) => {
         const assignments = lane.assignments.filter(
           (assignment) =>
-            visibleProjectIds.has(assignment.projectId) &&
+            (assignment.entityType === "job"
+              ? visibleEntityKeys.jobs.has(
+                  `${assignment.projectId}:job:${assignment.entityId}`,
+                )
+              : visibleEntityKeys.tasks.has(
+                  `${assignment.projectId}:task:${assignment.entityId}`,
+                )) &&
             (!showOnlyOverlappingAssignments ||
               assignment.hasPotentialOverlap),
         );
         return assignments.length > 0
-          ? [{ ...lane, assignments }]
+          ? [
+              {
+                ...lane,
+                assignments,
+                roles: lane.roles.filter((role) =>
+                  assignments.some((assignment) => assignment.role === role),
+                ),
+                visiblePotentialOverlapCount: assignments.filter(
+                  (assignment) => assignment.hasPotentialOverlap,
+                ).length,
+              },
+            ]
           : [];
       });
     },
@@ -305,7 +335,7 @@ export function PortfolioResourceSchedule({
       projects,
       resourceLanes,
       showOnlyOverlappingAssignments,
-      visibleProjectIds,
+      visibleEntityKeys,
     ],
   );
   const entries = useMemo(
@@ -399,7 +429,7 @@ export function PortfolioResourceSchedule({
   );
   const stateFor = (
     assignment: ProjectedPortfolioAssignment,
-  ): ScheduleState => {
+  ): ScheduleState | null => {
     if (assignment.entityType === "job") {
       const source = jobsById.get(
         `${assignment.projectId}:job:${assignment.entityId}`,
@@ -414,7 +444,7 @@ export function PortfolioResourceSchedule({
             now,
             assignment.calendar,
           )
-        : "unscheduled";
+        : null;
     }
     const source = tasksById.get(
       `${assignment.projectId}:task:${assignment.entityId}`,
@@ -430,7 +460,7 @@ export function PortfolioResourceSchedule({
           now,
           assignment.calendar,
         )
-      : "unscheduled";
+      : null;
   };
 
   if (entries.length === 0) {
@@ -528,10 +558,12 @@ export function PortfolioResourceSchedule({
                         {role}
                       </Badge>
                     ))}
-                    {lane.potentialOverlapCount > 0 ? (
+                    {lane.visiblePotentialOverlapCount > 0 ? (
                       <Badge variant="destructive">
-                        Potential overlap · {lane.potentialOverlapCount}{" "}
-                        {lane.potentialOverlapCount === 1 ? "pair" : "pairs"}
+                        Potential overlap · {lane.visiblePotentialOverlapCount}{" "}
+                        {lane.visiblePotentialOverlapCount === 1
+                          ? "assignment"
+                          : "assignments"}
                       </Badge>
                     ) : null}
                   </div>
@@ -540,6 +572,7 @@ export function PortfolioResourceSchedule({
               </div>
 
               {lane.assignments.map((assignment) => {
+                const scheduleState = stateFor(assignment);
                 const baselineItem = baselineByEntity.get(
                   `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
                 );
@@ -637,11 +670,13 @@ export function PortfolioResourceSchedule({
                             baseline
                           />
                         ) : null}
-                        <AssignmentMark
-                          assignment={assignment}
-                          window={window}
-                          state={stateFor(assignment)}
-                        />
+                        {scheduleState ? (
+                          <AssignmentMark
+                            assignment={assignment}
+                            window={window}
+                            state={scheduleState}
+                          />
+                        ) : null}
                       </div>
                     </div>
                   </div>

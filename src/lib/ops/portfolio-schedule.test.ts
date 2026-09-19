@@ -104,6 +104,7 @@ function filter(
     to: null,
     hideCompleted: false,
     overlapProjectIds: new Set(),
+    baselineItemsComplete: true,
     ...overrides,
   };
 }
@@ -1300,6 +1301,59 @@ describe("portfolio schedule", () => {
         now,
       ).map((item) => item.id),
     ).toEqual(["ahead"]);
+  });
+
+  it("returns no behind-baseline results when baseline items are partial", () => {
+    const projected = buildPortfolioProjects(
+      [
+        project({
+          id: "behind",
+          jobs: [
+            job({
+              plannedStartAt: "2026-09-10",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+          latestBaseline: {
+            id: "baseline-1",
+            name: "Approved",
+            capturedAt: "2026-09-01",
+            items: [
+              {
+                id: "baseline-item-1",
+                baselineId: "baseline-1",
+                entityType: "job",
+                entityId: "job-1",
+                plannedStartAt: "2026-09-10",
+                plannedEndAt: "2026-09-20",
+              },
+            ],
+          },
+        }),
+      ],
+      now,
+    );
+
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({
+          attention: "behind-baseline",
+          baselineItemsComplete: false,
+        }),
+        now,
+      ),
+    ).toEqual([]);
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({
+          attention: "behind-baseline",
+          baselineItemsComplete: true,
+        }),
+        now,
+      ).map((item) => item.id),
+    ).toEqual(["behind"]);
   });
 
   it("returns null variance when current or baseline finish is missing", () => {
