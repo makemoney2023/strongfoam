@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   AlertTriangleIcon,
@@ -19,6 +18,7 @@ import { FormDialog } from "@/components/ops/form-dialog";
 import { JobPhotoGallery } from "@/components/ops/job-photo-gallery";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { RealtimeRefresh } from "@/components/ops/realtime-refresh";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { getOpsSession } from "@/lib/ops/auth";
+import { getFieldSession } from "@/lib/ops/field-auth";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import {
   FIELD_NOTE_KINDS,
@@ -42,28 +42,30 @@ import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
 import {
   JOB_DOCUMENT_KINDS,
   JOB_DOCUMENT_LABELS,
-  jobDocumentHref,
+  fieldJobDocumentHref,
 } from "@/lib/ops/job-workspace";
 import {
   getCompany,
+  canFieldUserAccessJob,
   getContact,
   getJob,
   getOpportunity,
   getSite,
   listContacts,
   listJobDocuments,
+  listJobAssignments,
   listJobFieldNotes,
   listJobTasks,
   listWorkAreas,
 } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 import {
-  addJobFieldEntry,
-  removeJobFieldEntry,
-  removeJobWorkspaceTask,
-  saveJobFieldEntry,
-  setJobWorkspaceTaskStatus,
-} from "../../../jobs/actions";
+  addFieldEntry,
+  removeFieldEntry,
+  saveFieldEntry,
+  setFieldTaskStatus,
+  uploadFieldDocument,
+} from "@/app/field/actions";
 import { FieldEntryFields } from "../../../jobs/workspace-fields";
 
 export const dynamic = "force-dynamic";
@@ -81,16 +83,27 @@ export default async function FieldJobPage({
     to?: string;
   }>;
 }) {
-  if (!(await getOpsSession())) {
-    redirect("/app/login");
-  }
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
 
   const { id } = await params;
   const query = await searchParams;
   const job = await getJob(id);
   if (!job) notFound();
+  if (!(await canFieldUserAccessJob(session.userId, job.id))) {
+    redirect("/field");
+  }
 
-  const [company, site, opportunity, areas, tasks, documents, notes] =
+  const [
+    company,
+    site,
+    opportunity,
+    areas,
+    allTasks,
+    documents,
+    notes,
+    assignments,
+  ] =
     await Promise.all([
       job.companyId ? getCompany(job.companyId) : null,
       job.siteId ? getSite(job.siteId) : null,
@@ -99,7 +112,14 @@ export default async function FieldJobPage({
       listJobTasks(job.id, { status: query.taskStatus, from: query.from, to: query.to }),
       listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
       listJobFieldNotes(job.id, { kind: query.kind, from: query.from, to: query.to }),
+      listJobAssignments(job.id),
     ]);
+  const hasJobAssignment = assignments.some(
+    (assignment) => assignment.userId === session.userId,
+  );
+  const tasks = hasJobAssignment
+    ? allTasks
+    : allTasks.filter((task) => task.assigneeUserId === session.userId);
   const contacts = company
     ? await listContacts(company.id)
     : opportunity?.contactId
@@ -115,15 +135,16 @@ export default async function FieldJobPage({
     areas.find((area) => area.id === workAreaId)?.name;
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
-  const returnTo = `/app/field/jobs/${job.id}`;
+  const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
 
   return (
     <div className="space-y-5">
+      <RealtimeRefresh url="/api/field/events" />
       <PageHeader
         crumbs={[
-          { href: "/app/field", label: "Field" },
+          { href: "/field", label: "Field" },
           { label: formatJobNumber(job.id) },
         ]}
         title={job.name}
@@ -244,7 +265,7 @@ export default async function FieldJobPage({
               variant="outline"
               className="min-h-11 w-full"
               nativeButton={false}
-              render={<a href={jobDocumentHref(job.id, latestPlan.id)} />}
+              render={<a href={fieldJobDocumentHref(job.id, latestPlan.id)} />}
             >
               <FileTextIcon aria-hidden="true" />
               Open latest plan · {latestPlan.filename}
@@ -252,14 +273,6 @@ export default async function FieldJobPage({
           ) : (
             <p className="text-sm text-muted-foreground">No plan set has been uploaded yet.</p>
           )}
-          <Button
-            variant="ghost"
-            className="min-h-11 w-full"
-            nativeButton={false}
-            render={<Link href={`/app/jobs/${job.id}`} />}
-          >
-            Open office job record
-          </Button>
         </CardContent>
       </Card>
 
@@ -294,34 +307,16 @@ export default async function FieldJobPage({
                       {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TaskStatusButton
-                      action={setJobWorkspaceTaskStatus}
-                      jobId={job.id}
-                      taskId={task.id}
-                      status={task.status === "done" ? "done" : "open"}
-                      returnTo={returnTo}
-                      completeLabel="Complete task"
-                      reopenLabel="Reopen task"
-                      className="min-h-11 w-full"
-                    />
-                    <ConfirmForm
-                      action={removeJobWorkspaceTask}
-                      message={`Delete task “${task.title}”? This cannot be undone.`}
-                    >
-                      <input type="hidden" name="jobId" value={job.id} />
-                      <input type="hidden" name="taskId" value={task.id} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <SubmitButton
-                        variant="ghost"
-                        className="min-h-11 text-muted-foreground hover:text-destructive"
-                        pendingLabel="Deleting…"
-                      >
-                        <Trash2Icon aria-hidden="true" />
-                        <span className="sr-only">Delete task</span>
-                      </SubmitButton>
-                    </ConfirmForm>
-                  </div>
+                  <TaskStatusButton
+                    action={setFieldTaskStatus}
+                    jobId={job.id}
+                    taskId={task.id}
+                    status={task.status === "done" ? "done" : "open"}
+                    returnTo={returnTo}
+                    completeLabel="Complete task"
+                    reopenLabel="Reopen task"
+                    className="min-h-11 w-full"
+                  />
                 </li>
               ))}
             </ul>
@@ -344,7 +339,7 @@ export default async function FieldJobPage({
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          <ActionForm action={addJobFieldEntry} className="grid gap-4 sm:grid-cols-2">
+          <ActionForm action={addFieldEntry} className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" name="jobId" value={job.id} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <FieldEntryFields idPrefix="fieldEntry" areas={areaOptions} tasks={taskOptions} />
@@ -378,6 +373,7 @@ export default async function FieldJobPage({
                           </span>
                         ) : null}
                       </div>
+                      {note.createdBy === session.email ? (
                       <div className="flex items-center">
                         <FormDialog
                           triggerLabel="Edit"
@@ -386,7 +382,7 @@ export default async function FieldJobPage({
                           triggerAriaLabel="Edit field entry"
                           title="Edit field entry"
                         >
-                          <ActionForm action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                          <ActionForm action={saveFieldEntry} className="grid gap-3 sm:grid-cols-2">
                             <input type="hidden" name="jobId" value={job.id} />
                             <input type="hidden" name="noteId" value={note.id} />
                             <input type="hidden" name="returnTo" value={returnTo} />
@@ -411,7 +407,7 @@ export default async function FieldJobPage({
                           </ActionForm>
                         </FormDialog>
                         <ConfirmForm
-                          action={removeJobFieldEntry}
+                          action={removeFieldEntry}
                           message="Delete this field entry? This cannot be undone."
                         >
                           <input type="hidden" name="jobId" value={job.id} />
@@ -427,6 +423,7 @@ export default async function FieldJobPage({
                           </SubmitButton>
                         </ConfirmForm>
                       </div>
+                      ) : null}
                     </div>
                     <p className="whitespace-pre-wrap text-sm">{note.body}</p>
                     <p className="text-xs text-muted-foreground">
@@ -464,6 +461,10 @@ export default async function FieldJobPage({
             documents={documents}
             storageMode={documentStorageMode}
             returnTo={returnTo}
+            handleUploadUrl="/api/field/job-uploads"
+            documentScope="field"
+            uploadAction={uploadFieldDocument}
+            editable={false}
           />
         </CardContent>
       </Card>

@@ -59,7 +59,11 @@ export type JobUploadPostDeps = {
   handleUpload: (options: Parameters<typeof handleUpload>[0]) => ReturnType<
     typeof handleUpload
   >;
-  getSession: typeof getOpsSession;
+  getSession: () => Promise<{ email: string; userId?: string } | null>;
+  canAccessJob?: (
+    session: { email: string; userId?: string },
+    jobId: string,
+  ) => Promise<boolean>;
   getJob: typeof getJob;
   listWorkAreas: typeof listWorkAreas;
   getBlobMetadata: typeof head;
@@ -117,6 +121,13 @@ export async function handleJobUploadPost(
         }
         if (!(await deps.getJob(payload.jobId))) {
           throw new Error("job_not_found");
+        }
+        if (
+          session &&
+          deps.canAccessJob &&
+          !(await deps.canAccessJob(session, payload.jobId))
+        ) {
+          throw new Error("job_access_denied");
         }
         if (payload.workAreaId) {
           const areas = await deps.listWorkAreas(payload.jobId);

@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.5
+**Version:** 1.6
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -66,8 +66,16 @@ created, edited, and deleted from the app, and each list filters by status,
 type, and date range. Staff land on a Home dashboard after sign-in; creation
 happens behind labelled buttons, detail pages read first and edit in dialogs,
 and deletes are confirmed. The staff workspace uses shadcn/ui.
-The application does not yet provide full organization RBAC, crews, document
-markup, offline sync, transcription, scheduling, or financial workflows.
+The application now includes a project Schedule with job/task roll-up,
+dependencies, critical path, controlled rescheduling, baselines, resource
+lanes, and working calendars. Office staff can create individual application
+users and assign active field identities to jobs and tasks. Field has a
+separate login and application shell, and server authorization limits its job
+list and mutations to those assignments. Job events drive automatic two-way
+screen refreshes for online office and field sessions. The target
+Supabase/Render deployment split, full permission matrix, crews, durable
+offline sync, document markup, transcription, and financial workflows remain
+to be completed.
 
 ## 4. Product vision
 
@@ -159,6 +167,33 @@ These may be reconsidered after the core data and operating workflows are stable
 
 Users may hold multiple roles. Authorization must be based on organization
 membership and explicit permissions rather than UI visibility alone.
+
+### 8.1 Identity and application boundaries
+
+**IAM-001:** The Field product must be a separate application surface with its
+own login, mobile shell, session cookie, navigation, and deployment boundary.
+It must not expose office CRM navigation or rely on the office session.
+
+**IAM-002:** An authorized office administrator must create, activate, and
+deactivate users from the main application. Field must not provide public
+self-registration.
+
+**IAM-003:** One person must have one stable user identity. Memberships attach
+that identity to an organization and role; job and task assignments reference
+the stable user ID rather than a free-text name or email.
+
+**IAM-004:** Deactivating either the user or membership must prevent the next
+Field request and realtime connection from accessing internal records while
+retaining attributable history.
+
+**IAM-005:** Field authorization must be enforced on every read, mutation,
+upload, download, and realtime subscription. Knowing a job, task, document, or
+event identifier must not grant access.
+
+**IAM-006:** The initial single-company launch may use one seeded organization,
+but identity, membership, assignment, API, and event contracts must remain
+organization-scoped so multi-organization support does not require replacing
+identity keys.
 
 ## 9. Core lifecycle
 
@@ -316,6 +351,22 @@ blockers.
 **FLD-004:** Draft notes, annotations, and media upload intents must survive
 temporary connectivity loss. The interface must visibly distinguish pending,
 synced, and failed items.
+
+**FLD-005:** A field user's landing page must contain only jobs for which that
+stable user ID has a current job assignment or task assignment. Office-only
+free-text project-manager, foreman, or assignee labels must not grant access.
+
+**FLD-006:** Assigning a user to a job must make the job and its current
+schedule available to that user without a second data-entry step. Removing the
+last permitted assignment must remove access without deleting job history.
+
+**FLD-007:** A task assigned to a field user must route to that same user's
+Field workspace. A job-level assignment grants access to the job's task list;
+a task-only assignment grants access to the job context and that assigned task.
+
+**FLD-008:** Field users may complete permitted tasks and create field evidence,
+but they must not delete office-authored task definitions or gain office access
+through the Field application.
 
 ## 12. Release 3: Plans and blueprint annotation
 
@@ -599,15 +650,23 @@ start variance, finish variance, and newly scheduled or removed items without
 changing the immutable baseline.
 
 **SCH-020:** Managers must be able to switch to a resource overlay grouped by
-the existing job project manager/foreman and task assignee values. Concurrent
-assignments for the same normalized person must be highlighted as potential
-conflicts; the overlay does not infer hours or capacity that the system does
-not store.
+stable assigned user identity for field foremen, technicians, and task
+assignees. Project-manager labels may remain informational until office
+identity migration is complete. Legacy free-text field labels must appear as
+unassigned rather than being treated as a real worker. Concurrent assignments
+for the same user ID must be highlighted as potential conflicts; the overlay
+does not infer hours or capacity that the system does not store.
 
 **SCH-021:** Schedule geometry, critical path, dependency lag, and rescheduling
 must use a configurable working-day calendar. The initial calendar treats
 Saturday and Sunday as non-working and allows authorized managers to add dated
 closures or working-day exceptions. Stored timestamps remain unchanged.
+
+**SCH-022:** Job and task bars must use the same stable assignment records that
+authorize Field. When an authorized manager assigns, unassigns, schedules, or
+reschedules work, the affected worker's Field application must receive the
+change through the realtime event path. The Schedule must not imply that a
+free-text name can sign in or receive the job.
 
 #### 16.1.1 Acceptance outcomes
 
@@ -625,6 +684,8 @@ closures or working-day exceptions. Stored timestamps remain unchanged.
   saves after server validation.
 - A captured baseline remains immutable and displays current date variance.
 - The resource overlay groups existing assignments and flags overlapping work.
+- A scheduled bar assigned to a stable user appears for that exact Field user,
+  while an unassigned or legacy-labelled bar grants no Field access.
 - Calendar exceptions change schedule calculations without rewriting stored
   dates.
 - Week and month views preserve the same records and facts.
@@ -730,6 +791,37 @@ status definitions.
 - Business events must be distinct from delivery attempts.
 - The activity timeline must distinguish human actions, system actions,
   integration actions, and field submissions.
+
+### 20.1 Office and Field realtime contract
+
+**RT-001:** Office and Field communicate through authoritative domain commands
+and a versioned event stream. The applications must not call each other
+directly or maintain separate writable job databases.
+
+**RT-002:** Office-to-Field events include assignment, unassignment, schedule,
+job status, scope, task, plan, and blocker-resolution changes. Field-to-Office
+events include task completion, notes, quantities, blockers, material requests,
+daily reports, photos, and later annotations and transcripts.
+
+**RT-003:** An online client must reflect an authorized job event without a
+manual browser refresh. Reconnect must load current authoritative state and
+resume from a durable cursor or equivalent catch-up boundary.
+
+**RT-004:** Realtime delivery may be at least once. Every event requires a
+unique ID, organization and record scope, schema version, actor, timestamp, and
+entity revision where updates may conflict. Clients must deduplicate; commands
+must use idempotency and optimistic concurrency where retries could duplicate
+effects.
+
+**RT-005:** Subscription authorization must be rechecked independently of page
+visibility. Field users may subscribe only to their assignment channel and jobs
+currently permitted by IAM-005. Deactivation or unassignment must end access on
+the next authorization check or reconnect.
+
+**RT-006:** The current bounded server-sent event stream may provide the first
+online implementation over durable `job_events`. Production migration must
+move publication to the Render API/worker transactional outbox and private
+Supabase Realtime channels without changing the event semantics.
 
 ## 21. Data model direction
 
@@ -1477,7 +1569,8 @@ operational monitoring, and user acceptance criteria.
 
 These decisions are required before their respective implementation stage:
 
-1. Single-company launch versus opening multi-organization onboarding.
+1. Timing and policy for opening multi-organization onboarding after the
+   single-company launch.
 2. Final staff roles, MFA rules, and permission matrix.
 3. Annotation library and marked-up PDF export approach.
 4. Speech-to-text provider, supported languages, consent, and audio retention.
@@ -1514,11 +1607,16 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 | 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
 | 2026-09-19 | Deliver the project schedule in validated phases: roll-up, task durations, dependency planning, controlled rescheduling, baselines, assignment overlays, and working-day calendars | Existing dates provide immediate visibility while later phases add planning power without inventing duration, capacity, or silent timeline edits |
+| 2026-09-19 | Make Field a separate application surface and login whose users are provisioned in the main application | Field workers need a focused mobile product, while office administrators remain accountable for identity lifecycle and access |
+| 2026-09-19 | Use stable user IDs for job/task assignment, Field authorization, and Schedule resource lanes | Free-text names cannot reliably route work, revoke access, distinguish duplicate names, or prove which worker received a schedule |
+| 2026-09-19 | Exchange online Office and Field changes through authoritative commands plus a durable job-event stream | Both applications need low-latency updates without dual-write databases or direct application-to-application coupling |
+| 2026-09-19 | Use bounded server-sent event polling as the first realtime transport, preserving the event contract for the Render/outbox/Supabase migration | It delivers cross-session updates on the current stack while keeping the production topology and durable catch-up path explicit |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.6 | 2026-09-19 | Defined separate Field identity/application boundaries, stable assignment routing from Schedule to Field, and the two-way realtime contract; recorded the initial implementation state |
 | 1.5 | 2026-09-19 | Expanded the project Schedule scope to include dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendar exceptions |
 | 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
 | 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |

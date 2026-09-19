@@ -120,6 +120,65 @@ export const opportunities = pgTable("opportunities", {
   projectId: uuid("project_id"),
 });
 
+export const organizations = pgTable("organizations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+});
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdBy: text("created_by").notNull(),
+});
+
+export const memberships = pgTable(
+  "memberships",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    active: boolean("active").notNull().default(true),
+  },
+  (table) => [
+    unique("memberships_organization_user_unique").on(
+      table.organizationId,
+      table.userId,
+    ),
+    check(
+      "memberships_role_valid",
+      sql`${table.role} IN ('administrator', 'office', 'field_lead', 'field_worker')`,
+    ),
+    index("memberships_user_idx").on(table.userId),
+  ],
+);
+
 export const scheduleCalendars = pgTable("schedule_calendars", {
   id: uuid("id").defaultRandom().primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -222,6 +281,33 @@ export const jobEvents = pgTable("job_events", {
   payload: jsonb("payload").notNull(),
 });
 
+export const jobAssignments = pgTable(
+  "job_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    unique("job_assignments_job_user_unique").on(table.jobId, table.userId),
+    check(
+      "job_assignments_role_valid",
+      sql`${table.role} IN ('foreman', 'technician')`,
+    ),
+    index("job_assignments_user_idx").on(table.userId),
+    index("job_assignments_job_idx").on(table.jobId),
+  ],
+);
+
 export const workAreas = pgTable(
   "work_areas",
   {
@@ -261,6 +347,7 @@ export const jobTasks = pgTable(
     workAreaId: uuid("work_area_id"),
     title: text("title").notNull(),
     assignee: text("assignee"),
+    assigneeUserId: uuid("assignee_user_id").references(() => users.id),
     dueAt: timestamp("due_at", { withTimezone: true }),
     plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
     plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),

@@ -4,7 +4,7 @@
 
 **Goal:** Add a project-level Schedule that rolls up every job and job task into an accessible Gantt-style view with task duration, finish-to-start dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendars.
 
-**Architecture:** Keep geometry, graph, calendar, variance, and overlap algorithms in pure domain modules; fetch jobs/tasks/dependencies/baselines/calendar with bounded project-scoped reads; and pass serialized data into focused client components. Phase A renders existing dates. Phase B adds task planned dates and `completedAt`. Phase C adds dependency planning and controlled rescheduling. Phase D adds transactional immutable baselines, assignment projections, and one resolved working calendar used by every calculation.
+**Architecture:** Keep geometry, graph, calendar, variance, and overlap algorithms in pure domain modules; fetch jobs/tasks/dependencies/baselines/calendar with bounded project-scoped reads; and pass serialized data into focused client components. Phase A renders existing dates. Phase B adds task planned dates and `completedAt`. Phase C adds dependency planning and controlled rescheduling. Phase D adds transactional immutable baselines, stable user assignment projections, and one resolved working calendar used by every calculation.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript, Drizzle ORM/PostgreSQL, Vitest, Tailwind 4, existing shadcn/ui components, Lucide icons.
 
@@ -12,7 +12,7 @@
 
 ## Source requirements
 
-- PRD: `docs/strongfoam-crm-erp-prd.md`, SCH-001 through SCH-021.
+- PRD: `docs/strongfoam-crm-erp-prd.md`, SCH-001 through SCH-022.
 - Design: `docs/superpowers/specs/2026-09-19-project-schedule-gantt-design.md`.
 - Next.js guidance: read
   `node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md`
@@ -31,6 +31,8 @@
 - Completed rows remain in progress totals when filtered or collapsed.
 - Dates are shown in organization-local calendar days.
 - Keep the existing Jobs card and task edit dialogs.
+- Field resource lanes must use stable user IDs. Free-text field labels are
+  informational only and must not route or authorize work.
 - Use existing semantic tokens and shadcn components.
 - Use Lucide icons, not emoji.
 - Use test-first steps and one commit per task.

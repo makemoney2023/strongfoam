@@ -10,6 +10,7 @@ import {
 } from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { parseJobAssignmentInput } from "@/lib/ops/identity";
 import {
   parseJobConversion,
   parseJobDetails,
@@ -28,6 +29,7 @@ import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   addJobDocument,
+  addJobAssignment,
   addJobFieldNote,
   addJobTask,
   addJobToProject,
@@ -39,6 +41,7 @@ import {
   deleteJobTask,
   deleteWorkArea,
   getJob,
+  removeJobAssignment,
   setJobTaskStatus,
   updateJobDetails,
   updateJobDocument,
@@ -52,6 +55,7 @@ import {
 function refreshJobs(projectId?: string | null, jobId?: string | null) {
   revalidatePath("/app/jobs");
   revalidatePath("/app/field");
+  revalidatePath("/field");
   revalidatePath("/app/projects");
   revalidatePath("/app/opportunities");
   revalidatePath("/app/requests");
@@ -60,6 +64,7 @@ function refreshJobs(projectId?: string | null, jobId?: string | null) {
   if (jobId) {
     revalidatePath(`/app/jobs/${jobId}`);
     revalidatePath(`/app/field/jobs/${jobId}`);
+    revalidatePath(`/field/jobs/${jobId}`);
   }
 }
 
@@ -147,6 +152,62 @@ export async function saveJobStatus(formData: FormData): Promise<ActionState> {
   return succeed(returnTo);
 }
 
+export async function assignFieldUserToJob(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    jobId ? `/app/jobs/${jobId}` : "/app/jobs",
+  );
+  const parsed = parseJobAssignmentInput({
+    userId: String(formData.get("userId") ?? ""),
+    role: String(formData.get("assignmentRole") ?? ""),
+  });
+  if (!jobId) return fail(returnTo, "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
+  const assignment = await addJobAssignment({
+    jobId,
+    actor: session.email,
+    ...parsed.value,
+  });
+  if (!assignment) {
+    return fail(returnTo, "That field worker could not be assigned.");
+  }
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, `${assignment.displayName} assigned.`);
+}
+
+export async function unassignFieldUserFromJob(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const assignmentId = String(formData.get("assignmentId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    jobId ? `/app/jobs/${jobId}` : "/app/jobs",
+  );
+  if (!jobId || !assignmentId) {
+    return fail(returnTo, "Missing field assignment.");
+  }
+  const assignment = await removeJobAssignment({
+    jobId,
+    assignmentId,
+    actor: session.email,
+  });
+  if (!assignment) {
+    return fail(returnTo, "That field assignment could not be removed.");
+  }
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, `${assignment.displayName} unassigned.`);
+}
+
 export async function addJobWorkArea(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
@@ -178,6 +239,7 @@ export async function addJobWorkspaceTask(formData: FormData): Promise<ActionSta
   const parsed = parseJobTaskInput({
     title: String(formData.get("title") ?? ""),
     assignee: String(formData.get("assignee") ?? ""),
+    assigneeUserId: String(formData.get("assigneeUserId") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
@@ -441,6 +503,7 @@ export async function saveJobWorkspaceTask(formData: FormData): Promise<ActionSt
   const parsed = parseJobTaskInput({
     title: String(formData.get("title") ?? ""),
     assignee: String(formData.get("assignee") ?? ""),
+    assigneeUserId: String(formData.get("assigneeUserId") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),

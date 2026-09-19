@@ -43,6 +43,7 @@ describe("job workspace parsers", () => {
     const parsed = parseJobTaskInput({
       title: "Install closed-cell",
       assignee: "Morgan Cole",
+      assigneeUserId: "12121212-1212-4121-8121-121212121212",
       workAreaId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     });
     expect(parsed.ok).toBe(true);
@@ -51,6 +52,9 @@ describe("job workspace parsers", () => {
       "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     );
     expect(parsed.value.assignee).toBe("Morgan Cole");
+    expect(parsed.value.assigneeUserId).toBe(
+      "12121212-1212-4121-8121-121212121212",
+    );
   });
 
   it("accepts a task planned range", () => {

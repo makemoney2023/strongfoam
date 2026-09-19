@@ -16,11 +16,13 @@ import {
   deleteDemoWorkArea,
   getDemoCompany,
   getDemoEstimateRequest,
+  getDemoFieldIdentityByEmail,
   getDemoJob,
   getDemoJobDocumentDownload,
   getDemoProject,
   getDemoProjectScheduleBaseline,
   listDemoJobDocuments,
+  listDemoJobAssignments,
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
@@ -30,6 +32,8 @@ import {
   listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
+  listDemoUsers,
+  canDemoFieldUserAccessJob,
   matchesEstimateRequestFilters,
   removeDemoProjectScheduleBaseline,
   removeDemoScheduleCalendarException,
@@ -43,7 +47,12 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
-import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
+import {
+  DEMO_FIELD_EMAIL,
+  DEMO_FIELD_USER_ID,
+  DEMO_JOB_ID,
+  DEMO_PROJECT_ID,
+} from "@/lib/ops/demo-data";
 
 describe("demo ops store", () => {
   it("uses demo data when the database URL is absent", () => {
@@ -52,6 +61,33 @@ describe("demo ops store", () => {
     expect(
       isDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
     ).toBe(true);
+  });
+
+  it("routes an assigned job to the stable field identity", () => {
+    expect(getDemoFieldIdentityByEmail(DEMO_FIELD_EMAIL)).toMatchObject({
+      userId: DEMO_FIELD_USER_ID,
+      role: "field_worker",
+      active: true,
+    });
+    expect(listDemoUsers()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: DEMO_FIELD_USER_ID }),
+      ]),
+    );
+    expect(listDemoJobAssignments(DEMO_JOB_ID)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: DEMO_FIELD_USER_ID,
+          role: "foreman",
+        }),
+      ]),
+    );
+    expect(canDemoFieldUserAccessJob(DEMO_FIELD_USER_ID, DEMO_JOB_ID)).toBe(
+      true,
+    );
+    expect(
+      listDemoJobs({ fieldUserId: DEMO_FIELD_USER_ID }).map((job) => job.id),
+    ).toContain(DEMO_JOB_ID);
   });
 
   it("filters demo requests by search and workflow", () => {
@@ -218,6 +254,7 @@ describe("job workspace", () => {
       input: {
         title: "Tape the AVB laps",
         assignee: "Morgan Cole",
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: null,
         plannedEndAt: null,
@@ -310,6 +347,7 @@ describe("job workspace", () => {
         input: {
           title: "Missing area",
           assignee: null,
+          assigneeUserId: null,
           dueAt: null,
           plannedStartAt: null,
           plannedEndAt: null,
@@ -431,6 +469,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Predecessor ${crypto.randomUUID()}`,
         assignee: null,
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: new Date("2026-09-19T12:00:00.000Z"),
         plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
@@ -443,6 +482,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Successor ${crypto.randomUUID()}`,
         assignee: null,
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: new Date("2026-09-22T12:00:00.000Z"),
         plannedEndAt: new Date("2026-09-23T12:00:00.000Z"),
@@ -528,6 +568,7 @@ describe("workspace CRUD and filters", () => {
         input: {
           title: `${title} ${crypto.randomUUID()}`,
           assignee: null,
+          assigneeUserId: null,
           dueAt: null,
           plannedStartAt: new Date("2026-09-20T12:00:00.000Z"),
           plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
@@ -610,6 +651,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Schedule test ${crypto.randomUUID()}`,
         assignee: "Morgan Cole",
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt,
         plannedEndAt,

@@ -64,6 +64,13 @@
       "when": 1758240000000,
       "tag": "0008_schedule_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758312000000,
+      "tag": "0009_field_identity_assignments",
+      "breakpoints": true
     }
   ]
 }

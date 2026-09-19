@@ -4,11 +4,12 @@ import { HardHatIcon, MapPinIcon } from "lucide-react";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { RealtimeRefresh } from "@/components/ops/realtime-refresh";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { getOpsSession } from "@/lib/ops/auth";
+import { getFieldSession } from "@/lib/ops/field-auth";
 import { isFieldActiveJobStatus } from "@/lib/ops/field-workspace";
 import { JOB_STATUS_LABELS, JOB_STATUSES, formatJobNumber } from "@/lib/ops/jobs";
 import { getCompany, getSite, listJobs, listJobTasks } from "@/lib/ops/store";
@@ -21,15 +22,15 @@ export default async function FieldLandingPage({
 }: {
   searchParams: Promise<{ status?: string; from?: string; to?: string }>;
 }) {
-  if (!(await getOpsSession())) {
-    redirect("/app/login");
-  }
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
 
   const params = await searchParams;
   const jobs = await listJobs({
     status: params.status,
     from: params.from,
     to: params.to,
+    fieldUserId: session.userId,
   });
   const activeJobs = params.status
     ? jobs
@@ -48,6 +49,7 @@ export default async function FieldLandingPage({
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh url="/api/field/events" />
       <PageHeader
         title="Field"
         description="Today's assignments, site details, and the work still open on active jobs."
@@ -137,7 +139,7 @@ export default async function FieldLandingPage({
                   </p>
                   <Button
                     nativeButton={false}
-                    render={<Link href={`/app/field/jobs/${job.id}`} />}
+                    render={<Link href={`/field/jobs/${job.id}`} />}
                     className="min-h-11 w-full sm:w-auto"
                   >
                     Open field job

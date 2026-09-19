@@ -50,7 +50,10 @@ Indexed wizard at `/request-estimate`. Confirmation at `/request-estimate/thanks
 
 Staff review lives at `/app/login` and `/app/requests`. Converted CRM records
 live at `/app/companies` and `/app/opportunities`. Won work becomes a project
-and jobs at `/app/projects` and `/app/jobs`. The staff workspace uses shadcn/ui.
+and jobs at `/app/projects` and `/app/jobs`. Office users create Field
+identities at `/app/users`, assign them on a job, and review the project
+Schedule. Field workers use the separate `/field/login` and `/field`
+application surface. The staff workspace uses shadcn/ui.
 Access is gated by `OPS_SESSION_SECRET`, `OPS_STAFF_EMAILS`, and
 `OPS_STAFF_PASSWORD`.
 
@@ -86,10 +89,15 @@ CALENDLY_WEBHOOK_SIGNING_KEY
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 OPS_SESSION_SECRET
+FIELD_SESSION_SECRET
 OPS_STAFF_EMAILS
 OPS_STAFF_PASSWORD
 OPS_DEMO
 ```
+
+In demo mode, Field displays its seeded login on `/field/login`. Production
+must set a distinct `FIELD_SESSION_SECRET`. Field access is derived from
+structured job/task assignments, not free-text foreman or assignee labels.
 
 See `.env.example` for the same names with empty values.
 
