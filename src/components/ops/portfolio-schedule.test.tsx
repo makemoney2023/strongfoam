@@ -884,6 +884,7 @@ describe("PortfolioSchedule", () => {
                     entityId: "partial-attention-job",
                     plannedStartAt: "2026-09-01",
                     plannedEndAt: "2026-09-10",
+                    dueAt: null,
                   },
                 ],
               },

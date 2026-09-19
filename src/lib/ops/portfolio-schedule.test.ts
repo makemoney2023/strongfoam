@@ -1326,6 +1326,7 @@ describe("portfolio schedule", () => {
                 entityId: "job-1",
                 plannedStartAt: "2026-09-10",
                 plannedEndAt: "2026-09-20",
+                dueAt: null,
               },
             ],
           },
