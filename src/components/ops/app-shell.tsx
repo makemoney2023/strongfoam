@@ -32,7 +32,7 @@ export function AppShell({
         <AppSidebar email={email} />
         <SidebarInset id="ops-main-content" tabIndex={-1}>
           <header className="flex h-12 items-center gap-2 border-b px-4">
-            <SidebarTrigger />
+            <SidebarTrigger className="size-11 md:size-8" />
             <Separator orientation="vertical" className="h-4" />
             <p className="text-sm text-muted-foreground">Staff workspace</p>
           </header>

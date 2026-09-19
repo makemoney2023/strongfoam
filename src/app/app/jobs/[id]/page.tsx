@@ -131,42 +131,42 @@ export default async function JobDetailPage({
 
       <section
         aria-label="Job workspace summary"
-        className="grid gap-3 sm:grid-cols-3"
+        className="grid grid-cols-3 gap-2 sm:gap-3"
       >
         <Card className="bg-muted/35 shadow-none">
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border">
+          <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
+            <span className="hidden size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border sm:flex">
               <MapPinnedIcon className="size-5 text-muted-foreground" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-2xl font-semibold tabular-nums">{areas.length}</p>
-              <p className="text-sm text-muted-foreground">Work areas</p>
+              <p className="text-xl font-semibold tabular-nums sm:text-2xl">{areas.length}</p>
+              <p className="text-xs text-muted-foreground sm:text-sm">Work areas</p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-muted/35 shadow-none">
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border">
+          <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
+            <span className="hidden size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border sm:flex">
               <ClipboardCheckIcon className="size-5 text-muted-foreground" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-2xl font-semibold tabular-nums">
+              <p className="text-xl font-semibold tabular-nums sm:text-2xl">
                 {completedTasks}/{tasks.length}
               </p>
-              <p className="text-sm text-muted-foreground">Tasks complete</p>
+              <p className="text-xs text-muted-foreground sm:text-sm">Tasks complete</p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-muted/35 shadow-none">
-          <CardContent className="flex items-center gap-3 p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border">
+          <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4">
+            <span className="hidden size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border sm:flex">
               <FileTextIcon className="size-5 text-muted-foreground" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-2xl font-semibold tabular-nums">
+              <p className="text-xl font-semibold tabular-nums sm:text-2xl">
                 {documents.length}
               </p>
-              <p className="text-sm text-muted-foreground">Documents</p>
+              <p className="text-xs text-muted-foreground sm:text-sm">Documents</p>
             </div>
           </CardContent>
         </Card>
