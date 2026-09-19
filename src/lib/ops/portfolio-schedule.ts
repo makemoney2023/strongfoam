@@ -533,20 +533,12 @@ export function getPortfolioTaskScheduleState(
 ): ScheduleState {
   if (task.status === "done") return "complete";
   const dates = normalizePortfolioScheduleDates(task);
-  const completion = dates.plannedEndAt
-    ? portfolioCalendarDate(dates.plannedEndAt, calendar)
-    : null;
-  const due = dates.dueAt
-    ? portfolioCalendarDate(dates.dueAt, calendar)
+  const finishValue = dates.plannedEndAt ?? dates.dueAt;
+  const finish = finishValue
+    ? portfolioCalendarDate(finishValue, calendar)
     : null;
   const today = nowCalendarDate(now, calendar);
-  if (
-    today &&
-    ((completion !== null && completion < today) ||
-      (due !== null && due < today))
-  ) {
-    return "overdue";
-  }
+  if (finish && today && finish < today) return "overdue";
   if (
     !dates.plannedStartAt &&
     !dates.plannedEndAt &&
@@ -883,12 +875,22 @@ function isPortfolioUnscheduledTask(task: ProjectScheduleTask): boolean {
   return !dates.plannedStartAt && !dates.plannedEndAt && !dates.dueAt;
 }
 
-function isPortfolioOverdueTask(
-  task: ProjectScheduleTask,
-  now: Date,
-  calendar: ResolvedWorkingCalendar,
+export function isPortfolioTaskAttentionOverdue(
+  task: Pick<
+    ProjectScheduleTask,
+    "status" | "plannedStartAt" | "plannedEndAt" | "dueAt"
+  >,
+  now: string | Date,
+  calendar: PortfolioScheduleCalendar,
 ): boolean {
-  return portfolioTaskState(task, now, calendar) === "overdue";
+  if (task.status === "done") return false;
+  const today = nowCalendarDate(now, calendar);
+  if (!today) return false;
+  const dates = normalizePortfolioScheduleDates(task);
+  return [dates.plannedEndAt, dates.dueAt].some((value) => {
+    const date = value ? portfolioCalendarDate(value, calendar) : null;
+    return date !== null && date < today;
+  });
 }
 
 export function countPortfolioAttentionItems(
@@ -908,7 +910,7 @@ export function countPortfolioAttentionItems(
       for (const task of job.tasks) {
         if (
           attention === "overdue-tasks" &&
-          isPortfolioOverdueTask(task, now, project.calendar)
+          isPortfolioTaskAttentionOverdue(task, now, project.calendar)
         ) {
           count += 1;
         }
@@ -1786,7 +1788,7 @@ function filterPortfolioAttentionJobs(
     const tasks = job.tasks.filter((task) => {
       const matchesAttention =
         attention === "overdue-tasks"
-          ? isPortfolioOverdueTask(task, now, calendar)
+          ? isPortfolioTaskAttentionOverdue(task, now, calendar)
           : isPortfolioUnscheduledTask(task);
       return (
         matchesAttention &&
