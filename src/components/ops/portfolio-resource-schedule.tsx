@@ -14,21 +14,23 @@ import {
 import {
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
+  getPortfolioJobScheduleState,
+  getPortfolioResourceGeometry,
+  getPortfolioTaskScheduleState,
+  isPortfolioWorkingDay,
   localScheduleDateKey,
+  normalizePortfolioScheduleDates,
   portfolioCalendarDate,
+  type PortfolioScheduleCalendar,
   type PortfolioScheduleAssignment,
   type ProjectedPortfolioProject,
 } from "@/lib/ops/portfolio-schedule";
 import {
-  getJobScheduleState,
-  getTaskScheduleState,
-  positionInWindow,
   type ScheduleState,
   type ScheduleWindow,
 } from "@/lib/ops/project-schedule";
 import {
   calculateBaselineVariance,
-  isWorkingDay,
   type ResolvedWorkingCalendar,
   type ScheduleDates,
 } from "@/lib/ops/project-schedule-planning";
@@ -55,7 +57,7 @@ const MONTH_LABELS = [
 
 function formatDate(
   value: string | null | undefined,
-  calendar: ResolvedWorkingCalendar,
+  calendar: PortfolioScheduleCalendar,
 ): string {
   if (!value) return "—";
   const localDate = portfolioCalendarDate(value, calendar);
@@ -67,7 +69,7 @@ function formatDate(
 
 function scheduleDateLabel(
   dates: ScheduleDates,
-  calendar: ResolvedWorkingCalendar,
+  calendar: PortfolioScheduleCalendar,
 ): string {
   if (dates.plannedStartAt && dates.plannedEndAt) {
     return `${formatDate(dates.plannedStartAt, calendar)} – ${formatDate(dates.plannedEndAt, calendar)}`;
@@ -92,33 +94,22 @@ function varianceLabel(
   return `Start ${signed(variance.startVarianceDays)} · Finish ${signed(variance.finishVarianceDays)}`;
 }
 
-function localWindowValue(
-  value: string,
-  calendar: ResolvedWorkingCalendar,
-): Date | null {
-  const localDate = portfolioCalendarDate(value, calendar);
-  if (!localDate) return null;
-  const parsed = new Date(`${localDate}T12:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+type NormalizedBaselineEntry = {
+  dates: Required<ScheduleDates>;
+  hasValidDates: boolean;
+};
 
-function assignmentPosition(
-  value: string,
-  window: ScheduleWindow,
-  calendar: ResolvedWorkingCalendar,
-): number | null {
-  return positionInWindow(localWindowValue(value, calendar), window);
-}
-
-function clampedAssignmentPosition(
-  value: string,
-  window: ScheduleWindow,
-  calendar: ResolvedWorkingCalendar,
-): number {
-  const date = localWindowValue(value, calendar);
-  if (!date || date <= window.start) return 0;
-  if (date >= window.end) return 100;
-  return positionInWindow(date, window) ?? 0;
+function portfolioBaselineVariance(
+  assignment: PortfolioScheduleAssignment,
+  entry: NormalizedBaselineEntry | undefined,
+  selected: boolean,
+): ReturnType<typeof calculateBaselineVariance> | null {
+  if (!selected || (entry && !entry.hasValidDates)) return null;
+  return calculateBaselineVariance(
+    assignment,
+    entry?.dates ?? null,
+    assignment.calendar as ResolvedWorkingCalendar,
+  );
 }
 
 function AssignmentMark({
@@ -140,29 +131,26 @@ function AssignmentMark({
   state: ScheduleState;
   baseline?: boolean;
 }) {
-  const start = assignment.plannedStartAt;
-  const end = assignment.plannedEndAt;
-  const milestone = start ?? end ?? assignment.dueAt;
-  if (!milestone) {
+  const geometry = getPortfolioResourceGeometry(
+    assignment,
+    assignment.calendar,
+    window,
+  );
+  if (geometry?.kind === "unscheduled") {
     return baseline ? null : (
       <span className="text-xs font-medium text-muted-foreground">
         Unscheduled
       </span>
     );
   }
-  if (!start || !end) {
-    const position = assignmentPosition(
-      milestone,
-      window,
-      assignment.calendar,
-    );
-    if (position === null) return null;
+  if (!geometry) return null;
+  if (geometry.kind === "milestone") {
     if (baseline) {
       return (
         <span
           aria-hidden="true"
           className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-muted-foreground bg-transparent"
-          style={{ left: `${position}%` }}
+          style={{ left: `${geometry.position}%` }}
         />
       );
     }
@@ -178,28 +166,19 @@ function AssignmentMark({
               ? "border-destructive bg-destructive"
               : "border-primary bg-card",
         )}
-        style={{ left: `${position}%` }}
+        style={{ left: `${geometry.position}%` }}
       />
     );
   }
-  const localStart = localWindowValue(start, assignment.calendar);
-  const localEnd = localWindowValue(end, assignment.calendar);
-  if (
-    !localStart ||
-    !localEnd ||
-    localEnd < window.start ||
-    localStart > window.end
-  ) {
-    return null;
-  }
-  const left = clampedAssignmentPosition(start, window, assignment.calendar);
-  const right = clampedAssignmentPosition(end, window, assignment.calendar);
   if (baseline) {
     return (
       <span
         aria-hidden="true"
         className="absolute top-1 h-1 overflow-hidden rounded-sm border border-muted-foreground bg-transparent"
-        style={{ left: `${left}%`, width: `${Math.max(right - left, 0.8)}%` }}
+        style={{
+          left: `${geometry.left}%`,
+          width: `${Math.max(geometry.width, 0.8)}%`,
+        }}
       />
     );
   }
@@ -215,7 +194,10 @@ function AssignmentMark({
             ? "border-destructive bg-destructive/10 text-destructive"
             : "border-primary/40 bg-primary/15",
       )}
-      style={{ left: `${left}%`, width: `${Math.max(right - left, 0.8)}%` }}
+      style={{
+        left: `${geometry.left}%`,
+        width: `${Math.max(geometry.width, 0.8)}%`,
+      }}
     >
       <span className="block overflow-hidden text-ellipsis">
         {assignment.label}
@@ -231,9 +213,17 @@ function AssignmentTimelineBackdrop({
 }: {
   window: ScheduleWindow;
   now: string;
-  calendar: ResolvedWorkingCalendar;
+  calendar: PortfolioScheduleCalendar;
 }) {
-  const todayPosition = assignmentPosition(now, window, calendar);
+  const todayGeometry = getPortfolioResourceGeometry(
+    { dueAt: now },
+    calendar,
+    window,
+  );
+  const todayPosition =
+    todayGeometry?.kind === "milestone"
+      ? todayGeometry.position
+      : null;
   return (
     <>
       <div
@@ -248,7 +238,7 @@ function AssignmentTimelineBackdrop({
           const working =
             window.columns.length !== 42 ||
             !columnDate ||
-            isWorkingDay(columnDate, calendar);
+            isPortfolioWorkingDay(columnDate, calendar);
           return (
             <span
               key={column.key}
@@ -303,32 +293,39 @@ export function PortfolioResourceSchedule({
   const baselineByEntity = new Map(
     baseline === "latest"
       ? projects.flatMap((project) =>
-          (project.latestBaseline?.items ?? []).map(
-            (item) =>
-              [
-                `${project.id}:${item.entityType}:${item.entityId}`,
-                item,
-              ] as const,
-          ),
+          (project.latestBaseline?.items ?? []).map((item) => {
+            const dates = normalizePortfolioScheduleDates(item);
+            return [
+              `${project.id}:${item.entityType}:${item.entityId}`,
+              {
+                dates,
+                hasValidDates: Boolean(
+                  dates.plannedStartAt ||
+                    dates.plannedEndAt ||
+                    dates.dueAt,
+                ),
+              },
+            ] as const;
+          }),
         )
       : [],
   );
   const stateFor = (
     assignment: ProjectedPortfolioAssignment,
   ): ScheduleState => {
-    const currentNow = new Date(now);
     if (assignment.entityType === "job") {
       const source = jobsById.get(
         `${assignment.projectId}:job:${assignment.entityId}`,
       );
       return source
-        ? getJobScheduleState(
+        ? getPortfolioJobScheduleState(
             {
               ...source,
               plannedStartAt: assignment.plannedStartAt ?? null,
               plannedEndAt: assignment.plannedEndAt ?? null,
             },
-            currentNow,
+            now,
+            assignment.calendar,
           )
         : "unscheduled";
     }
@@ -336,14 +333,15 @@ export function PortfolioResourceSchedule({
       `${assignment.projectId}:task:${assignment.entityId}`,
     );
     return source
-      ? getTaskScheduleState(
+      ? getPortfolioTaskScheduleState(
           {
             ...source,
             plannedStartAt: assignment.plannedStartAt ?? null,
             plannedEndAt: assignment.plannedEndAt ?? null,
             dueAt: assignment.dueAt ?? null,
           },
-          currentNow,
+          now,
+          assignment.calendar,
         )
       : "unscheduled";
   };
@@ -409,19 +407,11 @@ export function PortfolioResourceSchedule({
                 const baselineItem = baselineByEntity.get(
                   `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
                 );
-                const baselineHasDates = Boolean(
-                  baselineItem?.plannedStartAt ||
-                    baselineItem?.plannedEndAt ||
-                    baselineItem?.dueAt,
+                const variance = portfolioBaselineVariance(
+                  assignment,
+                  baselineItem,
+                  baseline === "latest",
                 );
-                const variance =
-                  baseline === "latest"
-                    ? calculateBaselineVariance(
-                        assignment,
-                        baselineItem ?? null,
-                        assignment.calendar,
-                      )
-                    : null;
                 return (
                   <div
                     key={`${assignment.projectId}:${assignment.id}`}
@@ -482,13 +472,11 @@ export function PortfolioResourceSchedule({
                         calendar={assignment.calendar}
                       />
                       <div className="relative z-10 min-w-0 flex-1">
-                        {baselineHasDates && baselineItem ? (
+                        {baselineItem?.hasValidDates ? (
                           <AssignmentMark
                             assignment={{
                               ...assignment,
-                              plannedStartAt: baselineItem.plannedStartAt,
-                              plannedEndAt: baselineItem.plannedEndAt,
-                              dueAt: baselineItem.dueAt,
+                              ...baselineItem.dates,
                             }}
                             window={window}
                             state="remaining"
@@ -533,14 +521,11 @@ export function PortfolioResourceSchedule({
                   const baselineItem = baselineByEntity.get(
                     `${assignment.projectId}:${assignment.entityType}:${assignment.entityId}`,
                   );
-                  const variance =
-                    baseline === "latest"
-                      ? calculateBaselineVariance(
-                          assignment,
-                          baselineItem ?? null,
-                          assignment.calendar,
-                        )
-                      : null;
+                  const variance = portfolioBaselineVariance(
+                    assignment,
+                    baselineItem,
+                    baseline === "latest",
+                  );
                   return (
                     <TableRow key={`${assignment.projectId}:${assignment.id}`}>
                       <TableCell>{lane.displayName}</TableCell>

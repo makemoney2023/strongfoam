@@ -10,17 +10,19 @@ import {
   type ProjectScheduleJob,
   type ProjectScheduleTask,
   type ScheduleState,
+  type ScheduleWindow,
 } from "@/lib/ops/project-schedule";
 import { formatJobNumber, isJobStatus } from "@/lib/ops/jobs";
 import {
   DEFAULT_WORKING_CALENDAR,
   buildScheduleAssignments,
   calendarDate,
-  isWorkingDay,
   workingDayDifference,
   type ResolvedWorkingCalendar,
   type ScheduleAssignment,
   type ScheduleAssignmentRole,
+  type ScheduleDates,
+  type WorkingCalendarException,
 } from "@/lib/ops/project-schedule-planning";
 import type { PortfolioScheduleStoreResult } from "@/lib/ops/store";
 
@@ -72,10 +74,18 @@ export type ProjectedPortfolioProject = PortfolioScheduleProject & {
   baselineFinishVarianceDays: number | null;
 };
 
+export type PortfolioScheduleCalendar = Readonly<{
+  id?: string;
+  name?: string;
+  timeZone: string;
+  weekendDays: readonly number[];
+  exceptions: readonly Readonly<WorkingCalendarException>[];
+}>;
+
 export type PortfolioScheduleAssignment = ScheduleAssignment & {
-  projectId: string;
-  projectName: string;
-  calendar: ResolvedWorkingCalendar;
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly calendar: PortfolioScheduleCalendar;
 };
 
 export type PortfolioResourceLane = {
@@ -381,7 +391,7 @@ function validScheduleDate(value: string | null): string | null {
 
 export function portfolioCalendarDate(
   value: string,
-  calendar: ResolvedWorkingCalendar,
+  calendar: Pick<PortfolioScheduleCalendar, "timeZone">,
 ): string | null {
   const validated = validDate(value);
   if (!validated) return null;
@@ -395,6 +405,138 @@ export function localScheduleDateKey(value: Date): string | null {
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+export function normalizePortfolioScheduleDates(
+  dates: ScheduleDates,
+): Required<ScheduleDates> {
+  return {
+    plannedStartAt: validScheduleDate(dates.plannedStartAt ?? null),
+    plannedEndAt: validScheduleDate(dates.plannedEndAt ?? null),
+    dueAt: validScheduleDate(dates.dueAt ?? null),
+  };
+}
+
+function nowCalendarDate(
+  now: string | Date,
+  calendar: PortfolioScheduleCalendar,
+): string | null {
+  return portfolioCalendarDate(
+    now instanceof Date ? now.toISOString() : now,
+    calendar,
+  );
+}
+
+export function getPortfolioJobScheduleState(
+  job: Pick<
+    ProjectScheduleJob,
+    "status" | "plannedStartAt" | "plannedEndAt"
+  >,
+  now: string | Date,
+  calendar: PortfolioScheduleCalendar,
+): ScheduleState {
+  if (job.status === "complete" || job.status === "closed") return "complete";
+  if (job.status === "blocked") return "blocked";
+  const dates = normalizePortfolioScheduleDates(job);
+  const finish = dates.plannedEndAt
+    ? portfolioCalendarDate(dates.plannedEndAt, calendar)
+    : null;
+  const today = nowCalendarDate(now, calendar);
+  if (finish && today && finish < today) return "overdue";
+  if (!dates.plannedStartAt && !dates.plannedEndAt) return "unscheduled";
+  return "remaining";
+}
+
+export function getPortfolioTaskScheduleState(
+  task: Pick<
+    ProjectScheduleTask,
+    "status" | "plannedStartAt" | "plannedEndAt" | "dueAt"
+  >,
+  now: string | Date,
+  calendar: PortfolioScheduleCalendar,
+): ScheduleState {
+  if (task.status === "done") return "complete";
+  const dates = normalizePortfolioScheduleDates(task);
+  const finishValue = dates.plannedEndAt ?? dates.dueAt;
+  const finish = finishValue
+    ? portfolioCalendarDate(finishValue, calendar)
+    : null;
+  const today = nowCalendarDate(now, calendar);
+  if (finish && today && finish < today) return "overdue";
+  if (
+    !dates.plannedStartAt &&
+    !dates.plannedEndAt &&
+    !dates.dueAt
+  ) {
+    return "unscheduled";
+  }
+  return "remaining";
+}
+
+export type PortfolioResourceGeometry =
+  | { kind: "range"; left: number; width: number }
+  | { kind: "milestone"; position: number }
+  | { kind: "unscheduled" };
+
+export function getPortfolioResourceGeometry(
+  dates: ScheduleDates,
+  calendar: PortfolioScheduleCalendar,
+  window: ScheduleWindow,
+): PortfolioResourceGeometry | null {
+  const normalized = normalizePortfolioScheduleDates(dates);
+  const columns = window.columns.flatMap((column) => {
+    const start = localScheduleDateKey(column.start);
+    const end = localScheduleDateKey(column.end);
+    return start && end ? [{ start, end }] : [];
+  });
+  if (columns.length === 0) return null;
+
+  if (normalized.plannedStartAt && normalized.plannedEndAt) {
+    const start = portfolioCalendarDate(
+      normalized.plannedStartAt,
+      calendar,
+    );
+    const end = portfolioCalendarDate(normalized.plannedEndAt, calendar);
+    if (!start || !end || start > end) return null;
+    const firstDate = columns[0]!.start;
+    const lastDate = columns.at(-1)!.end;
+    if (end < firstDate || start > lastDate) return null;
+    const startIndex =
+      start <= firstDate
+        ? 0
+        : columns.findIndex(
+            (column) => start >= column.start && start <= column.end,
+          );
+    const endIndex =
+      end >= lastDate
+        ? columns.length - 1
+        : columns.findIndex(
+            (column) => end >= column.start && end <= column.end,
+          );
+    if (startIndex < 0 || endIndex < startIndex) return null;
+    const left = (startIndex * 100) / columns.length;
+    return {
+      kind: "range",
+      left,
+      width: ((endIndex - startIndex + 1) * 100) / columns.length,
+    };
+  }
+
+  const milestone =
+    normalized.plannedStartAt ??
+    normalized.plannedEndAt ??
+    normalized.dueAt;
+  if (!milestone) return { kind: "unscheduled" };
+  const date = portfolioCalendarDate(milestone, calendar);
+  if (!date) return { kind: "unscheduled" };
+  const index = columns.findIndex(
+    (column) => date >= column.start && date <= column.end,
+  );
+  if (index < 0) return null;
+  return {
+    kind: "milestone",
+    position: ((index + 0.5) * 100) / columns.length,
+  };
 }
 
 function earliest(values: readonly DatedValue[]): string | null {
@@ -625,33 +767,58 @@ export function buildPortfolioProjects(
   });
 }
 
-function cloneAssignmentCalendar(
+function freezeAssignmentCalendar(
   calendar: ResolvedWorkingCalendar,
-): ResolvedWorkingCalendar {
-  return cloneResolvedCalendar(calendar);
+): PortfolioScheduleCalendar {
+  const exceptions = calendar.exceptions.map((exception) =>
+    Object.freeze({ ...exception }),
+  );
+  return Object.freeze({
+    ...calendar,
+    weekendDays: Object.freeze([...calendar.weekendDays]),
+    exceptions: Object.freeze(exceptions),
+  });
 }
 
 export function buildPortfolioScheduleAssignments(
   projects: readonly PortfolioScheduleProject[],
 ): PortfolioScheduleAssignment[] {
+  const calendars = new WeakMap<
+    ResolvedWorkingCalendar,
+    PortfolioScheduleCalendar
+  >();
   return projects.flatMap((project) =>
-    buildScheduleAssignments(project.jobs).map((assignment) => ({
-      ...assignment,
-      plannedStartAt: validScheduleDate(assignment.plannedStartAt ?? null),
-      plannedEndAt: validScheduleDate(assignment.plannedEndAt ?? null),
-      dueAt: validScheduleDate(assignment.dueAt ?? null),
-      projectId: project.id,
-      projectName: project.name,
-      calendar: cloneAssignmentCalendar(project.calendar),
-    })),
+    buildScheduleAssignments(project.jobs).map((assignment) => {
+      let frozenCalendar = calendars.get(project.calendar);
+      if (!frozenCalendar) {
+        frozenCalendar = freezeAssignmentCalendar(project.calendar);
+        calendars.set(project.calendar, frozenCalendar);
+      }
+      return {
+        ...assignment,
+        ...normalizePortfolioScheduleDates(assignment),
+        projectId: project.id,
+        projectName: project.name,
+        calendar: frozenCalendar,
+      };
+    }),
   );
 }
+
+export const PORTFOLIO_UNASSIGNED_RESOURCE_KEY =
+  "\u0000portfolio-unassigned";
 
 function normalizedResource(value: string | null): {
   key: string;
   displayName: string;
 } {
-  const displayName = value?.trim().replace(/\s+/g, " ") || "Unassigned";
+  const displayName = value?.trim().replace(/\s+/g, " ");
+  if (!displayName) {
+    return {
+      key: PORTFOLIO_UNASSIGNED_RESOURCE_KEY,
+      displayName: "Unassigned",
+    };
+  }
   return { key: displayName.toLowerCase(), displayName };
 }
 
@@ -673,6 +840,8 @@ function dateFromOrdinal(value: number): string {
 type PortfolioAssignmentRange = {
   start: string;
   end: string;
+  startOrdinal: number;
+  endOrdinal: number;
 };
 
 function portfolioAssignmentRange(
@@ -687,34 +856,159 @@ function portfolioAssignmentRange(
     assignment.plannedEndAt,
     assignment.calendar,
   );
-  if (!start || !end || dateOrdinal(start) > dateOrdinal(end)) return null;
-  return { start, end };
+  if (!start || !end) return null;
+  const startOrdinal = dateOrdinal(start);
+  const endOrdinal = dateOrdinal(end);
+  if (startOrdinal > endOrdinal) return null;
+  return { start, end, startOrdinal, endOrdinal };
 }
 
-function rangesSharePortfolioWorkingDay(
-  left: PortfolioScheduleAssignment,
-  leftRange: PortfolioAssignmentRange,
-  right: PortfolioScheduleAssignment,
-  rightRange: PortfolioAssignmentRange,
-): boolean {
-  const start = Math.max(
-    dateOrdinal(leftRange.start),
-    dateOrdinal(rightRange.start),
-  );
-  const end = Math.min(
-    dateOrdinal(leftRange.end),
-    dateOrdinal(rightRange.end),
-  );
-  for (let cursor = start; cursor <= end; cursor += 1) {
-    const date = dateFromOrdinal(cursor);
-    if (
-      isWorkingDay(date, left.calendar) &&
-      isWorkingDay(date, right.calendar)
-    ) {
-      return true;
+type PortfolioCalendarIndex = {
+  weekendDays: ReadonlySet<number>;
+  exceptions: ReadonlyMap<string, boolean>;
+};
+
+const portfolioCalendarIndexes = new WeakMap<
+  PortfolioScheduleCalendar,
+  PortfolioCalendarIndex
+>();
+
+export type PortfolioOverlapDiagnostics = {
+  calendarIndexBuilds: number;
+  pairIndexBuilds: number;
+  workingDateEvaluations: number;
+  rangeQueries: number;
+};
+
+export function createPortfolioOverlapDiagnostics(): PortfolioOverlapDiagnostics {
+  return {
+    calendarIndexBuilds: 0,
+    pairIndexBuilds: 0,
+    workingDateEvaluations: 0,
+    rangeQueries: 0,
+  };
+}
+
+function getPortfolioCalendarIndex(
+  calendar: PortfolioScheduleCalendar,
+  diagnostics?: PortfolioOverlapDiagnostics,
+): PortfolioCalendarIndex {
+  const existing = portfolioCalendarIndexes.get(calendar);
+  if (existing) return existing;
+  const exceptions = new Map<string, boolean>();
+  for (const exception of calendar.exceptions) {
+    const date = validDate(exception.date)?.value;
+    if (date && ISO_DATE.test(date) && !exceptions.has(date)) {
+      exceptions.set(date, exception.isWorkingDay);
     }
   }
-  return false;
+  const index = {
+    weekendDays: new Set(calendar.weekendDays),
+    exceptions,
+  };
+  portfolioCalendarIndexes.set(calendar, index);
+  if (diagnostics) diagnostics.calendarIndexBuilds += 1;
+  return index;
+}
+
+function isIndexedWorkingDay(
+  ordinal: number,
+  calendar: PortfolioScheduleCalendar,
+  diagnostics?: PortfolioOverlapDiagnostics,
+): boolean {
+  const index = getPortfolioCalendarIndex(calendar, diagnostics);
+  const date = dateFromOrdinal(ordinal);
+  const exception = index.exceptions.get(date);
+  if (exception !== undefined) return exception;
+  const day = ((ordinal + 4) % 7 + 7) % 7;
+  return !index.weekendDays.has(day);
+}
+
+export function isPortfolioWorkingDay(
+  date: string,
+  calendar: PortfolioScheduleCalendar,
+): boolean {
+  const localDate = portfolioCalendarDate(date, calendar);
+  return localDate
+    ? isIndexedWorkingDay(dateOrdinal(localDate), calendar)
+    : false;
+}
+
+type CalendarRangeBound = { start: number; end: number };
+
+class SharedWorkingDayQuery {
+  private readonly calendarIds = new WeakMap<
+    PortfolioScheduleCalendar,
+    number
+  >();
+  private readonly pairIndexes = new Map<
+    string,
+    { start: number; end: number; prefix: Uint32Array }
+  >();
+
+  constructor(
+    private readonly bounds: ReadonlyMap<
+      PortfolioScheduleCalendar,
+      CalendarRangeBound
+    >,
+    private readonly diagnostics: PortfolioOverlapDiagnostics,
+  ) {
+    let id = 0;
+    for (const calendar of bounds.keys()) {
+      this.calendarIds.set(calendar, id);
+      id += 1;
+    }
+  }
+
+  hasSharedWorkingDay(
+    left: PortfolioScheduleCalendar,
+    right: PortfolioScheduleCalendar,
+    start: number,
+    end: number,
+  ): boolean {
+    this.diagnostics.rangeQueries += 1;
+    const index = this.getPairIndex(left, right);
+    if (!index) return false;
+    const queryStart = Math.max(start, index.start);
+    const queryEnd = Math.min(end, index.end);
+    if (queryStart > queryEnd) return false;
+    const offsetStart = queryStart - index.start;
+    const offsetEnd = queryEnd - index.start + 1;
+    return index.prefix[offsetEnd]! > index.prefix[offsetStart]!;
+  }
+
+  private getPairIndex(
+    left: PortfolioScheduleCalendar,
+    right: PortfolioScheduleCalendar,
+  ): { start: number; end: number; prefix: Uint32Array } | null {
+    const leftId = this.calendarIds.get(left);
+    const rightId = this.calendarIds.get(right);
+    if (leftId === undefined || rightId === undefined) return null;
+    const first = leftId <= rightId ? left : right;
+    const second = leftId <= rightId ? right : left;
+    const key =
+      leftId <= rightId ? `${leftId}:${rightId}` : `${rightId}:${leftId}`;
+    const existing = this.pairIndexes.get(key);
+    if (existing) return existing;
+    const firstBound = this.bounds.get(first)!;
+    const secondBound = this.bounds.get(second)!;
+    const start = Math.max(firstBound.start, secondBound.start);
+    const end = Math.min(firstBound.end, secondBound.end);
+    if (start > end) return null;
+    const prefix = new Uint32Array(end - start + 2);
+    for (let ordinal = start; ordinal <= end; ordinal += 1) {
+      this.diagnostics.workingDateEvaluations += 1;
+      const shared =
+        isIndexedWorkingDay(ordinal, first, this.diagnostics) &&
+        isIndexedWorkingDay(ordinal, second, this.diagnostics);
+      const offset = ordinal - start;
+      prefix[offset + 1] = prefix[offset]! + (shared ? 1 : 0);
+    }
+    const index = { start, end, prefix };
+    this.pairIndexes.set(key, index);
+    this.diagnostics.pairIndexBuilds += 1;
+    return index;
+  }
 }
 
 const PORTFOLIO_ROLE_ORDER: ScheduleAssignmentRole[] = [
@@ -756,17 +1050,9 @@ function comparePortfolioAssignments(
   );
 }
 
-function clonePortfolioAssignment(
-  assignment: PortfolioScheduleAssignment,
-): PortfolioScheduleAssignment {
-  return {
-    ...assignment,
-    calendar: cloneAssignmentCalendar(assignment.calendar),
-  };
-}
-
 export function buildPortfolioResourceLanes(
   assignments: readonly PortfolioScheduleAssignment[],
+  diagnostics = createPortfolioOverlapDiagnostics(),
 ): PortfolioResourceLane[] {
   const groups = new Map<
     string,
@@ -794,29 +1080,56 @@ export function buildPortfolioResourceLanes(
       const overlapping = new Set<PortfolioScheduleAssignment>();
       let potentialOverlapCount = 0;
 
-      if (key !== "unassigned") {
+      if (key !== PORTFOLIO_UNASSIGNED_RESOURCE_KEY) {
+        const ranges = new Map<
+          PortfolioScheduleAssignment,
+          PortfolioAssignmentRange
+        >();
+        const bounds = new Map<
+          PortfolioScheduleCalendar,
+          CalendarRangeBound
+        >();
+        for (const assignment of sorted) {
+          const range = portfolioAssignmentRange(assignment);
+          if (!range) continue;
+          ranges.set(assignment, range);
+          const bound = bounds.get(assignment.calendar);
+          if (bound) {
+            bound.start = Math.min(bound.start, range.startOrdinal);
+            bound.end = Math.max(bound.end, range.endOrdinal);
+          } else {
+            bounds.set(assignment.calendar, {
+              start: range.startOrdinal,
+              end: range.endOrdinal,
+            });
+          }
+        }
+        const sharedWorkingDays = new SharedWorkingDayQuery(
+          bounds,
+          diagnostics,
+        );
         const active: Array<{
           assignment: PortfolioScheduleAssignment;
           range: PortfolioAssignmentRange;
         }> = [];
         for (const assignment of sorted) {
-          const range = portfolioAssignmentRange(assignment);
+          const range = ranges.get(assignment);
           if (!range) continue;
           for (let index = active.length - 1; index >= 0; index -= 1) {
-            if (
-              dateOrdinal(active[index]!.range.end) <
-              dateOrdinal(range.start)
-            ) {
+            if (active[index]!.range.endOrdinal < range.startOrdinal) {
               active.splice(index, 1);
             }
           }
           for (const candidate of active) {
             if (
-              rangesSharePortfolioWorkingDay(
-                candidate.assignment,
-                candidate.range,
-                assignment,
-                range,
+              sharedWorkingDays.hasSharedWorkingDay(
+                candidate.assignment.calendar,
+                assignment.calendar,
+                Math.max(
+                  candidate.range.startOrdinal,
+                  range.startOrdinal,
+                ),
+                Math.min(candidate.range.endOrdinal, range.endOrdinal),
               )
             ) {
               potentialOverlapCount += 1;
@@ -833,15 +1146,15 @@ export function buildPortfolioResourceLanes(
         displayName: group.displayName,
         roles: PORTFOLIO_ROLE_ORDER.filter((role) => group.roles.has(role)),
         assignments: sorted.map((assignment) => ({
-          ...clonePortfolioAssignment(assignment),
+          ...assignment,
           hasPotentialOverlap: overlapping.has(assignment),
         })),
         potentialOverlapCount,
       };
     })
     .sort((left, right) => {
-      if (left.key === "unassigned") return 1;
-      if (right.key === "unassigned") return -1;
+      if (left.key === PORTFOLIO_UNASSIGNED_RESOURCE_KEY) return 1;
+      if (right.key === PORTFOLIO_UNASSIGNED_RESOURCE_KEY) return -1;
       return compareLexical(left.key, right.key);
     });
 }
