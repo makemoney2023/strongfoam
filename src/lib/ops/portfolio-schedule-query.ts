@@ -11,6 +11,8 @@ const STATES = [
 ] as const;
 const ATTENTION_VALUES = [
   "all",
+  "overdue-tasks",
+  "unscheduled-active-work",
   "behind-baseline",
   "resource-overlap",
 ] as const;
@@ -152,14 +154,14 @@ export const PORTFOLIO_SCHEDULE_WIDGETS = {
     label: "Overdue tasks",
     href: portfolioScheduleHref({
       projectStatus: "active",
-      state: "overdue",
+      attention: "overdue-tasks",
     }),
   },
   unscheduledActiveWork: {
     label: "Unscheduled active work",
     href: portfolioScheduleHref({
       projectStatus: "active",
-      state: "unscheduled",
+      attention: "unscheduled-active-work",
     }),
   },
   projectsBehindBaseline: {

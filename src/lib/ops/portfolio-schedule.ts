@@ -137,7 +137,12 @@ export type PortfolioProjectionFilter = {
     | "blocked"
     | "overdue"
     | "unscheduled";
-  attention: "all" | "behind-baseline" | "resource-overlap";
+  attention:
+    | "all"
+    | "overdue-tasks"
+    | "unscheduled-active-work"
+    | "behind-baseline"
+    | "resource-overlap";
   from: string | null;
   to: string | null;
   hideCompleted: boolean;
@@ -528,12 +533,20 @@ export function getPortfolioTaskScheduleState(
 ): ScheduleState {
   if (task.status === "done") return "complete";
   const dates = normalizePortfolioScheduleDates(task);
-  const finishValue = dates.plannedEndAt ?? dates.dueAt;
-  const finish = finishValue
-    ? portfolioCalendarDate(finishValue, calendar)
+  const completion = dates.plannedEndAt
+    ? portfolioCalendarDate(dates.plannedEndAt, calendar)
+    : null;
+  const due = dates.dueAt
+    ? portfolioCalendarDate(dates.dueAt, calendar)
     : null;
   const today = nowCalendarDate(now, calendar);
-  if (finish && today && finish < today) return "overdue";
+  if (
+    today &&
+    ((completion !== null && completion < today) ||
+      (due !== null && due < today))
+  ) {
+    return "overdue";
+  }
   if (
     !dates.plannedStartAt &&
     !dates.plannedEndAt &&
@@ -858,6 +871,59 @@ function isCompletePortfolioJob(job: ProjectScheduleJob): boolean {
   return job.status === "complete" || job.status === "closed";
 }
 
+function isPortfolioUnscheduledJob(job: ProjectScheduleJob): boolean {
+  if (isCompletePortfolioJob(job)) return false;
+  const dates = normalizePortfolioScheduleDates(job);
+  return !dates.plannedStartAt && !dates.plannedEndAt;
+}
+
+function isPortfolioUnscheduledTask(task: ProjectScheduleTask): boolean {
+  if (task.status === "done") return false;
+  const dates = normalizePortfolioScheduleDates(task);
+  return !dates.plannedStartAt && !dates.plannedEndAt && !dates.dueAt;
+}
+
+function isPortfolioOverdueTask(
+  task: ProjectScheduleTask,
+  now: Date,
+  calendar: ResolvedWorkingCalendar,
+): boolean {
+  return portfolioTaskState(task, now, calendar) === "overdue";
+}
+
+export function countPortfolioAttentionItems(
+  projects: readonly PortfolioScheduleProject[],
+  attention: PortfolioProjectionFilter["attention"],
+  now = new Date(),
+): number {
+  let count = 0;
+  for (const project of projects) {
+    for (const job of project.jobs) {
+      if (
+        attention === "unscheduled-active-work" &&
+        isPortfolioUnscheduledJob(job)
+      ) {
+        count += 1;
+      }
+      for (const task of job.tasks) {
+        if (
+          attention === "overdue-tasks" &&
+          isPortfolioOverdueTask(task, now, project.calendar)
+        ) {
+          count += 1;
+        }
+        if (
+          attention === "unscheduled-active-work" &&
+          isPortfolioUnscheduledTask(task)
+        ) {
+          count += 1;
+        }
+      }
+    }
+  }
+  return count;
+}
+
 function comparePortfolioScheduleEvents(
   left: PortfolioScheduleEvent,
   right: PortfolioScheduleEvent,
@@ -876,8 +942,16 @@ export function buildPortfolioScheduleSummary(
   now = new Date(),
 ): PortfolioScheduleSummary {
   const projectedProjects = buildPortfolioProjects(data.projects, now);
-  let overdueTasks = 0;
-  let unscheduledActiveWork = 0;
+  const overdueTasks = countPortfolioAttentionItems(
+    projectedProjects,
+    "overdue-tasks",
+    now,
+  );
+  const unscheduledActiveWork = countPortfolioAttentionItems(
+    projectedProjects,
+    "unscheduled-active-work",
+    now,
+  );
   const events: PortfolioScheduleEvent[] = [];
 
   for (const project of projectedProjects) {
@@ -928,13 +1002,6 @@ export function buildPortfolioScheduleSummary(
     for (const job of project.jobs) {
       const jobComplete = isCompletePortfolioJob(job);
       const jobDates = normalizePortfolioScheduleDates(job);
-      if (
-        !jobComplete &&
-        !jobDates.plannedStartAt &&
-        !jobDates.plannedEndAt
-      ) {
-        unscheduledActiveWork += 1;
-      }
       if (!jobComplete) {
         addEvent(
           "job",
@@ -949,30 +1016,6 @@ export function buildPortfolioScheduleSummary(
       for (const task of job.tasks) {
         if (task.status === "done") continue;
         const taskDates = normalizePortfolioScheduleDates(task);
-        if (
-          !taskDates.plannedStartAt &&
-          !taskDates.plannedEndAt &&
-          !taskDates.dueAt
-        ) {
-          unscheduledActiveWork += 1;
-        }
-        if (today) {
-          const completionDate = taskDates.plannedEndAt
-            ? portfolioCalendarDate(
-                taskDates.plannedEndAt,
-                project.calendar,
-              )
-            : null;
-          const dueDate = taskDates.dueAt
-            ? portfolioCalendarDate(taskDates.dueAt, project.calendar)
-            : null;
-          if (
-            (completionDate !== null && completionDate < today) ||
-            (dueDate !== null && dueDate < today)
-          ) {
-            overdueTasks += 1;
-          }
-        }
         addEvent(
           "task",
           task.id,
@@ -994,13 +1037,14 @@ export function buildPortfolioScheduleSummary(
   const partialCounts: PortfolioSchedulePartialCount[] = [];
   const { truncation } = data;
 
-  if (truncation.tasks || truncation.calendarExceptions) {
+  if (truncation.projects || truncation.jobs || truncation.tasks) {
     partialCounts.push("overdueTasks");
   }
-  if (truncation.jobs || truncation.tasks) {
+  if (truncation.projects || truncation.jobs || truncation.tasks) {
     partialCounts.push("unscheduledActiveWork");
   }
   if (
+    truncation.projects ||
     truncation.jobs ||
     truncation.tasks ||
     truncation.baselineItems ||
@@ -1009,6 +1053,7 @@ export function buildPortfolioScheduleSummary(
     partialCounts.push("projectsBehindBaseline");
   }
   if (
+    truncation.projects ||
     truncation.jobs ||
     truncation.tasks ||
     truncation.calendarExceptions
@@ -1723,6 +1768,35 @@ function filterPortfolioJobs(
   });
 }
 
+function filterPortfolioAttentionJobs(
+  jobs: readonly ProjectScheduleJob[],
+  attention: "overdue-tasks" | "unscheduled-active-work",
+  state: PortfolioProjectionFilter["state"],
+  now: Date,
+  calendar: ResolvedWorkingCalendar,
+): ProjectScheduleJob[] {
+  const stateMatches = (candidate: ScheduleState) =>
+    state === "all" || matchesScheduleFilter(candidate, state);
+
+  return jobs.flatMap((job) => {
+    const jobMatches =
+      attention === "unscheduled-active-work" &&
+      isPortfolioUnscheduledJob(job) &&
+      stateMatches(portfolioJobState(job, now, calendar));
+    const tasks = job.tasks.filter((task) => {
+      const matchesAttention =
+        attention === "overdue-tasks"
+          ? isPortfolioOverdueTask(task, now, calendar)
+          : isPortfolioUnscheduledTask(task);
+      return (
+        matchesAttention &&
+        stateMatches(portfolioTaskState(task, now, calendar))
+      );
+    });
+    return jobMatches || tasks.length > 0 ? [cloneJob(job, tasks)] : [];
+  });
+}
+
 export function filterPortfolioProjects(
   projects: readonly ProjectedPortfolioProject[],
   filter: PortfolioProjectionFilter,
@@ -1732,6 +1806,24 @@ export function filterPortfolioProjects(
     if (!intersectsDateRange(project, filter.from, filter.to)) return [];
     if (!matchesAttention(project, filter)) return [];
     if (filter.hideCompleted && project.state === "complete") return [];
+
+    if (
+      filter.attention === "overdue-tasks" ||
+      filter.attention === "unscheduled-active-work"
+    ) {
+      let jobs = filterPortfolioAttentionJobs(
+        project.jobs,
+        filter.attention,
+        filter.state,
+        now,
+        project.calendar,
+      );
+      if (jobs.length === 0) return [];
+      if (filter.hideCompleted) {
+        jobs = hideCompletedScheduleRows(jobs);
+      }
+      return jobs.length > 0 ? [{ ...project, jobs }] : [];
+    }
 
     const projectMatches = matchesScheduleFilter(project.state, filter.state);
     let jobs = filterPortfolioJobs(

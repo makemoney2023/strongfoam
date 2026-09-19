@@ -36,6 +36,7 @@ import {
   buildPortfolioProjects,
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
+  countPortfolioAttentionItems,
   filterPortfolioProjects,
   getPortfolioBaselineState,
   getPortfolioJobScheduleState,
@@ -98,6 +99,8 @@ const STATE_OPTIONS = [
 
 const ATTENTION_OPTIONS = [
   ["all", "All attention states"],
+  ["overdue-tasks", "Overdue tasks"],
+  ["unscheduled-active-work", "Unscheduled active work"],
   ["behind-baseline", "Behind latest baseline"],
   ["resource-overlap", "Potential resource overlap"],
 ] as const;
@@ -1433,6 +1436,15 @@ export function PortfolioSchedule({
   );
   const partial = (value: number, flag: boolean) =>
     `${value}${flag ? " (partial)" : ""}`;
+  const matchingAttentionItems =
+    query.attention === "overdue-tasks" ||
+    query.attention === "unscheduled-active-work"
+      ? countPortfolioAttentionItems(
+          visibleProjects,
+          query.attention,
+          new Date(now),
+        )
+      : null;
   const unscheduled = visibleProjects
     .flatMap((project) => {
       const entries: string[] = [];
@@ -1507,6 +1519,9 @@ export function PortfolioSchedule({
           {partial(totals.jobs, data.truncation.jobs)} jobs ·{" "}
           {partial(totals.tasks, data.truncation.tasks)} tasks
           {data.truncation.tasks ? " · Partial task count" : ""}
+          {matchingAttentionItems === null
+            ? ""
+            : ` · ${matchingAttentionItems} matching attention items`}
         </p>
         {visibleProjects.length > 0 &&
         visibleProjects.every(
