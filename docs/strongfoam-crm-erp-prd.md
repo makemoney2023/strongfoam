@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.5
+**Version:** 1.6
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -609,6 +609,51 @@ must use a configurable working-day calendar. The initial calendar treats
 Saturday and Sunday as non-working and allows authorized managers to add dated
 closures or working-day exceptions. Stored timestamps remain unchanged.
 
+**SCH-022:** Authorized managers must be able to open a dedicated portfolio
+**Schedule** and see every active project in a Project → Job → Job task
+hierarchy. Projects with no jobs or no dates must remain visible.
+
+**SCH-023:** The portfolio Schedule must support shareable URL filters for
+project status, project manager, schedule state, search, Work/Resources view,
+week/month density, visible date anchor, latest-baseline comparison, and hidden
+completed rows. Active projects are the default scope.
+
+**SCH-024:** Portfolio project rows must roll up task progress, earliest
+scheduled start, latest scheduled finish, blocked/overdue/unscheduled counts,
+and latest-baseline finish variance without inventing dates.
+
+**SCH-025:** Critical paths, dependency facts, working-day geometry, and
+baseline variance must remain isolated to each project. The application must
+not present a portfolio-wide critical path or cross-project dependency.
+
+**SCH-026:** The portfolio Schedule is read-only. Schedule edits, dependency
+management, baseline capture/removal, and calendar management must drill into
+the owning project Schedule so authorization, calendar, and optimistic version
+checks remain unambiguous.
+
+**SCH-027:** The portfolio Resources view must group normalized project
+manager, foreman, and task assignee values across projects. It may label a
+**Potential overlap** only when two assignment ranges share a date that both
+projects treat as a working day. It must not infer hours or capacity.
+
+**SCH-028:** Latest-baseline portfolio comparison must independently select the
+most recently captured non-deleted baseline for each project, display its name
+and capture date, and label projects without one as **Not baselined**.
+
+**SCH-029:** The portfolio Schedule must use bounded set-based reads for
+projects, jobs, tasks, dependencies, calendars, exceptions, baseline headers,
+and baseline items. Query count must not grow with project count, and every
+exceeded bound must show a partial-result warning.
+
+**SCH-030:** Home must provide schedule-attention widgets for overdue tasks,
+unscheduled active work, projects behind their latest baseline, and potential
+resource overlaps, plus the next five schedule events within 14 days. Widgets
+must use the same portfolio projection as the full page.
+
+**SCH-031:** Every schedule dashboard widget must link to a matching filtered
+portfolio Schedule. The portfolio chart must have an equivalent table and
+remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
+
 #### 16.1.1 Acceptance outcomes
 
 - A manager can identify completed, remaining, blocked, overdue, and
@@ -627,6 +672,12 @@ closures or working-day exceptions. Stored timestamps remain unchanged.
 - The resource overlay groups existing assignments and flags overlapping work.
 - Calendar exceptions change schedule calculations without rewriting stored
   dates.
+- Active projects roll up into one portfolio Schedule without per-project
+  query loops.
+- Portfolio critical paths, calendars, and baselines remain project-specific.
+- Dashboard schedule widgets agree with and drill into the portfolio Schedule.
+- Cross-project assignment overlaps are labelled as potential conflicts
+  without invented utilization.
 - Week and month views preserve the same records and facts.
 - The tabular alternative communicates the same schedule information as the
   chart.
@@ -1514,11 +1565,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 | 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
 | 2026-09-19 | Deliver the project schedule in validated phases: roll-up, task durations, dependency planning, controlled rescheduling, baselines, assignment overlays, and working-day calendars | Existing dates provide immediate visibility while later phases add planning power without inventing duration, capacity, or silent timeline edits |
+| 2026-09-19 | Add a read-only portfolio Schedule with project-specific planning rules and dashboard exception widgets | Operations managers need cross-project visibility, while mutations must remain project-scoped so calendars, dependencies, baselines, and optimistic versions stay unambiguous |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.6 | 2026-09-19 | Added SCH-022 to SCH-031 for a bounded all-project Schedule, cross-project resource overlaps, latest-baseline roll-up, and dashboard schedule-attention widgets |
 | 1.5 | 2026-09-19 | Expanded the project Schedule scope to include dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendar exceptions |
 | 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
 | 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |
