@@ -7,6 +7,7 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
@@ -29,6 +30,10 @@ describe("db schema exports", () => {
     expect(jobTasks.plannedStartAt).toBeDefined();
     expect(jobTasks.plannedEndAt).toBeDefined();
     expect(jobTasks.completedAt).toBeDefined();
+    expect(jobTaskDependencies).toBeDefined();
+    expect(jobTaskDependencies.predecessorTaskId).toBeDefined();
+    expect(jobTaskDependencies.successorTaskId).toBeDefined();
+    expect(jobTaskDependencies.lagDays).toBeDefined();
     expect(jobDocuments).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
   });

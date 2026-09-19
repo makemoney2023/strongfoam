@@ -238,6 +238,43 @@ export const jobTasks = pgTable(
   ],
 );
 
+export const jobTaskDependencies = pgTable(
+  "job_task_dependencies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    predecessorTaskId: uuid("predecessor_task_id")
+      .notNull()
+      .references(() => jobTasks.id, { onDelete: "cascade" }),
+    successorTaskId: uuid("successor_task_id")
+      .notNull()
+      .references(() => jobTasks.id, { onDelete: "cascade" }),
+    lagDays: integer("lag_days").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    unique("job_task_dependencies_unique").on(
+      table.predecessorTaskId,
+      table.successorTaskId,
+    ),
+    check(
+      "job_task_dependencies_no_self",
+      sql`${table.predecessorTaskId} <> ${table.successorTaskId}`,
+    ),
+    check(
+      "job_task_dependencies_lag_nonnegative",
+      sql`${table.lagDays} >= 0`,
+    ),
+    index("job_task_dependencies_project_idx").on(table.projectId),
+    index("job_task_dependencies_successor_idx").on(table.successorTaskId),
+  ],
+);
+
 export const jobDocuments = pgTable(
   "job_documents",
   {
