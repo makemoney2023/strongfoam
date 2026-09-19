@@ -1089,6 +1089,21 @@ function freezeAssignmentCalendar(
   });
 }
 
+function portfolioAssignmentResource(
+  assignment: ScheduleAssignment,
+  jobsById: ReadonlyMap<string, ProjectScheduleJob>,
+  tasksById: ReadonlyMap<string, ProjectScheduleTask>,
+): string | null {
+  if (assignment.resource) return assignment.resource;
+  if (assignment.entityType === "job" && assignment.role === "Foreman") {
+    return jobsById.get(assignment.entityId)?.foreman ?? null;
+  }
+  if (assignment.entityType === "task" && assignment.role === "Task assignee") {
+    return tasksById.get(assignment.entityId)?.assignee ?? null;
+  }
+  return null;
+}
+
 export function buildPortfolioScheduleAssignments(
   projects: readonly PortfolioScheduleProject[],
 ): PortfolioScheduleAssignment[] {
@@ -1100,8 +1115,14 @@ export function buildPortfolioScheduleAssignments(
     string,
     PortfolioScheduleCalendar
   >();
-  return projects.flatMap((project) =>
-    buildScheduleAssignments(project.jobs).map((assignment) => {
+  return projects.flatMap((project) => {
+    const jobsById = new Map(project.jobs.map((job) => [job.id, job]));
+    const tasksById = new Map(
+      project.jobs.flatMap((job) =>
+        job.tasks.map((task) => [task.id, task] as const),
+      ),
+    );
+    return buildScheduleAssignments(project.jobs).map((assignment) => {
       let frozenCalendar = calendarsBySource.get(project.calendar);
       if (!frozenCalendar) {
         const signature = portfolioCalendarSignature(project.calendar);
@@ -1114,13 +1135,14 @@ export function buildPortfolioScheduleAssignments(
       }
       return {
         ...assignment,
+        resource: portfolioAssignmentResource(assignment, jobsById, tasksById),
         ...normalizePortfolioScheduleDates(assignment),
         projectId: project.id,
         projectName: project.name,
         calendar: frozenCalendar,
       };
-    }),
-  );
+    });
+  });
 }
 
 export const PORTFOLIO_UNASSIGNED_RESOURCE_KEY =

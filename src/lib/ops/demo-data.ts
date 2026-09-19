@@ -4,6 +4,7 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobAssignments,
   jobDocuments,
   jobEvents,
   jobFieldNotes,
@@ -11,13 +12,17 @@ import {
   jobTasks,
   jobs,
   leads,
+  memberships,
   opportunities,
+  organizations,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
   scheduleCalendarExceptions,
   scheduleCalendars,
   sites,
+  userEvents,
+  users,
   workAreas,
 } from "@/db/schema";
 
@@ -25,6 +30,10 @@ export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
+export type OrganizationRow = typeof organizations.$inferSelect;
+export type UserRow = typeof users.$inferSelect;
+export type UserEventRow = typeof userEvents.$inferSelect;
+export type MembershipRow = typeof memberships.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
@@ -32,6 +41,7 @@ export type OpportunityRow = typeof opportunities.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
+export type JobAssignmentRow = typeof jobAssignments.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
@@ -52,9 +62,18 @@ export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
 export const DEMO_SCHEDULE_NOW = "2026-09-19T12:00:00.000Z";
+export const DEMO_ADMIN_USER_ID = "10101010-1010-4010-8010-101010101010";
+export const DEMO_ADMIN_EMAIL = "admin@strongfoam.demo";
+export const DEMO_FIELD_USER_ID = "12121212-1212-4121-8121-121212121212";
+export const DEMO_FIELD_EMAIL = "field@strongfoam.demo";
+export const DEMO_FIELD_PASSWORD = "StrongFoamDemo1!";
+export const DEMO_ADMIN_PASSWORD = DEMO_FIELD_PASSWORD;
+export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 
 const now = new Date(DEMO_SCHEDULE_NOW).getTime();
 const DAY = 24 * 60 * 60 * 1000;
+const demoPasswordHash =
+  "scrypt$7374726f6e67666f616d2d64656d6f$c1a1b8e28f4a619028057bd86bb213c4f3b81464c82ced3681ecadd556c8965d65249cccd9a6ed407823609e5e7f1d12503a0b7a5b0057d9c50105c08a7d49ad";
 
 const DEMO_SECOND_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
 const DEMO_EMPTY_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3";
@@ -68,6 +87,82 @@ const DEMO_SECOND_CALENDAR_ID = "ca000002-0000-4000-8000-000000000002";
 
 function demoDate(dayOffset: number): Date {
   return new Date(now + dayOffset * DAY);
+}
+
+export function demoOrganizations(): OrganizationRow[] {
+  return [
+    {
+      id: DEMO_ORGANIZATION_ID,
+      createdAt: new Date(now - 365 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 365 * 24 * 60 * 60 * 1000),
+      name: "Strong Foam Insulation Inc.",
+      slug: "strong-foam",
+    },
+  ];
+}
+
+export function demoUsers(): UserRow[] {
+  return [
+    {
+      id: DEMO_ADMIN_USER_ID,
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      email: DEMO_ADMIN_EMAIL,
+      displayName: "Demo Administrator",
+      passwordHash: demoPasswordHash,
+      active: true,
+      sessionVersion: 1,
+      createdBy: "system",
+    },
+    {
+      id: DEMO_FIELD_USER_ID,
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      email: DEMO_FIELD_EMAIL,
+      displayName: "Jordan Field",
+      passwordHash: demoPasswordHash,
+      active: true,
+      sessionVersion: 1,
+      createdBy: "demo@strongfoam.ca",
+    },
+  ];
+}
+
+export function demoMemberships(): MembershipRow[] {
+  return [
+    {
+      id: "11111111-1010-4010-8010-101010101010",
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      organizationId: DEMO_ORGANIZATION_ID,
+      userId: DEMO_ADMIN_USER_ID,
+      role: "administrator",
+      active: true,
+    },
+    {
+      id: "13131313-1313-4131-8131-131313131313",
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      organizationId: DEMO_ORGANIZATION_ID,
+      userId: DEMO_FIELD_USER_ID,
+      role: "field_worker",
+      active: true,
+    },
+  ];
+}
+
+export function demoUserEvents(): UserEventRow[] {
+  return [
+    {
+      id: "15151515-1515-4151-8151-151515151515",
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      userId: DEMO_FIELD_USER_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      kind: "user_created",
+      summary: "Jordan Field created as Field worker",
+      payload: { role: "field_worker" },
+    },
+  ];
 }
 
 export function demoEstimateRequests(): EstimateRequestRow[] {
@@ -353,6 +448,19 @@ export function demoJobs(): JobRow[] {
   ];
 }
 
+export function demoJobAssignments(): JobAssignmentRow[] {
+  return [
+    {
+      id: "14141414-1414-4141-8141-141414141414",
+      createdAt: new Date(now - 4 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      userId: DEMO_FIELD_USER_ID,
+      role: "foreman",
+      createdBy: "demo@strongfoam.ca",
+    },
+  ];
+}
+
 export function demoJobEvents(): JobEventRow[] {
   return [
     {
@@ -392,6 +500,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: DEMO_WORK_AREA_ID,
       title: "Prepare podium deck",
       assignee: "Morgan Cole",
+      assigneeUserId: null,
       dueAt: demoDate(-1),
       plannedStartAt: demoDate(2),
       plannedEndAt: demoDate(3),
@@ -406,7 +515,8 @@ export function demoJobTasks(): JobTaskRow[] {
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
       title: "Install closed-cell at podium deck",
-      assignee: "Jamie Brooks",
+      assignee: "Jordan Field",
+      assigneeUserId: DEMO_FIELD_USER_ID,
       dueAt: demoDate(6),
       plannedStartAt: demoDate(4),
       plannedEndAt: demoDate(6),
@@ -422,6 +532,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: DEMO_WORK_AREA_ID,
       title: "Parallel Weekend-only staging",
       assignee: "Morgan Cole",
+      assigneeUserId: null,
       dueAt: demoDate(7),
       plannedStartAt: demoDate(7),
       plannedEndAt: demoDate(7),
@@ -437,6 +548,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Confirm north elevation access",
       assignee: null,
+      assigneeUserId: null,
       dueAt: null,
       plannedStartAt: null,
       plannedEndAt: null,
@@ -452,6 +564,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Submit podium inspection photos",
       assignee: "Jamie Brooks",
+      assigneeUserId: null,
       dueAt: demoDate(8),
       plannedStartAt: null,
       plannedEndAt: null,
@@ -467,6 +580,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Lay out mechanical room",
       assignee: "  morgan   cole ",
+      assigneeUserId: null,
       dueAt: demoDate(-2),
       plannedStartAt: demoDate(3),
       plannedEndAt: demoDate(4),
@@ -482,6 +596,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Apply mechanical room fireproofing",
       assignee: "Casey Wong",
+      assigneeUserId: null,
       dueAt: demoDate(6),
       plannedStartAt: demoDate(5),
       plannedEndAt: demoDate(6),
@@ -497,6 +612,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Parallel Weekend-only material check",
       assignee: "morgan cole",
+      assigneeUserId: null,
       dueAt: demoDate(7),
       plannedStartAt: demoDate(7),
       plannedEndAt: demoDate(7),
@@ -512,6 +628,7 @@ export function demoJobTasks(): JobTaskRow[] {
       workAreaId: null,
       title: "Issue mechanical room QA report",
       assignee: "Casey Wong",
+      assigneeUserId: null,
       dueAt: demoDate(10),
       plannedStartAt: null,
       plannedEndAt: null,
@@ -680,7 +797,7 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       body: "Staging is complete. Start closed-cell at the podium deck after the morning safety talk.",
       quantity: null,
       unit: null,
-      createdBy: "morgan.cole@strongfoam.com",
+      createdBy: DEMO_FIELD_EMAIL,
     },
   ];
 }

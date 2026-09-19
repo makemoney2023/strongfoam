@@ -35,12 +35,14 @@ export type BaselineVariance = {
 export type ScheduleAssignmentRole =
   | "Project manager"
   | "Foreman"
+  | "Technician"
   | "Task assignee";
 
 export type ScheduleAssignment = ScheduleDates & {
   id: string;
   entityId: string;
   resource: string | null;
+  resourceId?: string | null;
   role: ScheduleAssignmentRole;
   entityType: "job" | "task";
   label: string;
@@ -53,12 +55,18 @@ export type ScheduleAssignmentJob = {
   name: string;
   projectManager: string | null;
   foreman: string | null;
+  assignments?: Array<{
+    userId: string;
+    displayName: string;
+    role: "foreman" | "technician";
+  }>;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   tasks: Array<{
     id: string;
     title: string;
     assignee: string | null;
+    assigneeUserId?: string | null;
     plannedStartAt: string | null;
     plannedEndAt: string | null;
     dueAt: string | null;
@@ -222,12 +230,18 @@ export function calculateBaselineVariance(
   };
 }
 
-function normalizeResource(value: string | null): {
+function normalizeResource(
+  value: string | null,
+  resourceId?: string | null,
+): {
   key: string;
   displayName: string;
 } {
   const displayName = value?.trim().replace(/\s+/g, " ") || "Unassigned";
-  return { key: displayName.toLocaleLowerCase(), displayName };
+  return {
+    key: resourceId ? `user:${resourceId}` : displayName.toLocaleLowerCase(),
+    displayName,
+  };
 }
 
 export function buildScheduleAssignments(
@@ -240,32 +254,59 @@ export function buildScheduleAssignments(
       plannedEndAt: job.plannedEndAt,
       dueAt: null,
     };
+    const structuredAssignments = (job.assignments ?? []).map(
+      (assignment) => ({
+        id: `job:${job.id}:field:${assignment.userId}`,
+        entityId: job.id,
+        entityType: "job" as const,
+        resource: assignment.displayName,
+        resourceId: assignment.userId,
+        role:
+          assignment.role === "foreman"
+            ? ("Foreman" as const)
+            : ("Technician" as const),
+        label,
+        href: `/app/jobs/${job.id}`,
+        ...jobDates,
+      }),
+    );
+    const hasStructuredForeman = (job.assignments ?? []).some(
+      (assignment) => assignment.role === "foreman",
+    );
     return [
       {
         id: `job:${job.id}:project-manager`,
         entityId: job.id,
         entityType: "job" as const,
         resource: job.projectManager,
+        resourceId: null,
         role: "Project manager" as const,
         label,
         href: `/app/jobs/${job.id}`,
         ...jobDates,
       },
-      {
-        id: `job:${job.id}:foreman`,
-        entityId: job.id,
-        entityType: "job" as const,
-        resource: job.foreman,
-        role: "Foreman" as const,
-        label,
-        href: `/app/jobs/${job.id}`,
-        ...jobDates,
-      },
+      ...(hasStructuredForeman
+        ? []
+        : [
+            {
+              id: `job:${job.id}:foreman`,
+              entityId: job.id,
+              entityType: "job" as const,
+              resource: null,
+              resourceId: null,
+              role: "Foreman" as const,
+              label,
+              href: `/app/jobs/${job.id}`,
+              ...jobDates,
+            },
+          ]),
+      ...structuredAssignments,
       ...job.tasks.map((task) => ({
         id: `task:${task.id}:assignee`,
         entityId: task.id,
         entityType: "task" as const,
-        resource: task.assignee,
+        resource: task.assigneeUserId ? task.assignee : null,
+        resourceId: task.assigneeUserId ?? null,
         role: "Task assignee" as const,
         label: task.title,
         href: `/app/jobs/${job.id}#task-${task.id}`,
@@ -313,7 +354,10 @@ export function buildResourceLanes(
     }
   >();
   for (const assignment of assignments) {
-    const resource = normalizeResource(assignment.resource);
+    const resource = normalizeResource(
+      assignment.resource,
+      assignment.resourceId,
+    );
     const group = groups.get(resource.key) ?? {
       displayName: resource.displayName,
       roles: new Set<ScheduleAssignmentRole>(),

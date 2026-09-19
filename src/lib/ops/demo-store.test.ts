@@ -26,6 +26,7 @@ import {
   addDemoJobFieldNote,
   addDemoJobTaskDependency,
   addDemoJobTask,
+  addDemoUser,
   addDemoWorkArea,
   captureDemoProjectScheduleBaseline,
   convertDemoOpportunityToProject,
@@ -35,11 +36,15 @@ import {
   deleteDemoWorkArea,
   getDemoCompany,
   getDemoEstimateRequest,
+  getDemoFieldIdentityByEmail,
   getDemoJob,
   getDemoJobDocumentDownload,
   getDemoProject,
   getDemoProjectScheduleBaseline,
+  getDemoUserAssignmentSummary,
+  listDemoUserEvents,
   listDemoJobDocuments,
+  listDemoJobAssignments,
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
@@ -49,22 +54,35 @@ import {
   listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
+  listDemoUsers,
+  canDemoFieldUserAccessJob,
   matchesEstimateRequestFilters,
   removeDemoProjectScheduleBaseline,
   removeDemoScheduleCalendarException,
   rescheduleDemoJobTask,
   resolveDemoProjectScheduleCalendar,
   saveDemoProjectScheduleCalendar,
+  resetDemoUserPassword,
+  revokeDemoUserSessions,
   setDemoJobTaskStatus,
+  setDemoUserActive,
   updateDemoEstimateRequest,
   updateDemoJobFieldNote,
+  updateDemoUser,
   updateDemoWorkArea,
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
   boundedRows,
   listDemoPortfolioSchedule,
 } from "@/lib/ops/demo-store";
-import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
+import {
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_USER_ID,
+  DEMO_FIELD_EMAIL,
+  DEMO_FIELD_USER_ID,
+  DEMO_JOB_ID,
+  DEMO_PROJECT_ID,
+} from "@/lib/ops/demo-data";
 import {
   listPortfolioSchedule,
   type PortfolioScheduleTruncation,
@@ -197,6 +215,7 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
     workAreaId: null,
     title: `Task ${id}`,
     assignee: null,
+    assigneeUserId: null,
     dueAt: null,
     plannedStartAt: null,
     plannedEndAt: null,
@@ -528,6 +547,88 @@ describe("demo ops store", () => {
     ).toBe(true);
   });
 
+  it("routes an assigned job to the stable field identity", () => {
+    expect(getDemoFieldIdentityByEmail(DEMO_FIELD_EMAIL)).toMatchObject({
+      userId: DEMO_FIELD_USER_ID,
+      role: "field_worker",
+      active: true,
+    });
+    expect(listDemoUsers()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: DEMO_FIELD_USER_ID }),
+      ]),
+    );
+    expect(listDemoJobAssignments(DEMO_JOB_ID)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: DEMO_FIELD_USER_ID,
+          role: "foreman",
+        }),
+      ]),
+    );
+    expect(canDemoFieldUserAccessJob(DEMO_FIELD_USER_ID, DEMO_JOB_ID)).toBe(
+      true,
+    );
+    expect(
+      listDemoJobs({ fieldUserId: DEMO_FIELD_USER_ID }).map((job) => job.id),
+    ).toContain(DEMO_JOB_ID);
+  });
+
+  it("manages individual users with revocable sessions and audit events", () => {
+    expect(getDemoFieldIdentityByEmail(DEMO_ADMIN_EMAIL)).toMatchObject({
+      userId: DEMO_ADMIN_USER_ID,
+      role: "administrator",
+      sessionVersion: 1,
+    });
+    const created = addDemoUser({
+      actor: DEMO_ADMIN_EMAIL,
+      displayName: "Office Tester",
+      email: "office.tester@example.com",
+      passwordHash: "hash-one",
+      role: "office",
+    });
+    expect(created).toMatchObject({ role: "office", sessionVersion: 1 });
+    if (!created) return;
+    expect(
+      updateDemoUser({
+        userId: created.userId,
+        actor: DEMO_ADMIN_EMAIL,
+        input: {
+          displayName: "Office Manager",
+          email: "office.manager@example.com",
+          role: "administrator",
+        },
+      }),
+    ).toMatchObject({
+      displayName: "Office Manager",
+      role: "administrator",
+      sessionVersion: 2,
+    });
+    expect(
+      resetDemoUserPassword({
+        userId: created.userId,
+        actor: DEMO_ADMIN_EMAIL,
+        passwordHash: "hash-two",
+      }),
+    ).toMatchObject({ sessionVersion: 3 });
+    expect(
+      revokeDemoUserSessions({
+        userId: created.userId,
+        actor: DEMO_ADMIN_EMAIL,
+      }),
+    ).toMatchObject({ sessionVersion: 4 });
+    expect(
+      setDemoUserActive(created.userId, false, DEMO_ADMIN_EMAIL),
+    ).toMatchObject({ active: false, sessionVersion: 5 });
+    expect(getDemoUserAssignmentSummary(created.userId)).toEqual({
+      jobAssignments: 0,
+      taskAssignments: 0,
+    });
+    expect(
+      listDemoUserEvents().filter((event) => event.userId === created.userId),
+    ).toHaveLength(5);
+  });
+
   it("filters demo requests by search and workflow", () => {
     const [qualified] = demoEstimateRequests();
     expect(
@@ -692,6 +793,7 @@ describe("job workspace", () => {
       input: {
         title: "Tape the AVB laps",
         assignee: "Morgan Cole",
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: null,
         plannedEndAt: null,
@@ -784,6 +886,7 @@ describe("job workspace", () => {
         input: {
           title: "Missing area",
           assignee: null,
+          assigneeUserId: null,
           dueAt: null,
           plannedStartAt: null,
           plannedEndAt: null,
@@ -905,6 +1008,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Predecessor ${crypto.randomUUID()}`,
         assignee: null,
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: new Date("2026-09-19T12:00:00.000Z"),
         plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
@@ -917,6 +1021,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Successor ${crypto.randomUUID()}`,
         assignee: null,
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: new Date("2026-09-22T12:00:00.000Z"),
         plannedEndAt: new Date("2026-09-23T12:00:00.000Z"),
@@ -1002,6 +1107,7 @@ describe("workspace CRUD and filters", () => {
         input: {
           title: `${title} ${crypto.randomUUID()}`,
           assignee: null,
+          assigneeUserId: null,
           dueAt: null,
           plannedStartAt: new Date("2026-09-20T12:00:00.000Z"),
           plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
@@ -1084,6 +1190,7 @@ describe("workspace CRUD and filters", () => {
       input: {
         title: `Schedule test ${crypto.randomUUID()}`,
         assignee: "Morgan Cole",
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt,
         plannedEndAt,
@@ -1313,6 +1420,7 @@ describe("portfolio Schedule store", () => {
         workAreaId: null,
         title: `Bound task ${index + 1}`,
         assignee: null,
+        assigneeUserId: null,
         dueAt: null,
         plannedStartAt: null,
         plannedEndAt: null,
@@ -1339,6 +1447,7 @@ describe("portfolio Schedule store", () => {
       workAreaId: null,
       title: `Dependency task ${index + 1}`,
       assignee: null,
+      assigneeUserId: null,
       dueAt: null,
       plannedStartAt: null,
       plannedEndAt: null,

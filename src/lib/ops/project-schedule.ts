@@ -32,6 +32,7 @@ export type ProjectScheduleTask = {
   updatedAt?: string;
   title: string;
   assignee: string | null;
+  assigneeUserId?: string | null;
   status: "open" | "done";
   dueAt: string | null;
   plannedStartAt: string | null;
@@ -47,6 +48,11 @@ export type ProjectScheduleJob = {
   status: JobStatus;
   projectManager: string | null;
   foreman: string | null;
+  assignments?: Array<{
+    userId: string;
+    displayName: string;
+    role: "foreman" | "technician";
+  }>;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   tasks: ProjectScheduleTask[];

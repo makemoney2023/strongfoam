@@ -13,6 +13,7 @@ import {
   HardHatIcon,
   HouseIcon,
   LogOutIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +37,24 @@ const nav = [
   { title: "Opportunities", href: "/app/opportunities", icon: BriefcaseBusinessIcon },
   { title: "Projects", href: "/app/projects", icon: FolderKanbanIcon },
   { title: "Jobs", href: "/app/jobs", icon: HammerIcon },
-  { title: "Field", href: "/app/field", icon: HardHatIcon },
+  { title: "Field", href: "/field", icon: HardHatIcon },
 ];
 
-export function AppSidebar({ email }: { email: string }) {
+export function AppSidebar({
+  email,
+  canManageUsers,
+}: {
+  email: string;
+  canManageUsers: boolean;
+}) {
   const pathname = usePathname();
+  const items = canManageUsers
+    ? [
+        ...nav.slice(0, -1),
+        { title: "Users", href: "/app/users", icon: UsersRoundIcon },
+        nav.at(-1)!,
+      ]
+    : nav;
 
   return (
     <Sidebar>
@@ -59,7 +73,7 @@ export function AppSidebar({ email }: { email: string }) {
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {nav.map((item) => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     isActive={

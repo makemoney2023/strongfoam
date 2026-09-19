@@ -26,6 +26,7 @@ import { FormDialog } from "@/components/ops/form-dialog";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { RealtimeRefresh } from "@/components/ops/realtime-refresh";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,11 @@ import {
   jobDocumentHref,
 } from "@/lib/ops/job-workspace";
 import {
+  JOB_ASSIGNMENT_ROLES,
+  JOB_ASSIGNMENT_ROLE_LABELS,
+  type JobAssignmentRole,
+} from "@/lib/ops/identity";
+import {
   getCompany,
   getJob,
   getOpportunity,
@@ -74,12 +80,15 @@ import {
   listJobDocuments,
   listJobEvents,
   listJobFieldNotes,
+  listJobAssignments,
   listJobTasks,
+  listActiveFieldUsers,
   listWorkAreas,
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import {
   addJobFieldEntry,
+  assignFieldUserToJob,
   addJobWorkArea,
   addJobWorkspaceTask,
   removeJob,
@@ -94,6 +103,7 @@ import {
   saveJobWorkArea,
   saveJobWorkspaceTask,
   setJobWorkspaceTaskStatus,
+  unassignFieldUserFromJob,
 } from "../actions";
 import { JobFormFields } from "../job-form-fields";
 import {
@@ -152,7 +162,19 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [project, company, site, opportunity, events, areas, tasks, documents, notes] =
+  const [
+    project,
+    company,
+    site,
+    opportunity,
+    events,
+    areas,
+    tasks,
+    documents,
+    notes,
+    assignments,
+    fieldUsers,
+  ] =
     await Promise.all([
       job.projectId ? getProject(job.projectId) : null,
       job.companyId ? getCompany(job.companyId) : null,
@@ -163,11 +185,17 @@ export default async function JobDetailPage({
       listJobTasks(job.id, { status: query.taskStatus, from: query.from, to: query.to }),
       listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
       listJobFieldNotes(job.id, { kind: query.noteKind, from: query.from, to: query.to }),
+      listJobAssignments(job.id),
+      listActiveFieldUsers(),
     ]);
 
   const returnTo = `/app/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
+  const fieldUserOptions = fieldUsers.map((user) => ({
+    id: user.userId,
+    name: user.displayName,
+  }));
   const areaName = (workAreaId: string | null) =>
     areas.find((area) => area.id === workAreaId)?.name;
   const taskTitle = (taskId: string | null) =>
@@ -186,6 +214,7 @@ export default async function JobDetailPage({
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh url={`/api/ops/events?jobId=${job.id}`} />
       <PageHeader
         crumbs={[
           { href: "/app/jobs", label: "Jobs" },
@@ -231,7 +260,7 @@ export default async function JobDetailPage({
               variant="outline"
               className="min-h-11 md:min-h-8"
               nativeButton={false}
-              render={<Link href={`/app/field/jobs/${job.id}`} />}
+              render={<Link href={`/field/jobs/${job.id}`} />}
             >
               Open field view
             </Button>
@@ -437,6 +466,139 @@ export default async function JobDetailPage({
             <CardHeader>
               <div className="flex items-center gap-3">
                 <SectionIcon>
+                  <UsersIcon aria-hidden="true" />
+                </SectionIcon>
+                <div>
+                  <CardTitle>Field assignments</CardTitle>
+                  <CardDescription>
+                    Only assigned field workers can open this job in Field.
+                    Planned dates are shared with their assignment immediately.
+                  </CardDescription>
+                </div>
+              </div>
+              {fieldUserOptions.length > 0 ? (
+                <CardAction>
+                  <FormDialog
+                    triggerLabel="Assign worker"
+                    triggerIcon={<PlusIcon aria-hidden="true" />}
+                    triggerVariant="outline"
+                    title="Assign a field worker"
+                    description="The worker will see this job and its current schedule in Field."
+                  >
+                    <ActionForm
+                      action={assignFieldUserToJob}
+                      className="grid gap-3 sm:grid-cols-2"
+                    >
+                      <input type="hidden" name="jobId" value={job.id} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <div className="space-y-2">
+                        <Label htmlFor="assignment-user">Field worker</Label>
+                        <NativeSelect
+                          id="assignment-user"
+                          name="userId"
+                          className="h-11"
+                          required
+                        >
+                          <option value="">Choose a worker</option>
+                          {fieldUserOptions.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="assignment-role">Role</Label>
+                        <NativeSelect
+                          id="assignment-role"
+                          name="assignmentRole"
+                          className="h-11"
+                          defaultValue="technician"
+                        >
+                          {JOB_ASSIGNMENT_ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {JOB_ASSIGNMENT_ROLE_LABELS[role]}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <SubmitButton
+                          className="min-h-11 w-full sm:w-auto"
+                          pendingLabel="Assigning…"
+                        >
+                          Assign worker
+                        </SubmitButton>
+                      </div>
+                    </ActionForm>
+                  </FormDialog>
+                </CardAction>
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {assignments.length === 0 ? (
+                <EmptyState
+                  icon={<UsersIcon aria-hidden="true" />}
+                  title="No field workers assigned"
+                  description={
+                    fieldUserOptions.length > 0
+                      ? "Assign a worker before moving this job to Scheduled."
+                      : "Create a Field user first, then return here to assign them."
+                  }
+                  action={
+                    fieldUserOptions.length === 0 ? (
+                      <Link
+                        href="/app/users"
+                        className="text-sm font-medium underline underline-offset-4"
+                      >
+                        Manage users
+                      </Link>
+                    ) : null
+                  }
+                />
+              ) : (
+                <ul className="divide-y">
+                  {assignments.map((assignment) => (
+                    <li
+                      key={assignment.id}
+                      className="flex min-h-14 items-center justify-between gap-3 py-3"
+                    >
+                      <div>
+                        <p className="font-medium">{assignment.displayName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {
+                            JOB_ASSIGNMENT_ROLE_LABELS[
+                              assignment.role as JobAssignmentRole
+                            ]
+                          }{" "}
+                          · {assignment.email}
+                          {!assignment.active ? " · Inactive" : ""}
+                        </p>
+                      </div>
+                      <ConfirmForm
+                        action={unassignFieldUserFromJob}
+                        message={`Remove ${assignment.displayName} from this job?`}
+                      >
+                        <input type="hidden" name="jobId" value={job.id} />
+                        <input
+                          type="hidden"
+                          name="assignmentId"
+                          value={assignment.id}
+                        />
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <RowDeleteButton label="Unassign" />
+                      </ConfirmForm>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <SectionIcon>
                   <MapPinnedIcon aria-hidden="true" />
                 </SectionIcon>
                 <div>
@@ -555,7 +717,11 @@ export default async function JobDetailPage({
                 >
                   <ActionForm action={addJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="jobId" value={job.id} />
-                    <TaskFields idPrefix="newTask" areas={areaOptions} />
+                    <TaskFields
+                      idPrefix="newTask"
+                      areas={areaOptions}
+                      fieldUsers={fieldUserOptions}
+                    />
                     <div className="sm:col-span-2">
                       <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto" pendingLabel="Adding task…">
                         Add task
@@ -646,9 +812,11 @@ export default async function JobDetailPage({
                             <TaskFields
                               idPrefix={`task-${task.id}`}
                               areas={areaOptions}
+                              fieldUsers={fieldUserOptions}
                               defaults={{
                                 title: task.title,
                                 assignee: task.assignee,
+                                assigneeUserId: task.assigneeUserId,
                                 dueAt: datetimeLocalValue(task.dueAt),
                                 plannedStartAt: datetimeLocalValue(
                                   task.plannedStartAt,

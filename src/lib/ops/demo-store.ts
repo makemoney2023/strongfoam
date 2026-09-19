@@ -5,19 +5,24 @@ import {
   demoEstimateEvents,
   demoEstimateRequests,
   demoEstimateTasks,
+  demoJobAssignments,
   demoJobDocuments,
   demoJobEvents,
   demoJobFieldNotes,
   demoJobTaskDependencies,
   demoJobTasks,
   demoJobs,
+  demoMemberships,
   demoOpportunities,
+  demoOrganizations,
   demoProjectScheduleBaselineItems,
   demoProjectScheduleBaselines,
   demoProjects,
   demoScheduleCalendarExceptions,
   demoScheduleCalendars,
   demoSites,
+  demoUserEvents,
+  demoUsers,
   demoWorkAreas,
   type CompanyRow,
   type ContactRow,
@@ -25,19 +30,24 @@ import {
   type EstimateRequestEvent,
   type EstimateRequestRow,
   type EstimateRequestTask,
+  type JobAssignmentRow,
   type JobDocumentRow,
   type JobEventRow,
   type JobFieldNoteRow,
   type JobRow,
   type JobTaskDependencyRow,
   type JobTaskRow,
+  type MembershipRow,
   type OpportunityRow,
+  type OrganizationRow,
   type ProjectRow,
   type ProjectScheduleBaselineItemRow,
   type ProjectScheduleBaselineRow,
   type ScheduleCalendarExceptionRow,
   type ScheduleCalendarRow,
   type SiteRow,
+  type UserRow,
+  type UserEventRow,
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
@@ -61,6 +71,15 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
+import {
+  STRONG_FOAM_ORGANIZATION_ID,
+  type JobAssignmentRole,
+  type JobAssignmentView,
+  type MembershipRole,
+  type UserIdentity,
+  type UserListItem,
+  type UserUpdateInput,
+} from "@/lib/ops/identity";
 import {
   validateDependencyAddition,
   validateDependencyDates,
@@ -95,6 +114,10 @@ type DemoOpsState = {
   events: EstimateRequestEvent[];
   tasks: EstimateRequestTask[];
   comments: EstimateRequestComment[];
+  organizations: OrganizationRow[];
+  users: UserRow[];
+  userEvents: UserEventRow[];
+  memberships: MembershipRow[];
   companies: CompanyRow[];
   contacts: ContactRow[];
   sites: SiteRow[];
@@ -102,6 +125,7 @@ type DemoOpsState = {
   projects: ProjectRow[];
   jobsList: JobRow[];
   jobEvents: JobEventRow[];
+  jobAssignments: JobAssignmentRow[];
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
   jobTaskDependencies: JobTaskDependencyRow[];
@@ -125,6 +149,10 @@ function getDemoState(): DemoOpsState {
       events: demoEstimateEvents(),
       tasks: demoEstimateTasks(),
       comments: demoEstimateComments(),
+      organizations: demoOrganizations(),
+      users: demoUsers(),
+      userEvents: demoUserEvents(),
+      memberships: demoMemberships(),
       companies: demoCompanies(),
       contacts: demoContacts(),
       sites: demoSites(),
@@ -132,6 +160,7 @@ function getDemoState(): DemoOpsState {
       projects: demoProjects(),
       jobsList: demoJobs(),
       jobEvents: demoJobEvents(),
+      jobAssignments: demoJobAssignments(),
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
       jobTaskDependencies: demoJobTaskDependencies(),
@@ -144,6 +173,16 @@ function getDemoState(): DemoOpsState {
     };
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
     globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.users) {
+    globalForDemo.__strongfoamDemoOps.organizations = demoOrganizations();
+    globalForDemo.__strongfoamDemoOps.users = demoUsers();
+    globalForDemo.__strongfoamDemoOps.userEvents = demoUserEvents();
+    globalForDemo.__strongfoamDemoOps.memberships = demoMemberships();
+    globalForDemo.__strongfoamDemoOps.jobAssignments = demoJobAssignments();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.userEvents) {
+    globalForDemo.__strongfoamDemoOps.userEvents = demoUserEvents();
   }
   if (!globalForDemo.__strongfoamDemoOps.jobTaskDependencies) {
     globalForDemo.__strongfoamDemoOps.jobTaskDependencies = [];
@@ -162,6 +201,9 @@ const {
   events,
   tasks,
   comments,
+  users,
+  userEvents,
+  memberships,
   companies,
   contacts,
   sites,
@@ -169,6 +211,7 @@ const {
   projects,
   jobsList,
   jobEvents,
+  jobAssignments,
   workAreas,
   jobTasks,
   jobTaskDependencies,
@@ -197,6 +240,412 @@ export function boundedRows<T>(
     rows: rows.slice(0, limit),
     truncated: rows.length > limit,
   };
+}
+
+function demoIdentity(user: UserRow): UserIdentity | null {
+  const membership = memberships.find(
+    (item) =>
+      item.userId === user.id &&
+      item.organizationId === STRONG_FOAM_ORGANIZATION_ID,
+  );
+  if (!membership) return null;
+  return {
+    userId: user.id,
+    organizationId: membership.organizationId,
+    email: user.email,
+    displayName: user.displayName,
+    passwordHash: user.passwordHash,
+    active: user.active,
+    membershipActive: membership.active,
+    role: membership.role as MembershipRole,
+    sessionVersion: user.sessionVersion,
+  };
+}
+
+function recordDemoUserEvent(args: {
+  userId: string;
+  actor: string;
+  kind: string;
+  summary: string;
+  payload?: Record<string, unknown>;
+}) {
+  userEvents.unshift({
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    userId: args.userId,
+    actor: args.actor,
+    kind: args.kind,
+    summary: args.summary,
+    payload: args.payload ?? {},
+  });
+}
+
+export function listDemoUsers(): UserListItem[] {
+  return users
+    .map((user) => {
+      const identity = demoIdentity(user);
+      return identity
+        ? {
+            ...identity,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          }
+        : null;
+    })
+    .filter((user): user is UserListItem => Boolean(user))
+    .sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+export function getDemoFieldIdentityByEmail(
+  email: string,
+): UserIdentity | null {
+  const user = users.find((item) => item.email === email);
+  return user ? demoIdentity(user) : null;
+}
+
+export function getDemoFieldIdentityById(
+  userId: string,
+): UserIdentity | null {
+  const user = users.find((item) => item.id === userId);
+  return user ? demoIdentity(user) : null;
+}
+
+export function listDemoUserEvents(limit = 50): UserEventRow[] {
+  return [...userEvents]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, limit);
+}
+
+export function getDemoUserAssignmentSummary(userId: string): {
+  jobAssignments: number;
+  taskAssignments: number;
+} {
+  return {
+    jobAssignments: jobAssignments.filter(
+      (assignment) => assignment.userId === userId,
+    ).length,
+    taskAssignments: jobTasks.filter((task) => task.assigneeUserId === userId)
+      .length,
+  };
+}
+
+export function countActiveDemoAdministrators(): number {
+  return listDemoUsers().filter(
+    (user) =>
+      user.active &&
+      user.membershipActive &&
+      user.role === "administrator",
+  ).length;
+}
+
+export function addDemoUser(args: {
+  actor: string;
+  displayName: string;
+  email: string;
+  passwordHash: string;
+  role: MembershipRole;
+}): UserListItem | null {
+  if (users.some((user) => user.email === args.email)) return null;
+  const now = new Date();
+  const user: UserRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    email: args.email,
+    displayName: args.displayName,
+    passwordHash: args.passwordHash,
+    active: true,
+    sessionVersion: 1,
+    createdBy: args.actor,
+  };
+  const membership: MembershipRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    organizationId: STRONG_FOAM_ORGANIZATION_ID,
+    userId: user.id,
+    role: args.role,
+    active: true,
+  };
+  users.push(user);
+  memberships.push(membership);
+  recordDemoUserEvent({
+    userId: user.id,
+    actor: args.actor,
+    kind: "user_created",
+    summary: `${user.displayName} created as ${args.role}`,
+    payload: { role: args.role },
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function setDemoUserActive(
+  userId: string,
+  active: boolean,
+  actor = "system",
+): UserListItem | null {
+  const user = users.find((item) => item.id === userId);
+  const membership = memberships.find(
+    (item) =>
+      item.userId === userId &&
+      item.organizationId === STRONG_FOAM_ORGANIZATION_ID,
+  );
+  if (!user || !membership) return null;
+  const now = new Date();
+  user.active = active;
+  user.sessionVersion += 1;
+  user.updatedAt = now;
+  membership.active = active;
+  membership.updatedAt = now;
+  recordDemoUserEvent({
+    userId,
+    actor,
+    kind: active ? "user_activated" : "user_deactivated",
+    summary: `${user.displayName} ${active ? "activated" : "deactivated"}`,
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function updateDemoUser(args: {
+  userId: string;
+  actor: string;
+  input: UserUpdateInput;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  const membership = memberships.find(
+    (item) =>
+      item.userId === args.userId &&
+      item.organizationId === STRONG_FOAM_ORGANIZATION_ID,
+  );
+  if (!user || !membership) return null;
+  if (
+    users.some(
+      (item) => item.id !== args.userId && item.email === args.input.email,
+    )
+  ) {
+    return null;
+  }
+  const previous = {
+    displayName: user.displayName,
+    email: user.email,
+    role: membership.role,
+  };
+  const now = new Date();
+  user.displayName = args.input.displayName;
+  user.email = args.input.email;
+  user.sessionVersion += 1;
+  user.updatedAt = now;
+  membership.role = args.input.role;
+  membership.updatedAt = now;
+  for (const assignment of jobAssignments) {
+    if (assignment.userId !== args.userId || assignment.role !== "foreman") {
+      continue;
+    }
+    const job = jobsList.find((item) => item.id === assignment.jobId);
+    if (job) {
+      job.foreman = user.displayName;
+      job.updatedAt = now;
+    }
+  }
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "user_updated",
+    summary: `${user.displayName} profile or role updated`,
+    payload: {
+      before: previous,
+      after: {
+        displayName: user.displayName,
+        email: user.email,
+        role: membership.role,
+      },
+    },
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function resetDemoUserPassword(args: {
+  userId: string;
+  actor: string;
+  passwordHash: string;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  if (!user || !demoIdentity(user)) return null;
+  user.passwordHash = args.passwordHash;
+  user.sessionVersion += 1;
+  user.updatedAt = new Date();
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "password_reset",
+    summary: `${user.displayName} password reset and sessions revoked`,
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function revokeDemoUserSessions(args: {
+  userId: string;
+  actor: string;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  if (!user || !demoIdentity(user)) return null;
+  user.sessionVersion += 1;
+  user.updatedAt = new Date();
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "sessions_revoked",
+    summary: `${user.displayName} sessions revoked`,
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function listDemoJobAssignments(jobId: string): JobAssignmentView[] {
+  return jobAssignments
+    .filter((assignment) => assignment.jobId === jobId)
+    .flatMap((assignment): JobAssignmentView[] => {
+      const user = users.find((item) => item.id === assignment.userId);
+      if (!user) return [];
+      return [
+        {
+          id: assignment.id,
+          jobId: assignment.jobId,
+          userId: assignment.userId,
+          role: assignment.role as JobAssignmentRole,
+          displayName: user.displayName,
+          email: user.email,
+          active: user.active,
+          createdAt: assignment.createdAt,
+        },
+      ];
+    })
+    .sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+export function addDemoJobAssignment(args: {
+  jobId: string;
+  userId: string;
+  role: JobAssignmentRole;
+  actor: string;
+}): JobAssignmentView | null {
+  const job = getDemoJob(args.jobId);
+  const identity = getDemoFieldIdentityById(args.userId);
+  if (
+    !job ||
+    !identity ||
+    !identity.active ||
+    !identity.membershipActive ||
+    (identity.role !== "field_lead" && identity.role !== "field_worker")
+  ) {
+    return null;
+  }
+  const existing = jobAssignments.find(
+    (assignment) =>
+      assignment.jobId === args.jobId && assignment.userId === args.userId,
+  );
+  if (existing) {
+    existing.role = args.role;
+  } else {
+    jobAssignments.push({
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+      jobId: args.jobId,
+      userId: args.userId,
+      role: args.role,
+      createdBy: args.actor,
+    });
+  }
+  if (args.role === "foreman") job.foreman = identity.displayName;
+  job.updatedAt = new Date();
+  jobEvents.push({
+    id: crypto.randomUUID(),
+    jobId: args.jobId,
+    createdAt: new Date(),
+    actor: args.actor,
+    kind: "job_assigned",
+    summary: `${identity.displayName} assigned as ${args.role}`,
+    payload: { userId: args.userId, role: args.role },
+  });
+  return listDemoJobAssignments(args.jobId).find(
+    (assignment) => assignment.userId === args.userId,
+  ) ?? null;
+}
+
+export function removeDemoJobAssignment(args: {
+  jobId: string;
+  assignmentId: string;
+  actor: string;
+}): JobAssignmentView | null {
+  const index = jobAssignments.findIndex(
+    (assignment) =>
+      assignment.id === args.assignmentId && assignment.jobId === args.jobId,
+  );
+  if (index < 0) return null;
+  const view = listDemoJobAssignments(args.jobId).find(
+    (assignment) => assignment.id === args.assignmentId,
+  );
+  const [removed] = jobAssignments.splice(index, 1);
+  if (!removed || !view) return null;
+  jobEvents.push({
+    id: crypto.randomUUID(),
+    jobId: args.jobId,
+    createdAt: new Date(),
+    actor: args.actor,
+    kind: "job_unassigned",
+    summary: `${view.displayName} removed from job`,
+    payload: { userId: view.userId, role: view.role },
+  });
+  return view;
+}
+
+export function canDemoFieldUserAccessJob(
+  userId: string,
+  jobId: string,
+): boolean {
+  return (
+    jobAssignments.some(
+      (assignment) =>
+        assignment.userId === userId && assignment.jobId === jobId,
+    ) ||
+    jobTasks.some(
+      (task) => task.assigneeUserId === userId && task.jobId === jobId,
+    )
+  );
+}
+
+export function canDemoFieldUserAccessTask(
+  userId: string,
+  jobId: string,
+  taskId: string,
+): boolean {
+  const hasJobAssignment = jobAssignments.some(
+    (assignment) =>
+      assignment.userId === userId && assignment.jobId === jobId,
+  );
+  const task = jobTasks.find(
+    (item) => item.id === taskId && item.jobId === jobId,
+  );
+  return Boolean(task && (hasJobAssignment || task.assigneeUserId === userId));
 }
 
 export function matchesEstimateRequestFilters(
@@ -820,6 +1269,12 @@ export function listDemoJobs(filters: JobListFilters = {}): JobRow[] {
     .filter((job) => {
       if (filters.projectId && job.projectId !== filters.projectId) return false;
       if (filters.companyId && job.companyId !== filters.companyId) return false;
+      if (
+        filters.fieldUserId &&
+        !canDemoFieldUserAccessJob(filters.fieldUserId, job.id)
+      ) {
+        return false;
+      }
       if (filters.status && job.status !== filters.status) return false;
       if (
         !matchesQuery(filters.q, [
@@ -844,6 +1299,21 @@ export function listDemoJobEvents(jobId: string): JobEventRow[] {
   return jobEvents
     .filter((event) => event.jobId === jobId)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function listDemoJobEventsSince(args: {
+  jobIds: string[];
+  after: Date;
+  limit: number;
+}): JobEventRow[] {
+  const allowed = new Set(args.jobIds);
+  return jobEvents
+    .filter(
+      (event) =>
+        allowed.has(event.jobId) && event.createdAt.getTime() > args.after.getTime(),
+    )
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, args.limit);
 }
 
 function recordJobEvent(args: {
@@ -1665,6 +2135,10 @@ export function addDemoJobTask(args: {
   if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
     return null;
   }
+  const assigneeIdentity = args.input.assigneeUserId
+    ? getDemoFieldIdentityById(args.input.assigneeUserId)
+    : null;
+  if (args.input.assigneeUserId && !assigneeIdentity) return null;
   const now = new Date();
   const task: JobTaskRow = {
     id: crypto.randomUUID(),
@@ -1673,7 +2147,8 @@ export function addDemoJobTask(args: {
     jobId: args.jobId,
     workAreaId: args.input.workAreaId,
     title: args.input.title,
-    assignee: args.input.assignee,
+    assignee: assigneeIdentity?.displayName ?? args.input.assignee,
+    assigneeUserId: args.input.assigneeUserId,
     dueAt: args.input.dueAt,
     plannedStartAt: args.input.plannedStartAt,
     plannedEndAt: args.input.plannedEndAt,
@@ -2165,8 +2640,13 @@ export function updateDemoJobTask(args: {
   if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
     return null;
   }
+  const assigneeIdentity = args.input.assigneeUserId
+    ? getDemoFieldIdentityById(args.input.assigneeUserId)
+    : null;
+  if (args.input.assigneeUserId && !assigneeIdentity) return null;
   task.title = args.input.title;
-  task.assignee = args.input.assignee;
+  task.assignee = assigneeIdentity?.displayName ?? args.input.assignee;
+  task.assigneeUserId = args.input.assigneeUserId;
   task.dueAt = args.input.dueAt;
   task.plannedStartAt = args.input.plannedStartAt;
   task.plannedEndAt = args.input.plannedEndAt;

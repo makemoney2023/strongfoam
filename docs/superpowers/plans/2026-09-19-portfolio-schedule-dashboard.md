@@ -12,7 +12,7 @@
 
 ## Source requirements
 
-- PRD: `docs/strongfoam-crm-erp-prd.md`, SCH-022 through SCH-031.
+- PRD: `docs/strongfoam-crm-erp-prd.md`, SCH-023 through SCH-032.
 - Design: `docs/superpowers/specs/2026-09-19-portfolio-schedule-dashboard-design.md`.
 - Existing project Schedule:
   - `src/lib/ops/project-schedule.ts`
@@ -608,7 +608,7 @@ selected project IDs are known. Do not call `listJobs`,
 The default-calendar resolver depends on the schema/migration invariant that
 at most one row is default. Keep the Drizzle partial unique index
 `schedule_calendars_single_default_idx` and migration
-`0009_schedule_calendar_default.sql` aligned.
+`0011_schedule_calendar_default.sql` aligned.
 
 - [ ] **Step 5: Add explicit bound tests**
 
@@ -1312,7 +1312,7 @@ Add portfolio Schedule dashboard attention.
 
 ---
 
-### Task 8: Complete full verification and SCH-022–SCH-031 traceability
+### Task 8: Complete full verification and SCH-023–SCH-032 traceability
 
 **Files:**
 - Modify only if implementation behavior changed:
@@ -1430,16 +1430,16 @@ Map:
 
 | Requirement | Required evidence |
 |---|---|
-| SCH-022 | Active project hierarchy browser check |
-| SCH-023 | URL parser tests and control browser check |
-| SCH-024 | Project roll-up unit tests and row/table check |
-| SCH-025 | Per-project graph/calendar/baseline tests |
-| SCH-026 | Read-only UI and project drill-through |
-| SCH-027 | Cross-calendar resource tests and Resources browser check |
-| SCH-028 | Latest baseline store/domain tests |
-| SCH-029 | Store bounds/scoping tests and truncation Alerts |
-| SCH-030 | Summary tests and Home widgets |
-| SCH-031 | Count-to-link tests, table parity, keyboard, and 375px checks |
+| SCH-023 | Active project hierarchy browser check |
+| SCH-024 | URL parser tests and control browser check |
+| SCH-025 | Project roll-up unit tests and row/table check |
+| SCH-026 | Per-project graph/calendar/baseline tests |
+| SCH-027 | Read-only UI and project drill-through |
+| SCH-028 | Cross-calendar resource tests and Resources browser check |
+| SCH-029 | Latest baseline store/domain tests |
+| SCH-030 | Store bounds/scoping tests and truncation Alerts |
+| SCH-031 | Summary tests and Home widgets |
+| SCH-032 | Count-to-link tests, table parity, keyboard, and 375px checks |
 
 If implementation differs materially, update the PRD decision/change log and
 the design specification before committing. Do not silently change behavior
@@ -1457,7 +1457,7 @@ Finalize portfolio Schedule acceptance coverage.
 
 Push the implementation branch and include:
 
-- SCH-022 through SCH-031 mapping.
+- SCH-023 through SCH-032 mapping.
 - Bounded query limits.
 - Full verification commands and results.
 - Desktop/mobile screenshots and recording.

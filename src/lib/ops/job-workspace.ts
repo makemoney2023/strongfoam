@@ -42,6 +42,7 @@ export type WorkAreaInput = {
 export type JobTaskInput = {
   title: string;
   assignee: string | null;
+  assigneeUserId: string | null;
   dueAt: Date | null;
   plannedStartAt: Date | null;
   plannedEndAt: Date | null;
@@ -162,6 +163,7 @@ export function parseWorkAreaInput(input: {
 export function parseJobTaskInput(input: {
   title?: string;
   assignee?: string;
+  assigneeUserId?: string;
   dueAt?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
@@ -188,6 +190,14 @@ export function parseJobTaskInput(input: {
       ok: false,
       error: `Assignee names must be ${MAX_SHORT_TEXT_LENGTH} characters or fewer.`,
       field: "assignee",
+    };
+  }
+  const assigneeUserId = input.assigneeUserId?.trim() || null;
+  if (assigneeUserId && !isUuid(assigneeUserId)) {
+    return {
+      ok: false,
+      error: "Choose a valid field worker.",
+      field: "assigneeUserId",
     };
   }
   const plannedStartAt = input.plannedStartAt
@@ -229,6 +239,7 @@ export function parseJobTaskInput(input: {
     ok: true,
     value: {
       ...parsed.value,
+      assigneeUserId,
       plannedStartAt,
       plannedEndAt,
       workAreaId,
@@ -372,6 +383,13 @@ export function sortJobTaskRows<
 
 export function jobDocumentHref(jobId: string, documentId: string): string {
   return `/api/ops/jobs/${jobId}/documents/${documentId}`;
+}
+
+export function fieldJobDocumentHref(
+  jobId: string,
+  documentId: string,
+): string {
+  return `/api/field/jobs/${jobId}/documents/${documentId}`;
 }
 
 export function formatFileSize(bytes: number): string {

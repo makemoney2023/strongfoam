@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.6
+**Version:** 1.8
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -66,8 +66,16 @@ created, edited, and deleted from the app, and each list filters by status,
 type, and date range. Staff land on a Home dashboard after sign-in; creation
 happens behind labelled buttons, detail pages read first and edit in dialogs,
 and deletes are confirmed. The staff workspace uses shadcn/ui.
-The application does not yet provide full organization RBAC, crews, document
-markup, offline sync, transcription, scheduling, or financial workflows.
+The application now includes a project Schedule with job/task roll-up,
+dependencies, critical path, controlled rescheduling, baselines, resource
+lanes, and working calendars. Office staff can create individual application
+users and assign active field identities to jobs and tasks. Field has a
+separate login and application shell, and server authorization limits its job
+list and mutations to those assignments. Job events drive automatic two-way
+screen refreshes for online office and field sessions. The target
+Supabase/Render deployment split, full permission matrix, crews, durable
+offline sync, document markup, transcription, and financial workflows remain
+to be completed.
 
 ## 4. Product vision
 
@@ -159,6 +167,78 @@ These may be reconsidered after the core data and operating workflows are stable
 
 Users may hold multiple roles. Authorization must be based on organization
 membership and explicit permissions rather than UI visibility alone.
+
+### 8.1 Identity and application boundaries
+
+**IAM-001:** The Field product must be a separate application surface with its
+own login, mobile shell, session cookie, navigation, and deployment boundary.
+It must not expose office CRM navigation or rely on the office session.
+
+**IAM-002:** An authorized office administrator must create, activate, and
+deactivate users from the main application. Field must not provide public
+self-registration.
+
+**IAM-003:** One person must have one stable user identity. Memberships attach
+that identity to an organization and role; job and task assignments reference
+the stable user ID rather than a free-text name or email.
+
+**IAM-004:** Deactivating either the user or membership must prevent the next
+Field request and realtime connection from accessing internal records while
+retaining attributable history.
+
+**IAM-005:** Field authorization must be enforced on every read, mutation,
+upload, download, and realtime subscription. Knowing a job, task, document, or
+event identifier must not grant access.
+
+**IAM-006:** The initial single-company launch may use one seeded organization,
+but identity, membership, assignment, API, and event contracts must remain
+organization-scoped so multi-organization support does not require replacing
+identity keys.
+
+### 8.2 User administration
+
+**IAM-007:** Office staff must sign in with individual user credentials tied to
+the same stable identity and organization membership used by Field. The
+environment-configured shared Office credential may remain only as a documented
+bootstrap and migration fallback, and must not override a database-backed
+account with the same email.
+
+**IAM-008:** Only an active administrator may open user administration or
+create, edit, activate, deactivate, reset credentials for, or revoke sessions
+from another user. Navigation visibility is not an authorization control.
+
+**IAM-009:** User administration must let an administrator create a user, edit
+their display name and email, assign an organization role, activate or
+deactivate their identity and membership, set a temporary password, reset a
+password, and revoke all active sessions.
+
+**IAM-010:** Changes to a user's email, organization role, password, or active
+state must invalidate previously issued Office and Field sessions no later than
+the next authenticated request. Session tokens must be signed, time-limited,
+and checked against current identity and membership state.
+
+**IAM-011:** The system must prevent an administrator from deactivating their
+own account and must preserve at least one active administrator. A field user
+with current job or task assignments may not be changed to an Office-only role
+until those assignments are resolved.
+
+**IAM-012:** Every user lifecycle command must record the target user, actor,
+event type, timestamp, and a human-readable summary. Passwords and password
+hashes must never appear in audit payloads.
+
+**IAM-013:** The user list must show name, email, organization role, access
+state, assignment counts, creation date, last update, and actions appropriate
+to the current administrator. It must also expose recent user-management
+activity.
+
+**IAM-014:** Password entry and reset must enforce the current password policy,
+store only a slow password hash, and communicate temporary passwords through an
+approved private channel. Public self-registration and password disclosure are
+not permitted.
+
+**IAM-015:** The future Supabase Auth migration must preserve stable application
+user IDs, memberships, assignment references, audit history, administrator
+authorization, and immediate deactivation/session-revocation behavior.
 
 ## 9. Core lifecycle
 
@@ -316,6 +396,22 @@ blockers.
 **FLD-004:** Draft notes, annotations, and media upload intents must survive
 temporary connectivity loss. The interface must visibly distinguish pending,
 synced, and failed items.
+
+**FLD-005:** A field user's landing page must contain only jobs for which that
+stable user ID has a current job assignment or task assignment. Office-only
+free-text project-manager, foreman, or assignee labels must not grant access.
+
+**FLD-006:** Assigning a user to a job must make the job and its current
+schedule available to that user without a second data-entry step. Removing the
+last permitted assignment must remove access without deleting job history.
+
+**FLD-007:** A task assigned to a field user must route to that same user's
+Field workspace. A job-level assignment grants access to the job's task list;
+a task-only assignment grants access to the job context and that assigned task.
+
+**FLD-008:** Field users may complete permitted tasks and create field evidence,
+but they must not delete office-authored task definitions or gain office access
+through the Field application.
 
 ## 12. Release 3: Plans and blueprint annotation
 
@@ -599,58 +695,66 @@ start variance, finish variance, and newly scheduled or removed items without
 changing the immutable baseline.
 
 **SCH-020:** Managers must be able to switch to a resource overlay grouped by
-the existing job project manager/foreman and task assignee values. Concurrent
-assignments for the same normalized person must be highlighted as potential
-conflicts; the overlay does not infer hours or capacity that the system does
-not store.
+stable assigned user identity for field foremen, technicians, and task
+assignees. Project-manager labels may remain informational until office
+identity migration is complete. Legacy free-text field labels must appear as
+unassigned rather than being treated as a real worker. Concurrent assignments
+for the same user ID must be highlighted as potential conflicts; the overlay
+does not infer hours or capacity that the system does not store.
 
 **SCH-021:** Schedule geometry, critical path, dependency lag, and rescheduling
 must use a configurable working-day calendar. The initial calendar treats
 Saturday and Sunday as non-working and allows authorized managers to add dated
 closures or working-day exceptions. Stored timestamps remain unchanged.
 
-**SCH-022:** Authorized managers must be able to open a dedicated portfolio
+**SCH-022:** Job and task bars must use the same stable assignment records that
+authorize Field. When an authorized manager assigns, unassigns, schedules, or
+reschedules work, the affected worker's Field application must receive the
+change through the realtime event path. The Schedule must not imply that a
+free-text name can sign in or receive the job.
+
+**SCH-023:** Authorized managers must be able to open a dedicated portfolio
 **Schedule** and see every active project in a Project → Job → Job task
 hierarchy. Projects with no jobs or no dates must remain visible.
 
-**SCH-023:** The portfolio Schedule must support shareable URL filters for
+**SCH-024:** The portfolio Schedule must support shareable URL filters for
 project status, project manager, schedule state, search, Work/Resources view,
 week/month density, visible date anchor, latest-baseline comparison, and hidden
 completed rows. Active projects are the default scope.
 
-**SCH-024:** Portfolio project rows must roll up task progress, earliest
+**SCH-025:** Portfolio project rows must roll up task progress, earliest
 scheduled start, latest scheduled finish, blocked/overdue/unscheduled counts,
 and latest-baseline finish variance without inventing dates.
 
-**SCH-025:** Critical paths, dependency facts, working-day geometry, and
+**SCH-026:** Critical paths, dependency facts, working-day geometry, and
 baseline variance must remain isolated to each project. The application must
 not present a portfolio-wide critical path or cross-project dependency.
 
-**SCH-026:** The portfolio Schedule is read-only. Schedule edits, dependency
+**SCH-027:** The portfolio Schedule is read-only. Schedule edits, dependency
 management, baseline capture/removal, and calendar management must drill into
 the owning project Schedule so authorization, calendar, and optimistic version
 checks remain unambiguous.
 
-**SCH-027:** The portfolio Resources view must group normalized project
+**SCH-028:** The portfolio Resources view must group normalized project
 manager, foreman, and task assignee values across projects. It may label a
 **Potential overlap** only when two assignment ranges share a date that both
 projects treat as a working day. It must not infer hours or capacity.
 
-**SCH-028:** Latest-baseline portfolio comparison must independently select the
+**SCH-029:** Latest-baseline portfolio comparison must independently select the
 most recently captured non-deleted baseline for each project, display its name
 and capture date, and label projects without one as **Not baselined**.
 
-**SCH-029:** The portfolio Schedule must use bounded set-based reads for
+**SCH-030:** The portfolio Schedule must use bounded set-based reads for
 projects, jobs, tasks, dependencies, calendars, exceptions, baseline headers,
 and baseline items. Query count must not grow with project count, and every
 exceeded bound must show a partial-result warning.
 
-**SCH-030:** Home must provide schedule-attention widgets for overdue tasks,
+**SCH-031:** Home must provide schedule-attention widgets for overdue tasks,
 unscheduled active work, projects behind their latest baseline, and potential
 resource overlaps, plus the next five schedule events within 14 days. Widgets
 must use the same portfolio projection as the full page.
 
-**SCH-031:** Every schedule dashboard widget must link to a matching filtered
+**SCH-032:** Every schedule dashboard widget must link to a matching filtered
 portfolio Schedule. The portfolio chart must have an equivalent table and
 remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
 
@@ -670,6 +774,8 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
   saves after server validation.
 - A captured baseline remains immutable and displays current date variance.
 - The resource overlay groups existing assignments and flags overlapping work.
+- A scheduled bar assigned to a stable user appears for that exact Field user,
+  while an unassigned or legacy-labelled bar grants no Field access.
 - Calendar exceptions change schedule calculations without rewriting stored
   dates.
 - Active projects roll up into one portfolio Schedule without per-project
@@ -781,6 +887,37 @@ status definitions.
 - Business events must be distinct from delivery attempts.
 - The activity timeline must distinguish human actions, system actions,
   integration actions, and field submissions.
+
+### 20.1 Office and Field realtime contract
+
+**RT-001:** Office and Field communicate through authoritative domain commands
+and a versioned event stream. The applications must not call each other
+directly or maintain separate writable job databases.
+
+**RT-002:** Office-to-Field events include assignment, unassignment, schedule,
+job status, scope, task, plan, and blocker-resolution changes. Field-to-Office
+events include task completion, notes, quantities, blockers, material requests,
+daily reports, photos, and later annotations and transcripts.
+
+**RT-003:** An online client must reflect an authorized job event without a
+manual browser refresh. Reconnect must load current authoritative state and
+resume from a durable cursor or equivalent catch-up boundary.
+
+**RT-004:** Realtime delivery may be at least once. Every event requires a
+unique ID, organization and record scope, schema version, actor, timestamp, and
+entity revision where updates may conflict. Clients must deduplicate; commands
+must use idempotency and optimistic concurrency where retries could duplicate
+effects.
+
+**RT-005:** Subscription authorization must be rechecked independently of page
+visibility. Field users may subscribe only to their assignment channel and jobs
+currently permitted by IAM-005. Deactivation or unassignment must end access on
+the next authorization check or reconnect.
+
+**RT-006:** The current bounded server-sent event stream may provide the first
+online implementation over durable `job_events`. Production migration must
+move publication to the Render API/worker transactional outbox and private
+Supabase Realtime channels without changing the event semantics.
 
 ## 21. Data model direction
 
@@ -1465,6 +1602,20 @@ policy and human review.
 9. Add a configurable working-day calendar and apply it consistently to
    geometry, critical path, lag, and rescheduling.
 
+### User administration
+
+1. Replace the shared Office credential with individual database-backed
+   administrator and Office identities while retaining a non-overriding
+   bootstrap fallback.
+2. Enforce administrator authorization on the user page and every lifecycle
+   command.
+3. Add profile and role editing, activation, deactivation, password reset, and
+   explicit session revocation.
+4. Add session-version checks to Office and Field cookies so credential and
+   access changes invalidate existing sessions.
+5. Record and display append-only user lifecycle events.
+6. Preserve these contracts when identity moves to Supabase Auth and RLS.
+
 ### Usability pass
 
 1. Full create, edit, and delete coverage plus status, type, and date filters
@@ -1528,7 +1679,8 @@ operational monitoring, and user acceptance criteria.
 
 These decisions are required before their respective implementation stage:
 
-1. Single-company launch versus opening multi-organization onboarding.
+1. Timing and policy for opening multi-organization onboarding after the
+   single-company launch.
 2. Final staff roles, MFA rules, and permission matrix.
 3. Annotation library and marked-up PDF export approach.
 4. Speech-to-text provider, supported languages, consent, and audio retention.
@@ -1565,13 +1717,20 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 | 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
 | 2026-09-19 | Deliver the project schedule in validated phases: roll-up, task durations, dependency planning, controlled rescheduling, baselines, assignment overlays, and working-day calendars | Existing dates provide immediate visibility while later phases add planning power without inventing duration, capacity, or silent timeline edits |
+| 2026-09-19 | Make Field a separate application surface and login whose users are provisioned in the main application | Field workers need a focused mobile product, while office administrators remain accountable for identity lifecycle and access |
+| 2026-09-19 | Use stable user IDs for job/task assignment, Field authorization, and Schedule resource lanes | Free-text names cannot reliably route work, revoke access, distinguish duplicate names, or prove which worker received a schedule |
+| 2026-09-19 | Exchange online Office and Field changes through authoritative commands plus a durable job-event stream | Both applications need low-latency updates without dual-write databases or direct application-to-application coupling |
+| 2026-09-19 | Use bounded server-sent event polling as the first realtime transport, preserving the event contract for the Render/outbox/Supabase migration | It delivers cross-session updates on the current stack while keeping the production topology and durable catch-up path explicit |
+| 2026-09-19 | Use the shared users and memberships model for individual Office and Field authentication, with administrator-only lifecycle controls and revocable sessions | A user record that cannot authenticate consistently or be revoked immediately is not an authoritative identity; a temporary environment login remains only for bootstrap migration |
 | 2026-09-19 | Add a read-only portfolio Schedule with project-specific planning rules and dashboard exception widgets | Operations managers need cross-project visibility, while mutations must remain project-scoped so calendars, dependencies, baselines, and optimistic versions stay unambiguous |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
-| 1.6 | 2026-09-19 | Added SCH-022 to SCH-031 for a bounded all-project Schedule, cross-project resource overlaps, latest-baseline roll-up, and dashboard schedule-attention widgets |
+| 1.8 | 2026-09-19 | Added SCH-023 to SCH-032 for a bounded all-project Schedule, cross-project resource overlaps, latest-baseline roll-up, and dashboard schedule-attention widgets. Field assignment remains SCH-022. |
+| 1.7 | 2026-09-19 | Expanded user administration requirements for individual Office authentication, administrator RBAC, lifecycle editing, credential reset, session revocation, lockout safeguards, and audit history |
+| 1.6 | 2026-09-19 | Defined separate Field identity/application boundaries, stable assignment routing from Schedule to Field, and the two-way realtime contract; recorded the initial implementation state |
 | 1.5 | 2026-09-19 | Expanded the project Schedule scope to include dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendar exceptions |
 | 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
 | 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |

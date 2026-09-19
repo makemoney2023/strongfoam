@@ -2,7 +2,11 @@ import { getOpsSession } from "@/lib/ops/auth";
 import { getJobDocumentDownload } from "@/lib/ops/store";
 
 export type JobDocumentGetDeps = {
-  getSession: () => Promise<{ email: string } | null>;
+  getSession: () => Promise<{ email: string; userId?: string } | null>;
+  canAccessJob?: (
+    session: { email: string; userId?: string },
+    jobId: string,
+  ) => Promise<boolean>;
   getDocument: (
     jobId: string,
     documentId: string,
@@ -22,6 +26,12 @@ export async function handleJobDocumentGet(
   const session = await deps.getSession();
   if (!session) {
     return new Response(null, { status: 401 });
+  }
+  if (
+    deps.canAccessJob &&
+    !(await deps.canAccessJob(session, params.jobId))
+  ) {
+    return new Response(null, { status: 404 });
   }
 
   const document = await deps.getDocument(params.jobId, params.documentId);

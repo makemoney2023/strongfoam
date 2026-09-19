@@ -3,7 +3,7 @@
 **Date:** 2026-09-19  
 **Product:** Strong Foam Operations Platform  
 **Status:** Approved, implementation-ready  
-**PRD requirements:** SCH-022 through SCH-031  
+**PRD requirements:** SCH-023 through SCH-032  
 **Primary surface:** `/app/projects/schedule`
 
 ## Executive summary
@@ -267,7 +267,7 @@ and disables misleading aggregate counts for the truncated entity type.
 
 The schema and migration enforce at most one default calendar with the partial
 unique index `schedule_calendars_single_default_idx` on `is_default WHERE
-is_default`. Migration `0009_schedule_calendar_default.sql` locks the table,
+is_default`. Migration `0011_schedule_calendar_default.sql` locks the table,
 deterministically retains the oldest default, and clears additional defaults
 before creating the index.
 
@@ -430,16 +430,16 @@ evidence remains pending for the separate computer-use acceptance pass.
 
 | Requirement | Implemented source | Automated evidence | Pending browser check |
 |---|---|---|---|
-| SCH-022 | `src/app/app/projects/schedule/page.tsx`; `src/components/ops/portfolio-schedule.tsx`; `src/lib/ops/demo-data.ts` | Route auth/default parsing is statically asserted; the focused demo-seed test asserts three active projects, one closed project, a no-job project, and undated work | Rendered default active hierarchy; closed inclusion; no-job and undated-row visibility |
-| SCH-023 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx` | Parser/canonical-href tests assert every enum/date default and control query preservation; component tests assert optimistic query composition | Interact with every control and confirm the displayed URL/history behavior |
-| SCH-024 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx`; `src/lib/ops/ops-now.ts` | Domain tests assert state precedence, ranges, progress, warnings, and signed variance; clock tests assert shared demo time and production wall time | Rendered progress, ranges, warnings, and signed variance labels |
-| SCH-025 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx` | Domain tests assert project-isolated critical paths/calendars/baselines and partial-critical behavior; the seed test asserts critical chains and noncritical parallel tasks in two projects | Independent critical labels, row shading, and baseline values in both projects |
-| SCH-026 | `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | Component markup asserts exact project, project-Schedule anchor, job, and task hrefs; no portfolio mutation action is implemented | Read-only interaction review and successful project Schedule drill-through |
-| SCH-027 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-resource-schedule.tsx` | Cross-calendar tests assert normalized grouping, shared-working-day overlap, weekend-only exclusion, pair counts, and 9,000-assignment behavior; the seed test asserts both overlap cases | Rendered normalized lane, overlap labels, weekend exclusion, and chart/table parity |
-| SCH-028 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/lib/ops/portfolio-schedule.ts` | Store tests assert deterministic latest non-deleted selection; domain/seed tests assert positive, negative, and missing baseline states | Independent baseline names/dates and rendered **Not baselined** state |
-| SCH-029 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/components/ops/portfolio-schedule.tsx` | Demo integration tests independently exceed and assert only the projects 250, jobs 2,000, tasks 5,000, dependencies 10,000, calendar exceptions 5,000, and baseline items 5,000 caps; component tests assert partial rendering | Normal demo has no alerts; manually inspect forced truncation alerts if a browser fixture is supplied |
-| SCH-030 | `src/app/app/page.tsx`; `src/lib/ops/portfolio-schedule.ts`; `src/lib/ops/ops-now.ts`; `src/lib/ops/demo-data.ts` | Summary tests assert counts, event ordering/cap, and exact project/task event hrefs; Home source tests assert all four canonical widget href bindings and `event.href`; clock tests assert both summaries share one instant | Four rendered widget counts, five-row event cap, and each drill-through destination |
-| SCH-031 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | Query tests assert exact widget URLs; component tests assert exact source hrefs/anchors, 200-row pagination, conditional table mounting, row parity, and partial-total wording | Widget count parity; keyboard/focus behavior; rendered table parity; contained 375px scrolling and 44px targets |
+| SCH-023 | `src/app/app/projects/schedule/page.tsx`; `src/components/ops/portfolio-schedule.tsx`; `src/lib/ops/demo-data.ts` | Route auth/default parsing is statically asserted; the focused demo-seed test asserts three active projects, one closed project, a no-job project, and undated work | Rendered default active hierarchy; closed inclusion; no-job and undated-row visibility |
+| SCH-024 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx` | Parser/canonical-href tests assert every enum/date default and control query preservation; component tests assert optimistic query composition | Interact with every control and confirm the displayed URL/history behavior |
+| SCH-025 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx`; `src/lib/ops/ops-now.ts` | Domain tests assert state precedence, ranges, progress, warnings, and signed variance; clock tests assert shared demo time and production wall time | Rendered progress, ranges, warnings, and signed variance labels |
+| SCH-026 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx` | Domain tests assert project-isolated critical paths/calendars/baselines and partial-critical behavior; the seed test asserts critical chains and noncritical parallel tasks in two projects | Independent critical labels, row shading, and baseline values in both projects |
+| SCH-027 | `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | Component markup asserts exact project, project-Schedule anchor, job, and task hrefs; no portfolio mutation action is implemented | Read-only interaction review and successful project Schedule drill-through |
+| SCH-028 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-resource-schedule.tsx` | Cross-calendar tests assert normalized grouping, shared-working-day overlap, weekend-only exclusion, pair counts, and 9,000-assignment behavior; the seed test asserts both overlap cases | Rendered normalized lane, overlap labels, weekend exclusion, and chart/table parity |
+| SCH-029 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/lib/ops/portfolio-schedule.ts` | Store tests assert deterministic latest non-deleted selection; domain/seed tests assert positive, negative, and missing baseline states | Independent baseline names/dates and rendered **Not baselined** state |
+| SCH-030 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/components/ops/portfolio-schedule.tsx` | Demo integration tests independently exceed and assert only the projects 250, jobs 2,000, tasks 5,000, dependencies 10,000, calendar exceptions 5,000, and baseline items 5,000 caps; component tests assert partial rendering | Normal demo has no alerts; manually inspect forced truncation alerts if a browser fixture is supplied |
+| SCH-031 | `src/app/app/page.tsx`; `src/lib/ops/portfolio-schedule.ts`; `src/lib/ops/ops-now.ts`; `src/lib/ops/demo-data.ts` | Summary tests assert counts, event ordering/cap, and exact project/task event hrefs; Home source tests assert all four canonical widget href bindings and `event.href`; clock tests assert both summaries share one instant | Four rendered widget counts, five-row event cap, and each drill-through destination |
+| SCH-032 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | Query tests assert exact widget URLs; component tests assert exact source hrefs/anchors, 200-row pagination, conditional table mounting, row parity, and partial-total wording | Widget count parity; keyboard/focus behavior; rendered table parity; contained 375px scrolling and 44px targets |
 
 ## Risks and mitigations
 

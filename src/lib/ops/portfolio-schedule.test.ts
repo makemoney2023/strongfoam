@@ -169,6 +169,7 @@ function rawTask(
     workAreaId: null,
     title: "Task one",
     assignee: null,
+    assigneeUserId: null,
     dueAt: new Date("2026-09-15T12:00:00.000Z"),
     plannedStartAt: new Date("2026-09-10T12:00:00.000Z"),
     plannedEndAt: new Date("2026-09-14T12:00:00.000Z"),
