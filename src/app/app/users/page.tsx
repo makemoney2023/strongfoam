@@ -69,7 +69,7 @@ export default async function UsersPage() {
             triggerLabel="Add user"
             triggerIcon={<UserPlusIcon aria-hidden="true" />}
             title="Create a user"
-            description="Field users sign in separately. Share the temporary password through an approved private channel."
+            description="Office and Field users sign in separately. Share the temporary password through an approved private channel."
           >
             <ActionForm action={createUser} className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">

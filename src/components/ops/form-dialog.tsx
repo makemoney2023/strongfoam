@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +54,20 @@ export function FormDialog({
   const [open, setOpen] = useState(defaultOpen);
   const [dirty, setDirty] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!open || !content) return;
+    const closeAfterSuccess = () => {
+      setDirty(false);
+      setOpen(false);
+    };
+    content.addEventListener("ops-action-success", closeAfterSuccess);
+    return () => {
+      content.removeEventListener("ops-action-success", closeAfterSuccess);
+    };
+  }, [open]);
 
   function requestClose() {
     if (dirty) {
@@ -88,6 +102,7 @@ export function FormDialog({
           {triggerLabel}
         </DialogTrigger>
         <DialogContent
+          ref={contentRef}
           className={cn(
             "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg",
             contentClassName,
