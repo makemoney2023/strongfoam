@@ -95,6 +95,8 @@ function getDemoState(): DemoOpsState {
       jobDocuments: demoJobDocuments(),
       jobFieldNotes: demoJobFieldNotes(),
     };
+  } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
+    globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
   }
   return globalForDemo.__strongfoamDemoOps;
 }

@@ -96,6 +96,7 @@ export default async function FieldLandingPage() {
                     {job.scope || formatServices(job.services)}
                   </p>
                   <Button
+                    nativeButton={false}
                     render={<Link href={`/app/field/jobs/${job.id}`} />}
                     className="min-h-11 w-full sm:w-auto"
                   >

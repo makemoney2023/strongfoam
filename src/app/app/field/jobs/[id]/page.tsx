@@ -190,6 +190,7 @@ export default async function FieldJobPage({
             <Button
               variant="outline"
               className="min-h-11 w-full"
+              nativeButton={false}
               render={<a href={jobDocumentHref(job.id, latestPlan.id)} />}
             >
               <FileTextIcon aria-hidden="true" />
@@ -201,6 +202,7 @@ export default async function FieldJobPage({
           <Button
             variant="ghost"
             className="min-h-11 w-full"
+            nativeButton={false}
             render={<Link href={`/app/jobs/${job.id}`} />}
           >
             Open office job record

@@ -130,6 +130,7 @@ export default async function JobDetailPage({
             <Button
               variant="outline"
               className="min-h-11"
+              nativeButton={false}
               render={<Link href={`/app/field/jobs/${job.id}`} />}
             >
               Open field view
