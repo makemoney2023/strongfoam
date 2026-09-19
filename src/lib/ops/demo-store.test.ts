@@ -228,6 +228,26 @@ describe("job workspace", () => {
     ).toBe(true);
   });
 
+  it("shares document bytes across module lookups", () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const document = addDemoJobDocument({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        filename: "shared.pdf",
+        contentType: "application/pdf",
+        sizeBytes: bytes.byteLength,
+        kind: "plan",
+        workAreaId: null,
+      },
+      bytes,
+    });
+    expect(document).not.toBeNull();
+    expect(
+      getDemoJobDocumentDownload(DEMO_JOB_ID, document?.id ?? "")?.bytes,
+    ).toEqual(bytes);
+  });
+
   it("rejects tasks and documents for missing jobs or work areas", () => {
     expect(
       addDemoWorkArea({

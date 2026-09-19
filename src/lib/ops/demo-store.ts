@@ -49,20 +49,66 @@ import type {
 } from "@/lib/ops/store";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
 
-const requests = demoEstimateRequests();
-const events = demoEstimateEvents();
-const tasks = demoEstimateTasks();
-const comments = demoEstimateComments();
-const companies = demoCompanies();
-const contacts = demoContacts();
-const sites = demoSites();
-const opportunities = demoOpportunities();
-const projects = demoProjects();
-const jobsList = demoJobs();
-const jobEvents = demoJobEvents();
-const workAreas = demoWorkAreas();
-const jobTasks = demoJobTasks();
-const jobDocuments = demoJobDocuments();
+type DemoOpsState = {
+  requests: EstimateRequestRow[];
+  events: EstimateRequestEvent[];
+  tasks: EstimateRequestTask[];
+  comments: EstimateRequestComment[];
+  companies: CompanyRow[];
+  contacts: ContactRow[];
+  sites: SiteRow[];
+  opportunities: OpportunityRow[];
+  projects: ProjectRow[];
+  jobsList: JobRow[];
+  jobEvents: JobEventRow[];
+  workAreas: WorkAreaRow[];
+  jobTasks: JobTaskRow[];
+  jobDocuments: JobDocumentRow[];
+};
+
+function getDemoState(): DemoOpsState {
+  // Server actions and route handlers can load separate module copies.
+  // Keep demo mutations on globalThis so uploads remain downloadable.
+  const globalForDemo = globalThis as typeof globalThis & {
+    __strongfoamDemoOps?: DemoOpsState;
+  };
+  if (!globalForDemo.__strongfoamDemoOps) {
+    globalForDemo.__strongfoamDemoOps = {
+      requests: demoEstimateRequests(),
+      events: demoEstimateEvents(),
+      tasks: demoEstimateTasks(),
+      comments: demoEstimateComments(),
+      companies: demoCompanies(),
+      contacts: demoContacts(),
+      sites: demoSites(),
+      opportunities: demoOpportunities(),
+      projects: demoProjects(),
+      jobsList: demoJobs(),
+      jobEvents: demoJobEvents(),
+      workAreas: demoWorkAreas(),
+      jobTasks: demoJobTasks(),
+      jobDocuments: demoJobDocuments(),
+    };
+  }
+  return globalForDemo.__strongfoamDemoOps;
+}
+
+const {
+  requests,
+  events,
+  tasks,
+  comments,
+  companies,
+  contacts,
+  sites,
+  opportunities,
+  projects,
+  jobsList,
+  jobEvents,
+  workAreas,
+  jobTasks,
+  jobDocuments,
+} = getDemoState();
 
 export function useDemoOpsStore(
   env: Record<string, string | undefined> = process.env,
