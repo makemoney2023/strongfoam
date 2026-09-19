@@ -87,9 +87,9 @@ export default async function ProjectDetailPage({
       assignee: task.assignee,
       status: task.status === "done" ? ("done" as const) : ("open" as const),
       dueAt: task.dueAt?.toISOString() ?? null,
-      plannedStartAt: null,
-      plannedEndAt: null,
-      completedAt: null,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+      completedAt: task.completedAt?.toISOString() ?? null,
     })),
   }));
 

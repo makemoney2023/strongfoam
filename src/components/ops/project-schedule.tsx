@@ -32,9 +32,11 @@ import {
   createScheduleWindow,
   filterScheduleJobs,
   getJobScheduleState,
+  getTaskGeometry,
   getTaskProgress,
   getTaskScheduleState,
   hideCompletedScheduleRows,
+  isTaskOutsideJobRange,
   moveScheduleAnchor,
   positionInWindow,
   type ProjectScheduleJob,
@@ -203,42 +205,59 @@ function TaskMark({
   state: ScheduleState;
 }) {
   const href = `/app/jobs/${task.jobId}#task-${task.id}`;
-  if (task.plannedStartAt || task.plannedEndAt) {
+  const geometry = getTaskGeometry(task);
+  if (geometry.kind === "bar") {
     return (
       <RangeMark
         href={href}
         label={task.title}
-        start={task.plannedStartAt}
-        end={task.plannedEndAt}
+        start={geometry.start}
+        end={geometry.end}
         window={window}
         state={state}
       />
     );
   }
-  if (!task.dueAt) {
+  if (geometry.kind === "unscheduled") {
     return (
       <span className="text-xs font-medium text-muted-foreground">
         Unscheduled
       </span>
     );
   }
-  const position = positionInWindow(task.dueAt, window);
+  const position = positionInWindow(geometry.date, window);
   if (position === null) return null;
+  const sourceLabel = geometry.source === "due" ? "Due" : "Planned";
   return (
     <Link
       href={href}
-      aria-label={`${task.title}: due ${formatDate(task.dueAt)}`}
+      aria-label={`${task.title}: ${sourceLabel.toLowerCase()} ${formatDate(geometry.date)}`}
       className={cn(
-        "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        "absolute top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs font-medium focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
         state === "complete"
-          ? "border-primary bg-primary"
+          ? "text-primary"
           : state === "overdue"
-            ? "border-destructive bg-destructive"
-            : "border-primary bg-card",
+            ? "text-destructive"
+            : "text-foreground",
       )}
       style={{ left: `${position}%` }}
-      title={`Due ${formatDate(task.dueAt)}`}
-    />
+      title={`${sourceLabel} ${formatDate(geometry.date)}`}
+    >
+      <span
+        className={cn(
+          "size-3 shrink-0 -translate-x-1/2 rotate-45 border",
+          state === "complete"
+            ? "border-primary bg-primary"
+            : state === "overdue"
+              ? "border-destructive bg-destructive"
+              : "border-primary bg-card",
+        )}
+        aria-hidden="true"
+      />
+      <span className="-translate-x-1.5 rounded-sm bg-card/90 px-1">
+        {sourceLabel}
+      </span>
+    </Link>
   );
 }
 
@@ -550,6 +569,10 @@ export function ProjectSchedule({
                   {isExpanded
                     ? job.tasks.map((task) => {
                         const taskState = getTaskScheduleState(task, today);
+                        const outsideJobDates = isTaskOutsideJobRange(
+                          task,
+                          job,
+                        );
                         return (
                           <ChartRow
                             key={task.id}
@@ -576,6 +599,15 @@ export function ProjectSchedule({
                                         ? `Due ${formatDate(task.dueAt)}`
                                         : "Unscheduled"}
                                   </p>
+                                  {outsideJobDates ? (
+                                    <p className="flex items-center gap-1 text-xs font-medium text-destructive">
+                                      <AlertTriangleIcon
+                                        className="size-3"
+                                        aria-hidden="true"
+                                      />
+                                      Outside job dates
+                                    </p>
+                                  ) : null}
                                 </div>
                               </div>
                             }
@@ -652,6 +684,7 @@ export function ProjectSchedule({
                   </TableRow>,
                   ...job.tasks.map((task) => {
                     const taskState = getTaskScheduleState(task, today);
+                    const outsideJobDates = isTaskOutsideJobRange(task, job);
                     return (
                       <TableRow key={`task-${task.id}`}>
                         <TableCell>Task</TableCell>
@@ -673,17 +706,19 @@ export function ProjectSchedule({
                           {task.status === "done" ? "Complete" : "Open"}
                         </TableCell>
                         <TableCell>
-                          {!task.plannedStartAt &&
+                          {outsideJobDates
+                            ? "Outside job dates"
+                            : !task.plannedStartAt &&
                           !task.plannedEndAt &&
                           !task.dueAt
-                            ? "Unscheduled"
-                            : task.plannedStartAt !== null &&
+                              ? "Unscheduled"
+                              : task.plannedStartAt !== null &&
                                 task.plannedEndAt === null
-                              ? "Add planned completion"
-                              : task.plannedStartAt === null &&
+                                ? "Add planned completion"
+                                : task.plannedStartAt === null &&
                                   task.plannedEndAt !== null
-                                ? "Add planned start"
-                                : "—"}
+                                  ? "Add planned start"
+                                  : "—"}
                         </TableCell>
                       </TableRow>
                     );

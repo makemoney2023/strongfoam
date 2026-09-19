@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   createScheduleWindow,
   filterScheduleJobs,
+  getJobGeometry,
   getJobScheduleState,
+  getTaskGeometry,
   getTaskProgress,
   getTaskScheduleState,
   hideCompletedScheduleRows,
@@ -79,6 +81,59 @@ describe("project schedule", () => {
         },
       ),
     ).toBe(true);
+  });
+
+  it("uses truthful task and job geometry", () => {
+    expect(
+      getTaskGeometry({
+        plannedStartAt: "2026-09-20T12:00:00.000Z",
+        plannedEndAt: "2026-09-22T12:00:00.000Z",
+        dueAt: "2026-09-23T12:00:00.000Z",
+      }),
+    ).toEqual({
+      kind: "bar",
+      start: "2026-09-20T12:00:00.000Z",
+      end: "2026-09-22T12:00:00.000Z",
+    });
+    expect(
+      getTaskGeometry({
+        plannedStartAt: "2026-09-20T12:00:00.000Z",
+        plannedEndAt: null,
+        dueAt: null,
+      }),
+    ).toEqual({
+      kind: "milestone",
+      date: "2026-09-20T12:00:00.000Z",
+      source: "planned",
+    });
+    expect(
+      getTaskGeometry({
+        plannedStartAt: null,
+        plannedEndAt: null,
+        dueAt: "2026-09-23T12:00:00.000Z",
+      }),
+    ).toEqual({
+      kind: "milestone",
+      date: "2026-09-23T12:00:00.000Z",
+      source: "due",
+    });
+    expect(
+      getTaskGeometry({
+        plannedStartAt: null,
+        plannedEndAt: null,
+        dueAt: null,
+      }),
+    ).toEqual({ kind: "unscheduled" });
+    expect(
+      getJobGeometry({
+        plannedStartAt: null,
+        plannedEndAt: "2026-09-23T12:00:00.000Z",
+      }),
+    ).toEqual({
+      kind: "milestone",
+      date: "2026-09-23T12:00:00.000Z",
+      source: "planned",
+    });
   });
 
   it("keeps the parent job when only a child task matches", () => {

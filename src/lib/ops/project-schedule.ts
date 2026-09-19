@@ -61,6 +61,11 @@ export type ScheduleWindow = {
   columns: ScheduleColumn[];
 };
 
+export type ScheduleGeometry =
+  | { kind: "bar"; start: string; end: string }
+  | { kind: "milestone"; date: string; source: "planned" | "due" }
+  | { kind: "unscheduled" };
+
 function startOfLocalDay(value: Date): Date {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -157,6 +162,52 @@ export function isTaskOutsideJobRange(
     (taskStart && jobStart && taskStart < jobStart) ||
       (taskEnd && jobEnd && taskEnd > jobEnd),
   );
+}
+
+export function getTaskGeometry(
+  task: Pick<
+    ProjectScheduleTask,
+    "plannedStartAt" | "plannedEndAt" | "dueAt"
+  >,
+): ScheduleGeometry {
+  if (task.plannedStartAt && task.plannedEndAt) {
+    return {
+      kind: "bar",
+      start: task.plannedStartAt,
+      end: task.plannedEndAt,
+    };
+  }
+  if (task.plannedStartAt || task.plannedEndAt) {
+    return {
+      kind: "milestone",
+      date: task.plannedStartAt ?? task.plannedEndAt!,
+      source: "planned",
+    };
+  }
+  if (task.dueAt) {
+    return { kind: "milestone", date: task.dueAt, source: "due" };
+  }
+  return { kind: "unscheduled" };
+}
+
+export function getJobGeometry(
+  job: Pick<ProjectScheduleJob, "plannedStartAt" | "plannedEndAt">,
+): ScheduleGeometry {
+  if (job.plannedStartAt && job.plannedEndAt) {
+    return {
+      kind: "bar",
+      start: job.plannedStartAt,
+      end: job.plannedEndAt,
+    };
+  }
+  if (job.plannedStartAt || job.plannedEndAt) {
+    return {
+      kind: "milestone",
+      date: job.plannedStartAt ?? job.plannedEndAt!,
+      source: "planned",
+    };
+  }
+  return { kind: "unscheduled" };
 }
 
 export function createScheduleWindow(
