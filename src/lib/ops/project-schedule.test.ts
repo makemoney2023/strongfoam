@@ -261,8 +261,10 @@ describe("project schedule", () => {
   it("moves anchors by one full visible window", () => {
     const week = moveScheduleAnchor(today, "week", 1);
     const month = moveScheduleAnchor(today, "month", -1);
+    const expectedWeek = new Date(today);
+    expectedWeek.setDate(expectedWeek.getDate() + 42);
 
-    expect(week.getDate()).toBe(31);
+    expect(week.getTime()).toBe(expectedWeek.getTime());
     expect(month.getMonth()).toBe(2);
   });
 

@@ -972,7 +972,10 @@ describe("PortfolioSchedule", () => {
 
       const manyProjects = Array.from({ length: 205 }, (_, index) =>
         project(`page-project-${index}`, {
-          jobs: [job(`page-job-${index}`)],
+          jobs:
+            index === 200
+              ? [job(`page-job-${index}`, { projectManager: null })]
+              : [],
         }),
       );
       await act(async () => {
