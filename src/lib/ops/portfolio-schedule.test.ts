@@ -1102,6 +1102,92 @@ describe("portfolio schedule", () => {
     ).toHaveLength(1);
   });
 
+  it("uses each project calendar consistently for rollups, warnings, and state filters", () => {
+    const instant = new Date("2026-09-21T02:00:00.000Z");
+    const sources = [
+      project({
+        id: "toronto-boundary",
+        calendar: calendar({ timeZone: "America/Toronto" }),
+        jobs: [
+          job({
+            id: "toronto-job",
+            tasks: [
+              task({
+                id: "toronto-task",
+                jobId: "toronto-job",
+                dueAt: "2026-09-20",
+              }),
+            ],
+          }),
+        ],
+      }),
+      project({
+        id: "tokyo-boundary",
+        calendar: calendar({ timeZone: "Asia/Tokyo" }),
+        jobs: [
+          job({
+            id: "tokyo-job",
+            tasks: [
+              task({
+                id: "tokyo-task",
+                jobId: "tokyo-job",
+                dueAt: "2026-09-20",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ];
+    const previousTimeZone = process.env.TZ;
+
+    try {
+      for (const viewerTimeZone of [
+        "UTC",
+        "America/Los_Angeles",
+        "Asia/Tokyo",
+      ]) {
+        process.env.TZ = viewerTimeZone;
+        const projected = buildPortfolioProjects(sources, instant);
+
+        expect(
+          projected.map((item) => ({
+            id: item.id,
+            state: item.state,
+            overdue: item.warningCounts.overdue,
+          })),
+        ).toEqual([
+          {
+            id: "toronto-boundary",
+            state: "remaining",
+            overdue: 0,
+          },
+          {
+            id: "tokyo-boundary",
+            state: "overdue",
+            overdue: 1,
+          },
+        ]);
+        expect(
+          filterPortfolioProjects(
+            projected,
+            filter({ state: "overdue" }),
+            instant,
+          ).map((item) => ({
+            id: item.id,
+            taskIds: item.jobs.flatMap((entry) =>
+              entry.tasks.map((candidate) => candidate.id),
+            ),
+          })),
+        ).toEqual([
+          { id: "tokyo-boundary", taskIds: ["tokyo-task"] },
+        ]);
+      }
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
   it("hides completed rows without changing source project progress", () => {
     const projected = buildPortfolioProjects(
       [
@@ -2051,6 +2137,11 @@ describe("portfolio resource projection", () => {
     expect(
       getPortfolioBaselineState("latest", header, undefined),
     ).toEqual({ kind: "added" });
+    expect(
+      getPortfolioBaselineState("latest", header, undefined, {
+        baselineItemsComplete: false,
+      }),
+    ).toEqual({ kind: "unavailable-partial" });
     expect(
       getPortfolioBaselineState("latest", header, {
         plannedStartAt: null,

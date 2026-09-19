@@ -24,6 +24,7 @@ import {
   type PortfolioBaselineState,
   type PortfolioScheduleCalendar,
   type PortfolioScheduleAssignment,
+  type PortfolioResourceLane,
   type ProjectedPortfolioProject,
 } from "@/lib/ops/portfolio-schedule";
 import {
@@ -112,9 +113,14 @@ function portfolioBaselineVariance(
 function baselineStateLabel(
   state: PortfolioBaselineState,
   variance: ReturnType<typeof calculateBaselineVariance> | null,
+  baselineItemsTruncated = false,
 ): string {
   if (state.kind === "none") return "None selected";
+  if (baselineItemsTruncated) return "Unavailable—partial data";
   if (state.kind === "not-baselined") return "Not baselined";
+  if (state.kind === "unavailable-partial") {
+    return "Unavailable—partial data";
+  }
   if (state.kind === "invalid") return "Invalid baseline date";
   return variance ? varianceLabel(variance) : "Not baselined";
 }
@@ -260,18 +266,47 @@ export function PortfolioResourceSchedule({
   window,
   now,
   baseline,
+  resourceLanes,
+  baselineItemsTruncated = false,
+  showOnlyOverlappingAssignments = false,
 }: {
   projects: ProjectedPortfolioProject[];
   window: ScheduleWindow;
   now: string;
   baseline: "latest" | "none";
+  resourceLanes?: readonly PortfolioResourceLane[];
+  baselineItemsTruncated?: boolean;
+  showOnlyOverlappingAssignments?: boolean;
 }) {
-  const lanes = useMemo(
-    () =>
-      buildPortfolioResourceLanes(
-        buildPortfolioScheduleAssignments(projects),
-      ),
+  const visibleProjectIds = useMemo(
+    () => new Set(projects.map((project) => project.id)),
     [projects],
+  );
+  const lanes = useMemo(
+    () => {
+      const source =
+        resourceLanes ??
+        buildPortfolioResourceLanes(
+          buildPortfolioScheduleAssignments(projects),
+        );
+      return source.flatMap((lane) => {
+        const assignments = lane.assignments.filter(
+          (assignment) =>
+            visibleProjectIds.has(assignment.projectId) &&
+            (!showOnlyOverlappingAssignments ||
+              assignment.hasPotentialOverlap),
+        );
+        return assignments.length > 0
+          ? [{ ...lane, assignments }]
+          : [];
+      });
+    },
+    [
+      projects,
+      resourceLanes,
+      showOnlyOverlappingAssignments,
+      visibleProjectIds,
+    ],
   );
   const entries = useMemo(
     () =>
@@ -398,6 +433,23 @@ export function PortfolioResourceSchedule({
       : "unscheduled";
   };
 
+  if (entries.length === 0) {
+    return (
+      <div
+        className="rounded-lg border border-dashed px-4 py-10 text-center"
+        role="status"
+      >
+        <p className="font-medium">
+          No resource assignments match these portfolio filters.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Projects remain visible in Work view even when they have no assigned
+          schedule resources.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
@@ -496,6 +548,9 @@ export function PortfolioResourceSchedule({
                   projectsById.get(assignment.projectId)?.latestBaseline ??
                     null,
                   baselineItem,
+                  {
+                    baselineItemsComplete: !baselineItemsTruncated,
+                  },
                 );
                 const variance = portfolioBaselineVariance(
                   assignment,
@@ -545,6 +600,7 @@ export function PortfolioResourceSchedule({
                               {baselineStateLabel(
                                 baselineState,
                                 variance,
+                                baselineItemsTruncated,
                               )}
                             </span>
                           </div>
@@ -635,6 +691,9 @@ export function PortfolioResourceSchedule({
                     projectsById.get(assignment.projectId)?.latestBaseline ??
                       null,
                     baselineItem,
+                    {
+                      baselineItemsComplete: !baselineItemsTruncated,
+                    },
                   );
                   const variance = portfolioBaselineVariance(
                     assignment,
@@ -676,7 +735,11 @@ export function PortfolioResourceSchedule({
                         )}
                       </TableCell>
                       <TableCell>
-                        {baselineStateLabel(baselineState, variance)}
+                        {baselineStateLabel(
+                          baselineState,
+                          variance,
+                          baselineItemsTruncated,
+                        )}
                       </TableCell>
                       <TableCell>
                         {assignment.hasPotentialOverlap

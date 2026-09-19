@@ -6,12 +6,16 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  PORTFOLIO_WORK_CONTEXT_OVERHEAD,
   PORTFOLIO_WORK_PAGE_SIZE,
   PortfolioSchedule,
+  applyPortfolioQueryPatch,
   buildPortfolioWorkRows,
   defaultPortfolioExpansion,
   getPortfolioOverlapCounts,
+  paginatePortfolioWorkRows,
   portfolioControlHref,
+  reconcilePortfolioOptimisticQuery,
 } from "@/components/ops/portfolio-schedule";
 import {
   buildPortfolioProjects,
@@ -318,6 +322,173 @@ describe("portfolio work model", () => {
       rows.some((row) => row.key === "filtered-critical:task:true-critical"),
     ).toBe(false);
   });
+
+  it("threads partial baseline and critical completeness into every row", () => {
+    const projected = buildPortfolioProjects(
+      [
+        project("partial", {
+          latestBaseline: {
+            id: "partial-baseline",
+            name: "Partial baseline",
+            capturedAt: "2026-09-01",
+            items: [],
+          },
+          jobs: [
+            job("partial-job", {
+              plannedStartAt: "2026-09-01",
+              plannedEndAt: "2026-09-10",
+              tasks: [
+                task("partial-task", {
+                  jobId: "partial-job",
+                  plannedStartAt: "2026-09-01",
+                  plannedEndAt: "2026-09-02",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      new Date(NOW),
+    );
+    const expansion = defaultPortfolioExpansion(projected);
+    const rows = buildPortfolioWorkRows(
+      projected,
+      expansion.projects,
+      expansion.jobs,
+      NOW,
+      "latest",
+      new Map(),
+      {
+        baselineItemsComplete: false,
+        criticalPathComplete: false,
+      },
+    );
+
+    expect(rows[0]?.warning).toContain(
+      "Critical path unavailable—partial data",
+    );
+    expect(rows[0]?.criticalCount).toBeNull();
+    expect(rows[1]?.baselineState).toEqual({
+      kind: "unavailable-partial",
+    });
+    expect(rows[2]).toMatchObject({
+      critical: false,
+      criticalCount: null,
+      baselineState: { kind: "unavailable-partial" },
+    });
+  });
+
+  it("renders project-calendar row states independently of browser timezone", () => {
+    const instant = "2026-09-21T02:00:00.000Z";
+    const sources = [
+      project("row-toronto", {
+        calendar: {
+          ...DEFAULT_WORKING_CALENDAR,
+          timeZone: "America/Toronto",
+        },
+        jobs: [
+          job("row-toronto-job", {
+            tasks: [
+              task("row-toronto-task", {
+                jobId: "row-toronto-job",
+                dueAt: "2026-09-20",
+              }),
+            ],
+          }),
+        ],
+      }),
+      project("row-tokyo", {
+        calendar: {
+          ...DEFAULT_WORKING_CALENDAR,
+          timeZone: "Asia/Tokyo",
+        },
+        jobs: [
+          job("row-tokyo-job", {
+            tasks: [
+              task("row-tokyo-task", {
+                jobId: "row-tokyo-job",
+                dueAt: "2026-09-20",
+              }),
+            ],
+          }),
+        ],
+      }),
+    ];
+    const previousTimeZone = process.env.TZ;
+    try {
+      for (const viewerTimeZone of [
+        "UTC",
+        "America/Los_Angeles",
+        "Asia/Tokyo",
+      ]) {
+        process.env.TZ = viewerTimeZone;
+        const projected = buildPortfolioProjects(
+          sources,
+          new Date(instant),
+        );
+        const expansion = defaultPortfolioExpansion(projected);
+        const rows = buildPortfolioWorkRows(
+          projected,
+          expansion.projects,
+          expansion.jobs,
+          instant,
+          "none",
+        );
+        expect(
+          rows
+            .filter((row) => row.kind === "project" || row.kind === "task")
+            .map((row) => [row.key, row.state]),
+        ).toEqual([
+          ["row-toronto:project", "remaining"],
+          ["row-toronto:task:row-toronto-task", "remaining"],
+          ["row-tokyo:project", "overdue"],
+          ["row-tokyo:task:row-tokyo-task", "overdue"],
+        ]);
+      }
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
+  it("injects at most two labelled hierarchy context rows across page boundaries", () => {
+    expect(PORTFOLIO_WORK_CONTEXT_OVERHEAD).toBe(2);
+    const projected = buildPortfolioProjects(
+      [
+        project("context", {
+          jobs: [
+            job("context-job", {
+              tasks: Array.from({ length: 205 }, (_, index) =>
+                task(`context-task-${index}`, {
+                  jobId: "context-job",
+                }),
+              ),
+            }),
+          ],
+        }),
+      ],
+      new Date(NOW),
+    );
+    const expansion = defaultPortfolioExpansion(projected);
+    const rows = buildPortfolioWorkRows(
+      projected,
+      expansion.projects,
+      expansion.jobs,
+      NOW,
+      "none",
+    );
+    const page = paginatePortfolioWorkRows(rows, 1);
+
+    expect(page).toHaveLength(9);
+    expect(page.slice(0, 3).map((row) => [row.kind, row.context])).toEqual([
+      ["project", true],
+      ["job", true],
+      ["task", undefined],
+    ]);
+    expect(page.length).toBeLessThanOrEqual(
+      PORTFOLIO_WORK_PAGE_SIZE + PORTFOLIO_WORK_CONTEXT_OVERHEAD,
+    );
+  });
 });
 
 describe("PortfolioSchedule", () => {
@@ -337,6 +508,31 @@ describe("PortfolioSchedule", () => {
     );
   });
 
+  it("composes rapid query patches from the latest optimistic value", () => {
+    const initial = query();
+    const afterState = applyPortfolioQueryPatch(initial, {
+      state: "overdue",
+    });
+    const afterView = applyPortfolioQueryPatch(afterState, {
+      view: "resources",
+    });
+
+    expect(afterView).toMatchObject({
+      state: "overdue",
+      view: "resources",
+      projectStatus: "active",
+      baseline: "latest",
+    });
+    expect(portfolioControlHref(afterView, {})).toContain("state=overdue");
+    expect(portfolioControlHref(afterView, {})).toContain("view=resources");
+    expect(
+      reconcilePortfolioOptimisticQuery(initial, afterView, afterState),
+    ).toMatchObject({
+      state: "overdue",
+      view: "resources",
+    });
+  });
+
   it("counts conflicting assignments per project in chart and table", async () => {
     const projected = buildPortfolioProjects(
       [
@@ -344,6 +540,7 @@ describe("PortfolioSchedule", () => {
           jobs: [
             job("overlap-a-job", {
               projectManager: "Alex",
+              status: "blocked",
               plannedStartAt: "2026-09-21",
               plannedEndAt: "2026-09-22",
             }),
@@ -437,10 +634,43 @@ describe("PortfolioSchedule", () => {
           'tbody tr[data-work-row-id$=":project"] td:last-child',
         ),
       ].map((cell) => cell.textContent);
-      expect(projectTableWarnings).toEqual([
-        "1 potential overlaps",
-        "1 potential overlaps",
-      ]);
+      expect(projectTableWarnings).toHaveLength(2);
+      expect(
+        projectTableWarnings.every((warning) =>
+          warning?.includes("1 potential overlaps"),
+        ),
+      ).toBe(true);
+
+      await act(async () => {
+        root.render(
+          createElement(PortfolioSchedule, {
+            data: data(projected),
+            query: query({
+              attention: "resource-overlap",
+              state: "blocked",
+              view: "resources",
+            }),
+            now: NOW,
+          }),
+        );
+      });
+      expect(container.textContent).toContain("Potential overlap");
+      expect(container.textContent).not.toContain("Project overlap-b");
+      const resourceTableToggle = container.querySelector(
+        '[aria-label="Toggle current assignment page table"]',
+      )!;
+      await act(async () => {
+        resourceTableToggle.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      const projectManagerRow = [
+        ...container.querySelectorAll("tbody tr"),
+      ].find((row) => row.textContent?.includes("Project manager"));
+      expect(projectManagerRow?.textContent).toContain("Potential overlap");
+      expect(projectManagerRow?.textContent).not.toContain(
+        "No overlap detected",
+      );
     } finally {
       await act(async () => root.unmount());
       dom.window.close();
@@ -485,6 +715,21 @@ describe("PortfolioSchedule", () => {
       "No portfolio schedule rows match these filters.",
     );
     expect(filtered).toContain(">Reset filters</a>");
+  });
+
+  it("renders a dedicated Resources empty state without a table toggle", () => {
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data([project("resource-empty")]),
+        query: query({ view: "resources" }),
+        now: NOW,
+      }),
+    );
+
+    expect(html).toContain(
+      "No resource assignments match these portfolio filters.",
+    );
+    expect(html).not.toContain("Toggle current assignment page table");
   });
 
   it("renders all truncation alerts, empty hierarchy facts, controls, and one scroller", () => {
@@ -534,6 +779,111 @@ describe("PortfolioSchedule", () => {
       "grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]",
     );
     expect(html).toContain('class="min-w-[72rem]"');
+  });
+
+  it("renders partial chart and table facts without definitive claims", async () => {
+    const props = {
+      data: data(
+        [
+          project("partial-render", {
+            latestBaseline: {
+              id: "partial-render-baseline",
+              name: "Partial render baseline",
+              capturedAt: "2026-09-01",
+              items: [],
+            },
+            jobs: [
+              job("partial-render-job", {
+                plannedStartAt: "2026-09-01",
+                plannedEndAt: "2026-09-10",
+                tasks: [
+                  task("partial-render-task", {
+                    jobId: "partial-render-job",
+                    plannedStartAt: "2026-09-01",
+                    plannedEndAt: "2026-09-02",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+        {
+          baselineItems: true,
+          tasks: true,
+          dependencies: true,
+        },
+      ),
+      query: query(),
+      now: NOW,
+    };
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, props),
+    );
+
+    expect(html).toContain("Unavailable—partial data");
+    expect(html).toContain("Critical path unavailable—partial data");
+    expect(html).not.toContain("Added since baseline");
+    expect(html).not.toContain(">Critical</span>");
+
+    const dom = new JSDOM('<div id="root"></div>');
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const previousGlobals = new Map(
+      ["window", "self", "document", "HTMLElement", "Node"].map(
+        (key) => [key, globals[key]] as const,
+      ),
+    );
+    const previousActEnvironment = globals.IS_REACT_ACT_ENVIRONMENT;
+    globals.window = dom.window;
+    globals.self = dom.window;
+    globals.document = dom.window.document;
+    globals.HTMLElement = dom.window.HTMLElement;
+    globals.Node = dom.window.Node;
+    globals.IS_REACT_ACT_ENVIRONMENT = true;
+    const container = dom.window.document.querySelector("#root")!;
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(createElement(PortfolioSchedule, props));
+      });
+      const toggle = container.querySelector(
+        '[aria-label="Toggle current work page table"]',
+      )!;
+      await act(async () => {
+        toggle.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(
+        [...container.querySelectorAll("tbody tr td:nth-child(10)")].map(
+          (cell) => cell.textContent,
+        ),
+      ).toEqual([
+        "Critical path unavailable—partial data",
+        "Critical path unavailable—partial data",
+        "Critical path unavailable—partial data",
+      ]);
+      expect(
+        [...container.querySelectorAll("tbody tr td:nth-child(12)")].map(
+          (cell) => cell.textContent,
+        ),
+      ).toEqual([
+        "Unavailable—partial data",
+        "Unavailable—partial data",
+        "Unavailable—partial data",
+      ]);
+    } finally {
+      await act(async () => root.unmount());
+      dom.window.close();
+      for (const [key, value] of previousGlobals) {
+        if (value === undefined) delete globals[key];
+        else globals[key] = value;
+      }
+      if (previousActEnvironment === undefined) {
+        delete globals.IS_REACT_ACT_ENVIRONMENT;
+      } else {
+        globals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+      }
+    }
   });
 
   it("paginates the flattened graph at 200 and mounts table rows only while open", async () => {
@@ -611,9 +961,47 @@ describe("PortfolioSchedule", () => {
           new dom.window.MouseEvent("click", { bubbles: true }),
         );
       });
-      expect(chartRows()).toHaveLength(7);
-      expect(container.querySelectorAll("tbody tr")).toHaveLength(7);
+      expect(chartRows()).toHaveLength(9);
+      expect(container.querySelectorAll("tbody tr")).toHaveLength(9);
       expect(container.textContent).toContain("Showing 201–207 of 207 rows");
+      expect(
+        chartRows().slice(0, 2).map((row) =>
+          row.getAttribute("data-context-row"),
+        ),
+      ).toEqual(["true", "true"]);
+
+      const manyProjects = Array.from({ length: 205 }, (_, index) =>
+        project(`page-project-${index}`, {
+          jobs: [job(`page-job-${index}`)],
+        }),
+      );
+      await act(async () => {
+        root.render(
+          createElement(PortfolioSchedule, {
+            ...props,
+            data: data(manyProjects),
+          }),
+        );
+      });
+      const nextProjectsPage = container.querySelector(
+        '[aria-label="Next work rows page"]',
+      )!;
+      await act(async () => {
+        nextProjectsPage.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(container.textContent).toContain("Page 2 of 2");
+      const expandOnPageTwo = container.querySelector(
+        '[aria-label="Expand project Project page-project-200"]',
+      )!;
+      await act(async () => {
+        expandOnPageTwo.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(container.textContent).toContain("Page 2 of 2");
+      expect(container.textContent).toContain("Showing 201–206 of 206 rows");
     } finally {
       await act(async () => root.unmount());
       dom.window.close();

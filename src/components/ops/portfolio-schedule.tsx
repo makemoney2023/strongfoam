@@ -13,6 +13,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -76,6 +77,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const PORTFOLIO_WORK_PAGE_SIZE = 200;
+export const PORTFOLIO_WORK_CONTEXT_OVERHEAD = 2;
 
 const STATE_LABELS: Record<ScheduleState, string> = {
   remaining: "Remaining",
@@ -147,10 +149,18 @@ type PortfolioWorkRow = {
   dates: Required<ScheduleDates>;
   progress: ReturnType<typeof getTaskProgress>;
   critical: boolean;
-  criticalCount: number;
+  criticalCount: number | null;
+  criticalUnavailable: boolean;
   baselineState: PortfolioBaselineState;
   baselineVariance: ReturnType<typeof calculateBaselineVariance> | null;
+  baselinePartial: boolean;
   warning: string;
+  context?: true;
+};
+
+type PortfolioDisplayCompleteness = {
+  baselineItemsComplete: boolean;
+  criticalPathComplete: boolean;
 };
 
 export function getPortfolioOverlapCounts(
@@ -181,6 +191,32 @@ export function portfolioControlHref(
   patch: Partial<PortfolioScheduleQuery>,
 ): string {
   return portfolioScheduleHref({ ...query, ...patch });
+}
+
+export function applyPortfolioQueryPatch(
+  query: PortfolioScheduleQuery,
+  patch: Partial<PortfolioScheduleQuery>,
+): PortfolioScheduleQuery {
+  return { ...query, ...patch };
+}
+
+export function reconcilePortfolioOptimisticQuery(
+  previousServer: PortfolioScheduleQuery,
+  optimistic: PortfolioScheduleQuery,
+  nextServer: PortfolioScheduleQuery,
+): PortfolioScheduleQuery {
+  const next = { ...nextServer };
+  for (const key of Object.keys(optimistic) as Array<
+    keyof PortfolioScheduleQuery
+  >) {
+    if (
+      optimistic[key] !== previousServer[key] &&
+      nextServer[key] === previousServer[key]
+    ) {
+      Object.assign(next, { [key]: optimistic[key] });
+    }
+  }
+  return next;
 }
 
 export function defaultPortfolioExpansion(
@@ -245,6 +281,10 @@ export function buildPortfolioWorkRows(
   now: string,
   baseline: "latest" | "none",
   overlapCountsByProject: ReadonlyMap<string, number> = new Map(),
+  completeness: PortfolioDisplayCompleteness = {
+    baselineItemsComplete: true,
+    criticalPathComplete: true,
+  },
 ): PortfolioWorkRow[] {
   return projects.flatMap((project) => {
     const criticalIds = project.criticalTaskIds;
@@ -269,7 +309,9 @@ export function buildPortfolioWorkRows(
       project.warningCounts.unscheduled
         ? `${project.warningCounts.unscheduled} unscheduled`
         : "",
-      project.warningCounts.critical
+      !completeness.criticalPathComplete
+        ? "Critical path unavailable—partial data"
+        : project.warningCounts.critical
         ? `${project.warningCounts.critical} critical`
         : "",
       overlapCount ? `${overlapCount} potential overlaps` : "",
@@ -290,9 +332,16 @@ export function buildPortfolioWorkRows(
         }),
         progress: project.progress,
         critical: false,
-        criticalCount: project.warningCounts.critical,
+        criticalCount: completeness.criticalPathComplete
+          ? project.warningCounts.critical
+          : null,
+        criticalUnavailable: !completeness.criticalPathComplete,
         baselineState: projectBaselineState,
         baselineVariance: null,
+        baselinePartial:
+          baseline === "latest" &&
+          Boolean(project.latestBaseline) &&
+          !completeness.baselineItemsComplete,
         warning: warnings.join(" · ") || "—",
       },
     ];
@@ -311,10 +360,13 @@ export function buildPortfolioWorkRows(
         baseline,
         project.latestBaseline,
         item,
+        {
+          baselineItemsComplete: completeness.baselineItemsComplete,
+        },
       );
-      const criticalCount = job.tasks.filter((task) =>
-        criticalIds.has(task.id),
-      ).length;
+      const criticalCount = completeness.criticalPathComplete
+        ? job.tasks.filter((task) => criticalIds.has(task.id)).length
+        : null;
       rows.push({
         key: `${project.id}:job:${job.id}`,
         kind: "job",
@@ -326,14 +378,19 @@ export function buildPortfolioWorkRows(
         state,
         dates,
         progress: getTaskProgress(job.tasks),
-        critical: criticalCount > 0,
+        critical: criticalCount !== null && criticalCount > 0,
         criticalCount,
+        criticalUnavailable: !completeness.criticalPathComplete,
         baselineState: stateAtBaseline,
         baselineVariance: baselineVariance(
           dates,
           stateAtBaseline,
           project.calendar,
         ),
+        baselinePartial:
+          baseline === "latest" &&
+          Boolean(project.latestBaseline) &&
+          !completeness.baselineItemsComplete,
         warning:
           job.tasks.length === 0
             ? "No tasks"
@@ -350,6 +407,9 @@ export function buildPortfolioWorkRows(
           baseline,
           project.latestBaseline,
           baselineItems.get(`task:${task.id}`),
+          {
+            baselineItemsComplete: completeness.baselineItemsComplete,
+          },
         );
         const dates = normalizedDates(task);
         rows.push({
@@ -367,20 +427,63 @@ export function buildPortfolioWorkRows(
           ),
           dates,
           progress: getTaskProgress([task]),
-          critical: criticalIds.has(task.id),
-          criticalCount: criticalIds.has(task.id) ? 1 : 0,
+          critical:
+            completeness.criticalPathComplete && criticalIds.has(task.id),
+          criticalCount: completeness.criticalPathComplete
+            ? criticalIds.has(task.id)
+              ? 1
+              : 0
+            : null,
+          criticalUnavailable: !completeness.criticalPathComplete,
           baselineState: stateAtBaseline,
           baselineVariance: baselineVariance(
             dates,
             stateAtBaseline,
             project.calendar,
           ),
+          baselinePartial:
+            baseline === "latest" &&
+            Boolean(project.latestBaseline) &&
+            !completeness.baselineItemsComplete,
           warning: taskWarning(task, job),
         });
       }
     }
     return rows;
   });
+}
+
+export function paginatePortfolioWorkRows(
+  rows: readonly PortfolioWorkRow[],
+  page: number,
+  pageSize = PORTFOLIO_WORK_PAGE_SIZE,
+): PortfolioWorkRow[] {
+  const start = Math.max(0, page) * pageSize;
+  const slice = rows.slice(start, start + pageSize);
+  const first = slice[0];
+  if (!first || first.kind === "project") return slice;
+
+  const priorRows = rows.slice(0, start);
+  const contexts: PortfolioWorkRow[] = [];
+  const projectRow = [...priorRows]
+    .reverse()
+    .find(
+      (row) =>
+        row.kind === "project" && row.project.id === first.project.id,
+    );
+  if (projectRow) contexts.push({ ...projectRow, context: true });
+  if (first.kind === "task" && first.job) {
+    const jobRow = [...priorRows]
+      .reverse()
+      .find(
+        (row) =>
+          row.kind === "job" &&
+          row.project.id === first.project.id &&
+          row.job?.id === first.job?.id,
+      );
+    if (jobRow) contexts.push({ ...jobRow, context: true });
+  }
+  return [...contexts.slice(0, PORTFOLIO_WORK_CONTEXT_OVERHEAD), ...slice];
 }
 
 function formatDate(
@@ -434,6 +537,9 @@ function baselineLabel(row: PortfolioWorkRow): string {
   if (row.baselineState.kind === "none") return "None selected";
   if (row.baselineState.kind === "not-baselined") return "Not baselined";
   if (row.baselineState.kind === "added") return "Added since baseline";
+  if (row.baselineState.kind === "unavailable-partial") {
+    return "Unavailable—partial data";
+  }
   if (row.baselineState.kind === "invalid") return "Invalid baseline date";
   return row.project.latestBaseline
     ? `${row.project.latestBaseline.name} · ${formatDate(
@@ -444,6 +550,9 @@ function baselineLabel(row: PortfolioWorkRow): string {
 }
 
 function rowVarianceLabel(row: PortfolioWorkRow): string {
+  if (row.baselinePartial && row.baselineState.kind !== "none") {
+    return "Unavailable—partial data";
+  }
   if (row.kind === "project") {
     const value = row.project.baselineFinishVarianceDays;
     if (row.baselineState.kind === "none") return "None selected";
@@ -649,7 +758,7 @@ function RowLabel({
           <p className="text-xs text-muted-foreground">
             {baselineLabel(row)} · {rowVarianceLabel(row)}
           </p>
-          {row.criticalCount > 0 ? (
+          {row.criticalCount !== null && row.criticalCount > 0 ? (
             <p className="text-xs font-medium text-destructive">
               {row.criticalCount} critical{" "}
               {row.criticalCount === 1 ? "task" : "tasks"}
@@ -751,7 +860,11 @@ function RowLabel({
           <p className="text-xs font-medium text-destructive">{row.warning}</p>
         ) : null}
       </div>
-      {row.critical ? <Badge variant="destructive">Critical</Badge> : null}
+      {row.criticalUnavailable ? (
+        <Badge variant="outline">Critical path unavailable—partial data</Badge>
+      ) : row.critical ? (
+        <Badge variant="destructive">Critical</Badge>
+      ) : null}
       <Badge variant={stateVariant(row.state)}>{STATE_LABELS[row.state]}</Badge>
     </div>
   );
@@ -773,8 +886,14 @@ function WorkTableRow({ row }: { row: PortfolioWorkRow }) {
         : "No tasks"
       : `${row.progress.completed}/${row.progress.total} (${row.progress.percent}%)`;
   return (
-    <TableRow data-work-row-id={row.key}>
-      <TableCell className="capitalize">{row.kind}</TableCell>
+    <TableRow
+      data-work-row-id={row.key}
+      data-context-row={row.context ? "true" : undefined}
+    >
+      <TableCell className="capitalize">
+        {row.kind}
+        {row.context ? " (context)" : ""}
+      </TableCell>
       <TableCell>
         <Link
           href={`/app/projects/${row.project.id}`}
@@ -806,7 +925,9 @@ function WorkTableRow({ row }: { row: PortfolioWorkRow }) {
       <TableCell>{formatDate(row.dates.dueAt, row.project.calendar)}</TableCell>
       <TableCell>{progress}</TableCell>
       <TableCell>
-        {row.kind === "project"
+        {row.criticalUnavailable
+          ? "Critical path unavailable—partial data"
+          : row.kind === "project"
           ? `${row.criticalCount} critical tasks`
           : row.kind === "job"
             ? `${row.criticalCount} critical tasks`
@@ -833,21 +954,45 @@ function Controls({
   now: string;
 }) {
   const router = useRouter();
+  const [optimisticQuery, setOptimisticQuery] = useState(query);
+  const optimisticQueryRef = useRef(query);
+  const serverQueryRef = useRef(query);
+  useEffect(() => {
+    const next = reconcilePortfolioOptimisticQuery(
+      serverQueryRef.current,
+      optimisticQueryRef.current,
+      query,
+    );
+    serverQueryRef.current = query;
+    optimisticQueryRef.current = next;
+    setOptimisticQuery(next);
+  }, [query]);
   const managers = [
     ...new Set(
       [
-        query.projectManager,
+        optimisticQuery.projectManager,
         ...data.projects.map((project) => project.projectManager ?? ""),
       ].filter(Boolean),
     ),
   ].sort();
-  const navigate = (patch: Partial<PortfolioScheduleQuery>) =>
-    router.push(portfolioControlHref(query, patch), { scroll: false });
-  const anchor = query.anchor
-    ? new Date(`${query.anchor}T12:00:00`)
+  const navigate = (patch: Partial<PortfolioScheduleQuery>) => {
+    const next = applyPortfolioQueryPatch(
+      optimisticQueryRef.current,
+      patch,
+    );
+    optimisticQueryRef.current = next;
+    setOptimisticQuery(next);
+    router.push(portfolioScheduleHref(next), { scroll: false });
+  };
+  const anchor = optimisticQuery.anchor
+    ? new Date(`${optimisticQuery.anchor}T12:00:00`)
     : new Date(now);
   const move = (direction: -1 | 1) => {
-    const next = moveScheduleAnchor(anchor, query.zoom, direction);
+    const next = moveScheduleAnchor(
+      anchor,
+      optimisticQuery.zoom,
+      direction,
+    );
     navigate({ anchor: localScheduleDateKey(next) });
   };
 
@@ -869,7 +1014,7 @@ function Controls({
           <span>Search projects</span>
           <Input
             name="q"
-            defaultValue={query.q}
+            defaultValue={optimisticQuery.q}
             placeholder="Project or manager"
             className="h-11"
           />
@@ -885,7 +1030,7 @@ function Controls({
           <NativeSelect
             aria-label="Project status"
             className="h-11"
-            value={query.projectStatus}
+            value={optimisticQuery.projectStatus}
             onChange={(event) =>
               navigate({ projectStatus: event.target.value })
             }
@@ -903,7 +1048,7 @@ function Controls({
           <NativeSelect
             aria-label="Project manager"
             className="h-11"
-            value={query.projectManager}
+            value={optimisticQuery.projectManager}
             onChange={(event) =>
               navigate({ projectManager: event.target.value })
             }
@@ -921,7 +1066,7 @@ function Controls({
           <NativeSelect
             aria-label="Schedule state"
             className="h-11"
-            value={query.state}
+            value={optimisticQuery.state}
             onChange={(event) =>
               navigate({
                 state: event.target
@@ -941,7 +1086,7 @@ function Controls({
           <NativeSelect
             aria-label="Attention"
             className="h-11"
-            value={query.attention}
+            value={optimisticQuery.attention}
             onChange={(event) =>
               navigate({
                 attention: event.target
@@ -964,8 +1109,8 @@ function Controls({
             <Button
               key={view}
               type="button"
-              variant={query.view === view ? "secondary" : "ghost"}
-              aria-pressed={query.view === view}
+              variant={optimisticQuery.view === view ? "secondary" : "ghost"}
+              aria-pressed={optimisticQuery.view === view}
               className="min-h-11"
               onClick={() => navigate({ view })}
             >
@@ -978,8 +1123,8 @@ function Controls({
             <Button
               key={zoom}
               type="button"
-              variant={query.zoom === zoom ? "secondary" : "ghost"}
-              aria-pressed={query.zoom === zoom}
+              variant={optimisticQuery.zoom === zoom ? "secondary" : "ghost"}
+              aria-pressed={optimisticQuery.zoom === zoom}
               className="min-h-11"
               onClick={() => navigate({ zoom })}
             >
@@ -1020,7 +1165,7 @@ function Controls({
           <NativeSelect
             aria-label="Baseline"
             className="h-11 min-w-40"
-            value={query.baseline}
+            value={optimisticQuery.baseline}
             onChange={(event) =>
               navigate({
                 baseline: event.target
@@ -1035,7 +1180,7 @@ function Controls({
         <label className="flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm">
           <input
             type="checkbox"
-            checked={query.hideCompleted}
+            checked={optimisticQuery.hideCompleted}
             onChange={(event) =>
               navigate({ hideCompleted: event.target.checked })
             }
@@ -1049,7 +1194,7 @@ function Controls({
             type="date"
             aria-label="From date"
             className="h-11 w-40"
-            value={query.from ?? ""}
+            value={optimisticQuery.from ?? ""}
             onChange={(event) =>
               navigate({ from: event.target.value || null })
             }
@@ -1061,7 +1206,7 @@ function Controls({
             type="date"
             aria-label="To date"
             className="h-11 w-40"
-            value={query.to ?? ""}
+            value={optimisticQuery.to ?? ""}
             onChange={(event) =>
               navigate({ to: event.target.value || null })
             }
@@ -1143,6 +1288,16 @@ export function PortfolioSchedule({
   const visibleKey = visibleProjects
     .map((project) => `${project.id}:${project.jobs.map((job) => job.id).join(",")}`)
     .join("|");
+  const paginationFilterKey = JSON.stringify({
+    q: query.q,
+    projectStatus: query.projectStatus,
+    projectManager: query.projectManager,
+    state: query.state,
+    attention: query.attention,
+    from: query.from,
+    to: query.to,
+    hideCompleted: query.hideCompleted,
+  });
   const initialExpansion = () => defaultPortfolioExpansion(visibleProjects);
   const [expandedProjects, setExpandedProjects] = useState(
     () => initialExpansion().projects,
@@ -1175,6 +1330,11 @@ export function PortfolioSchedule({
         now,
         query.baseline,
         overlapCountsByProject,
+        {
+          baselineItemsComplete: !data.truncation.baselineItems,
+          criticalPathComplete:
+            !data.truncation.tasks && !data.truncation.dependencies,
+        },
       ),
     [
       visibleProjects,
@@ -1183,6 +1343,9 @@ export function PortfolioSchedule({
       now,
       query.baseline,
       overlapCountsByProject,
+      data.truncation.baselineItems,
+      data.truncation.tasks,
+      data.truncation.dependencies,
     ],
   );
   const pageCount = Math.max(
@@ -1198,14 +1361,23 @@ export function PortfolioSchedule({
     return () => {
       cancelled = true;
     };
-  }, [rows]);
+  }, [data, paginationFilterKey]);
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setRequestedPage((current) =>
+          Math.min(current, pageCount - 1),
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageCount]);
   const page = Math.min(requestedPage, pageCount - 1);
   const pageRows = useMemo(
-    () =>
-      rows.slice(
-        page * PORTFOLIO_WORK_PAGE_SIZE,
-        (page + 1) * PORTFOLIO_WORK_PAGE_SIZE,
-      ),
+    () => paginatePortfolioWorkRows(rows, page),
     [rows, page],
   );
   const firstVisible =
@@ -1356,9 +1528,14 @@ export function PortfolioSchedule({
       ) : query.view === "resources" ? (
         <PortfolioResourceSchedule
           projects={visibleProjects}
+          resourceLanes={resourceLanes}
           window={window}
           now={now}
           baseline={query.baseline}
+          baselineItemsTruncated={data.truncation.baselineItems}
+          showOnlyOverlappingAssignments={
+            query.attention === "resource-overlap"
+          }
         />
       ) : (
         <>
@@ -1435,12 +1612,18 @@ export function PortfolioSchedule({
                 <div
                   key={row.key}
                   data-work-row-id={row.key}
+                  data-context-row={row.context ? "true" : undefined}
                   className={cn(
                     "grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)] border-t",
                     row.kind === "project" && "bg-muted/10",
                   )}
                 >
                   <div className="sticky left-0 z-20 flex min-w-0 items-center border-r bg-card px-2 py-1">
+                    {row.context ? (
+                      <Badge variant="outline" className="mr-1 shrink-0">
+                        Context
+                      </Badge>
+                    ) : null}
                     <RowLabel
                       row={row}
                       expandedProjects={expandedProjects}

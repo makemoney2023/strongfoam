@@ -1,8 +1,6 @@
 import { calculateCriticalPath } from "@/lib/ops/project-schedule-graph";
 import {
-  getJobScheduleState,
   getTaskProgress,
-  getTaskScheduleState,
   hideCompletedScheduleRows,
   matchesScheduleFilter,
   type ProjectScheduleBaselineItem,
@@ -422,6 +420,7 @@ export type PortfolioBaselineState =
   | { kind: "none" }
   | { kind: "not-baselined" }
   | { kind: "added" }
+  | { kind: "unavailable-partial" }
   | { kind: "invalid" }
   | { kind: "scheduled"; dates: Required<ScheduleDates> };
 
@@ -429,9 +428,15 @@ export function getPortfolioBaselineState(
   mode: "latest" | "none",
   latestBaseline: PortfolioScheduleBaseline | null,
   item: ScheduleDates | undefined,
+  completeness: { baselineItemsComplete: boolean } = {
+    baselineItemsComplete: true,
+  },
 ): PortfolioBaselineState {
   if (mode === "none") return { kind: "none" };
   if (!latestBaseline) return { kind: "not-baselined" };
+  if (!item && !completeness.baselineItemsComplete) {
+    return { kind: "unavailable-partial" };
+  }
   if (!item) return { kind: "added" };
   const dates = normalizePortfolioScheduleDates(item);
   const hasMalformedDate = (
@@ -630,7 +635,7 @@ export function getPortfolioProjectState(
 
   if (
     project.jobs.some(
-      (job) => portfolioJobState(job, now) === "blocked",
+      (job) => portfolioJobState(job, now, project.calendar) === "blocked",
     )
   ) {
     return "blocked";
@@ -639,9 +644,10 @@ export function getPortfolioProjectState(
   if (
     project.jobs.some(
       (job) =>
-        portfolioJobState(job, now) === "overdue" ||
+        portfolioJobState(job, now, project.calendar) === "overdue" ||
         job.tasks.some(
-          (task) => portfolioTaskState(task, now) === "overdue",
+          (task) =>
+            portfolioTaskState(task, now, project.calendar) === "overdue",
         ),
     )
   ) {
@@ -672,22 +678,25 @@ function latestBaselineFinish(
 function portfolioJobState(
   job: ProjectScheduleJob,
   now: Date,
+  calendar: ResolvedWorkingCalendar,
 ): ScheduleState {
-  return getJobScheduleState(
+  return getPortfolioJobScheduleState(
     {
       ...job,
       plannedStartAt: validScheduleDate(job.plannedStartAt),
       plannedEndAt: validScheduleDate(job.plannedEndAt),
     },
     now,
+    calendar,
   );
 }
 
 function portfolioTaskState(
   task: ProjectScheduleTask,
   now: Date,
+  calendar: ResolvedWorkingCalendar,
 ): ScheduleState {
-  return getTaskScheduleState(
+  return getPortfolioTaskScheduleState(
     {
       ...task,
       dueAt: validScheduleDate(task.dueAt),
@@ -695,6 +704,7 @@ function portfolioTaskState(
       plannedEndAt: validScheduleDate(task.plannedEndAt),
     },
     now,
+    calendar,
   );
 }
 
@@ -746,13 +756,13 @@ function projectWarnings(
   const tasks = project.jobs.flatMap((job) => job.tasks);
 
   for (const job of project.jobs) {
-    const state = portfolioJobState(job, now);
+    const state = portfolioJobState(job, now, project.calendar);
     if (state === "blocked") blocked += 1;
     if (state === "overdue") overdue += 1;
     if (state === "unscheduled") unscheduled += 1;
 
     for (const task of job.tasks) {
-      const taskState = portfolioTaskState(task, now);
+      const taskState = portfolioTaskState(task, now, project.calendar);
       if (taskState === "overdue") overdue += 1;
       if (taskState === "unscheduled") unscheduled += 1;
     }
@@ -1485,17 +1495,21 @@ function filterPortfolioJobs(
   jobs: readonly ProjectScheduleJob[],
   state: PortfolioProjectionFilter["state"],
   now: Date,
+  calendar: ResolvedWorkingCalendar,
 ): ProjectScheduleJob[] {
   if (state === "all") return jobs.map((job) => cloneJob(job));
 
   return jobs.flatMap((job) => {
-    const jobState = portfolioJobState(job, now);
+    const jobState = portfolioJobState(job, now, calendar);
     const jobMatches = matchesScheduleFilter(jobState, state);
     const tasks =
       state === "blocked" && jobState === "blocked"
         ? job.tasks
         : job.tasks.filter((task) =>
-            matchesScheduleFilter(portfolioTaskState(task, now), state),
+            matchesScheduleFilter(
+              portfolioTaskState(task, now, calendar),
+              state,
+            ),
           );
     return jobMatches || tasks.length > 0 ? [cloneJob(job, tasks)] : [];
   });
@@ -1512,7 +1526,12 @@ export function filterPortfolioProjects(
     if (filter.hideCompleted && project.state === "complete") return [];
 
     const projectMatches = matchesScheduleFilter(project.state, filter.state);
-    let jobs = filterPortfolioJobs(project.jobs, filter.state, now);
+    let jobs = filterPortfolioJobs(
+      project.jobs,
+      filter.state,
+      now,
+      project.calendar,
+    );
     if (!projectMatches && jobs.length === 0) return [];
 
     if (filter.hideCompleted) {
