@@ -7,12 +7,21 @@ import {
   ExternalLinkIcon,
   FileTextIcon,
   MapPinnedIcon,
+  NotebookPenIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UploadCloudIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ConfirmForm } from "@/components/ops/confirm-form";
+import { DetailList } from "@/components/ops/detail-list";
+import { EmptyState } from "@/components/ops/empty-state";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { Flash } from "@/components/ops/flash";
+import { FormDialog } from "@/components/ops/form-dialog";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
@@ -22,12 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Progress,
@@ -41,8 +50,7 @@ import { datetimeLocalValue } from "@/lib/ops/filters";
 import {
   FIELD_NOTE_KINDS,
   FIELD_NOTE_LABELS,
-  FIELD_QUANTITY_LABELS,
-  FIELD_QUANTITY_UNITS,
+  formatFieldQuantity,
 } from "@/lib/ops/field-workspace";
 import {
   JOB_STATUS_LABELS,
@@ -52,7 +60,6 @@ import {
 import {
   JOB_DOCUMENT_KINDS,
   JOB_DOCUMENT_LABELS,
-  WORK_AREA_KINDS,
   WORK_AREA_LABELS,
   formatFileSize,
   jobDocumentHref,
@@ -71,6 +78,7 @@ import {
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import {
+  addJobFieldEntry,
   addJobWorkArea,
   addJobWorkspaceTask,
   removeJob,
@@ -86,6 +94,13 @@ import {
   saveJobWorkspaceTask,
   setJobWorkspaceTaskStatus,
 } from "../actions";
+import { JobFormFields } from "../job-form-fields";
+import {
+  DocumentMetaFields,
+  FieldEntryFields,
+  TaskFields,
+  WorkAreaFields,
+} from "../workspace-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -93,11 +108,25 @@ function formatWhen(value: Date | null): string {
   return value ? value.toLocaleString("en-CA") : "—";
 }
 
-function taskTitleLookup(
-  tasks: Array<{ id: string; title: string }>,
-  taskId: string | null,
-) {
-  return tasks.find((task) => task.id === taskId)?.title;
+function SectionIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex size-9 items-center justify-center rounded-lg bg-muted [&_svg]:size-4">
+      {children}
+    </span>
+  );
+}
+
+function RowDeleteButton({ label = "Delete" }: { label?: string }) {
+  return (
+    <SubmitButton
+      variant="ghost"
+      className="min-h-11 text-muted-foreground hover:text-destructive md:min-h-8"
+      pendingLabel="Deleting…"
+    >
+      <Trash2Icon aria-hidden="true" />
+      <span className="sr-only sm:not-sr-only">{label}</span>
+    </SubmitButton>
+  );
 }
 
 export default async function JobDetailPage({
@@ -137,8 +166,13 @@ export default async function JobDetailPage({
       listJobFieldNotes(job.id, { kind: query.noteKind, from: query.from, to: query.to }),
     ]);
 
+  const returnTo = `/app/jobs/${job.id}`;
+  const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
+  const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
   const areaName = (workAreaId: string | null) =>
     areas.find((area) => area.id === workAreaId)?.name;
+  const taskTitle = (taskId: string | null) =>
+    tasks.find((task) => task.id === taskId)?.title;
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const taskProgress =
     tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
@@ -147,6 +181,9 @@ export default async function JobDetailPage({
     : process.env.BLOB_READ_WRITE_TOKEN
       ? "blob"
       : "unavailable";
+  const isFiltered = Boolean(
+    query.taskStatus || query.noteKind || query.docKind || query.from || query.to,
+  );
 
   return (
     <div className="space-y-6">
@@ -163,9 +200,37 @@ export default async function JobDetailPage({
               status={job.status}
               label={JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ?? job.status}
             />
+            <FormDialog
+              triggerLabel="Edit job"
+              triggerIcon={<PencilIcon aria-hidden="true" />}
+              triggerVariant="outline"
+              title="Edit job"
+              description="Name, scope, crew, and planned dates."
+            >
+              <form action={saveJobDetails} className="grid gap-3 sm:grid-cols-2">
+                <input type="hidden" name="jobId" value={job.id} />
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <JobFormFields
+                  idPrefix="editJob"
+                  defaults={{
+                    jobName: job.name,
+                    scope: job.scope ?? "",
+                    projectManager: job.projectManager,
+                    foreman: job.foreman,
+                    plannedStartAt: datetimeLocalValue(job.plannedStartAt),
+                    plannedEndAt: datetimeLocalValue(job.plannedEndAt),
+                  }}
+                />
+                <div className="sm:col-span-2">
+                  <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                    Save job
+                  </SubmitButton>
+                </div>
+              </form>
+            </FormDialog>
             <Button
               variant="outline"
-              className="min-h-11"
+              className="min-h-11 md:min-h-8"
               nativeButton={false}
               render={<Link href={`/app/field/jobs/${job.id}`} />}
             >
@@ -224,6 +289,14 @@ export default async function JobDetailPage({
         </div>
         <DateRangeFields from={query.from} to={query.to} />
         <FilterSubmit />
+        {isFiltered ? (
+          <Link
+            href={returnTo}
+            className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Clear
+          </Link>
+        ) : null}
       </ListFilters>
 
       <section
@@ -274,9 +347,9 @@ export default async function JobDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                  <CalendarDaysIcon className="size-4" aria-hidden="true" />
-                </span>
+                <SectionIcon>
+                  <CalendarDaysIcon aria-hidden="true" />
+                </SectionIcon>
                 <div>
                   <CardTitle>Job brief</CardTitle>
                   <CardDescription>
@@ -285,154 +358,89 @@ export default async function JobDetailPage({
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Project</p>
-                <p className="mt-1">
-                  {project ? (
-                    <Link href={`/app/projects/${project.id}`} className="font-medium hover:underline">
-                      {project.name}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
+            <CardContent>
+              <DetailList
+                items={[
+                  {
+                    label: "Project",
+                    value: project ? (
+                      <Link href={`/app/projects/${project.id}`} className="font-medium hover:underline">
+                        {project.name}
+                      </Link>
+                    ) : null,
+                  },
+                  {
+                    label: "Company",
+                    value: company ? (
+                      <Link href={`/app/companies/${company.id}`} className="font-medium hover:underline">
+                        {company.name}
+                      </Link>
+                    ) : null,
+                  },
+                  {
+                    label: "Site",
+                    value: site ? `${site.name} · ${site.city}, ${site.province}` : null,
+                  },
+                  {
+                    label: "Opportunity",
+                    value: opportunity ? (
+                      <Link
+                        href={`/app/opportunities/${opportunity.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {opportunity.name}
+                      </Link>
+                    ) : null,
+                  },
+                  {
+                    label: "Source request",
+                    value: opportunity?.sourceLeadId ? (
+                      <Link
+                        href={`/app/requests/${opportunity.sourceLeadId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {formatRequestNumber(opportunity.sourceLeadId)}
+                      </Link>
+                    ) : null,
+                  },
+                  {
+                    label: "Services",
+                    value: formatServices(job.services),
+                  },
+                  {
+                    label: "Scope",
+                    value: job.scope ? <span className="whitespace-pre-wrap">{job.scope}</span> : null,
+                  },
+                  {
+                    label: "Planned",
+                    value: `${formatWhen(job.plannedStartAt)} → ${formatWhen(job.plannedEndAt)}`,
+                  },
+                  {
+                    label: "Crew",
+                    value: (
+                      <>
+                        <span>PM: {job.projectManager ?? "Unassigned"}</span>
+                        <br />
+                        <span>Foreman: {job.foreman ?? "Unassigned"}</span>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+              {job.status === "blocked" && job.blockerNote ? (
+                <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  Blocked: {job.blockerNote}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Company</p>
-                <p className="mt-1">
-                  {company ? (
-                    <Link href={`/app/companies/${company.id}`} className="font-medium hover:underline">
-                      {company.name}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Site</p>
-                <p className="mt-1">
-                  {site
-                    ? `${site.name} · ${site.city}${site.province === "ON" ? ", ON" : ""}`
-                    : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Opportunity</p>
-                <p className="mt-1">
-                  {opportunity ? (
-                    <Link
-                      href={`/app/opportunities/${opportunity.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {opportunity.name}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Source request</p>
-                <p className="mt-1">
-                  {opportunity?.sourceLeadId ? (
-                    <Link
-                      href={`/app/requests/${opportunity.sourceLeadId}`}
-                      className="font-medium hover:underline"
-                    >
-                      {formatRequestNumber(opportunity.sourceLeadId)}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Scope</p>
-                <p className="mt-1">{job.scope || "—"}</p>
-                <p className="text-sm text-muted-foreground">{formatServices(job.services)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Planned</p>
-                <p className="mt-1">
-                  {formatWhen(job.plannedStartAt)} → {formatWhen(job.plannedEndAt)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Crew</p>
-                <p className="mt-1">PM: {job.projectManager ?? "Unassigned"}</p>
-                <p>Foreman: {job.foreman ?? "Unassigned"}</p>
-              </div>
-            </CardContent>
-            {job.status === "blocked" && job.blockerNote ? (
-              <CardContent>
-                <p className="text-sm text-destructive">Blocked: {job.blockerNote}</p>
-              </CardContent>
-            ) : null}
-            <CardContent className="space-y-4 border-t">
-              <form action={saveJobDetails} className="grid gap-3 sm:grid-cols-2">
-                <input type="hidden" name="jobId" value={job.id} />
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="jobName">Job name</Label>
-                  <Input id="jobName" name="name" className="h-11" defaultValue={job.name} required />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="jobScope">Scope</Label>
-                  <Textarea id="jobScope" name="scope" rows={3} defaultValue={job.scope ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jobProjectManager">Project manager</Label>
-                  <Input
-                    id="jobProjectManager"
-                    name="projectManager"
-                    className="h-11"
-                    defaultValue={job.projectManager ?? ""}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jobForeman">Foreman</Label>
-                  <Input id="jobForeman" name="foreman" className="h-11" defaultValue={job.foreman ?? ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jobPlannedStartAt">Planned start</Label>
-                  <Input
-                    id="jobPlannedStartAt"
-                    name="plannedStartAt"
-                    type="datetime-local"
-                    className="h-11"
-                    defaultValue={datetimeLocalValue(job.plannedStartAt)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jobPlannedEndAt">Planned end</Label>
-                  <Input
-                    id="jobPlannedEndAt"
-                    name="plannedEndAt"
-                    type="datetime-local"
-                    className="h-11"
-                    defaultValue={datetimeLocalValue(job.plannedEndAt)}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <SubmitButton className="min-h-11">Save job details</SubmitButton>
-                </div>
-              </form>
-              <form action={removeJob}>
-                <input type="hidden" name="jobId" value={job.id} />
-                <SubmitButton variant="destructive" className="min-h-11" pendingLabel="Deleting…">
-                  Delete job
-                </SubmitButton>
-              </form>
+              ) : null}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                  <MapPinnedIcon className="size-4" aria-hidden="true" />
-                </span>
+                <SectionIcon>
+                  <MapPinnedIcon aria-hidden="true" />
+                </SectionIcon>
                 <div>
                   <CardTitle>Work areas</CardTitle>
                   <CardDescription>
@@ -440,113 +448,124 @@ export default async function JobDetailPage({
                   </CardDescription>
                 </div>
               </div>
+              <CardAction>
+                <FormDialog
+                  triggerLabel="Add work area"
+                  triggerIcon={<PlusIcon aria-hidden="true" />}
+                  triggerVariant="outline"
+                  title="Add a work area"
+                  description="Tasks, plans, and field entries can be pinned to a work area."
+                >
+                  <form action={addJobWorkArea} className="grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <WorkAreaFields idPrefix="newArea" />
+                    <div className="sm:col-span-2">
+                      <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto" pendingLabel="Adding area…">
+                        Add work area
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </FormDialog>
+              </CardAction>
             </CardHeader>
             <CardContent>
               {areas.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No work areas yet. Add one before assigning tasks or plans to a
-                  specific location.
-                </p>
+                <EmptyState
+                  icon={<MapPinnedIcon aria-hidden="true" />}
+                  title="No work areas yet"
+                  description="Add one before assigning tasks or plans to a specific location."
+                  className="py-6"
+                />
               ) : (
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {areas.map((area) => (
                     <li
                       key={area.id}
-                      className="space-y-3 rounded-lg border bg-muted/20 p-3"
+                      className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3"
                     >
-                      <form action={saveJobWorkArea} className="space-y-3">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="workAreaId" value={area.id} />
-                        <Input name="name" className="h-11" defaultValue={area.name} required />
-                        <NativeSelect name="kind" defaultValue={area.kind} className="h-11">
-                          {WORK_AREA_KINDS.map((kind) => (
-                            <option key={kind} value={kind}>
-                              {WORK_AREA_LABELS[kind]}
-                            </option>
-                          ))}
-                        </NativeSelect>
-                        <Textarea name="notes" rows={2} defaultValue={area.notes ?? ""} />
-                        <SubmitButton className="min-h-11">Save area</SubmitButton>
-                      </form>
-                      <form action={removeJobWorkArea}>
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="workAreaId" value={area.id} />
-                        <SubmitButton variant="ghost" className="min-h-11" pendingLabel="Deleting…">
-                          Delete area
-                        </SubmitButton>
-                      </form>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium">{area.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {WORK_AREA_LABELS[area.kind as keyof typeof WORK_AREA_LABELS] ?? area.kind}
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <FormDialog
+                            triggerLabel="Edit"
+                            triggerIcon={<PencilIcon aria-hidden="true" />}
+                            triggerVariant="ghost"
+                            triggerAriaLabel={`Edit ${area.name}`}
+                            title="Edit work area"
+                          >
+                            <form action={saveJobWorkArea} className="grid gap-3 sm:grid-cols-2">
+                              <input type="hidden" name="jobId" value={job.id} />
+                              <input type="hidden" name="workAreaId" value={area.id} />
+                              <input type="hidden" name="returnTo" value={returnTo} />
+                              <WorkAreaFields idPrefix={`area-${area.id}`} defaults={area} />
+                              <div className="sm:col-span-2">
+                                <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                                  Save area
+                                </SubmitButton>
+                              </div>
+                            </form>
+                          </FormDialog>
+                          <ConfirmForm
+                            action={removeJobWorkArea}
+                            message={`Delete ${area.name}? Tasks, files, and entries pinned to it will move to the whole job.`}
+                          >
+                            <input type="hidden" name="jobId" value={job.id} />
+                            <input type="hidden" name="workAreaId" value={area.id} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <RowDeleteButton />
+                          </ConfirmForm>
+                        </div>
+                      </div>
+                      {area.notes ? (
+                        <p className="text-sm text-muted-foreground">{area.notes}</p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               )}
-              <form
-                action={addJobWorkArea}
-                className="mt-5 space-y-4 rounded-lg border border-dashed p-4"
-              >
-                <input type="hidden" name="jobId" value={job.id} />
-                <div className="space-y-2">
-                  <Label htmlFor="workAreaName">
-                    New work area <span aria-hidden="true">*</span>
-                  </Label>
-                  <Input
-                    id="workAreaName"
-                    name="name"
-                    className="h-11"
-                    maxLength={160}
-                    required
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="workAreaKind">Type</Label>
-                    <NativeSelect
-                      id="workAreaKind"
-                      name="kind"
-                      defaultValue="area"
-                      className="h-11"
-                    >
-                      {WORK_AREA_KINDS.map((kind) => (
-                        <option key={kind} value={kind}>
-                          {WORK_AREA_LABELS[kind]}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="workAreaNotes">Notes</Label>
-                    <Textarea
-                      id="workAreaNotes"
-                      name="notes"
-                      rows={2}
-                      maxLength={2000}
-                    />
-                  </div>
-                </div>
-                <SubmitButton className="min-h-11" pendingLabel="Adding area…">
-                  Add work area
-                </SubmitButton>
-              </form>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                    <ClipboardCheckIcon className="size-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <CardTitle>Tasks</CardTitle>
-                    <CardDescription>
-                      Checklists and assignments for the crew.
-                    </CardDescription>
-                  </div>
+              <div className="flex items-center gap-3">
+                <SectionIcon>
+                  <ClipboardCheckIcon aria-hidden="true" />
+                </SectionIcon>
+                <div>
+                  <CardTitle>Tasks</CardTitle>
+                  <CardDescription>
+                    Checklists and assignments for the crew.
+                  </CardDescription>
                 </div>
+              </div>
+              <CardAction className="flex items-center gap-2">
                 <Badge variant="secondary" className="tabular-nums">
                   {completedTasks}/{tasks.length}
                 </Badge>
-              </div>
+                <FormDialog
+                  triggerLabel="Add task"
+                  triggerIcon={<PlusIcon aria-hidden="true" />}
+                  triggerVariant="outline"
+                  title="Add a task"
+                  description="Crews can complete tasks from the field view."
+                >
+                  <form action={addJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <TaskFields idPrefix="newTask" areas={areaOptions} />
+                    <div className="sm:col-span-2">
+                      <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto" pendingLabel="Adding task…">
+                        Add task
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </FormDialog>
+              </CardAction>
             </CardHeader>
             <CardContent>
               {tasks.length > 0 ? (
@@ -560,15 +579,22 @@ export default async function JobDetailPage({
                 </Progress>
               ) : null}
               {tasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No job tasks yet.
-                </p>
+                <EmptyState
+                  icon={<ClipboardCheckIcon aria-hidden="true" />}
+                  title={isFiltered ? "No tasks match these filters" : "No tasks yet"}
+                  description={
+                    isFiltered
+                      ? "Clear the filters to see every task."
+                      : "Break the scope into steps the crew can check off on site."
+                  }
+                  className="py-6"
+                />
               ) : (
-                <ul className="space-y-2">
+                <ul className="divide-y">
                   {tasks.map((task) => (
                     <li
                       key={task.id}
-                      className="space-y-3 rounded-lg border bg-muted/20 p-3"
+                      className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex min-w-0 items-start gap-3">
                         {task.status === "done" ? (
@@ -582,67 +608,24 @@ export default async function JobDetailPage({
                             aria-hidden="true"
                           />
                         )}
-                        <p
-                          className={
-                            task.status === "done"
-                              ? "font-medium text-muted-foreground line-through"
-                              : "font-medium"
-                          }
-                        >
-                          {task.title}
-                        </p>
-                      </div>
-                      <form action={saveJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="taskId" value={task.id} />
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor={`taskTitle-${task.id}`}>Title</Label>
-                          <Input
-                            id={`taskTitle-${task.id}`}
-                            name="title"
-                            className="h-11"
-                            defaultValue={task.title}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`taskAssignee-${task.id}`}>Assignee</Label>
-                          <Input
-                            id={`taskAssignee-${task.id}`}
-                            name="assignee"
-                            className="h-11"
-                            defaultValue={task.assignee ?? ""}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`taskDue-${task.id}`}>Due</Label>
-                          <Input
-                            id={`taskDue-${task.id}`}
-                            name="dueAt"
-                            type="datetime-local"
-                            className="h-11"
-                            defaultValue={datetimeLocalValue(task.dueAt)}
-                          />
-                        </div>
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor={`taskArea-${task.id}`}>Work area</Label>
-                          <NativeSelect
-                            id={`taskArea-${task.id}`}
-                            name="workAreaId"
-                            defaultValue={task.workAreaId ?? ""}
-                            className="h-11"
+                        <div className="min-w-0">
+                          <p
+                            className={
+                              task.status === "done"
+                                ? "font-medium text-muted-foreground line-through"
+                                : "font-medium"
+                            }
                           >
-                            <option value="">Whole job</option>
-                            {areas.map((area) => (
-                              <option key={area.id} value={area.id}>
-                                {area.name}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                            {task.title}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {task.assignee ?? "Unassigned"}
+                            {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
+                            {task.dueAt ? ` · due ${task.dueAt.toLocaleString("en-CA")}` : ""}
+                          </p>
                         </div>
-                        <SubmitButton className="min-h-11">Save task</SubmitButton>
-                      </form>
-                      <div className="flex flex-wrap gap-2">
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
                         <form action={setJobWorkspaceTaskStatus}>
                           <input type="hidden" name="jobId" value={job.id} />
                           <input type="hidden" name="taskId" value={task.id} />
@@ -652,90 +635,63 @@ export default async function JobDetailPage({
                             value={task.status === "done" ? "open" : "done"}
                           />
                           <SubmitButton
-                            className="min-h-11"
+                            className="min-h-11 md:min-h-8"
                             pendingLabel={task.status === "done" ? "Reopening…" : "Completing…"}
                           >
                             {task.status === "done" ? "Reopen" : "Complete"}
                           </SubmitButton>
                         </form>
-                        <form action={removeJobWorkspaceTask}>
+                        <FormDialog
+                          triggerLabel="Edit"
+                          triggerIcon={<PencilIcon aria-hidden="true" />}
+                          triggerVariant="ghost"
+                          triggerAriaLabel={`Edit ${task.title}`}
+                          title="Edit task"
+                        >
+                          <form action={saveJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
+                            <input type="hidden" name="jobId" value={job.id} />
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <TaskFields
+                              idPrefix={`task-${task.id}`}
+                              areas={areaOptions}
+                              defaults={{
+                                title: task.title,
+                                assignee: task.assignee,
+                                dueAt: datetimeLocalValue(task.dueAt),
+                                workAreaId: task.workAreaId,
+                              }}
+                            />
+                            <div className="sm:col-span-2">
+                              <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                                Save task
+                              </SubmitButton>
+                            </div>
+                          </form>
+                        </FormDialog>
+                        <ConfirmForm
+                          action={removeJobWorkspaceTask}
+                          message={`Delete task “${task.title}”? This cannot be undone.`}
+                        >
                           <input type="hidden" name="jobId" value={job.id} />
                           <input type="hidden" name="taskId" value={task.id} />
-                          <SubmitButton variant="ghost" className="min-h-11" pendingLabel="Deleting…">
-                            Delete
-                          </SubmitButton>
-                        </form>
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <RowDeleteButton />
+                        </ConfirmForm>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
-              <form
-                action={addJobWorkspaceTask}
-                className="mt-5 space-y-4 rounded-lg border border-dashed p-4"
-              >
-                <input type="hidden" name="jobId" value={job.id} />
-                <div className="space-y-2">
-                  <Label htmlFor="jobTaskTitle">
-                    New task <span aria-hidden="true">*</span>
-                  </Label>
-                  <Input
-                    id="jobTaskTitle"
-                    name="title"
-                    className="h-11"
-                    maxLength={160}
-                    required
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTaskAssignee">Assignee</Label>
-                    <Input
-                      id="jobTaskAssignee"
-                      name="assignee"
-                      className="h-11"
-                      maxLength={160}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTaskDueAt">Due</Label>
-                    <Input
-                      id="jobTaskDueAt"
-                      name="dueAt"
-                      type="datetime-local"
-                      className="h-11"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="jobTaskWorkArea">Work area</Label>
-                  <NativeSelect
-                    id="jobTaskWorkArea"
-                    name="workAreaId"
-                    defaultValue=""
-                    className="h-11"
-                  >
-                    <option value="">Whole job</option>
-                    {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-                <SubmitButton className="min-h-11" pendingLabel="Adding task…">
-                  Add task
-                </SubmitButton>
-              </form>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                  <FileTextIcon className="size-4" aria-hidden="true" />
-                </span>
+                <SectionIcon>
+                  <FileTextIcon aria-hidden="true" />
+                </SectionIcon>
                 <div>
                   <CardTitle>Plans and documents</CardTitle>
                   <CardDescription>
@@ -743,18 +699,40 @@ export default async function JobDetailPage({
                   </CardDescription>
                 </div>
               </div>
+              <CardAction>
+                <FormDialog
+                  triggerLabel="Upload file"
+                  triggerIcon={<UploadCloudIcon aria-hidden="true" />}
+                  triggerVariant="outline"
+                  title="Upload a plan or photo"
+                  description="PDF, JPEG, PNG, or WebP up to 25 MB."
+                >
+                  <JobDocumentUploader
+                    jobId={job.id}
+                    areas={areaOptions}
+                    storageMode={documentStorageMode}
+                  />
+                </FormDialog>
+              </CardAction>
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No plans or photos have been uploaded to this job.
-                </p>
+                <EmptyState
+                  icon={<FileTextIcon aria-hidden="true" />}
+                  title={isFiltered ? "No files match these filters" : "No plans or photos yet"}
+                  description={
+                    isFiltered
+                      ? "Clear the filters to see every file."
+                      : "Upload the plan set so the crew can open it from the field view."
+                  }
+                  className="py-6"
+                />
               ) : (
-                <ul className="space-y-2">
+                <ul className="divide-y">
                   {documents.map((document) => (
                     <li
                       key={document.id}
-                      className="space-y-3 rounded-lg border bg-muted/20 p-3"
+                      className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex min-w-0 items-start gap-3">
                         <FileTextIcon
@@ -762,90 +740,73 @@ export default async function JobDetailPage({
                           aria-hidden="true"
                         />
                         <div className="min-w-0">
-                          <p className="break-all font-medium">
-                            {document.filename}
-                          </p>
+                          <p className="break-all font-medium">{document.filename}</p>
                           <p className="text-sm text-muted-foreground">
-                          {` · ${formatFileSize(document.sizeBytes)}`}
-                          {` · ${document.uploadedBy}`}
+                            {JOB_DOCUMENT_LABELS[document.kind as keyof typeof JOB_DOCUMENT_LABELS] ??
+                              document.kind}
+                            {areaName(document.workAreaId) ? ` · ${areaName(document.workAreaId)}` : ""}
+                            {` · ${formatFileSize(document.sizeBytes)}`}
+                            {` · ${document.uploadedBy}`}
                           </p>
                         </div>
                       </div>
-                      <form action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="documentId" value={document.id} />
-                        <div className="space-y-2">
-                          <Label htmlFor={`docKind-${document.id}`}>Type</Label>
-                          <NativeSelect
-                            id={`docKind-${document.id}`}
-                            name="kind"
-                            defaultValue={document.kind}
-                            className="h-11"
-                          >
-                            {JOB_DOCUMENT_KINDS.map((kind) => (
-                              <option key={kind} value={kind}>
-                                {JOB_DOCUMENT_LABELS[kind]}
-                              </option>
-                            ))}
-                          </NativeSelect>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`docArea-${document.id}`}>Work area</Label>
-                          <NativeSelect
-                            id={`docArea-${document.id}`}
-                            name="workAreaId"
-                            defaultValue={document.workAreaId ?? ""}
-                            className="h-11"
-                          >
-                            <option value="">Whole job</option>
-                            {areas.map((area) => (
-                              <option key={area.id} value={area.id}>
-                                {area.name}
-                              </option>
-                            ))}
-                          </NativeSelect>
-                        </div>
-                        <SubmitButton className="min-h-11">Save document</SubmitButton>
-                      </form>
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          href={jobDocumentHref(job.id, document.id)}
-                          className="inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          variant="outline"
+                          className="min-h-11 md:min-h-8"
+                          nativeButton={false}
+                          render={<a href={jobDocumentHref(job.id, document.id)} />}
                         >
-                          Open file
-                          <ExternalLinkIcon className="size-4" aria-hidden="true" />
-                        </a>
-                        <form action={removeJobDocument}>
+                          Open
+                          <ExternalLinkIcon aria-hidden="true" />
+                        </Button>
+                        <FormDialog
+                          triggerLabel="Edit"
+                          triggerIcon={<PencilIcon aria-hidden="true" />}
+                          triggerVariant="ghost"
+                          triggerAriaLabel={`Edit ${document.filename}`}
+                          title="Edit document"
+                          description={document.filename}
+                        >
+                          <form action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
+                            <input type="hidden" name="jobId" value={job.id} />
+                            <input type="hidden" name="documentId" value={document.id} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <DocumentMetaFields
+                              idPrefix={`doc-${document.id}`}
+                              areas={areaOptions}
+                              defaults={document}
+                            />
+                            <div className="sm:col-span-2">
+                              <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                                Save document
+                              </SubmitButton>
+                            </div>
+                          </form>
+                        </FormDialog>
+                        <ConfirmForm
+                          action={removeJobDocument}
+                          message={`Delete ${document.filename}? The file is removed permanently.`}
+                        >
                           <input type="hidden" name="jobId" value={job.id} />
                           <input type="hidden" name="documentId" value={document.id} />
-                          <SubmitButton variant="ghost" className="min-h-11" pendingLabel="Deleting…">
-                            Delete
-                          </SubmitButton>
-                        </form>
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <RowDeleteButton />
+                        </ConfirmForm>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="mt-5 rounded-lg border border-dashed p-4">
-                <JobDocumentUploader
-                  jobId={job.id}
-                  areas={areas.map(({ id: areaId, name }) => ({
-                    id: areaId,
-                    name,
-                  }))}
-                  storageMode={documentStorageMode}
-                />
-              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                  <ClipboardCheckIcon className="size-4" aria-hidden="true" />
-                </span>
+                <SectionIcon>
+                  <NotebookPenIcon aria-hidden="true" />
+                </SectionIcon>
                 <div>
                   <CardTitle>Field log</CardTitle>
                   <CardDescription>
@@ -853,77 +814,106 @@ export default async function JobDetailPage({
                   </CardDescription>
                 </div>
               </div>
+              <CardAction>
+                <FormDialog
+                  triggerLabel="Add entry"
+                  triggerIcon={<PlusIcon aria-hidden="true" />}
+                  triggerVariant="outline"
+                  title="Add a field entry"
+                  description="Reporting a blocker also marks the job blocked."
+                >
+                  <form action={addJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <FieldEntryFields idPrefix="newEntry" areas={areaOptions} tasks={taskOptions} />
+                    <div className="sm:col-span-2">
+                      <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto" pendingLabel="Saving entry…">
+                        Save entry
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </FormDialog>
+              </CardAction>
             </CardHeader>
             <CardContent>
               {notes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No field entries match these filters.</p>
+                <EmptyState
+                  icon={<NotebookPenIcon aria-hidden="true" />}
+                  title={isFiltered ? "No entries match these filters" : "No field entries yet"}
+                  description={
+                    isFiltered
+                      ? "Clear the filters to see every entry."
+                      : "Entries logged from the field view show up here for the office."
+                  }
+                  className="py-6"
+                />
               ) : (
-                <ul className="space-y-3">
+                <ul className="divide-y">
                   {notes.map((note) => (
-                    <li key={note.id} className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                      <p className="text-sm text-muted-foreground">
-                        {note.createdBy}
-                        {areaName(note.workAreaId) ? ` · ${areaName(note.workAreaId)}` : ""}
-                        {taskTitleLookup(tasks, note.taskId)
-                          ? ` · ${taskTitleLookup(tasks, note.taskId)}`
-                          : ""}
-                        {` · ${note.createdAt.toLocaleString("en-CA")}`}
-                      </p>
-                      <form action={saveJobFieldEntry} className="space-y-3">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="noteId" value={note.id} />
-                        <input type="hidden" name="returnTo" value={`/app/jobs/${job.id}`} />
-                        <NativeSelect name="kind" defaultValue={note.kind} className="h-11">
-                          {FIELD_NOTE_KINDS.map((kind) => (
-                            <option key={kind} value={kind}>
-                              {FIELD_NOTE_LABELS[kind]}
-                            </option>
-                          ))}
-                        </NativeSelect>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <Input
-                            name="quantity"
-                            className="h-11"
-                            defaultValue={note.quantity?.toString() ?? ""}
-                            placeholder="Quantity"
-                          />
-                          <NativeSelect name="unit" defaultValue={note.unit ?? "board_feet"} className="h-11">
-                            {FIELD_QUANTITY_UNITS.map((unit) => (
-                              <option key={unit} value={unit}>
-                                {FIELD_QUANTITY_LABELS[unit]}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                    <li key={note.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={note.kind === "blocker" ? "destructive" : "outline"}>
+                              {FIELD_NOTE_LABELS[note.kind as keyof typeof FIELD_NOTE_LABELS] ?? note.kind}
+                            </Badge>
+                            {formatFieldQuantity(note.quantity, note.unit) ? (
+                              <span className="text-sm font-medium tabular-nums">
+                                {formatFieldQuantity(note.quantity, note.unit)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {note.createdBy}
+                            {areaName(note.workAreaId) ? ` · ${areaName(note.workAreaId)}` : ""}
+                            {taskTitle(note.taskId) ? ` · ${taskTitle(note.taskId)}` : ""}
+                            {` · ${note.createdAt.toLocaleString("en-CA")}`}
+                          </p>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <NativeSelect name="workAreaId" defaultValue={note.workAreaId ?? ""} className="h-11">
-                            <option value="">Whole job</option>
-                            {areas.map((area) => (
-                              <option key={area.id} value={area.id}>
-                                {area.name}
-                              </option>
-                            ))}
-                          </NativeSelect>
-                          <NativeSelect name="taskId" defaultValue={note.taskId ?? ""} className="h-11">
-                            <option value="">No task</option>
-                            {tasks.map((task) => (
-                              <option key={task.id} value={task.id}>
-                                {task.title}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                        <div className="flex items-center gap-1">
+                          <FormDialog
+                            triggerLabel="Edit"
+                            triggerIcon={<PencilIcon aria-hidden="true" />}
+                            triggerVariant="ghost"
+                            triggerAriaLabel="Edit field entry"
+                            title="Edit field entry"
+                          >
+                            <form action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                              <input type="hidden" name="jobId" value={job.id} />
+                              <input type="hidden" name="noteId" value={note.id} />
+                              <input type="hidden" name="returnTo" value={returnTo} />
+                              <FieldEntryFields
+                                idPrefix={`note-${note.id}`}
+                                areas={areaOptions}
+                                tasks={taskOptions}
+                                defaults={{
+                                  kind: note.kind,
+                                  quantity: note.quantity?.toString() ?? "",
+                                  unit: note.unit,
+                                  workAreaId: note.workAreaId,
+                                  taskId: note.taskId,
+                                  body: note.body,
+                                }}
+                              />
+                              <div className="sm:col-span-2">
+                                <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                                  Save entry
+                                </SubmitButton>
+                              </div>
+                            </form>
+                          </FormDialog>
+                          <ConfirmForm
+                            action={removeJobFieldEntry}
+                            message="Delete this field entry? This cannot be undone."
+                          >
+                            <input type="hidden" name="jobId" value={job.id} />
+                            <input type="hidden" name="noteId" value={note.id} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <RowDeleteButton />
+                          </ConfirmForm>
                         </div>
-                        <Textarea name="body" rows={3} defaultValue={note.body} required />
-                        <SubmitButton className="min-h-11">Save field entry</SubmitButton>
-                      </form>
-                      <form action={removeJobFieldEntry}>
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="noteId" value={note.id} />
-                        <input type="hidden" name="returnTo" value={`/app/jobs/${job.id}`} />
-                        <SubmitButton variant="ghost" className="min-h-11" pendingLabel="Deleting…">
-                          Delete entry
-                        </SubmitButton>
-                      </form>
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm">{note.body}</p>
                     </li>
                   ))}
                 </ul>
@@ -934,9 +924,9 @@ export default async function JobDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                  <ActivityIcon className="size-4" aria-hidden="true" />
-                </span>
+                <SectionIcon>
+                  <ActivityIcon aria-hidden="true" />
+                </SectionIcon>
                 <div>
                   <CardTitle>Activity</CardTitle>
                   <CardDescription>
@@ -962,14 +952,35 @@ export default async function JobDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <Card className="border-destructive/20">
+            <CardHeader>
+              <CardTitle>Remove job</CardTitle>
+              <CardDescription>
+                Deletes this job with its work areas, tasks, files, and field log.
+              </CardDescription>
+              <CardAction>
+                <ConfirmForm
+                  action={removeJob}
+                  message={`Delete ${formatJobNumber(job.id)} and everything attached to it? This cannot be undone.`}
+                >
+                  <input type="hidden" name="jobId" value={job.id} />
+                  <SubmitButton variant="destructive" className="min-h-11 md:min-h-8" pendingLabel="Deleting…">
+                    <Trash2Icon aria-hidden="true" />
+                    Delete job
+                  </SubmitButton>
+                </ConfirmForm>
+              </CardAction>
+            </CardHeader>
+          </Card>
         </div>
 
         <Card className="h-fit xl:sticky xl:top-6">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                <UsersIcon className="size-4" aria-hidden="true" />
-              </span>
+              <SectionIcon>
+                <UsersIcon aria-hidden="true" />
+              </SectionIcon>
               <div>
                 <CardTitle>Field status</CardTitle>
                 <CardDescription>

@@ -30,7 +30,7 @@ describe("POST /api/ops/login", () => {
       }),
     );
     expect(allowed.status).toBe(303);
-    expect(allowed.headers.get("location")).toBe("http://localhost/app/requests");
+    expect(allowed.headers.get("location")).toBe("http://localhost/app");
     const cookie = allowed.headers.get("set-cookie") ?? "";
     expect(cookie).toContain(OPS_SESSION_COOKIE);
     const token = cookie.split(";")[0]?.split("=")[1] ?? "";

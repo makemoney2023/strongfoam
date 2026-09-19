@@ -1,8 +1,18 @@
+import {
+  CheckCircle2Icon,
+  CircleIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ConfirmForm } from "@/components/ops/confirm-form";
 import { Flash } from "@/components/ops/flash";
+import { FormDialog } from "@/components/ops/form-dialog";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { SubmitButton } from "@/components/ops/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -570,39 +580,78 @@ export default async function EstimateRequestDetailPage({
           </div>
 
           <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-            <h2 className="text-base font-semibold">Tasks</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">Tasks</h2>
+                <p className="text-sm text-muted-foreground">
+                  Follow-ups for this request before it becomes a job.
+                </p>
+              </div>
+              <FormDialog
+                triggerLabel="Add task"
+                triggerIcon={<PlusIcon aria-hidden="true" />}
+                triggerVariant="outline"
+                title="Add a task"
+                description={`Follow-up for ${formatRequestNumber(request.id)}.`}
+              >
+                <form action={addRequestTask} className="grid gap-3 sm:grid-cols-2">
+                  <input type="hidden" name="id" value={request.id} />
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="newReqTask-title">
+                      Task <span aria-hidden="true">*</span>
+                    </Label>
+                    <Input id="newReqTask-title" name="title" className="h-11" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newReqTask-assignee">Assignee</Label>
+                    <Input id="newReqTask-assignee" name="assignee" className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newReqTask-dueAt">Due</Label>
+                    <Input id="newReqTask-dueAt" name="dueAt" type="datetime-local" className="h-11" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                      Add task
+                    </SubmitButton>
+                  </div>
+                </form>
+              </FormDialog>
+            </div>
             {tasks.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                No tasks have been created yet.
+                No tasks yet. Add one for a site visit, a call back, or the estimate itself.
               </p>
             ) : (
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-4 divide-y">
                 {tasks.map((task) => (
                   <li
                     key={task.id}
-                    className="flex flex-wrap items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
+                    className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
                   >
-                    <div>
-                      <p className="font-medium">
-                        {task.status === "done" ? (
-                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                            Done
-                          </span>
-                        ) : (
-                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-primary">
-                            Open
-                          </span>
-                        )}{" "}
-                        {task.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {task.assignee ?? "Unassigned"}
-                        {task.dueAt
-                          ? ` · due ${task.dueAt.toLocaleString("en-CA")}`
-                          : ""}
-                      </p>
+                    <div className="flex min-w-0 items-start gap-3">
+                      {task.status === "done" ? (
+                        <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+                      ) : (
+                        <CircleIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      )}
+                      <div className="min-w-0">
+                        <p
+                          className={
+                            task.status === "done"
+                              ? "font-medium text-muted-foreground line-through"
+                              : "font-medium"
+                          }
+                        >
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.assignee ?? "Unassigned"}
+                          {task.dueAt ? ` · due ${task.dueAt.toLocaleString("en-CA")}` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-1">
                       <form action={setRequestTaskStatus}>
                         <input type="hidden" name="id" value={request.id} />
                         <input type="hidden" name="taskId" value={task.id} />
@@ -611,114 +660,138 @@ export default async function EstimateRequestDetailPage({
                           name="status"
                           value={task.status === "done" ? "open" : "done"}
                         />
-                        <button
-                          type="submit"
-                          className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        <SubmitButton
+                          className="min-h-11 md:min-h-8"
+                          pendingLabel={task.status === "done" ? "Reopening…" : "Completing…"}
                         >
                           {task.status === "done" ? "Reopen" : "Complete"}
-                        </button>
+                        </SubmitButton>
                       </form>
-                      <form action={removeRequestTask}>
+                      <FormDialog
+                        triggerLabel="Edit"
+                        triggerIcon={<PencilIcon aria-hidden="true" />}
+                        triggerVariant="ghost"
+                        triggerAriaLabel={`Edit ${task.title}`}
+                        title="Edit task"
+                      >
+                        <form action={saveRequestTask} className="grid gap-3 sm:grid-cols-2">
+                          <input type="hidden" name="id" value={request.id} />
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor={`reqTask-${task.id}-title`}>
+                              Task <span aria-hidden="true">*</span>
+                            </Label>
+                            <Input
+                              id={`reqTask-${task.id}-title`}
+                              name="title"
+                              className="h-11"
+                              defaultValue={task.title}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`reqTask-${task.id}-assignee`}>Assignee</Label>
+                            <Input
+                              id={`reqTask-${task.id}-assignee`}
+                              name="assignee"
+                              className="h-11"
+                              defaultValue={task.assignee ?? ""}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`reqTask-${task.id}-dueAt`}>Due</Label>
+                            <Input
+                              id={`reqTask-${task.id}-dueAt`}
+                              name="dueAt"
+                              type="datetime-local"
+                              className="h-11"
+                              defaultValue={datetimeLocalValue(task.dueAt)}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                              Save task
+                            </SubmitButton>
+                          </div>
+                        </form>
+                      </FormDialog>
+                      <ConfirmForm
+                        action={removeRequestTask}
+                        message={`Delete task “${task.title}”? This cannot be undone.`}
+                      >
                         <input type="hidden" name="id" value={request.id} />
                         <input type="hidden" name="taskId" value={task.id} />
-                        <button
-                          type="submit"
-                          className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        <SubmitButton
+                          variant="ghost"
+                          className="min-h-11 text-muted-foreground hover:text-destructive md:min-h-8"
+                          pendingLabel="Deleting…"
                         >
-                          Delete
-                        </button>
-                      </form>
+                          <Trash2Icon aria-hidden="true" />
+                          <span className="sr-only sm:not-sr-only">Delete</span>
+                        </SubmitButton>
+                      </ConfirmForm>
                     </div>
-                    <form action={saveRequestTask} className="mt-3 grid w-full gap-2 sm:grid-cols-3">
-                      <input type="hidden" name="id" value={request.id} />
-                      <input type="hidden" name="taskId" value={task.id} />
-                      <Input name="title" className="h-8" defaultValue={task.title} required />
-                      <Input name="assignee" className="h-8" defaultValue={task.assignee ?? ""} />
-                      <Input
-                        name="dueAt"
-                        type="datetime-local"
-                        className="h-8"
-                        defaultValue={datetimeLocalValue(task.dueAt)}
-                      />
-                      <button
-                        type="submit"
-                        className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
-                      >
-                        Save task
-                      </button>
-                    </form>
                   </li>
                 ))}
               </ul>
             )}
-            <form action={addRequestTask} className="mt-5 space-y-3">
-              <input type="hidden" name="id" value={request.id} />
-              <div className="space-y-2">
-                <Label htmlFor="taskTitle">New task</Label>
-                <Input id="taskTitle" name="title" className="h-8" required />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="taskAssignee">Assignee</Label>
-                  <Input id="taskAssignee" name="assignee" className="h-8" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="taskDueAt">Due</Label>
-                  <Input
-                    id="taskDueAt"
-                    name="dueAt"
-                    type="datetime-local"
-                    className="h-8"
-                  />
-                </div>
-              </div>
-              <Button type="submit" variant="outline" className="h-8">
-                Add task
-              </Button>
-            </form>
           </div>
 
           <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
             <h2 className="text-base font-semibold">Comments</h2>
+            <p className="text-sm text-muted-foreground">
+              Use @name to mention a teammate.
+            </p>
+            <form action={addRequestComment} className="mt-4 space-y-3">
+              <input type="hidden" name="id" value={request.id} />
+              <div className="space-y-2">
+                <Label htmlFor="commentBody">Add a comment</Label>
+                <Textarea
+                  id="commentBody"
+                  name="body"
+                  rows={3}
+                  placeholder="Site visit booked for Thursday, @sam can you confirm access?"
+                  required
+                />
+              </div>
+              <SubmitButton variant="default" className="min-h-11 md:min-h-8" pendingLabel="Posting…">
+                Post comment
+              </SubmitButton>
+            </form>
             {comments.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                No comments yet. Use @name to mention a teammate.
-              </p>
+              <p className="mt-4 text-sm text-muted-foreground">No comments yet.</p>
             ) : (
-              <ol className="mt-4 space-y-4">
+              <ol className="mt-5 space-y-4 border-t pt-4">
                 {comments.map((comment) => (
-                  <li key={comment.id} className="border-l-2 border-border pl-3">
-                    <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {comment.actor} · {comment.createdAt.toLocaleString("en-CA")}
-                      {extractMentions(comment.body).length > 0
-                        ? ` · mentioned ${extractMentions(comment.body).join(", ")}`
-                        : ""}
-                    </p>
-                    <form action={removeRequestComment} className="mt-2">
+                  <li key={comment.id} className="flex items-start justify-between gap-3 border-l-2 border-border pl-3">
+                    <div className="min-w-0">
+                      <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {comment.actor} · {comment.createdAt.toLocaleString("en-CA")}
+                        {extractMentions(comment.body).length > 0
+                          ? ` · mentioned ${extractMentions(comment.body).join(", ")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <ConfirmForm
+                      action={removeRequestComment}
+                      message="Delete this comment? This cannot be undone."
+                    >
                       <input type="hidden" name="id" value={request.id} />
                       <input type="hidden" name="commentId" value={comment.id} />
-                      <button
-                        type="submit"
-                        className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                      <SubmitButton
+                        variant="ghost"
+                        className="min-h-11 text-muted-foreground hover:text-destructive md:min-h-8"
+                        pendingLabel="Deleting…"
                       >
-                        Delete comment
-                      </button>
-                    </form>
+                        <Trash2Icon aria-hidden="true" />
+                        <span className="sr-only">Delete comment</span>
+                      </SubmitButton>
+                    </ConfirmForm>
                   </li>
                 ))}
               </ol>
             )}
-            <form action={addRequestComment} className="mt-5 space-y-3">
-              <input type="hidden" name="id" value={request.id} />
-              <div className="space-y-2">
-                <Label htmlFor="commentBody">Add a comment</Label>
-                <Textarea id="commentBody" name="body" rows={3} required />
-              </div>
-              <Button type="submit" variant="outline" className="h-8">
-                Post comment
-              </Button>
-            </form>
           </div>
 
           <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

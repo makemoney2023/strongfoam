@@ -95,8 +95,12 @@ export async function addProjectJob(formData: FormData) {
   if (!session) redirect("/app/login");
 
   const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    projectId ? `/app/projects/${projectId}` : "/app/jobs",
+  );
   const parsed = parseJobConversion({
-    projectName: String(formData.get("projectName") ?? "Project"),
+    projectName: String(formData.get("projectName") || "Project"),
     jobName: String(formData.get("jobName") ?? ""),
     scope: String(formData.get("scope") ?? ""),
     projectManager: String(formData.get("projectManager") ?? ""),
@@ -104,15 +108,15 @@ export async function addProjectJob(formData: FormData) {
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
   });
-  if (!projectId) fail("/app/projects", "Missing project.");
-  if (!parsed.ok) fail(`/app/projects/${projectId}`, parsed.error);
+  if (!projectId) fail(returnTo, "Choose a project for this job.");
+  if (!parsed.ok) fail(returnTo, parsed.error);
 
   const result = await addJobToProject({
     projectId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!result.ok) fail(`/app/projects/${projectId}`, result.error);
+  if (!result.ok) fail(returnTo, result.error);
   refreshJobs(projectId, result.jobId);
   redirect(`/app/jobs/${result.jobId}?saved=1`);
 }

@@ -9,6 +9,7 @@ import {
   FolderKanbanIcon,
   HammerIcon,
   HardHatIcon,
+  HouseIcon,
   LogOutIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const nav = [
+  { title: "Home", href: "/app", icon: HouseIcon, exact: true },
   { title: "Requests", href: "/app/requests", icon: ClipboardListIcon },
   { title: "Companies", href: "/app/companies", icon: Building2Icon },
   { title: "Opportunities", href: "/app/opportunities", icon: BriefcaseBusinessIcon },
@@ -41,7 +43,7 @@ export function AppSidebar({ email }: { email: string }) {
   return (
     <Sidebar>
       <SidebarHeader className="px-3 py-3">
-        <Link href="/app/requests" className="px-1 text-sm font-semibold tracking-tight">
+        <Link href="/app" className="px-1 text-sm font-semibold tracking-tight">
           Strong Foam
         </Link>
         <p className="px-1 text-xs text-muted-foreground">Operations</p>
@@ -54,7 +56,9 @@ export function AppSidebar({ email }: { email: string }) {
               {nav.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
-                    isActive={pathname.startsWith(item.href)}
+                    isActive={
+                      item.exact ? pathname === item.href : pathname.startsWith(item.href)
+                    }
                     render={<Link href={item.href} />}
                     tooltip={item.title}
                     className="min-h-11 md:min-h-8"

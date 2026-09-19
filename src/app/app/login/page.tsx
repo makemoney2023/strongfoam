@@ -18,7 +18,7 @@ export default async function OpsLoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   if (await getOpsSession()) {
-    redirect("/app/requests");
+    redirect("/app");
   }
 
   const params = await searchParams;
