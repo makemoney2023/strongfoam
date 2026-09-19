@@ -66,6 +66,7 @@ import {
 } from "@/lib/ops/project-schedule-graph";
 import {
   calculateBaselineVariance,
+  isWorkingDay,
   type ResolvedWorkingCalendar,
 } from "@/lib/ops/project-schedule-planning";
 import { JOB_STATUS_LABELS } from "@/lib/ops/jobs";
@@ -323,9 +324,11 @@ function TaskMark({
 function TimelineBackdrop({
   window,
   today,
+  calendar,
 }: {
   window: ScheduleWindow;
   today: Date;
+  calendar: ResolvedWorkingCalendar;
 }) {
   const todayPosition = positionInWindow(today, window);
   return (
@@ -337,9 +340,20 @@ function TimelineBackdrop({
         }}
         aria-hidden="true"
       >
-        {window.columns.map((column) => (
-          <span key={column.key} className="border-l first:border-l-0" />
-        ))}
+        {window.columns.map((column) => {
+          const working =
+            window.columns.length !== 42 ||
+            isWorkingDay(column.start.toISOString(), calendar);
+          return (
+            <span
+              key={column.key}
+              className={cn(
+                "border-l first:border-l-0",
+                !working && "bg-muted/50",
+              )}
+            />
+          );
+        })}
       </div>
       {todayPosition !== null ? (
         <span
@@ -416,12 +430,14 @@ function ChartRow({
   className,
   window,
   today,
+  calendar,
 }: {
   label: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   window: ScheduleWindow;
   today: Date;
+  calendar: ResolvedWorkingCalendar;
 }) {
   return (
     <div
@@ -437,7 +453,7 @@ function ChartRow({
         className="relative flex min-h-11 items-center px-2"
         data-timeline-row
       >
-        <TimelineBackdrop window={window} today={today} />
+        <TimelineBackdrop window={window} today={today} calendar={calendar} />
         <div className="relative z-10 min-w-0 flex-1">{children}</div>
       </div>
     </div>
@@ -865,6 +881,7 @@ export function ProjectSchedule({
                   <ChartRow
                     window={window}
                     today={today}
+                    calendar={calendar}
                     className="bg-muted/10"
                     label={
                       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -987,6 +1004,7 @@ export function ProjectSchedule({
                             key={task.id}
                             window={window}
                             today={today}
+                            calendar={calendar}
                             label={
                               <div className="flex min-w-0 flex-1 items-center gap-2 pl-10">
                                 <StatusGlyph state={taskState} />
