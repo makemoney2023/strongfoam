@@ -92,8 +92,9 @@ describe("Home Schedule integration", () => {
     expect(source).toMatch(
       /buildHomeSummary\(\s*\{ requests, opportunities, projects, jobs \}\s*\)/,
     );
-    expect(source).toContain("const scheduleNow = new Date();");
-    expect(source.indexOf("const scheduleNow = new Date();")).toBeGreaterThan(
+    expect(source).toContain("const scheduleNow = isDemoOpsStore()");
+    expect(source).toContain("new Date(DEMO_SCHEDULE_NOW)");
+    expect(source.indexOf("const scheduleNow = isDemoOpsStore()")).toBeGreaterThan(
       source.indexOf("await Promise.all"),
     );
   });
