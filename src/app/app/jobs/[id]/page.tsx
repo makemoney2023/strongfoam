@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
@@ -21,15 +22,32 @@ import {
   formatJobNumber,
 } from "@/lib/ops/jobs";
 import {
+  JOB_DOCUMENT_KINDS,
+  JOB_DOCUMENT_LABELS,
+  WORK_AREA_KINDS,
+  WORK_AREA_LABELS,
+  formatFileSize,
+  jobDocumentHref,
+} from "@/lib/ops/job-workspace";
+import {
   getCompany,
   getJob,
   getOpportunity,
   getProject,
   getSite,
+  listJobDocuments,
   listJobEvents,
+  listJobTasks,
+  listWorkAreas,
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
-import { saveJobStatus } from "../actions";
+import {
+  addJobWorkArea,
+  addJobWorkspaceTask,
+  saveJobStatus,
+  setJobWorkspaceTaskStatus,
+  uploadJobDocument,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,13 +71,20 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [project, company, site, opportunity, events] = await Promise.all([
-    job.projectId ? getProject(job.projectId) : null,
-    job.companyId ? getCompany(job.companyId) : null,
-    job.siteId ? getSite(job.siteId) : null,
-    job.opportunityId ? getOpportunity(job.opportunityId) : null,
-    listJobEvents(job.id),
-  ]);
+  const [project, company, site, opportunity, events, areas, tasks, documents] =
+    await Promise.all([
+      job.projectId ? getProject(job.projectId) : null,
+      job.companyId ? getCompany(job.companyId) : null,
+      job.siteId ? getSite(job.siteId) : null,
+      job.opportunityId ? getOpportunity(job.opportunityId) : null,
+      listJobEvents(job.id),
+      listWorkAreas(job.id),
+      listJobTasks(job.id),
+      listJobDocuments(job.id),
+    ]);
+
+  const areaName = (workAreaId: string | null) =>
+    areas.find((area) => area.id === workAreaId)?.name;
 
   return (
     <div className="space-y-6">
@@ -170,6 +195,268 @@ export default async function JobDetailPage({
                 <p className="text-sm text-destructive">Blocked: {job.blockerNote}</p>
               </CardContent>
             ) : null}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Work areas</CardTitle>
+              <CardDescription>
+                Rooms, floors, units, zones, or phases on this job.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {areas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No work areas yet. Add one before assigning tasks or plans to a
+                  specific location.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {areas.map((area) => (
+                    <li
+                      key={area.id}
+                      className="border-b pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <p className="font-medium">{area.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {WORK_AREA_LABELS[
+                          area.kind as keyof typeof WORK_AREA_LABELS
+                        ] ?? area.kind}
+                        {area.notes ? ` · ${area.notes}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={addJobWorkArea} className="mt-5 space-y-3">
+                <input type="hidden" name="jobId" value={job.id} />
+                <div className="space-y-2">
+                  <Label htmlFor="workAreaName">New work area</Label>
+                  <Input id="workAreaName" name="name" required />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="workAreaKind">Type</Label>
+                    <NativeSelect
+                      id="workAreaKind"
+                      name="kind"
+                      defaultValue="area"
+                    >
+                      {WORK_AREA_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {WORK_AREA_LABELS[kind]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="workAreaNotes">Notes</Label>
+                    <Input id="workAreaNotes" name="notes" />
+                  </div>
+                </div>
+                <Button type="submit" variant="outline">
+                  Add work area
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks</CardTitle>
+              <CardDescription>
+                Checklists and assignments for the crew on this job.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No job tasks yet.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {tasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="flex flex-wrap items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {task.status === "done" ? (
+                            <span className="mr-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                              Done
+                            </span>
+                          ) : (
+                            <span className="mr-2 text-xs uppercase tracking-[0.12em] text-primary">
+                              Open
+                            </span>
+                          )}{" "}
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.assignee ?? "Unassigned"}
+                          {areaName(task.workAreaId)
+                            ? ` · ${areaName(task.workAreaId)}`
+                            : ""}
+                          {task.dueAt
+                            ? ` · due ${task.dueAt.toLocaleString("en-CA")}`
+                            : ""}
+                        </p>
+                      </div>
+                      <form action={setJobWorkspaceTaskStatus}>
+                        <input type="hidden" name="jobId" value={job.id} />
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <input
+                          type="hidden"
+                          name="status"
+                          value={task.status === "done" ? "open" : "done"}
+                        />
+                        <button
+                          type="submit"
+                          className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        >
+                          {task.status === "done" ? "Reopen" : "Complete"}
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={addJobWorkspaceTask} className="mt-5 space-y-3">
+                <input type="hidden" name="jobId" value={job.id} />
+                <div className="space-y-2">
+                  <Label htmlFor="jobTaskTitle">New task</Label>
+                  <Input id="jobTaskTitle" name="title" required />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTaskAssignee">Assignee</Label>
+                    <Input id="jobTaskAssignee" name="assignee" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTaskDueAt">Due</Label>
+                    <Input
+                      id="jobTaskDueAt"
+                      name="dueAt"
+                      type="datetime-local"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="jobTaskWorkArea">Work area</Label>
+                  <NativeSelect
+                    id="jobTaskWorkArea"
+                    name="workAreaId"
+                    defaultValue=""
+                  >
+                    <option value="">Whole job</option>
+                    {areas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <Button type="submit" variant="outline">
+                  Add task
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Plans and documents</CardTitle>
+              <CardDescription>
+                Upload blueprints, diagrams, or photos. Markup and speech notes
+                come next.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {documents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No plans or photos have been uploaded to this job.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {documents.map((document) => (
+                    <li
+                      key={document.id}
+                      className="flex flex-wrap items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
+                    >
+                      <div>
+                        <a
+                          href={jobDocumentHref(job.id, document.id)}
+                          className="font-medium hover:underline"
+                        >
+                          {document.filename}
+                        </a>
+                        <p className="text-xs text-muted-foreground">
+                          {JOB_DOCUMENT_LABELS[
+                            document.kind as keyof typeof JOB_DOCUMENT_LABELS
+                          ] ?? document.kind}
+                          {areaName(document.workAreaId)
+                            ? ` · ${areaName(document.workAreaId)}`
+                            : ""}
+                          {` · ${formatFileSize(document.sizeBytes)}`}
+                          {` · ${document.uploadedBy}`}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                action={uploadJobDocument}
+                className="mt-5 space-y-3"
+              >
+                <input type="hidden" name="jobId" value={job.id} />
+                <div className="space-y-2">
+                  <Label htmlFor="jobDocumentFile">Upload file</Label>
+                  <Input
+                    id="jobDocumentFile"
+                    name="file"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    required
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobDocumentKind">Type</Label>
+                    <NativeSelect
+                      id="jobDocumentKind"
+                      name="kind"
+                      defaultValue="plan"
+                    >
+                      {JOB_DOCUMENT_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {JOB_DOCUMENT_LABELS[kind]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jobDocumentWorkArea">Work area</Label>
+                    <NativeSelect
+                      id="jobDocumentWorkArea"
+                      name="workAreaId"
+                      defaultValue=""
+                    >
+                      <option value="">Whole job</option>
+                      {areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                </div>
+                <Button type="submit" variant="outline">
+                  Upload document
+                </Button>
+              </form>
+            </CardContent>
           </Card>
 
           <Card>

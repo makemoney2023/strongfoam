@@ -1,3 +1,4 @@
+import { put } from "@vercel/blob";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
@@ -6,25 +7,32 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobDocuments,
   jobEvents,
+  jobTasks,
   jobs,
   leads,
   opportunities,
   projects,
   sites,
+  workAreas,
 } from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
 import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
   addDemoEstimateRequestComment,
   addDemoEstimateRequestTask,
+  addDemoJobDocument,
+  addDemoJobTask,
   addDemoJobToProject,
+  addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   getDemoCompany,
   getDemoContact,
   getDemoEstimateRequest,
   getDemoJob,
+  getDemoJobDocumentDownload,
   getDemoOpportunity,
   getDemoProject,
   getDemoSite,
@@ -34,16 +42,29 @@ import {
   listDemoEstimateRequestEvents,
   listDemoEstimateRequestTasks,
   listDemoEstimateRequests,
+  listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobTasks,
   listDemoJobs,
   listDemoOpportunities,
   listDemoProjects,
   listDemoSites,
+  listDemoWorkAreas,
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
+  setDemoJobTaskStatus,
   updateDemoEstimateRequest,
   useDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import {
+  getStoredJobDocumentBytes,
+  setJobDocumentBytes,
+} from "@/lib/ops/job-document-bytes";
+import type {
+  JobDocumentInput,
+  JobTaskInput,
+  WorkAreaInput,
+} from "@/lib/ops/job-workspace";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -67,6 +88,15 @@ export type OpportunityRow = typeof opportunities.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
+export type WorkAreaRow = typeof workAreas.$inferSelect;
+export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+
+export type JobDocumentDownload = {
+  filename: string;
+  contentType: string;
+  bytes: Uint8Array;
+};
 
 export type CrmConversionResult =
   | {
@@ -874,4 +904,253 @@ export async function updateJobStatus(args: {
     },
   });
   return job;
+}
+
+export async function listWorkAreas(jobId: string): Promise<WorkAreaRow[]> {
+  if (useDemoOpsStore()) return listDemoWorkAreas(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(workAreas)
+    .where(eq(workAreas.jobId, jobId))
+    .orderBy(workAreas.sortOrder, workAreas.name);
+}
+
+export async function addWorkArea(args: {
+  jobId: string;
+  actor: string;
+  input: WorkAreaInput;
+}): Promise<WorkAreaRow | null> {
+  if (useDemoOpsStore()) return addDemoWorkArea(args);
+  if (!(await getJob(args.jobId))) return null;
+  const db = getDb();
+  const existing = await db
+    .select({ sortOrder: workAreas.sortOrder })
+    .from(workAreas)
+    .where(eq(workAreas.jobId, args.jobId));
+  const sortOrder =
+    existing.reduce((max, area) => Math.max(max, area.sortOrder), -1) + 1;
+  const rows = await db
+    .insert(workAreas)
+    .values({
+      jobId: args.jobId,
+      name: args.input.name,
+      kind: args.input.kind,
+      notes: args.input.notes,
+      sortOrder,
+    })
+    .returning();
+  const area = rows[0];
+  if (!area) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_added",
+    summary: `work area added: ${area.name}`,
+    payload: { workAreaId: area.id, kind: area.kind },
+  });
+  return area;
+}
+
+export async function listJobTasks(jobId: string): Promise<JobTaskRow[]> {
+  if (useDemoOpsStore()) return listDemoJobTasks(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(jobTasks)
+    .where(eq(jobTasks.jobId, jobId))
+    .orderBy(desc(jobTasks.createdAt));
+}
+
+export async function addJobTask(args: {
+  jobId: string;
+  actor: string;
+  input: JobTaskInput;
+}): Promise<JobTaskRow | null> {
+  if (useDemoOpsStore()) return addDemoJobTask(args);
+  if (!(await getJob(args.jobId))) return null;
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  const db = getDb();
+  const rows = await db
+    .insert(jobTasks)
+    .values({
+      jobId: args.jobId,
+      workAreaId: args.input.workAreaId,
+      title: args.input.title,
+      assignee: args.input.assignee,
+      dueAt: args.input.dueAt,
+      status: "open",
+      createdBy: args.actor,
+    })
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_created",
+    summary: `task created: ${task.title}`,
+    payload: { taskId: task.id, workAreaId: task.workAreaId },
+  });
+  return task;
+}
+
+export async function setJobTaskStatus(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+  status: TaskStatus;
+}): Promise<JobTaskRow | null> {
+  if (useDemoOpsStore()) return setDemoJobTaskStatus(args);
+  const db = getDb();
+  const rows = await db
+    .update(jobTasks)
+    .set({ status: args.status, updatedAt: new Date() })
+    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
+    .returning();
+  const task = rows[0];
+  if (!task) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: args.status === "done" ? "task_completed" : "task_reopened",
+    summary:
+      args.status === "done"
+        ? `task completed: ${task.title}`
+        : `task reopened: ${task.title}`,
+    payload: { taskId: task.id, status: args.status },
+  });
+  return task;
+}
+
+export async function listJobDocuments(jobId: string): Promise<JobDocumentRow[]> {
+  if (useDemoOpsStore()) return listDemoJobDocuments(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(jobDocuments)
+    .where(eq(jobDocuments.jobId, jobId))
+    .orderBy(desc(jobDocuments.createdAt));
+}
+
+async function persistJobDocumentBytes(args: {
+  jobId: string;
+  documentId: string;
+  filename: string;
+  contentType: string;
+  bytes: Uint8Array;
+}): Promise<{ pathname: string; storage: string }> {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const pathname = `jobs/${args.jobId}/${args.documentId}/${args.filename}`;
+    await put(pathname, Buffer.from(args.bytes), {
+      access: "private",
+      contentType: args.contentType,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return { pathname, storage: "blob" };
+  }
+  setJobDocumentBytes(args.documentId, args.bytes);
+  return {
+    pathname: `jobs/${args.jobId}/${args.documentId}/${args.filename}`,
+    storage: "memory",
+  };
+}
+
+export async function addJobDocument(args: {
+  jobId: string;
+  actor: string;
+  input: JobDocumentInput;
+  bytes: Uint8Array;
+}): Promise<JobDocumentRow | null> {
+  if (useDemoOpsStore()) return addDemoJobDocument(args);
+  if (!(await getJob(args.jobId))) return null;
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  const id = crypto.randomUUID();
+  const stored = await persistJobDocumentBytes({
+    jobId: args.jobId,
+    documentId: id,
+    filename: args.input.filename,
+    contentType: args.input.contentType,
+    bytes: args.bytes,
+  });
+  const db = getDb();
+  const rows = await db
+    .insert(jobDocuments)
+    .values({
+      id,
+      jobId: args.jobId,
+      workAreaId: args.input.workAreaId,
+      filename: args.input.filename,
+      contentType: args.input.contentType,
+      sizeBytes: args.input.sizeBytes,
+      pathname: stored.pathname,
+      storage: stored.storage,
+      kind: args.input.kind,
+      uploadedBy: args.actor,
+    })
+    .returning();
+  const document = rows[0];
+  if (!document) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_uploaded",
+    summary: `document uploaded: ${document.filename}`,
+    payload: {
+      documentId: document.id,
+      kind: document.kind,
+      workAreaId: document.workAreaId,
+    },
+  });
+  return document;
+}
+
+export async function getJobDocumentDownload(
+  jobId: string,
+  documentId: string,
+): Promise<JobDocumentDownload | null> {
+  if (useDemoOpsStore()) {
+    const result = getDemoJobDocumentDownload(jobId, documentId);
+    if (!result) return null;
+    return {
+      filename: result.document.filename,
+      contentType: result.document.contentType,
+      bytes: result.bytes,
+    };
+  }
+
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobDocuments)
+    .where(and(eq(jobDocuments.id, documentId), eq(jobDocuments.jobId, jobId)))
+    .limit(1);
+  const document = rows[0];
+  if (!document) return null;
+
+  if (document.storage === "blob") {
+    const { resolveFileUrl } = await import("@/lib/leads/adapters");
+    const signedUrl = await resolveFileUrl(document.pathname);
+    const response = await fetch(signedUrl);
+    if (!response.ok) return null;
+    return {
+      filename: document.filename,
+      contentType: document.contentType,
+      bytes: new Uint8Array(await response.arrayBuffer()),
+    };
+  }
+
+  const bytes = getStoredJobDocumentBytes(document.id);
+  if (!bytes) return null;
+  return {
+    filename: document.filename,
+    contentType: document.contentType,
+    bytes,
+  };
 }

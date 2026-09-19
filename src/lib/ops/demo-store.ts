@@ -5,22 +5,28 @@ import {
   demoEstimateEvents,
   demoEstimateRequests,
   demoEstimateTasks,
+  demoJobDocuments,
   demoJobEvents,
+  demoJobTasks,
   demoJobs,
   demoOpportunities,
   demoProjects,
   demoSites,
+  demoWorkAreas,
   type CompanyRow,
   type ContactRow,
   type EstimateRequestComment,
   type EstimateRequestEvent,
   type EstimateRequestRow,
   type EstimateRequestTask,
+  type JobDocumentRow,
   type JobEventRow,
   type JobRow,
+  type JobTaskRow,
   type OpportunityRow,
   type ProjectRow,
   type SiteRow,
+  type WorkAreaRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
@@ -28,6 +34,15 @@ import {
   type JobConversionInput,
   type JobStatus,
 } from "@/lib/ops/jobs";
+import {
+  setJobDocumentBytes,
+  getStoredJobDocumentBytes,
+} from "@/lib/ops/job-document-bytes";
+import type {
+  JobDocumentInput,
+  JobTaskInput,
+  WorkAreaInput,
+} from "@/lib/ops/job-workspace";
 import type {
   EstimateRequestFilters,
   EstimateRequestUpdate,
@@ -45,6 +60,9 @@ const opportunities = demoOpportunities();
 const projects = demoProjects();
 const jobsList = demoJobs();
 const jobEvents = demoJobEvents();
+const workAreas = demoWorkAreas();
+const jobTasks = demoJobTasks();
+const jobDocuments = demoJobDocuments();
 
 export function useDemoOpsStore(
   env: Record<string, string | undefined> = process.env,
@@ -652,4 +670,192 @@ export function setDemoJobStatus(args: {
     payload: { before, after: args.status, blockerNote: args.blockerNote },
   });
   return job;
+}
+
+export function listDemoWorkAreas(jobId: string): WorkAreaRow[] {
+  return workAreas
+    .filter((area) => area.jobId === jobId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+}
+
+export function getDemoWorkArea(
+  jobId: string,
+  workAreaId: string,
+): WorkAreaRow | null {
+  return (
+    workAreas.find(
+      (area) => area.id === workAreaId && area.jobId === jobId,
+    ) ?? null
+  );
+}
+
+export function addDemoWorkArea(args: {
+  jobId: string;
+  actor: string;
+  input: WorkAreaInput;
+}): WorkAreaRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  const now = new Date();
+  const sortOrder =
+    workAreas.reduce(
+      (max, area) =>
+        area.jobId === args.jobId ? Math.max(max, area.sortOrder) : max,
+      -1,
+    ) + 1;
+  const area: WorkAreaRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    jobId: args.jobId,
+    name: args.input.name,
+    kind: args.input.kind,
+    notes: args.input.notes,
+    sortOrder,
+  };
+  workAreas.push(area);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "work_area_added",
+    summary: `work area added: ${area.name}`,
+    payload: { workAreaId: area.id, kind: area.kind },
+  });
+  return area;
+}
+
+export function listDemoJobTasks(jobId: string): JobTaskRow[] {
+  return jobTasks
+    .filter((task) => task.jobId === jobId)
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "open" ? -1 : 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+}
+
+export function addDemoJobTask(args: {
+  jobId: string;
+  actor: string;
+  input: JobTaskInput;
+}): JobTaskRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  const now = new Date();
+  const task: JobTaskRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    jobId: args.jobId,
+    workAreaId: args.input.workAreaId,
+    title: args.input.title,
+    assignee: args.input.assignee,
+    dueAt: args.input.dueAt,
+    status: "open",
+    createdBy: args.actor,
+  };
+  jobTasks.unshift(task);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "task_created",
+    summary: `task created: ${task.title}`,
+    payload: { taskId: task.id, workAreaId: task.workAreaId },
+  });
+  return task;
+}
+
+export function setDemoJobTaskStatus(args: {
+  jobId: string;
+  taskId: string;
+  actor: string;
+  status: "open" | "done";
+}): JobTaskRow | null {
+  const task = jobTasks.find(
+    (item) => item.id === args.taskId && item.jobId === args.jobId,
+  );
+  if (!task) return null;
+  task.status = args.status;
+  task.updatedAt = new Date();
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: args.status === "done" ? "task_completed" : "task_reopened",
+    summary:
+      args.status === "done"
+        ? `task completed: ${task.title}`
+        : `task reopened: ${task.title}`,
+    payload: { taskId: task.id, status: args.status },
+  });
+  return task;
+}
+
+export function listDemoJobDocuments(jobId: string): JobDocumentRow[] {
+  return jobDocuments
+    .filter((document) => document.jobId === jobId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function getDemoJobDocument(
+  jobId: string,
+  documentId: string,
+): JobDocumentRow | null {
+  return (
+    jobDocuments.find(
+      (document) => document.id === documentId && document.jobId === jobId,
+    ) ?? null
+  );
+}
+
+export function addDemoJobDocument(args: {
+  jobId: string;
+  actor: string;
+  input: JobDocumentInput;
+  bytes: Uint8Array;
+}): JobDocumentRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  const id = crypto.randomUUID();
+  const now = new Date();
+  const pathname = `jobs/${args.jobId}/${id}/${args.input.filename}`;
+  const document: JobDocumentRow = {
+    id,
+    createdAt: now,
+    jobId: args.jobId,
+    workAreaId: args.input.workAreaId,
+    filename: args.input.filename,
+    contentType: args.input.contentType,
+    sizeBytes: args.input.sizeBytes,
+    pathname,
+    storage: "memory",
+    kind: args.input.kind,
+    uploadedBy: args.actor,
+  };
+  setJobDocumentBytes(id, args.bytes);
+  jobDocuments.unshift(document);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "document_uploaded",
+    summary: `document uploaded: ${document.filename}`,
+    payload: {
+      documentId: document.id,
+      kind: document.kind,
+      workAreaId: document.workAreaId,
+    },
+  });
+  return document;
+}
+
+export function getDemoJobDocumentDownload(
+  jobId: string,
+  documentId: string,
+): { document: JobDocumentRow; bytes: Uint8Array } | null {
+  const document = getDemoJobDocument(jobId, documentId);
+  if (!document) return null;
+  const bytes = getStoredJobDocumentBytes(document.id);
+  if (!bytes) return null;
+  return { document, bytes };
 }

@@ -1,4 +1,5 @@
 import {
+  integer,
   jsonb,
   pgTable,
   text,
@@ -164,6 +165,60 @@ export const jobEvents = pgTable("job_events", {
   kind: text("kind").notNull(),
   summary: text("summary").notNull(),
   payload: jsonb("payload").notNull(),
+});
+
+export const workAreas = pgTable("work_areas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  jobId: uuid("job_id")
+    .notNull()
+    .references(() => jobs.id),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("area"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const jobTasks = pgTable("job_tasks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  jobId: uuid("job_id")
+    .notNull()
+    .references(() => jobs.id),
+  workAreaId: uuid("work_area_id").references(() => workAreas.id),
+  title: text("title").notNull(),
+  assignee: text("assignee"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  status: text("status").notNull().default("open"),
+  createdBy: text("created_by").notNull(),
+});
+
+export const jobDocuments = pgTable("job_documents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  jobId: uuid("job_id")
+    .notNull()
+    .references(() => jobs.id),
+  workAreaId: uuid("work_area_id").references(() => workAreas.id),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  pathname: text("pathname").notNull(),
+  storage: text("storage").notNull().default("memory"),
+  kind: text("kind").notNull().default("plan"),
+  uploadedBy: text("uploaded_by").notNull(),
 });
 
 export const estimateRequestTasks = pgTable("estimate_request_tasks", {

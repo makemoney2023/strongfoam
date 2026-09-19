@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.7
+**Version:** 0.8
 **Created:** 2026-09-18
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-19
 
 ## 1. Purpose
 
@@ -58,9 +58,10 @@ The survey creates **estimate requests**, not priced estimates. Staff can now
 sign in to a session-gated review workspace, search and update requests, add
 tasks and comments, convert a request into company, contact, site, and
 opportunity records, and convert won work into a project plus one or more
-jobs. The staff workspace uses shadcn/ui. The application does not yet provide
-full organization RBAC, crews, document markup, transcription, scheduling, or
-financial workflows.
+jobs. A job can hold work areas, tasks, and authenticated plan or photo
+uploads. The staff workspace uses shadcn/ui. The application does not yet
+provide full organization RBAC, crews, document markup, transcription,
+scheduling, or financial workflows.
 
 ## 4. Product vision
 
@@ -1275,11 +1276,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Convert requests into separate company, contact, site, and opportunity records | Survey fields become reusable CRM entities without re-entry, while duplicate matches stay visible and linkable |
 | 2026-09-18 | Convert only won work into one project per opportunity, then add extra jobs on the project | Prevents premature field work, keeps the commercial record attached, and lets a site grow extra phases without duplicating the opportunity |
 | 2026-09-18 | Use shadcn/ui for the authenticated operations product | Replaces the custom Industrial Precision staff chrome with a standard dashboard system while keeping the marketing site branded |
+| 2026-09-19 | Add job work areas, job tasks, and session-gated job documents before annotation or speech-to-text | Delivers JOB-002/JOB-003 plans and checklists so field evidence has a place to live; demo stores file bytes in memory and production uses Vercel Blob when a token is present |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.8 | 2026-09-19 | Added job work areas, job tasks, and authenticated plan/photo uploads on the job record |
 | 0.7 | 2026-09-18 | Adopted shadcn/ui as the operations design system and rebuilt the staff workspace |
 | 0.6 | 2026-09-18 | Added won-work conversion into a project and jobs, plus job status and activity |
 | 0.5 | 2026-09-18 | Added company, contact, site, and opportunity conversion from estimate requests |
