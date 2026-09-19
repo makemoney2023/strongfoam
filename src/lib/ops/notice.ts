@@ -5,8 +5,18 @@ export type OpsNotice = {
   message: string;
 };
 
+let noticeSeq = 0;
+
 export function encodeOpsNotice(notice: OpsNotice): string {
-  return encodeURIComponent(JSON.stringify(notice));
+  noticeSeq += 1;
+  return encodeURIComponent(
+    JSON.stringify({
+      kind: notice.kind,
+      message: notice.message,
+      issuedAt: Date.now(),
+      seq: noticeSeq,
+    }),
+  );
 }
 
 export function parseOpsNotice(value?: string | null): OpsNotice | null {

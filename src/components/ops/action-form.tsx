@@ -60,7 +60,7 @@ export function ActionForm({
 
   return (
     <ActionStateContext.Provider value={state}>
-      <form action={formAction} className={cn(className)} {...props}>
+      <form action={formAction} className={cn(className)} {...props} noValidate>
         <FormError />
         {children}
       </form>

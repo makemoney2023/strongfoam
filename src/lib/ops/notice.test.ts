@@ -10,6 +10,14 @@ describe("ops notices", () => {
     });
   });
 
+  it("gives each encoded notice a distinct payload so repeats still toast", () => {
+    const first = encodeOpsNotice({ kind: "success", message: "Saved." });
+    const second = encodeOpsNotice({ kind: "success", message: "Saved." });
+    expect(first).not.toEqual(second);
+    expect(parseOpsNotice(first)).toEqual({ kind: "success", message: "Saved." });
+    expect(parseOpsNotice(second)).toEqual({ kind: "success", message: "Saved." });
+  });
+
   it("rejects empty or malformed notices", () => {
     expect(parseOpsNotice("")).toBeNull();
     expect(parseOpsNotice("not-json")).toBeNull();

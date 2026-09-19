@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { OPS_NOTICE_COOKIE, parseOpsNotice } from "@/lib/ops/notice";
+import { OPS_NOTICE_COOKIE, parseOpsNotice, type OpsNotice } from "@/lib/ops/notice";
 
 function readCookie(name: string): string | null {
   const match = document.cookie.match(
@@ -16,23 +17,33 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; Max-Age=0; path=/`;
 }
 
-export function NoticeToaster() {
-  useEffect(() => {
-    const raw = readCookie(OPS_NOTICE_COOKIE);
-    const notice = parseOpsNotice(raw);
-    if (!notice) return;
-    clearCookie(OPS_NOTICE_COOKIE);
-    if (notice.kind === "error") {
-      toast.error(notice.message);
-    } else {
-      toast.success(notice.message);
-    }
-  }, []);
+function showNotice(notice: OpsNotice) {
+  if (notice.kind === "error") {
+    toast.error(notice.message);
+    return;
+  }
+  toast.success(notice.message);
+}
 
-  return (
-    <>
-      <Toaster position="top-right" />
-      <div className="sr-only" aria-live="polite" aria-atomic="true" />
-    </>
-  );
+export function NoticeToaster() {
+  const pathname = usePathname();
+  const lastRaw = useRef<string | null>(null);
+
+  useEffect(() => {
+    function consume() {
+      const raw = readCookie(OPS_NOTICE_COOKIE);
+      if (!raw || raw === lastRaw.current) return;
+      const notice = parseOpsNotice(raw);
+      lastRaw.current = raw;
+      clearCookie(OPS_NOTICE_COOKIE);
+      if (!notice) return;
+      showNotice(notice);
+    }
+
+    consume();
+    const id = window.setInterval(consume, 250);
+    return () => window.clearInterval(id);
+  }, [pathname]);
+
+  return <Toaster position="top-right" />;
 }
