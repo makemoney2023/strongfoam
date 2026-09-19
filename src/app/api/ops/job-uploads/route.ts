@@ -1,0 +1,181 @@
+import { del, head } from "@vercel/blob";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { getOpsSession } from "@/lib/ops/auth";
+import {
+  isJobDocumentKind,
+  isOwnedJobUploadPath,
+  isUuid,
+  parseJobDocumentInput,
+  sanitizeJobDocumentFilename,
+} from "@/lib/ops/job-workspace";
+import {
+  getJob,
+  listWorkAreas,
+  recordUploadedJobDocument,
+} from "@/lib/ops/store";
+import {
+  ALLOWED_UPLOAD_TYPES,
+  MAX_UPLOAD_BYTES,
+} from "@/lib/leads/uploads";
+
+type JobUploadPayload = {
+  jobId: string;
+  workAreaId: string | null;
+  kind: string;
+  filename: string;
+  actor: string;
+};
+
+function parsePayload(value: string | null): JobUploadPayload | null {
+  try {
+    const payload = JSON.parse(value ?? "{}") as Partial<JobUploadPayload>;
+    const filename = sanitizeJobDocumentFilename(payload.filename ?? "");
+    const workAreaId = payload.workAreaId?.trim() || null;
+    if (
+      typeof payload.jobId !== "string" ||
+      !isUuid(payload.jobId) ||
+      !filename ||
+      typeof payload.kind !== "string" ||
+      !isJobDocumentKind(payload.kind) ||
+      (workAreaId !== null && !isUuid(workAreaId)) ||
+      typeof payload.actor !== "string" ||
+      !payload.actor
+    ) {
+      return null;
+    }
+    return {
+      jobId: payload.jobId,
+      workAreaId,
+      kind: payload.kind,
+      filename,
+      actor: payload.actor,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type JobUploadPostDeps = {
+  handleUpload: (options: Parameters<typeof handleUpload>[0]) => ReturnType<
+    typeof handleUpload
+  >;
+  getSession: typeof getOpsSession;
+  getJob: typeof getJob;
+  listWorkAreas: typeof listWorkAreas;
+  getBlobMetadata: typeof head;
+  deleteBlob: typeof del;
+  recordDocument: typeof recordUploadedJobDocument;
+  blobToken?: string;
+};
+
+const defaultDeps: JobUploadPostDeps = {
+  handleUpload,
+  getSession: getOpsSession,
+  getJob,
+  listWorkAreas,
+  getBlobMetadata: head,
+  deleteBlob: del,
+  recordDocument: recordUploadedJobDocument,
+  blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+};
+
+export async function handleJobUploadPost(
+  request: Request,
+  deps: JobUploadPostDeps = defaultDeps,
+): Promise<Response> {
+  if (!deps.blobToken) {
+    return Response.json(
+      { error: "Job document storage is not configured." },
+      { status: 503 },
+    );
+  }
+
+  const body = (await request.json()) as HandleUploadBody;
+  const session =
+    body.type === "blob.generate-client-token"
+      ? await deps.getSession()
+      : null;
+  if (body.type === "blob.generate-client-token" && !session) {
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  try {
+    const response = await deps.handleUpload({
+      body,
+      request,
+      token: deps.blobToken,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        const raw = JSON.parse(clientPayload ?? "{}") as Record<
+          string,
+          unknown
+        >;
+        const payload = parsePayload(
+          JSON.stringify({ ...raw, actor: session?.email ?? "" }),
+        );
+        if (!payload || !isOwnedJobUploadPath(payload.jobId, pathname)) {
+          throw new Error("invalid_job_upload");
+        }
+        if (!(await deps.getJob(payload.jobId))) {
+          throw new Error("job_not_found");
+        }
+        if (payload.workAreaId) {
+          const areas = await deps.listWorkAreas(payload.jobId);
+          if (!areas.some((area) => area.id === payload.workAreaId)) {
+            throw new Error("work_area_not_found");
+          }
+        }
+
+        return {
+          addRandomSuffix: true,
+          allowedContentTypes: [...ALLOWED_UPLOAD_TYPES],
+          maximumSizeInBytes: MAX_UPLOAD_BYTES,
+          tokenPayload: JSON.stringify(payload),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        const payload = parsePayload(tokenPayload ?? null);
+        if (!payload || !isOwnedJobUploadPath(payload.jobId, blob.pathname)) {
+          throw new Error("invalid_job_upload");
+        }
+        const metadata = await deps.getBlobMetadata(blob.pathname, {
+          token: deps.blobToken,
+        });
+        const parsed = parseJobDocumentInput({
+          filename: payload.filename,
+          contentType: metadata.contentType,
+          sizeBytes: metadata.size,
+          kind: payload.kind,
+          workAreaId: payload.workAreaId ?? "",
+        });
+        if (!parsed.ok) throw new Error("invalid_job_document");
+
+        try {
+          const document = await deps.recordDocument({
+            jobId: payload.jobId,
+            actor: payload.actor,
+            input: parsed.value,
+            pathname: blob.pathname,
+          });
+          if (!document) throw new Error("job_document_not_saved");
+        } catch (error) {
+          try {
+            await deps.deleteBlob(blob.pathname, { token: deps.blobToken });
+          } catch (cleanupError) {
+            console.error("Could not clean up an orphaned job document.", cleanupError);
+          }
+          throw error;
+        }
+      },
+    });
+    return Response.json(response);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : String(error) },
+      { status: 400 },
+    );
+  }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  return handleJobUploadPost(request);
+}

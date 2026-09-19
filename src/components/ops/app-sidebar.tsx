@@ -55,6 +55,7 @@ export function AppSidebar({ email }: { email: string }) {
                     isActive={pathname.startsWith(item.href)}
                     render={<Link href={item.href} />}
                     tooltip={item.title}
+                    className="min-h-11 md:min-h-8"
                   >
                     <item.icon />
                     <span>{item.title}</span>
@@ -69,7 +70,12 @@ export function AppSidebar({ email }: { email: string }) {
       <SidebarFooter className="gap-2 p-3">
         <p className="truncate px-1 text-xs text-muted-foreground">{email}</p>
         <form action="/api/ops/logout" method="post">
-          <Button type="submit" variant="outline" size="sm" className="w-full justify-start">
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            className="min-h-11 w-full justify-start md:min-h-8"
+          >
             <LogOutIcon />
             Sign out
           </Button>

@@ -5,8 +5,20 @@ import { redirect } from "next/navigation";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseJobConversion, parseJobStatusUpdate } from "@/lib/ops/jobs";
 import {
+  hasAllowedJobDocumentSignature,
+  parseJobDocumentInput,
+  parseJobTaskInput,
+  parseWorkAreaInput,
+} from "@/lib/ops/job-workspace";
+import { isDemoOpsStore } from "@/lib/ops/demo-store";
+import type { TaskStatus } from "@/lib/ops/collaboration";
+import {
+  addJobDocument,
+  addJobTask,
   addJobToProject,
+  addWorkArea,
   convertOpportunityToProject,
+  setJobTaskStatus,
   updateJobStatus,
 } from "@/lib/ops/store";
 
@@ -101,4 +113,122 @@ export async function saveJobStatus(formData: FormData) {
   if (!job) fail(`/app/jobs/${jobId}`, "That job could not be updated.");
   refreshJobs(job.projectId, job.id);
   redirect(`/app/jobs/${job.id}?saved=1`);
+}
+
+export async function addJobWorkArea(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  const parsed = parseWorkAreaInput({
+    name: String(formData.get("name") ?? ""),
+    kind: String(formData.get("kind") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+  });
+  if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+
+  const area = await addWorkArea({
+    jobId,
+    actor: session.email,
+    input: parsed.value,
+  });
+  if (!area) fail(`/app/jobs/${jobId}`, "That work area could not be saved.");
+  refreshJobs(null, jobId);
+  redirect(`/app/jobs/${jobId}?saved=1`);
+}
+
+export async function addJobWorkspaceTask(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  const parsed = parseJobTaskInput({
+    title: String(formData.get("title") ?? ""),
+    assignee: String(formData.get("assignee") ?? ""),
+    dueAt: String(formData.get("dueAt") ?? ""),
+    workAreaId: String(formData.get("workAreaId") ?? ""),
+  });
+  if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+
+  const task = await addJobTask({
+    jobId,
+    actor: session.email,
+    input: parsed.value,
+  });
+  if (!task) fail(`/app/jobs/${jobId}`, "That task could not be saved.");
+  refreshJobs(null, jobId);
+  redirect(`/app/jobs/${jobId}?saved=1`);
+}
+
+export async function setJobWorkspaceTaskStatus(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const status = String(formData.get("status") ?? "") as TaskStatus;
+  if (!jobId || !taskId || (status !== "open" && status !== "done")) {
+    fail(jobId ? `/app/jobs/${jobId}` : "/app/jobs", "That task could not be updated.");
+  }
+
+  const task = await setJobTaskStatus({
+    jobId,
+    taskId,
+    actor: session.email,
+    status,
+  });
+  if (!task) fail(`/app/jobs/${jobId}`, "That task could not be updated.");
+  refreshJobs(null, jobId);
+  redirect(`/app/jobs/${jobId}?saved=1`);
+}
+
+export async function uploadJobDocument(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!isDemoOpsStore()) {
+    fail(
+      `/app/jobs/${jobId}`,
+      "Production documents must use the configured Blob upload flow.",
+    );
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    fail(`/app/jobs/${jobId}`, "Choose a PDF, JPEG, PNG, or WebP file.");
+  }
+
+  const parsed = parseJobDocumentInput({
+    filename: file.name,
+    contentType: file.type,
+    sizeBytes: file.size,
+    kind: String(formData.get("kind") ?? ""),
+    workAreaId: String(formData.get("workAreaId") ?? ""),
+  });
+  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const verified = parseJobDocumentInput({
+    ...parsed.value,
+    sizeBytes: bytes.byteLength,
+  });
+  if (!verified.ok) fail(`/app/jobs/${jobId}`, verified.error);
+  if (!hasAllowedJobDocumentSignature(bytes, verified.value.contentType)) {
+    fail(
+      `/app/jobs/${jobId}`,
+      "The file contents do not match the selected document type.",
+    );
+  }
+  const document = await addJobDocument({
+    jobId,
+    actor: session.email,
+    input: verified.value,
+    bytes,
+  });
+  if (!document) fail(`/app/jobs/${jobId}`, "That document could not be saved.");
+  refreshJobs(null, jobId);
+  redirect(`/app/jobs/${jobId}?saved=1`);
 }

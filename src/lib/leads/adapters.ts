@@ -255,17 +255,21 @@ export function getMailer(): Mailer {
   };
 }
 
-export async function resolveFileUrl(pathname: string): Promise<string> {
+export async function resolveFileUrl(
+  pathname: string,
+  validForMs = 7 * 24 * 60 * 60 * 1000,
+): Promise<string> {
+  const validUntil = Date.now() + validForMs;
   const token = await issueSignedToken({
     pathname,
     operations: ["get"],
-    validUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    validUntil,
   });
   const { presignedUrl } = await presignUrl(token, {
     pathname,
     operation: "get",
     access: "private",
-    validUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    validUntil,
   });
   return presignedUrl;
 }

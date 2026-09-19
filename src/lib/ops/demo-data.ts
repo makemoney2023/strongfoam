@@ -4,12 +4,15 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobDocuments,
   jobEvents,
+  jobTasks,
   jobs,
   leads,
   opportunities,
   projects,
   sites,
+  workAreas,
 } from "@/db/schema";
 
 export type EstimateRequestRow = typeof leads.$inferSelect;
@@ -23,6 +26,15 @@ export type OpportunityRow = typeof opportunities.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
+export type WorkAreaRow = typeof workAreas.$inferSelect;
+export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+
+export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
 
 const now = Date.now();
 
@@ -155,18 +167,113 @@ export function demoSites(): SiteRow[] {
 }
 
 export function demoOpportunities(): OpportunityRow[] {
-  return [];
+  return [
+    {
+      id: DEMO_OPPORTUNITY_ID,
+      createdAt: new Date(now - 10 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      contactId: "77777777-7777-4777-8777-777777777777",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      sourceLeadId: null,
+      name: "Acme podium — Waterloo",
+      stage: "won",
+      owner: "Alex Rivera",
+      source: "repeat-customer",
+      services: ["spray-foam", "avb"],
+      projectType: "commercial_ici",
+      projectId: DEMO_PROJECT_ID,
+    },
+  ];
 }
 
 export function demoProjects(): ProjectRow[] {
-  return [];
+  return [
+    {
+      id: DEMO_PROJECT_ID,
+      createdAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: DEMO_OPPORTUNITY_ID,
+      sourceLeadId: null,
+      name: "Acme podium insulation",
+      status: "active",
+      projectManager: "Alex Rivera",
+    },
+  ];
 }
 
 export function demoJobs(): JobRow[] {
-  return [];
+  return [
+    {
+      id: DEMO_JOB_ID,
+      createdAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      projectId: DEMO_PROJECT_ID,
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: DEMO_OPPORTUNITY_ID,
+      name: "North elevation spray foam",
+      status: "in_progress",
+      scope: "Closed-cell at the podium deck and AVB at the north elevation.",
+      services: ["spray-foam", "avb"],
+      projectManager: "Alex Rivera",
+      foreman: "Morgan Cole",
+      plannedStartAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      plannedEndAt: new Date(now + 4 * 24 * 60 * 60 * 1000),
+      blockerNote: null,
+    },
+  ];
 }
 
 export function demoJobEvents(): JobEventRow[] {
+  return [
+    {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      jobId: DEMO_JOB_ID,
+      createdAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
+      actor: "estimating@strongfoam.com",
+      kind: "job_created",
+      summary: "job created from won work: North elevation spray foam",
+      payload: { projectId: DEMO_PROJECT_ID, opportunityId: DEMO_OPPORTUNITY_ID },
+    },
+  ];
+}
+
+export function demoWorkAreas(): WorkAreaRow[] {
+  return [
+    {
+      id: DEMO_WORK_AREA_ID,
+      createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 7 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      name: "Level 2 podium",
+      kind: "floor",
+      notes: "North elevation and podium deck.",
+      sortOrder: 0,
+    },
+  ];
+}
+
+export function demoJobTasks(): JobTaskRow[] {
+  return [
+    {
+      id: DEMO_JOB_TASK_ID,
+      createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      title: "Install closed-cell at podium deck",
+      assignee: "Morgan Cole",
+      dueAt: new Date(now + 24 * 60 * 60 * 1000),
+      status: "open",
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+  ];
+}
+
+export function demoJobDocuments(): JobDocumentRow[] {
   return [];
 }
 

@@ -4,10 +4,13 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobDocuments,
   jobEvents,
+  jobTasks,
   jobs,
   leads,
   projects,
+  workAreas,
 } from "@/db/schema";
 
 describe("db schema exports", () => {
@@ -20,5 +23,8 @@ describe("db schema exports", () => {
     expect(projects).toBeDefined();
     expect(jobs).toBeDefined();
     expect(jobEvents).toBeDefined();
+    expect(workAreas).toBeDefined();
+    expect(jobTasks).toBeDefined();
+    expect(jobDocuments).toBeDefined();
   });
 });

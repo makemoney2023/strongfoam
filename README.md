@@ -57,6 +57,15 @@ Access is gated by `OPS_SESSION_SECRET`, `OPS_STAFF_EMAILS`, and
 If `DATABASE_URL` is unset, or `OPS_DEMO=1`, the review workspace uses local
 demo requests so the UI can be exercised without Postgres.
 
+Production operations requirements:
+
+- Set both `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN`. Database-backed job
+  uploads fail closed when private Blob storage is unavailable; they never use
+  ephemeral process memory.
+- Run `npm run db:migrate` as a release step before deploying application code.
+  Migration `0004_job_workspace.sql` is required for job work areas, tasks, and
+  documents.
+
 ```bash
 npm test
 npm run db:generate

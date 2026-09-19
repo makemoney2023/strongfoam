@@ -2,24 +2,34 @@ import { describe, expect, it } from "vitest";
 import { draftCrmFromRequest, parseCrmConversion } from "@/lib/ops/crm";
 import { demoEstimateRequests } from "@/lib/ops/demo-data";
 import {
+  addDemoJobDocument,
+  addDemoJobTask,
+  addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   getDemoCompany,
   getDemoEstimateRequest,
   getDemoJob,
+  getDemoJobDocumentDownload,
   getDemoProject,
+  listDemoJobDocuments,
+  listDemoJobEvents,
+  listDemoJobTasks,
   listDemoOpportunities,
+  listDemoWorkAreas,
   matchesEstimateRequestFilters,
+  setDemoJobTaskStatus,
   updateDemoEstimateRequest,
-  useDemoOpsStore,
+  isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import { DEMO_JOB_ID } from "@/lib/ops/demo-data";
 
 describe("demo ops store", () => {
   it("uses demo data when the database URL is absent", () => {
-    expect(useDemoOpsStore({})).toBe(true);
-    expect(useDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
+    expect(isDemoOpsStore({})).toBe(true);
+    expect(isDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
     expect(
-      useDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
+      isDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
     ).toBe(true);
   });
 
@@ -153,5 +163,110 @@ describe("CRM conversion", () => {
         },
       }).ok,
     ).toBe(false);
+  });
+});
+
+describe("job workspace", () => {
+  it("adds work areas, tasks, and documents to a job", () => {
+    const area = addDemoWorkArea({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        name: "Unit 4",
+        kind: "unit",
+        notes: "West stair",
+      },
+    });
+    expect(area?.name).toBe("Unit 4");
+    expect(listDemoWorkAreas(DEMO_JOB_ID).some((item) => item.name === "Unit 4")).toBe(
+      true,
+    );
+
+    const task = addDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        title: "Tape the AVB laps",
+        assignee: "Morgan Cole",
+        dueAt: null,
+        workAreaId: area?.id ?? null,
+      },
+    });
+    expect(task?.title).toBe("Tape the AVB laps");
+    expect(setDemoJobTaskStatus({
+      jobId: DEMO_JOB_ID,
+      taskId: task?.id ?? "",
+      actor: "estimating@strongfoam.com",
+      status: "done",
+    })?.status).toBe("done");
+    expect(
+      listDemoJobTasks(DEMO_JOB_ID).find((item) => item.id === task?.id)?.status,
+    ).toBe("done");
+
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const document = addDemoJobDocument({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        filename: "north-elevation.pdf",
+        contentType: "application/pdf",
+        sizeBytes: bytes.byteLength,
+        kind: "plan",
+        workAreaId: area?.id ?? null,
+      },
+      bytes,
+    });
+    expect(document?.filename).toBe("north-elevation.pdf");
+    expect(listDemoJobDocuments(DEMO_JOB_ID)[0]?.id).toBe(document?.id);
+    expect(
+      getDemoJobDocumentDownload(DEMO_JOB_ID, document?.id ?? "")?.bytes,
+    ).toEqual(bytes);
+    expect(
+      listDemoJobEvents(DEMO_JOB_ID).some(
+        (event) => event.kind === "document_uploaded",
+      ),
+    ).toBe(true);
+  });
+
+  it("shares document bytes across module lookups", () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const document = addDemoJobDocument({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        filename: "shared.pdf",
+        contentType: "application/pdf",
+        sizeBytes: bytes.byteLength,
+        kind: "plan",
+        workAreaId: null,
+      },
+      bytes,
+    });
+    expect(document).not.toBeNull();
+    expect(
+      getDemoJobDocumentDownload(DEMO_JOB_ID, document?.id ?? "")?.bytes,
+    ).toEqual(bytes);
+  });
+
+  it("rejects tasks and documents for missing jobs or work areas", () => {
+    expect(
+      addDemoWorkArea({
+        jobId: "missing",
+        actor: "estimating@strongfoam.com",
+        input: { name: "Room 1", kind: "room", notes: null },
+      }),
+    ).toBeNull();
+    expect(
+      addDemoJobTask({
+        jobId: DEMO_JOB_ID,
+        actor: "estimating@strongfoam.com",
+        input: {
+          title: "Missing area",
+          assignee: null,
+          dueAt: null,
+          workAreaId: "00000000-0000-4000-8000-000000000000",
+        },
+      }),
+    ).toBeNull();
   });
 });
