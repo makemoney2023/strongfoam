@@ -259,45 +259,47 @@ export default async function ProjectDetailPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule</CardTitle>
-          <CardDescription>
-            Jobs, task progress, due dates, blockers, and unscheduled work.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {jobs.length === 0 ? (
-            <EmptyState
-              icon={<HammerIcon aria-hidden="true" />}
-              title="Add the first job to build this project schedule"
-              description="Jobs and their tasks roll up here once work is attached to the project."
-              action={
-                <NewJobDialog
-                  project={projectOption}
-                  returnTo={returnTo}
-                  triggerLabel="Add job"
-                />
-              }
-              className="py-6"
-            />
-          ) : (
-            <ProjectSchedule
-              projectId={project.id}
-              jobs={scheduleJobs}
-              dependencies={scheduleDependencies}
-              baselines={scheduleBaselines}
-              selectedBaselineId={selectedBaseline?.baseline.id ?? null}
-              selectedBaselineItems={selectedBaselineItems}
-              calendar={scheduleCalendar}
-              now={new Date().toISOString()}
-              truncated={projectTaskResult.truncated}
-              dependenciesTruncated={dependencyResult.truncated}
-              returnTo={returnTo}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <section id="schedule" aria-labelledby="schedule-heading" className="scroll-mt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle id="schedule-heading">Schedule</CardTitle>
+            <CardDescription>
+              Jobs, task progress, due dates, blockers, and unscheduled work.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {jobs.length === 0 ? (
+              <EmptyState
+                icon={<HammerIcon aria-hidden="true" />}
+                title="Add the first job to build this project schedule"
+                description="Jobs and their tasks roll up here once work is attached to the project."
+                action={
+                  <NewJobDialog
+                    project={projectOption}
+                    returnTo={returnTo}
+                    triggerLabel="Add job"
+                  />
+                }
+                className="py-6"
+              />
+            ) : (
+              <ProjectSchedule
+                projectId={project.id}
+                jobs={scheduleJobs}
+                dependencies={scheduleDependencies}
+                baselines={scheduleBaselines}
+                selectedBaselineId={selectedBaseline?.baseline.id ?? null}
+                selectedBaselineItems={selectedBaselineItems}
+                calendar={scheduleCalendar}
+                now={new Date().toISOString()}
+                truncated={projectTaskResult.truncated}
+                dependenciesTruncated={dependencyResult.truncated}
+                returnTo={returnTo}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       <Card>
         <CardHeader>

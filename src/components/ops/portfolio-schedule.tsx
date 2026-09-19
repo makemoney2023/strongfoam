@@ -45,6 +45,7 @@ import {
   localScheduleDateKey,
   portfolioCalendarDate,
   type PortfolioBaselineState,
+  type PortfolioResourceLane,
   type PortfolioScheduleCalendar,
   type PortfolioScheduleData,
   type ProjectedPortfolioProject,
@@ -153,6 +154,29 @@ type PortfolioWorkRow = {
   warning: string;
 };
 
+export function getPortfolioOverlapCounts(
+  lanes: readonly PortfolioResourceLane[],
+): Map<string, number> {
+  const assignmentIdsByProject = new Map<string, Set<string>>();
+  for (const lane of lanes) {
+    for (const assignment of lane.assignments) {
+      if (!assignment.hasPotentialOverlap) continue;
+      const assignmentIds =
+        assignmentIdsByProject.get(assignment.projectId) ?? new Set<string>();
+      assignmentIds.add(assignment.id);
+      assignmentIdsByProject.set(assignment.projectId, assignmentIds);
+    }
+  }
+  return new Map(
+    [...assignmentIdsByProject.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([projectId, assignmentIds]) => [
+        projectId,
+        assignmentIds.size,
+      ]),
+  );
+}
+
 export function portfolioControlHref(
   query: PortfolioScheduleQuery,
   patch: Partial<PortfolioScheduleQuery>,
@@ -221,6 +245,7 @@ export function buildPortfolioWorkRows(
   expandedJobs: ReadonlySet<string>,
   now: string,
   baseline: "latest" | "none",
+  overlapCountsByProject: ReadonlyMap<string, number> = new Map(),
 ): PortfolioWorkRow[] {
   return projects.flatMap((project) => {
     const tasks = project.jobs.flatMap((job) => job.tasks);
@@ -242,6 +267,7 @@ export function buildPortfolioWorkRows(
       baseline === "none"
         ? { kind: "none" }
         : { kind: "not-baselined" };
+    const overlapCount = overlapCountsByProject.get(project.id) ?? 0;
     const warnings = [
       project.warningCounts.blocked
         ? `${project.warningCounts.blocked} blocked`
@@ -255,6 +281,7 @@ export function buildPortfolioWorkRows(
       project.warningCounts.critical
         ? `${project.warningCounts.critical} critical`
         : "",
+      overlapCount ? `${overlapCount} potential overlaps` : "",
     ].filter(Boolean);
     const rows: PortfolioWorkRow[] = [
       {
@@ -1093,6 +1120,10 @@ export function PortfolioSchedule({
       ),
     [resourceLanes],
   );
+  const overlapCountsByProject = useMemo(
+    () => getPortfolioOverlapCounts(resourceLanes),
+    [resourceLanes],
+  );
   const visibleProjects = useMemo(
     () =>
       filterPortfolioProjects(
@@ -1152,6 +1183,7 @@ export function PortfolioSchedule({
         expandedJobs,
         now,
         query.baseline,
+        overlapCountsByProject,
       ),
     [
       visibleProjects,
@@ -1159,6 +1191,7 @@ export function PortfolioSchedule({
       expandedJobs,
       now,
       query.baseline,
+      overlapCountsByProject,
     ],
   );
   const pageCount = Math.max(
@@ -1242,6 +1275,11 @@ export function PortfolioSchedule({
       return entries;
     });
   const boundedUnscheduled = unscheduled.slice(0, 50);
+  const defaultActiveEmpty =
+    data.projects.length === 0 &&
+    query.projectStatus === "active" &&
+    !query.q &&
+    !query.projectManager;
 
   function toggleProject(id: string) {
     setExpandedProjects((current) => {
@@ -1281,6 +1319,7 @@ export function PortfolioSchedule({
           {partial(totals.projects, data.truncation.projects)} projects ·{" "}
           {partial(totals.jobs, data.truncation.jobs)} jobs ·{" "}
           {partial(totals.tasks, data.truncation.tasks)} tasks
+          {data.truncation.tasks ? " · Partial task count" : ""}
         </p>
         {visibleProjects.length > 0 &&
         visibleProjects.every(
@@ -1290,21 +1329,30 @@ export function PortfolioSchedule({
         ) : null}
       </div>
 
-      {data.projects.length === 0 ? (
+      {defaultActiveEmpty ? (
         <div className="rounded-lg border border-dashed px-4 py-10 text-center">
           <GanttChartIcon className="mx-auto mb-3 size-8" aria-hidden="true" />
-          <p className="font-medium">
-            {query.projectStatus === "active"
-              ? "No active projects"
-              : "No projects match the server filters"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Change project status, manager, or search filters.
-          </p>
+          <p className="font-medium">No active projects have schedule work.</p>
+          <Button
+            render={
+              <Link
+                href={portfolioControlHref(query, {
+                  projectStatus: "all",
+                })}
+              />
+            }
+            nativeButton={false}
+            variant="outline"
+            className="mt-3 min-h-11 min-w-11"
+          >
+            View all projects
+          </Button>
         </div>
-      ) : visibleProjects.length === 0 ? (
+      ) : data.projects.length === 0 || visibleProjects.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-          <p className="font-medium">No projects match these schedule filters.</p>
+          <p className="font-medium">
+            No portfolio schedule rows match these filters.
+          </p>
           <Button
             render={<Link href={portfolioScheduleHref({})} />}
             nativeButton={false}
@@ -1361,7 +1409,7 @@ export function PortfolioSchedule({
             data-portfolio-chart-scroller="true"
           >
             <div className="min-w-[72rem]">
-              <div className="grid min-h-14 grid-cols-[minmax(20rem,26rem)_minmax(48rem,1fr)]">
+              <div className="grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]">
                 <div className="sticky left-0 z-30 flex items-end border-r bg-muted/60 px-3 py-2 text-sm font-medium">
                   Project → Job → Task
                 </div>
@@ -1397,7 +1445,7 @@ export function PortfolioSchedule({
                   key={row.key}
                   data-work-row-id={row.key}
                   className={cn(
-                    "grid min-h-14 grid-cols-[minmax(20rem,26rem)_minmax(48rem,1fr)] border-t",
+                    "grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)] border-t",
                     row.kind === "project" && "bg-muted/10",
                   )}
                 >

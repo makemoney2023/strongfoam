@@ -266,6 +266,39 @@ describe("project schedule", () => {
     expect(month.getMonth()).toBe(2);
   });
 
+  it("clamps month anchors to the destination month end", () => {
+    const augustEnd = new Date(2026, 7, 31, 12, 30, 0, 0);
+    const result = moveScheduleAnchor(augustEnd, "month", 1);
+
+    expect(result.getFullYear()).toBe(2027);
+    expect(result.getMonth()).toBe(1);
+    expect(result.getDate()).toBe(28);
+    expect(result.getHours()).toBe(12);
+    expect(result.getMinutes()).toBe(30);
+  });
+
+  it("clamps month anchors to leap day when available", () => {
+    const augustEnd = new Date(2027, 7, 31, 12, 0, 0, 0);
+    const result = moveScheduleAnchor(augustEnd, "month", 1);
+
+    expect(result.getFullYear()).toBe(2028);
+    expect(result.getMonth()).toBe(1);
+    expect(result.getDate()).toBe(29);
+  });
+
+  it("clamps negative six-month navigation without changing week behavior", () => {
+    const augustEnd = new Date(2026, 7, 31, 12, 0, 0, 0);
+    const month = moveScheduleAnchor(augustEnd, "month", -1);
+    const week = moveScheduleAnchor(augustEnd, "week", -1);
+
+    expect(month.getFullYear()).toBe(2026);
+    expect(month.getMonth()).toBe(1);
+    expect(month.getDate()).toBe(28);
+    expect(week.getTime()).toBe(
+      new Date(2026, 6, 20, 12, 0, 0, 0).getTime(),
+    );
+  });
+
   it("shifts a task range by working days while preserving duration", () => {
     expect(
       shiftScheduleDates(

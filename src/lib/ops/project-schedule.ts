@@ -357,7 +357,15 @@ export function moveScheduleAnchor(
   if (zoom === "week") {
     next.setDate(next.getDate() + direction * 42);
   } else {
+    const day = next.getDate();
+    next.setDate(1);
     next.setMonth(next.getMonth() + direction * 6);
+    const endOfDestinationMonth = new Date(
+      next.getFullYear(),
+      next.getMonth() + 1,
+      0,
+    ).getDate();
+    next.setDate(Math.min(day, endOfDestinationMonth));
   }
   return next;
 }

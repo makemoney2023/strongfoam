@@ -10,9 +10,14 @@ import {
   PortfolioSchedule,
   buildPortfolioWorkRows,
   defaultPortfolioExpansion,
+  getPortfolioOverlapCounts,
   portfolioControlHref,
 } from "@/components/ops/portfolio-schedule";
-import { buildPortfolioProjects } from "@/lib/ops/portfolio-schedule";
+import {
+  buildPortfolioProjects,
+  buildPortfolioResourceLanes,
+  buildPortfolioScheduleAssignments,
+} from "@/lib/ops/portfolio-schedule";
 import type {
   PortfolioScheduleData,
   PortfolioScheduleProject,
@@ -145,6 +150,17 @@ describe("portfolio schedule route contract", () => {
     expect(source).toContain("serializePortfolioSchedule");
     expect(source).toContain("now={now}");
   });
+
+  it("has a stable semantic project Schedule target", () => {
+    const source = readFileSync(
+      new URL("../../app/app/projects/[id]/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain('<section id="schedule"');
+    expect(source).toContain('aria-labelledby="schedule-heading"');
+    expect(source).toContain('<CardTitle id="schedule-heading">Schedule</CardTitle>');
+  });
 });
 
 describe("portfolio work model", () => {
@@ -258,6 +274,156 @@ describe("PortfolioSchedule", () => {
     );
   });
 
+  it("counts conflicting assignments per project in chart and table", async () => {
+    const projected = buildPortfolioProjects(
+      [
+        project("overlap-a", {
+          jobs: [
+            job("overlap-a-job", {
+              projectManager: "Alex",
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+        }),
+        project("overlap-b", {
+          jobs: [
+            job("overlap-b-job", {
+              projectManager: "Alex",
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22",
+            }),
+          ],
+        }),
+      ],
+      new Date(NOW),
+    );
+    const lanes = buildPortfolioResourceLanes(
+      buildPortfolioScheduleAssignments(projected),
+    );
+    const counts = getPortfolioOverlapCounts(lanes);
+    const expansion = defaultPortfolioExpansion(projected);
+    const rows = buildPortfolioWorkRows(
+      projected,
+      expansion.projects,
+      expansion.jobs,
+      NOW,
+      "latest",
+      counts,
+    );
+
+    expect([...counts.entries()]).toEqual([
+      ["overlap-a", 1],
+      ["overlap-b", 1],
+    ]);
+    expect(
+      rows.find((row) => row.key === "overlap-a:project")?.warning,
+    ).toContain("1 potential overlaps");
+    expect(
+      rows.find((row) => row.key === "overlap-b:project")?.warning,
+    ).toContain("1 potential overlaps");
+
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data(projected),
+        query: query(),
+        now: NOW,
+      }),
+    );
+    expect(html.match(/1 potential overlaps/g)).toHaveLength(2);
+
+    const dom = new JSDOM('<div id="root"></div>');
+    const globals = globalThis as unknown as Record<string, unknown>;
+    const previousGlobals = new Map(
+      ["window", "self", "document", "HTMLElement", "Node"].map(
+        (key) => [key, globals[key]] as const,
+      ),
+    );
+    const previousActEnvironment = globals.IS_REACT_ACT_ENVIRONMENT;
+    globals.window = dom.window;
+    globals.self = dom.window;
+    globals.document = dom.window.document;
+    globals.HTMLElement = dom.window.HTMLElement;
+    globals.Node = dom.window.Node;
+    globals.IS_REACT_ACT_ENVIRONMENT = true;
+    const container = dom.window.document.querySelector("#root")!;
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(
+          createElement(PortfolioSchedule, {
+            data: data(projected),
+            query: query(),
+            now: NOW,
+          }),
+        );
+      });
+      const toggle = container.querySelector(
+        '[aria-label="Toggle current work page table"]',
+      )!;
+      await act(async () => {
+        toggle.dispatchEvent(
+          new dom.window.MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(
+        container.textContent?.match(/1 potential overlaps/g),
+      ).toHaveLength(4);
+      const projectTableWarnings = [
+        ...container.querySelectorAll(
+          'tbody tr[data-work-row-id$=":project"] td:last-child',
+        ),
+      ].map((cell) => cell.textContent);
+      expect(projectTableWarnings).toEqual([
+        "1 potential overlaps",
+        "1 potential overlaps",
+      ]);
+    } finally {
+      await act(async () => root.unmount());
+      dom.window.close();
+      for (const [key, value] of previousGlobals) {
+        if (value === undefined) delete globals[key];
+        else globals[key] = value;
+      }
+      if (previousActEnvironment === undefined) {
+        delete globals.IS_REACT_ACT_ENVIRONMENT;
+      } else {
+        globals.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+      }
+    }
+  });
+
+  it("renders exact active and filtered empty states with accessible links", () => {
+    const active = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data([]),
+        query: query({
+          attention: "behind-baseline",
+          zoom: "month",
+        }),
+        now: NOW,
+      }),
+    );
+    expect(active).toContain("No active projects have schedule work.");
+    expect(active).toContain(">View all projects</a>");
+    expect(active).toContain("projectStatus=all");
+    expect(active).toContain("attention=behind-baseline");
+    expect(active).toContain("zoom=month");
+    expect(active).toContain("min-h-11 min-w-11");
+
+    const filtered = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data([]),
+        query: query({ q: "tower" }),
+        now: NOW,
+      }),
+    );
+    expect(filtered).toContain(
+      "No portfolio schedule rows match these filters.",
+    );
+    expect(filtered).toContain(">Reset filters</a>");
+  });
+
   it("renders all truncation alerts, empty hierarchy facts, controls, and one scroller", () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioSchedule, {
@@ -295,11 +461,16 @@ describe("PortfolioSchedule", () => {
     expect(html).toContain("No jobs");
     expect(html).toContain("No tasks");
     expect(html).toContain("Unscheduled work");
+    expect(html).toContain("Partial task count");
     expect(html).toContain("Work");
     expect(html).toContain("Resources");
     expect(html).toContain("min-h-11");
     expect(html).toContain('aria-pressed="true"');
     expect(html.match(/data-portfolio-chart-scroller/g)).toHaveLength(1);
+    expect(html).toContain(
+      "grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]",
+    );
+    expect(html).toContain('class="min-w-[72rem]"');
   });
 
   it("paginates the flattened graph at 200 and mounts table rows only while open", async () => {
