@@ -389,6 +389,14 @@ export function portfolioCalendarDate(
   return validDate(localDate)?.value ?? null;
 }
 
+export function localScheduleDateKey(value: Date): string | null {
+  if (Number.isNaN(value.getTime())) return null;
+  const year = String(value.getFullYear()).padStart(4, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function earliest(values: readonly DatedValue[]): string | null {
   let result: DatedValue | null = null;
   for (const value of values) {

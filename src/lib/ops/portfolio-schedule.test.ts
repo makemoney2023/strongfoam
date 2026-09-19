@@ -14,6 +14,7 @@ import {
   filterPortfolioProjects,
   getPortfolioProjectRange,
   getPortfolioProjectState,
+  localScheduleDateKey,
   portfolioCalendarDate,
   serializePortfolioSchedule,
   type PortfolioProjectionFilter,
@@ -1289,6 +1290,20 @@ function resourceLanes(projects: PortfolioScheduleProject[]) {
 }
 
 describe("portfolio resource projection", () => {
+  it("keeps a positive-offset local schedule column on its local date", () => {
+    const previousTimeZone = process.env.TZ;
+    try {
+      process.env.TZ = "Asia/Tokyo";
+      const localMidnight = new Date(2026, 8, 21, 0, 0, 0, 0);
+
+      expect(localMidnight.toISOString().slice(0, 10)).toBe("2026-09-20");
+      expect(localScheduleDateKey(localMidnight)).toBe("2026-09-21");
+    } finally {
+      if (previousTimeZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimeZone;
+    }
+  });
+
   it("renders linked projects, assignment roles, calendar dates, and 44px timeline targets", () => {
     const projects = buildPortfolioProjects(
       [
@@ -1342,6 +1357,12 @@ describe("portfolio resource projection", () => {
     expect(html).toContain("before:h-11");
     expect(html).toContain("before:min-w-11");
     expect(html).toContain("before:size-11");
+    expect(html).toContain(
+      'aria-label="Open source job JOB-1 · North wall" class="inline-flex min-h-11',
+    );
+    expect(html).toContain(
+      'aria-label="Open project Linked project" class="inline-flex min-h-11',
+    );
   });
 
   it("projects PM, foreman, and task roles with project and calendar provenance", () => {
