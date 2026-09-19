@@ -286,7 +286,13 @@ export function PortfolioResourceSchedule({
   );
   const [requestedPage, setRequestedPage] = useState(0);
   useEffect(() => {
-    setRequestedPage(0);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setRequestedPage(0);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [entries]);
   const page = Math.min(requestedPage, pageCount - 1);
   const pageEntries = useMemo(
