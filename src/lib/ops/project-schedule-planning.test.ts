@@ -141,7 +141,7 @@ describe("project schedule planning", () => {
     ).toBe(0);
   });
 
-  it("projects job roles and task assignees without inventing capacity", () => {
+  it("projects stable field assignments without treating legacy labels as users", () => {
     const assignments = buildScheduleAssignments([
       {
         id: "job-1",
@@ -149,13 +149,21 @@ describe("project schedule planning", () => {
         name: "Podium",
         projectManager: " Alex Smith ",
         foreman: "Morgan Cole",
+        assignments: [
+          {
+            userId: "12121212-1212-4121-8121-121212121212",
+            displayName: "Jordan Field",
+            role: "foreman",
+          },
+        ],
         plannedStartAt: "2026-09-10",
         plannedEndAt: "2026-09-12",
         tasks: [
           {
             id: "task-1",
             title: "Prep north wall",
-            assignee: "alex  smith",
+            assignee: "Jordan Field",
+            assigneeUserId: "12121212-1212-4121-8121-121212121212",
             plannedStartAt: "2026-09-11",
             plannedEndAt: "2026-09-14",
             dueAt: null,
@@ -163,7 +171,8 @@ describe("project schedule planning", () => {
           {
             id: "task-2",
             title: "Confirm access",
-            assignee: null,
+            assignee: "Legacy Name",
+            assigneeUserId: null,
             plannedStartAt: null,
             plannedEndAt: null,
             dueAt: "2026-09-15",
@@ -184,12 +193,20 @@ describe("project schedule planning", () => {
       entityType: "job",
     });
     const lanes = buildResourceLanes(assignments, DEFAULT_WORKING_CALENDAR);
-    expect(lanes.find((lane) => lane.key === "alex smith")).toMatchObject({
-      displayName: "Alex Smith",
+    expect(
+      lanes.find(
+        (lane) =>
+          lane.key === "user:12121212-1212-4121-8121-121212121212",
+      ),
+    ).toMatchObject({
+      displayName: "Jordan Field",
       potentialOverlapCount: 1,
     });
-    expect(lanes.find((lane) => lane.key === "unassigned")?.assignments).toHaveLength(
-      1,
-    );
+    expect(
+      lanes.find((lane) => lane.key === "unassigned")?.assignments,
+    ).toEqual([
+      expect.objectContaining({ label: "Confirm access" }),
+    ]);
+    expect(lanes.find((lane) => lane.key === "legacy name")).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobAssignments,
   jobDocuments,
   jobEvents,
   jobFieldNotes,
@@ -11,13 +12,16 @@ import {
   jobTasks,
   jobs,
   leads,
+  memberships,
   opportunities,
+  organizations,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
   scheduleCalendarExceptions,
   scheduleCalendars,
   sites,
+  users,
   workAreas,
 } from "@/db/schema";
 
@@ -25,6 +29,9 @@ export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
+export type OrganizationRow = typeof organizations.$inferSelect;
+export type UserRow = typeof users.$inferSelect;
+export type MembershipRow = typeof memberships.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
@@ -32,6 +39,7 @@ export type OpportunityRow = typeof opportunities.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
+export type JobAssignmentRow = typeof jobAssignments.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
@@ -51,8 +59,54 @@ export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
+export const DEMO_FIELD_USER_ID = "12121212-1212-4121-8121-121212121212";
+export const DEMO_FIELD_EMAIL = "field@strongfoam.demo";
+export const DEMO_FIELD_PASSWORD = "StrongFoamDemo1!";
+export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 
 const now = Date.now();
+
+export function demoOrganizations(): OrganizationRow[] {
+  return [
+    {
+      id: DEMO_ORGANIZATION_ID,
+      createdAt: new Date(now - 365 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 365 * 24 * 60 * 60 * 1000),
+      name: "Strong Foam Insulation Inc.",
+      slug: "strong-foam",
+    },
+  ];
+}
+
+export function demoUsers(): UserRow[] {
+  return [
+    {
+      id: DEMO_FIELD_USER_ID,
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      email: DEMO_FIELD_EMAIL,
+      displayName: "Jordan Field",
+      passwordHash:
+        "scrypt$7374726f6e67666f616d2d64656d6f$c1a1b8e28f4a619028057bd86bb213c4f3b81464c82ced3681ecadd556c8965d65249cccd9a6ed407823609e5e7f1d12503a0b7a5b0057d9c50105c08a7d49ad",
+      active: true,
+      createdBy: "demo@strongfoam.ca",
+    },
+  ];
+}
+
+export function demoMemberships(): MembershipRow[] {
+  return [
+    {
+      id: "13131313-1313-4131-8131-131313131313",
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      organizationId: DEMO_ORGANIZATION_ID,
+      userId: DEMO_FIELD_USER_ID,
+      role: "field_worker",
+      active: true,
+    },
+  ];
+}
 
 export function demoEstimateRequests(): EstimateRequestRow[] {
   return [
@@ -236,10 +290,23 @@ export function demoJobs(): JobRow[] {
       scope: "Closed-cell at the podium deck and AVB at the north elevation.",
       services: ["spray-foam", "avb"],
       projectManager: "Alex Rivera",
-      foreman: "Morgan Cole",
+      foreman: "Jordan Field",
       plannedStartAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
       plannedEndAt: new Date(now + 4 * 24 * 60 * 60 * 1000),
       blockerNote: null,
+    },
+  ];
+}
+
+export function demoJobAssignments(): JobAssignmentRow[] {
+  return [
+    {
+      id: "14141414-1414-4141-8141-141414141414",
+      createdAt: new Date(now - 4 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      userId: DEMO_FIELD_USER_ID,
+      role: "foreman",
+      createdBy: "demo@strongfoam.ca",
     },
   ];
 }
@@ -282,7 +349,8 @@ export function demoJobTasks(): JobTaskRow[] {
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
       title: "Install closed-cell at podium deck",
-      assignee: "Morgan Cole",
+      assignee: "Jordan Field",
+      assigneeUserId: DEMO_FIELD_USER_ID,
       dueAt: new Date(now + 24 * 60 * 60 * 1000),
       plannedStartAt: new Date(now - 24 * 60 * 60 * 1000),
       plannedEndAt: new Date(now + 2 * 24 * 60 * 60 * 1000),
@@ -309,7 +377,7 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       body: "Staging is complete. Start closed-cell at the podium deck after the morning safety talk.",
       quantity: null,
       unit: null,
-      createdBy: "morgan.cole@strongfoam.com",
+      createdBy: DEMO_FIELD_EMAIL,
     },
   ];
 }

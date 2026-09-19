@@ -12,9 +12,9 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import {
-  removeJobDocument,
-  saveJobDocumentMeta,
-  uploadJobDocument,
+  removeJobDocument as defaultRemoveJobDocument,
+  saveJobDocumentMeta as defaultSaveJobDocumentMeta,
+  uploadJobDocument as defaultUploadJobDocument,
 } from "@/app/app/jobs/actions";
 import { DocumentMetaFields } from "@/app/app/jobs/workspace-fields";
 import { ActionForm } from "@/components/ops/action-form";
@@ -27,9 +27,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { applyActionResult } from "@/lib/ops/apply-action-result";
+import type { ActionState } from "@/lib/ops/action-result";
 import {
   JOB_DOCUMENT_LABELS,
   MAX_JOB_UPLOAD_FILES,
+  fieldJobDocumentHref,
   formatFileSize,
   isJobImageContentType,
   jobDocumentHref,
@@ -67,12 +69,24 @@ export function JobPhotoGallery({
   documents,
   storageMode,
   returnTo,
+  handleUploadUrl = "/api/ops/job-uploads",
+  documentScope = "ops",
+  uploadAction = defaultUploadJobDocument,
+  saveMetaAction = defaultSaveJobDocumentMeta,
+  removeAction = defaultRemoveJobDocument,
+  editable = true,
 }: {
   jobId: string;
   areas: AreaOption[];
   documents: GalleryDocument[];
   storageMode: StorageMode;
   returnTo: string;
+  handleUploadUrl?: string;
+  documentScope?: "ops" | "field";
+  uploadAction?: (formData: FormData) => Promise<ActionState>;
+  saveMetaAction?: (formData: FormData) => Promise<ActionState>;
+  removeAction?: (formData: FormData) => Promise<ActionState>;
+  editable?: boolean;
 }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -106,7 +120,7 @@ export function JobPhotoGallery({
         data.set("workAreaId", workAreaId);
         data.set("returnTo", returnTo);
         for (const file of files) data.append("file", file);
-        applyActionResult(await uploadJobDocument(data), router);
+        applyActionResult(await uploadAction(data), router);
         return;
       }
 
@@ -127,7 +141,7 @@ export function JobPhotoGallery({
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         await upload(`jobs/${jobId}/${index}-${safeName}`, file, {
           access: "private",
-          handleUploadUrl: "/api/ops/job-uploads",
+          handleUploadUrl,
           multipart: file.size > 5 * 1024 * 1024,
           clientPayload: JSON.stringify({
             jobId,
@@ -257,7 +271,10 @@ export function JobPhotoGallery({
           </button>
         </li>
         {documents.map((document) => {
-          const href = jobDocumentHref(jobId, document.id);
+          const href =
+            documentScope === "field"
+              ? fieldJobDocumentHref(jobId, document.id)
+              : jobDocumentHref(jobId, document.id);
           const isImage = isJobImageContentType(document.contentType);
           return (
             <li
@@ -285,6 +302,7 @@ export function JobPhotoGallery({
                   Open {document.filename}
                 </span>
               </a>
+              {editable ? (
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-0.5 bg-gradient-to-t from-black/70 to-transparent p-1">
                 <FormDialog
                   triggerLabel=""
@@ -295,7 +313,7 @@ export function JobPhotoGallery({
                   title="Edit file"
                   description={document.filename}
                 >
-                  <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
+                  <ActionForm action={saveMetaAction} className="grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="jobId" value={jobId} />
                     <input type="hidden" name="documentId" value={document.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
@@ -312,7 +330,7 @@ export function JobPhotoGallery({
                   </ActionForm>
                 </FormDialog>
                 <ConfirmForm
-                  action={removeJobDocument}
+                  action={removeAction}
                   message={`Delete ${document.filename}? The file is removed permanently.`}
                 >
                   <input type="hidden" name="jobId" value={jobId} />
@@ -328,6 +346,7 @@ export function JobPhotoGallery({
                   </SubmitButton>
                 </ConfirmForm>
               </div>
+              ) : null}
               <p className="pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/55 to-transparent px-2 py-1.5 text-[11px] text-white">
                 {JOB_DOCUMENT_LABELS[document.kind as keyof typeof JOB_DOCUMENT_LABELS] ??
                   document.kind}

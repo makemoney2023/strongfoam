@@ -13,6 +13,7 @@ import {
   HardHatIcon,
   HouseIcon,
   LogOutIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,8 @@ const nav = [
   { title: "Opportunities", href: "/app/opportunities", icon: BriefcaseBusinessIcon },
   { title: "Projects", href: "/app/projects", icon: FolderKanbanIcon },
   { title: "Jobs", href: "/app/jobs", icon: HammerIcon },
-  { title: "Field", href: "/app/field", icon: HardHatIcon },
+  { title: "Users", href: "/app/users", icon: UsersRoundIcon },
+  { title: "Field", href: "/field", icon: HardHatIcon },
 ];
 
 export function AppSidebar({ email }: { email: string }) {

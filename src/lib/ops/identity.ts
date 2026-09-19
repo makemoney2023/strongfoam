@@ -1,0 +1,158 @@
+import { isUuid } from "@/lib/ops/job-workspace";
+
+export const STRONG_FOAM_ORGANIZATION_ID =
+  "00000000-0000-4000-8000-000000000001";
+
+export const MEMBERSHIP_ROLES = [
+  "administrator",
+  "office",
+  "field_lead",
+  "field_worker",
+] as const;
+
+export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
+
+export const MEMBERSHIP_ROLE_LABELS: Record<MembershipRole, string> = {
+  administrator: "Administrator",
+  office: "Office",
+  field_lead: "Field lead",
+  field_worker: "Field worker",
+};
+
+export const FIELD_MEMBERSHIP_ROLES = ["field_lead", "field_worker"] as const;
+
+export const JOB_ASSIGNMENT_ROLES = ["foreman", "technician"] as const;
+export type JobAssignmentRole = (typeof JOB_ASSIGNMENT_ROLES)[number];
+
+export const JOB_ASSIGNMENT_ROLE_LABELS: Record<JobAssignmentRole, string> = {
+  foreman: "Foreman",
+  technician: "Technician",
+};
+
+export type UserInput = {
+  displayName: string;
+  email: string;
+  role: MembershipRole;
+  temporaryPassword: string;
+};
+
+export type UserIdentity = {
+  userId: string;
+  organizationId: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+  active: boolean;
+  membershipActive: boolean;
+  role: MembershipRole;
+};
+
+export type UserListItem = UserIdentity & {
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type JobAssignmentView = {
+  id: string;
+  jobId: string;
+  userId: string;
+  role: JobAssignmentRole;
+  displayName: string;
+  email: string;
+  active: boolean;
+  createdAt: Date;
+};
+
+export function isMembershipRole(value: string): value is MembershipRole {
+  return MEMBERSHIP_ROLES.includes(value as MembershipRole);
+}
+
+export function isFieldMembershipRole(
+  value: string,
+): value is (typeof FIELD_MEMBERSHIP_ROLES)[number] {
+  return FIELD_MEMBERSHIP_ROLES.includes(
+    value as (typeof FIELD_MEMBERSHIP_ROLES)[number],
+  );
+}
+
+export function isJobAssignmentRole(
+  value: string,
+): value is JobAssignmentRole {
+  return JOB_ASSIGNMENT_ROLES.includes(value as JobAssignmentRole);
+}
+
+export function parseUserInput(input: {
+  displayName?: string;
+  email?: string;
+  role?: string;
+  temporaryPassword?: string;
+}):
+  | { ok: true; value: UserInput }
+  | { ok: false; error: string; field?: string } {
+  const displayName = input.displayName?.trim().replace(/\s+/g, " ") ?? "";
+  if (displayName.length < 2 || displayName.length > 120) {
+    return {
+      ok: false,
+      error: "Enter a name between 2 and 120 characters.",
+      field: "displayName",
+    };
+  }
+
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+    return {
+      ok: false,
+      error: "Enter a valid email address.",
+      field: "email",
+    };
+  }
+
+  const role = input.role ?? "";
+  if (!isMembershipRole(role)) {
+    return { ok: false, error: "Choose a valid role.", field: "role" };
+  }
+
+  const temporaryPassword = input.temporaryPassword ?? "";
+  if (
+    temporaryPassword.length < 12 ||
+    !/[A-Za-z]/.test(temporaryPassword) ||
+    !/[0-9]/.test(temporaryPassword)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Temporary passwords need at least 12 characters, one letter, and one number.",
+      field: "temporaryPassword",
+    };
+  }
+
+  return {
+    ok: true,
+    value: { displayName, email, role, temporaryPassword },
+  };
+}
+
+export function parseJobAssignmentInput(input: {
+  userId?: string;
+  role?: string;
+}):
+  | { ok: true; value: { userId: string; role: JobAssignmentRole } }
+  | { ok: false; error: string; field?: string } {
+  const userId = input.userId?.trim() ?? "";
+  if (!isUuid(userId)) {
+    return {
+      ok: false,
+      error: "Choose a valid field worker.",
+      field: "userId",
+    };
+  }
+  const role = input.role ?? "";
+  if (!isJobAssignmentRole(role)) {
+    return {
+      ok: false,
+      error: "Choose a valid assignment role.",
+      field: "assignmentRole",
+    };
+  }
+  return { ok: true, value: { userId, role } };
+}

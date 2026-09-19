@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ops/empty-state";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { RealtimeRefresh } from "@/components/ops/realtime-refresh";
 import { ProjectSchedule } from "@/components/ops/project-schedule";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
@@ -34,6 +35,7 @@ import {
   getProjectScheduleBaseline,
   getSite,
   listJobs,
+  listProjectJobAssignments,
   listProjectJobTasks,
   listProjectScheduleBaselines,
   listProjectTaskDependencies,
@@ -70,6 +72,7 @@ export default async function ProjectDetailPage({
     site,
     opportunity,
     jobs,
+    projectAssignments,
     projectTaskResult,
     dependencyResult,
     baselines,
@@ -81,6 +84,7 @@ export default async function ProjectDetailPage({
       project.siteId ? getSite(project.siteId) : null,
       project.opportunityId ? getOpportunity(project.opportunityId) : null,
       listJobs({ projectId: project.id }),
+      listProjectJobAssignments(project.id),
       listProjectJobTasks(project.id),
       listProjectTaskDependencies(project.id),
       listProjectScheduleBaselines(project.id),
@@ -96,6 +100,15 @@ export default async function ProjectDetailPage({
     bucket.push(task);
     tasksByJob.set(task.jobId, bucket);
   }
+  const assignmentsByJob = new Map<
+    string,
+    typeof projectAssignments
+  >();
+  for (const assignment of projectAssignments) {
+    const bucket = assignmentsByJob.get(assignment.jobId) ?? [];
+    bucket.push(assignment);
+    assignmentsByJob.set(assignment.jobId, bucket);
+  }
   const scheduleJobs = jobs.map((job) => ({
     id: job.id,
     updatedAt: job.updatedAt.toISOString(),
@@ -104,6 +117,11 @@ export default async function ProjectDetailPage({
     status: job.status as JobStatus,
     projectManager: job.projectManager,
     foreman: job.foreman,
+    assignments: (assignmentsByJob.get(job.id) ?? []).map((assignment) => ({
+      userId: assignment.userId,
+      displayName: assignment.displayName,
+      role: assignment.role,
+    })),
     plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
     plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
     tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
@@ -112,6 +130,7 @@ export default async function ProjectDetailPage({
       updatedAt: task.updatedAt.toISOString(),
       title: task.title,
       assignee: task.assignee,
+      assigneeUserId: task.assigneeUserId,
       status: task.status === "done" ? ("done" as const) : ("open" as const),
       dueAt: task.dueAt?.toISOString() ?? null,
       plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
@@ -151,6 +170,7 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh url={`/api/ops/events?projectId=${project.id}`} />
       <PageHeader
         crumbs={[
           { href: "/app/projects", label: "Projects" },

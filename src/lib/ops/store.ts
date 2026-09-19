@@ -3,6 +3,7 @@ import {
   asc,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
@@ -17,6 +18,7 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobAssignments,
   jobDocuments,
   jobEvents,
   jobFieldNotes,
@@ -24,13 +26,16 @@ import {
   jobTasks,
   jobs,
   leads,
+  memberships,
   opportunities,
+  organizations,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
   scheduleCalendarExceptions,
   scheduleCalendars,
   sites,
+  users,
   workAreas,
 } from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
@@ -40,6 +45,7 @@ import {
   addDemoContact,
   addDemoEstimateRequestComment,
   addDemoEstimateRequestTask,
+  addDemoJobAssignment,
   addDemoJobDocument,
   addDemoJobFieldNote,
   addDemoJobTaskDependency,
@@ -47,6 +53,7 @@ import {
   addDemoJobTask,
   addDemoJobToProject,
   addDemoSite,
+  addDemoUser,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
@@ -64,6 +71,8 @@ import {
   deleteDemoProject,
   deleteDemoSite,
   deleteDemoWorkArea,
+  getDemoFieldIdentityByEmail,
+  getDemoFieldIdentityById,
   getDemoCompany,
   getDemoContact,
   getDemoEstimateRequest,
@@ -78,8 +87,10 @@ import {
   listDemoEstimateRequestEvents,
   listDemoEstimateRequestTasks,
   listDemoEstimateRequests,
+  listDemoJobAssignments,
   listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobEventsSince,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
@@ -91,7 +102,11 @@ import {
   removeDemoProjectScheduleBaseline,
   removeDemoScheduleCalendarException,
   listDemoSites,
+  listDemoUsers,
   listDemoWorkAreas,
+  canDemoFieldUserAccessJob,
+  canDemoFieldUserAccessTask,
+  removeDemoJobAssignment,
   rescheduleDemoJob,
   rescheduleDemoJobTask,
   resolveDemoProjectScheduleCalendar,
@@ -99,6 +114,7 @@ import {
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
   setDemoJobTaskStatus,
+  setDemoUserActive,
   updateDemoCompany,
   updateDemoContact,
   updateDemoEstimateRequest,
@@ -127,6 +143,15 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
+import {
+  STRONG_FOAM_ORGANIZATION_ID,
+  isFieldMembershipRole,
+  type JobAssignmentRole,
+  type JobAssignmentView,
+  type MembershipRole,
+  type UserIdentity,
+  type UserListItem,
+} from "@/lib/ops/identity";
 import {
   validateDependencyAddition,
   validateDependencyDates,
@@ -157,12 +182,16 @@ export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
+export type OrganizationRow = typeof organizations.$inferSelect;
+export type UserRow = typeof users.$inferSelect;
+export type MembershipRow = typeof memberships.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
 export type OpportunityRow = typeof opportunities.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
+export type JobAssignmentRow = typeof jobAssignments.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
@@ -239,6 +268,7 @@ export type JobListFilters = DateListFilters & {
   companyId?: string;
   status?: string;
   q?: string;
+  fieldUserId?: string;
 };
 
 export type JobTaskListFilters = DateListFilters & {
@@ -304,6 +334,169 @@ export function parseEstimateRequestUpdate(input: {
       note: input.note?.trim() || undefined,
     },
   };
+}
+
+function mapIdentity(row: {
+  user: UserRow;
+  membership: MembershipRow;
+}): UserIdentity | null {
+  if (!isFieldMembershipRole(row.membership.role) &&
+      row.membership.role !== "administrator" &&
+      row.membership.role !== "office") {
+    return null;
+  }
+  return {
+    userId: row.user.id,
+    organizationId: row.membership.organizationId,
+    email: row.user.email,
+    displayName: row.user.displayName,
+    passwordHash: row.user.passwordHash,
+    active: row.user.active,
+    membershipActive: row.membership.active,
+    role: row.membership.role as MembershipRole,
+  };
+}
+
+export async function listUsers(): Promise<UserListItem[]> {
+  if (isDemoOpsStore()) return listDemoUsers();
+  const db = getDb();
+  const rows = await db
+    .select({ user: users, membership: memberships })
+    .from(users)
+    .innerJoin(memberships, eq(memberships.userId, users.id))
+    .where(eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID))
+    .orderBy(asc(users.displayName));
+  return rows
+    .map((row) => {
+      const identity = mapIdentity(row);
+      return identity
+        ? {
+            ...identity,
+            createdAt: row.user.createdAt,
+            updatedAt: row.user.updatedAt,
+          }
+        : null;
+    })
+    .filter((user): user is UserListItem => Boolean(user));
+}
+
+export async function listActiveFieldUsers(): Promise<UserListItem[]> {
+  return (await listUsers()).filter(
+    (user) =>
+      user.active &&
+      user.membershipActive &&
+      isFieldMembershipRole(user.role),
+  );
+}
+
+async function getFieldIdentity(
+  by: { id: string } | { email: string },
+): Promise<UserIdentity | null> {
+  if (isDemoOpsStore()) {
+    return "id" in by
+      ? getDemoFieldIdentityById(by.id)
+      : getDemoFieldIdentityByEmail(by.email);
+  }
+  const db = getDb();
+  const rows = await db
+    .select({ user: users, membership: memberships })
+    .from(users)
+    .innerJoin(memberships, eq(memberships.userId, users.id))
+    .where(
+      and(
+        "id" in by ? eq(users.id, by.id) : eq(users.email, by.email),
+        eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+      ),
+    )
+    .limit(1);
+  return rows[0] ? mapIdentity(rows[0]) : null;
+}
+
+export function getFieldIdentityById(
+  userId: string,
+): Promise<UserIdentity | null> {
+  return getFieldIdentity({ id: userId });
+}
+
+export function getFieldIdentityByEmail(
+  email: string,
+): Promise<UserIdentity | null> {
+  return getFieldIdentity({ email: email.trim().toLowerCase() });
+}
+
+export async function addUser(args: {
+  actor: string;
+  displayName: string;
+  email: string;
+  passwordHash: string;
+  role: MembershipRole;
+}): Promise<UserListItem | null> {
+  if (isDemoOpsStore()) return addDemoUser(args);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const userRows = await tx
+      .insert(users)
+      .values({
+        displayName: args.displayName,
+        email: args.email,
+        passwordHash: args.passwordHash,
+        active: true,
+        createdBy: args.actor,
+      })
+      .onConflictDoNothing({ target: users.email })
+      .returning();
+    const user = userRows[0];
+    if (!user) return null;
+    const membershipRows = await tx
+      .insert(memberships)
+      .values({
+        organizationId: STRONG_FOAM_ORGANIZATION_ID,
+        userId: user.id,
+        role: args.role,
+        active: true,
+      })
+      .returning();
+    const membership = membershipRows[0];
+    if (!membership) return null;
+    const identity = mapIdentity({ user, membership });
+    return identity
+      ? { ...identity, createdAt: user.createdAt, updatedAt: user.updatedAt }
+      : null;
+  });
+}
+
+export async function setUserActive(args: {
+  userId: string;
+  active: boolean;
+}): Promise<UserListItem | null> {
+  if (isDemoOpsStore()) return setDemoUserActive(args.userId, args.active);
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ active: args.active, updatedAt: new Date() })
+      .where(eq(users.id, args.userId));
+    await tx
+      .update(memberships)
+      .set({ active: args.active, updatedAt: new Date() })
+      .where(
+        and(
+          eq(memberships.userId, args.userId),
+          eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+        ),
+      );
+  });
+  const identity = await getFieldIdentityById(args.userId);
+  if (!identity) return null;
+  const userRows = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, args.userId))
+    .limit(1);
+  const user = userRows[0];
+  return user
+    ? { ...identity, createdAt: user.createdAt, updatedAt: user.updatedAt }
+    : null;
 }
 
 export async function listEstimateRequests(
@@ -899,6 +1092,26 @@ export async function listJobs(filters: JobListFilters = {}): Promise<JobRow[]> 
   const db = getDb();
   const conditions = [];
   const query = filters.q?.trim();
+  if (filters.fieldUserId) {
+    const [directAssignments, taskAssignments] = await Promise.all([
+      db
+        .select({ jobId: jobAssignments.jobId })
+        .from(jobAssignments)
+        .where(eq(jobAssignments.userId, filters.fieldUserId)),
+      db
+        .select({ jobId: jobTasks.jobId })
+        .from(jobTasks)
+        .where(eq(jobTasks.assigneeUserId, filters.fieldUserId)),
+    ]);
+    const accessibleJobIds = [
+      ...new Set([
+        ...directAssignments.map((assignment) => assignment.jobId),
+        ...taskAssignments.map((assignment) => assignment.jobId),
+      ]),
+    ];
+    if (accessibleJobIds.length === 0) return [];
+    conditions.push(inArray(jobs.id, accessibleJobIds));
+  }
   if (filters.projectId) conditions.push(eq(jobs.projectId, filters.projectId));
   if (filters.companyId) conditions.push(eq(jobs.companyId, filters.companyId));
   if (filters.status) conditions.push(eq(jobs.status, filters.status));
@@ -930,6 +1143,215 @@ export async function getJob(id: string): Promise<JobRow | null> {
   return rows[0] ?? null;
 }
 
+export async function listJobAssignments(
+  jobId: string,
+): Promise<JobAssignmentView[]> {
+  if (isDemoOpsStore()) return listDemoJobAssignments(jobId);
+  const db = getDb();
+  const rows = await db
+    .select({ assignment: jobAssignments, user: users })
+    .from(jobAssignments)
+    .innerJoin(users, eq(users.id, jobAssignments.userId))
+    .where(eq(jobAssignments.jobId, jobId))
+    .orderBy(asc(users.displayName));
+  return rows.map(({ assignment, user }) => ({
+    id: assignment.id,
+    jobId: assignment.jobId,
+    userId: assignment.userId,
+    role: assignment.role as JobAssignmentRole,
+    displayName: user.displayName,
+    email: user.email,
+    active: user.active,
+    createdAt: assignment.createdAt,
+  }));
+}
+
+export async function listProjectJobAssignments(
+  projectId: string,
+): Promise<JobAssignmentView[]> {
+  if (isDemoOpsStore()) {
+    const projectJobs = listDemoJobs({ projectId });
+    return projectJobs.flatMap((job) => listDemoJobAssignments(job.id));
+  }
+  const db = getDb();
+  const rows = await db
+    .select({ assignment: jobAssignments, user: users })
+    .from(jobAssignments)
+    .innerJoin(users, eq(users.id, jobAssignments.userId))
+    .innerJoin(jobs, eq(jobs.id, jobAssignments.jobId))
+    .where(eq(jobs.projectId, projectId))
+    .orderBy(asc(users.displayName));
+  return rows.map(({ assignment, user }) => ({
+    id: assignment.id,
+    jobId: assignment.jobId,
+    userId: assignment.userId,
+    role: assignment.role as JobAssignmentRole,
+    displayName: user.displayName,
+    email: user.email,
+    active: user.active,
+    createdAt: assignment.createdAt,
+  }));
+}
+
+export async function addJobAssignment(args: {
+  jobId: string;
+  userId: string;
+  role: JobAssignmentRole;
+  actor: string;
+}): Promise<JobAssignmentView | null> {
+  if (isDemoOpsStore()) return addDemoJobAssignment(args);
+  const [job, identity] = await Promise.all([
+    getJob(args.jobId),
+    getFieldIdentityById(args.userId),
+  ]);
+  if (
+    !job ||
+    !identity ||
+    !identity.active ||
+    !identity.membershipActive ||
+    !isFieldMembershipRole(identity.role)
+  ) {
+    return null;
+  }
+
+  const db = getDb();
+  const rows = await db
+    .insert(jobAssignments)
+    .values({
+      jobId: args.jobId,
+      userId: args.userId,
+      role: args.role,
+      createdBy: args.actor,
+    })
+    .onConflictDoUpdate({
+      target: [jobAssignments.jobId, jobAssignments.userId],
+      set: { role: args.role, createdBy: args.actor },
+    })
+    .returning();
+  const assignment = rows[0];
+  if (!assignment) return null;
+
+  if (args.role === "foreman") {
+    await db
+      .update(jobs)
+      .set({ foreman: identity.displayName, updatedAt: new Date() })
+      .where(eq(jobs.id, args.jobId));
+  }
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "job_assigned",
+    summary: `${identity.displayName} assigned as ${args.role}`,
+    payload: { userId: args.userId, role: args.role },
+  });
+
+  return {
+    id: assignment.id,
+    jobId: assignment.jobId,
+    userId: assignment.userId,
+    role: assignment.role as JobAssignmentRole,
+    displayName: identity.displayName,
+    email: identity.email,
+    active: identity.active,
+    createdAt: assignment.createdAt,
+  };
+}
+
+export async function removeJobAssignment(args: {
+  jobId: string;
+  assignmentId: string;
+  actor: string;
+}): Promise<JobAssignmentView | null> {
+  if (isDemoOpsStore()) return removeDemoJobAssignment(args);
+  const existing = (await listJobAssignments(args.jobId)).find(
+    (assignment) => assignment.id === args.assignmentId,
+  );
+  if (!existing) return null;
+  const db = getDb();
+  const rows = await db
+    .delete(jobAssignments)
+    .where(
+      and(
+        eq(jobAssignments.id, args.assignmentId),
+        eq(jobAssignments.jobId, args.jobId),
+      ),
+    )
+    .returning();
+  if (!rows[0]) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "job_unassigned",
+    summary: `${existing.displayName} removed from job`,
+    payload: { userId: existing.userId, role: existing.role },
+  });
+  return existing;
+}
+
+export async function canFieldUserAccessJob(
+  userId: string,
+  jobId: string,
+): Promise<boolean> {
+  if (isDemoOpsStore()) return canDemoFieldUserAccessJob(userId, jobId);
+  const db = getDb();
+  const [direct, task] = await Promise.all([
+    db
+      .select({ id: jobAssignments.id })
+      .from(jobAssignments)
+      .where(
+        and(
+          eq(jobAssignments.userId, userId),
+          eq(jobAssignments.jobId, jobId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: jobTasks.id })
+      .from(jobTasks)
+      .where(
+        and(
+          eq(jobTasks.assigneeUserId, userId),
+          eq(jobTasks.jobId, jobId),
+        ),
+      )
+      .limit(1),
+  ]);
+  return direct.length > 0 || task.length > 0;
+}
+
+export async function canFieldUserAccessTask(
+  userId: string,
+  jobId: string,
+  taskId: string,
+): Promise<boolean> {
+  if (isDemoOpsStore()) {
+    return canDemoFieldUserAccessTask(userId, jobId, taskId);
+  }
+  const db = getDb();
+  const [direct, task] = await Promise.all([
+    db
+      .select({ id: jobAssignments.id })
+      .from(jobAssignments)
+      .where(
+        and(
+          eq(jobAssignments.userId, userId),
+          eq(jobAssignments.jobId, jobId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ assigneeUserId: jobTasks.assigneeUserId })
+      .from(jobTasks)
+      .where(and(eq(jobTasks.id, taskId), eq(jobTasks.jobId, jobId)))
+      .limit(1),
+  ]);
+  return (
+    direct.length > 0 ||
+    (task[0]?.assigneeUserId !== null &&
+      task[0]?.assigneeUserId === userId)
+  );
+}
+
 export async function listJobEvents(jobId: string): Promise<JobEventRow[]> {
   if (isDemoOpsStore()) return listDemoJobEvents(jobId);
   const db = getDb();
@@ -938,6 +1360,34 @@ export async function listJobEvents(jobId: string): Promise<JobEventRow[]> {
     .from(jobEvents)
     .where(eq(jobEvents.jobId, jobId))
     .orderBy(desc(jobEvents.createdAt));
+}
+
+export async function listJobEventsSince(args: {
+  jobIds: string[];
+  after: Date;
+  limit?: number;
+}): Promise<JobEventRow[]> {
+  const limit = Math.min(Math.max(args.limit ?? 100, 1), 500);
+  if (args.jobIds.length === 0) return [];
+  if (isDemoOpsStore()) {
+    return listDemoJobEventsSince({
+      jobIds: args.jobIds,
+      after: args.after,
+      limit,
+    });
+  }
+  const db = getDb();
+  return db
+    .select()
+    .from(jobEvents)
+    .where(
+      and(
+        inArray(jobEvents.jobId, args.jobIds),
+        gt(jobEvents.createdAt, args.after),
+      ),
+    )
+    .orderBy(asc(jobEvents.createdAt))
+    .limit(limit);
 }
 
 export async function convertOpportunityToProject(args: {
@@ -1916,6 +2366,19 @@ export async function addJobTask(args: {
     const areas = await listWorkAreas(args.jobId);
     if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
   }
+  let assignee = args.input.assignee;
+  if (args.input.assigneeUserId) {
+    const identity = await getFieldIdentityById(args.input.assigneeUserId);
+    if (
+      !identity ||
+      !identity.active ||
+      !identity.membershipActive ||
+      !isFieldMembershipRole(identity.role)
+    ) {
+      return null;
+    }
+    assignee = identity.displayName;
+  }
   const db = getDb();
   const rows = await db
     .insert(jobTasks)
@@ -1923,7 +2386,8 @@ export async function addJobTask(args: {
       jobId: args.jobId,
       workAreaId: args.input.workAreaId,
       title: args.input.title,
-      assignee: args.input.assignee,
+      assignee,
+      assigneeUserId: args.input.assigneeUserId,
       dueAt: args.input.dueAt,
       plannedStartAt: args.input.plannedStartAt,
       plannedEndAt: args.input.plannedEndAt,
@@ -2546,12 +3010,26 @@ export async function updateJobTask(args: {
     const areas = await listWorkAreas(args.jobId);
     if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
   }
+  let assignee = args.input.assignee;
+  if (args.input.assigneeUserId) {
+    const identity = await getFieldIdentityById(args.input.assigneeUserId);
+    if (
+      !identity ||
+      !identity.active ||
+      !identity.membershipActive ||
+      !isFieldMembershipRole(identity.role)
+    ) {
+      return null;
+    }
+    assignee = identity.displayName;
+  }
   const db = getDb();
   const rows = await db
     .update(jobTasks)
     .set({
       title: args.input.title,
-      assignee: args.input.assignee,
+      assignee,
+      assigneeUserId: args.input.assigneeUserId,
       dueAt: args.input.dueAt,
       plannedStartAt: args.input.plannedStartAt,
       plannedEndAt: args.input.plannedEndAt,

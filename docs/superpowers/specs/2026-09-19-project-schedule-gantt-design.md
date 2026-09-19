@@ -126,8 +126,9 @@ Adds:
 Adds:
 
 - Named immutable project baselines with start/finish variance.
-- A **Resources** view grouped by normalized project manager, foreman, and task
-  assignee strings.
+- A **Resources** view grouped by stable field user IDs for foremen,
+  technicians, and task assignees. Project-manager strings remain
+  informational until office identity migration is complete.
 - Overlap warnings for concurrent assignments without fabricated hour/capacity
   values.
 - A working calendar with Saturday/Sunday excluded by default.
@@ -195,8 +196,8 @@ The frozen label pane contains:
 - **Working calendar** opens weekend and dated-exception management.
 - Selecting a baseline adds baseline outlines and signed start/finish variance
   to the chart and table.
-- Resource view lists each normalized person, their role labels, scheduled
-  items, and potential overlap count.
+- Resource view lists each stable assigned user, their role labels, scheduled
+  items, and potential overlap count. Legacy field labels remain unassigned.
 
 ### Job rows
 
@@ -548,18 +549,20 @@ For each current item and selected baseline:
 
 ## Resource overlay rules
 
-Resource keys come from existing strings:
+Field resource keys come from structured identity:
 
-- Job `projectManager` → `Project manager`.
-- Job `foreman` → `Foreman`.
-- Task `assignee` → `Task assignee`.
+- Job `job_assignments.user_id` with role `foreman` → `Foreman`.
+- Job `job_assignments.user_id` with role `technician` → `Technician`.
+- Task `assignee_user_id` → `Task assignee`.
 
-Normalize only for grouping: trim, collapse internal whitespace, and compare
-case-insensitively. Preserve the first stored display value. A person has a
-potential overlap when two scheduled ranges assigned to that normalized key
-share at least one working day. Due-only milestones appear but do not create
-overlap warnings. The UI says **Potential overlap**, never **Overallocated**,
-because no hour or capacity model exists.
+Project-manager strings are normalized only for the informational office lane:
+trim, collapse internal whitespace, and compare case-insensitively. Free-text
+foreman and task-assignee values do not grant Field access and render as
+unassigned until linked to a user. A person has a potential overlap when two
+scheduled ranges assigned to the same stable user ID share at least one working
+day. Due-only milestones appear but do not create overlap warnings. The UI says
+**Potential overlap**, never **Overallocated**, because no hour or capacity
+model exists.
 
 ## Application data contract
 
@@ -571,6 +574,7 @@ export type ProjectScheduleTask = {
   jobId: string;
   title: string;
   assignee: string | null;
+  assigneeUserId: string | null;
   status: "open" | "done";
   dueAt: string | null;
   plannedStartAt: string | null;
@@ -772,12 +776,14 @@ returns either a field/conflict error or a confirmed result.
 17. Every accepted dependency and reschedule creates an attributable event.
 18. A named baseline is immutable and displays signed current-date variance.
 19. New, removed, and unbaselined items use explicit baseline states.
-20. Resource view groups normalized existing assignments and flags overlapping
-    working-day ranges.
+20. Resource view groups stable user assignments and flags overlapping
+    working-day ranges; legacy free-text field labels remain unassigned.
 21. Resource view does not present invented hours, utilization, or capacity.
 22. Weekend and dated exceptions affect geometry, lag, critical path, and
     rescheduling consistently.
 23. Calendar changes do not rewrite stored schedule or baseline timestamps.
+24. The same job/task user IDs drive resource lanes, Field authorization, and
+    realtime schedule delivery.
 24. Lint, typecheck, unit tests, production build, and browser checks pass.
 
 ## Prioritization

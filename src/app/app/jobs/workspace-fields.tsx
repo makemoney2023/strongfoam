@@ -70,13 +70,16 @@ export function WorkAreaFields({
 export function TaskFields({
   idPrefix,
   areas,
+  fieldUsers = [],
   defaults = {},
 }: {
   idPrefix: string;
   areas: Option[];
+  fieldUsers?: Array<{ id: string; name: string }>;
   defaults?: {
     title?: string;
     assignee?: string | null;
+    assigneeUserId?: string | null;
     dueAt?: string;
     plannedStartAt?: string;
     plannedEndAt?: string;
@@ -101,14 +104,33 @@ export function TaskFields({
         <FieldError name="title" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={id("assignee")}>Assignee</Label>
-        <Input
-          id={id("assignee")}
-          name="assignee"
-          className="h-11"
-          defaultValue={defaults.assignee ?? ""}
-          maxLength={160}
-        />
+        <Label htmlFor={id(fieldUsers.length > 0 ? "assigneeUserId" : "assignee")}>
+          Field worker
+        </Label>
+        {fieldUsers.length > 0 ? (
+          <NativeSelect
+            id={id("assigneeUserId")}
+            name="assigneeUserId"
+            defaultValue={defaults.assigneeUserId ?? ""}
+            className="h-11"
+          >
+            <option value="">Unassigned</option>
+            {fieldUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </NativeSelect>
+        ) : (
+          <Input
+            id={id("assignee")}
+            name="assignee"
+            className="h-11"
+            defaultValue={defaults.assignee ?? ""}
+            maxLength={160}
+          />
+        )}
+        <FieldError name="assigneeUserId" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("dueAt")}>Due</Label>
