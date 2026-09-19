@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
@@ -62,6 +62,7 @@ import {
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
+  listDemoProjectJobTasks,
   listDemoJobs,
   listDemoOpportunities,
   listDemoProjects,
@@ -1125,6 +1126,24 @@ export async function listJobTasks(
     .from(jobTasks)
     .where(and(...conditions));
   return sortJobTaskRows(rows);
+}
+
+export async function listProjectJobTasks(
+  projectId: string,
+): Promise<{ tasks: JobTaskRow[]; truncated: boolean }> {
+  if (isDemoOpsStore()) return listDemoProjectJobTasks(projectId);
+  const db = getDb();
+  const rows = await db
+    .select({ task: jobTasks })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(eq(jobs.projectId, projectId))
+    .orderBy(asc(jobTasks.createdAt))
+    .limit(1_001);
+  return {
+    tasks: rows.slice(0, 1_000).map(({ task }) => task),
+    truncated: rows.length > 1_000,
+  };
 }
 
 export async function addJobTask(args: {

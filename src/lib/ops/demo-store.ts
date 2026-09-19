@@ -859,6 +859,23 @@ export function listDemoJobTasks(
   );
 }
 
+export function listDemoProjectJobTasks(projectId: string): {
+  tasks: JobTaskRow[];
+  truncated: boolean;
+} {
+  const jobIds = new Set(
+    jobsList.filter((job) => job.projectId === projectId).map((job) => job.id),
+  );
+  const rows = jobTasks
+    .filter((task) => jobIds.has(task.jobId))
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, 1_001);
+  return {
+    tasks: rows.slice(0, 1_000),
+    truncated: rows.length > 1_000,
+  };
+}
+
 export function addDemoJobTask(args: {
   jobId: string;
   actor: string;

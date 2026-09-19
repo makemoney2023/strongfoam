@@ -20,6 +20,7 @@ import {
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
+  listDemoProjectJobTasks,
   listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
@@ -30,7 +31,7 @@ import {
   updateDemoWorkArea,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
-import { DEMO_JOB_ID } from "@/lib/ops/demo-data";
+import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
 
 describe("demo ops store", () => {
   it("uses demo data when the database URL is absent", () => {
@@ -49,6 +50,15 @@ describe("demo ops store", () => {
     expect(
       matchesEstimateRequestFilters(qualified, { workflowStatus: "won" }),
     ).toBe(false);
+  });
+
+  it("lists all tasks for one project without leaking other projects", () => {
+    const result = listDemoProjectJobTasks(DEMO_PROJECT_ID);
+    expect(result.tasks.length).toBeGreaterThan(0);
+    expect(result.tasks.every((task) => task.jobId === DEMO_JOB_ID)).toBe(true);
+    expect(
+      listDemoProjectJobTasks("00000000-0000-4000-8000-000000000000"),
+    ).toEqual({ tasks: [], truncated: false });
   });
 });
 
