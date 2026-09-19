@@ -591,8 +591,9 @@ export default async function JobDetailPage({
                 <ul className="divide-y">
                   {tasks.map((task) => (
                     <li
+                      id={`task-${task.id}`}
                       key={task.id}
-                      className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                      className="scroll-mt-24 flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex min-w-0 items-start gap-3">
                         {task.status === "done" ? (

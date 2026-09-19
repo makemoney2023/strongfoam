@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ops/empty-state";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { ProjectSchedule } from "@/components/ops/project-schedule";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
 import {
@@ -21,13 +22,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
-import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
+import {
+  JOB_STATUS_LABELS,
+  formatJobNumber,
+  type JobStatus,
+} from "@/lib/ops/jobs";
 import {
   getCompany,
   getOpportunity,
   getProject,
   getSite,
   listJobs,
+  listProjectJobTasks,
 } from "@/lib/ops/store";
 import {
   PROJECT_STATUS_LABELS,
@@ -52,12 +58,40 @@ export default async function ProjectDetailPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [company, site, opportunity, jobs] = await Promise.all([
-    project.companyId ? getCompany(project.companyId) : null,
-    project.siteId ? getSite(project.siteId) : null,
-    project.opportunityId ? getOpportunity(project.opportunityId) : null,
-    listJobs({ projectId: project.id }),
-  ]);
+  const [company, site, opportunity, jobs, projectTaskResult] =
+    await Promise.all([
+      project.companyId ? getCompany(project.companyId) : null,
+      project.siteId ? getSite(project.siteId) : null,
+      project.opportunityId ? getOpportunity(project.opportunityId) : null,
+      listJobs({ projectId: project.id }),
+      listProjectJobTasks(project.id),
+    ]);
+
+  const tasksByJob = new Map<string, typeof projectTaskResult.tasks>();
+  for (const task of projectTaskResult.tasks) {
+    const bucket = tasksByJob.get(task.jobId) ?? [];
+    bucket.push(task);
+    tasksByJob.set(task.jobId, bucket);
+  }
+  const scheduleJobs = jobs.map((job) => ({
+    id: job.id,
+    number: formatJobNumber(job.id),
+    name: job.name,
+    status: job.status as JobStatus,
+    plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+    tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
+      id: task.id,
+      jobId: task.jobId,
+      title: task.title,
+      assignee: task.assignee,
+      status: task.status === "done" ? ("done" as const) : ("open" as const),
+      dueAt: task.dueAt?.toISOString() ?? null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+    })),
+  }));
 
   const projectOption = {
     id: project.id,
@@ -173,6 +207,38 @@ export default async function ProjectDetailPage({
               },
             ]}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule</CardTitle>
+          <CardDescription>
+            Jobs, task progress, due dates, blockers, and unscheduled work.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobs.length === 0 ? (
+            <EmptyState
+              icon={<HammerIcon aria-hidden="true" />}
+              title="Add the first job to build this project schedule"
+              description="Jobs and their tasks roll up here once work is attached to the project."
+              action={
+                <NewJobDialog
+                  project={projectOption}
+                  returnTo={returnTo}
+                  triggerLabel="Add job"
+                />
+              }
+              className="py-6"
+            />
+          ) : (
+            <ProjectSchedule
+              jobs={scheduleJobs}
+              now={new Date().toISOString()}
+              truncated={projectTaskResult.truncated}
+            />
+          )}
         </CardContent>
       </Card>
 
