@@ -215,3 +215,62 @@ export function matchesScheduleFilter(
   if (filter === "remaining") return state !== "complete";
   return state === filter;
 }
+
+export function filterScheduleJobs(
+  jobs: ProjectScheduleJob[],
+  filter: ScheduleFilter,
+  now = new Date(),
+): ProjectScheduleJob[] {
+  if (filter === "all") return jobs;
+
+  return jobs.flatMap((job) => {
+    const jobState = getJobScheduleState(job, now);
+    const jobMatches = matchesScheduleFilter(jobState, filter);
+    const tasks =
+      filter === "blocked" && jobState === "blocked"
+        ? job.tasks
+        : job.tasks.filter((task) =>
+            matchesScheduleFilter(getTaskScheduleState(task, now), filter),
+          );
+    return jobMatches || tasks.length ? [{ ...job, tasks }] : [];
+  });
+}
+
+export function hideCompletedScheduleRows(
+  jobs: ProjectScheduleJob[],
+): ProjectScheduleJob[] {
+  return jobs.flatMap((job) => {
+    const tasks = job.tasks.filter((task) => task.status !== "done");
+    const jobIsComplete =
+      job.status === "complete" || job.status === "closed";
+    return jobIsComplete && tasks.length === 0 ? [] : [{ ...job, tasks }];
+  });
+}
+
+export function positionInWindow(
+  value: string | Date | null,
+  window: ScheduleWindow,
+): number | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const date = startOfLocalDay(parsed);
+  if (date < window.start || date > window.end) return null;
+  const span = window.end.getTime() - window.start.getTime();
+  if (span <= 0) return 0;
+  return ((date.getTime() - window.start.getTime()) / span) * 100;
+}
+
+export function moveScheduleAnchor(
+  anchor: Date,
+  zoom: ScheduleZoom,
+  direction: -1 | 1,
+): Date {
+  const next = new Date(anchor);
+  if (zoom === "week") {
+    next.setDate(next.getDate() + direction * 42);
+  } else {
+    next.setMonth(next.getMonth() + direction * 6);
+  }
+  return next;
+}

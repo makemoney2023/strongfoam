@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createScheduleWindow,
+  filterScheduleJobs,
   getJobScheduleState,
   getTaskProgress,
   getTaskScheduleState,
+  hideCompletedScheduleRows,
   isTaskOutsideJobRange,
+  moveScheduleAnchor,
+  positionInWindow,
 } from "@/lib/ops/project-schedule";
 
 const today = new Date("2026-09-19T12:00:00-04:00");
@@ -75,5 +79,128 @@ describe("project schedule", () => {
         },
       ),
     ).toBe(true);
+  });
+
+  it("keeps the parent job when only a child task matches", () => {
+    const visible = filterScheduleJobs(
+      [
+        {
+          id: "job-1",
+          number: "JOB-1",
+          name: "Podium",
+          status: "in_progress",
+          plannedStartAt: "2026-09-01T12:00:00.000Z",
+          plannedEndAt: "2026-09-30T12:00:00.000Z",
+          tasks: [
+            {
+              id: "task-1",
+              jobId: "job-1",
+              title: "Late task",
+              assignee: null,
+              status: "open",
+              dueAt: "2026-09-01T12:00:00.000Z",
+              plannedStartAt: null,
+              plannedEndAt: null,
+              completedAt: null,
+            },
+          ],
+        },
+      ],
+      "overdue",
+      today,
+    );
+
+    expect(visible).toHaveLength(1);
+    expect(visible[0].tasks.map((task) => task.id)).toEqual(["task-1"]);
+  });
+
+  it("keeps every child task beneath a blocked job", () => {
+    const visible = filterScheduleJobs(
+      [
+        {
+          id: "job-1",
+          number: "JOB-1",
+          name: "Podium",
+          status: "blocked",
+          plannedStartAt: null,
+          plannedEndAt: null,
+          tasks: [
+            {
+              id: "task-1",
+              jobId: "job-1",
+              title: "Open task",
+              assignee: null,
+              status: "open",
+              dueAt: null,
+              plannedStartAt: null,
+              plannedEndAt: null,
+              completedAt: null,
+            },
+          ],
+        },
+      ],
+      "blocked",
+      today,
+    );
+
+    expect(visible[0]?.tasks).toHaveLength(1);
+  });
+
+  it("hides completed rows without changing their source collection", () => {
+    const jobs = [
+      {
+        id: "job-1",
+        number: "JOB-1",
+        name: "Podium",
+        status: "in_progress" as const,
+        plannedStartAt: null,
+        plannedEndAt: null,
+        tasks: [
+          {
+            id: "task-1",
+            jobId: "job-1",
+            title: "Done task",
+            assignee: null,
+            status: "done" as const,
+            dueAt: null,
+            plannedStartAt: null,
+            plannedEndAt: null,
+            completedAt: null,
+          },
+          {
+            id: "task-2",
+            jobId: "job-1",
+            title: "Open task",
+            assignee: null,
+            status: "open" as const,
+            dueAt: null,
+            plannedStartAt: null,
+            plannedEndAt: null,
+            completedAt: null,
+          },
+        ],
+      },
+    ];
+
+    expect(hideCompletedScheduleRows(jobs)[0]?.tasks).toHaveLength(1);
+    expect(jobs[0]?.tasks).toHaveLength(2);
+  });
+
+  it("positions only dates inside the visible window", () => {
+    const window = createScheduleWindow("week", today);
+
+    expect(positionInWindow(window.start, window)).toBe(0);
+    expect(positionInWindow(window.end, window)).toBe(100);
+    expect(
+      positionInWindow(new Date(window.start.getTime() - 1), window),
+    ).toBeNull();
+  });
+
+  it("moves anchors by one full visible window", () => {
+    const week = moveScheduleAnchor(today, "week", 1);
+    const month = moveScheduleAnchor(today, "month", -1);
+
+    expect(week.getDate()).toBe(31);
+    expect(month.getMonth()).toBe(2);
   });
 });
