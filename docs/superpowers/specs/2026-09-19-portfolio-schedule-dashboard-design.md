@@ -88,9 +88,12 @@ q
 projectStatus
 projectManager
 state = all | remaining | complete | blocked | overdue | unscheduled
+attention = all | behind-baseline | resource-overlap
 view = work | resources
 zoom = week | month
 anchor = YYYY-MM-DD
+from = YYYY-MM-DD
+to = YYYY-MM-DD
 baseline = latest | none
 hideCompleted = 1
 ```
@@ -109,6 +112,8 @@ The page provides:
 - Project/name/manager search.
 - Project-status and schedule-state filters.
 - Project-manager filter.
+- Behind-baseline and resource-overlap attention filters.
+- Optional schedule-date range.
 - Work/Resources switch.
 - Week/Month density.
 - Previous, Today, and Next window navigation.
