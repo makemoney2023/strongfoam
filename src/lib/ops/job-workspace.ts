@@ -174,7 +174,7 @@ export function parseJobDocumentInput(input: {
   contentType?: string;
   sizeBytes?: number;
   kind?: string;
-  workAreaId?: string;
+  workAreaId?: string | null;
 }): { ok: true; value: JobDocumentInput } | { ok: false; error: string } {
   const filename = sanitizeJobDocumentFilename(input.filename ?? "");
   if (!filename) {
