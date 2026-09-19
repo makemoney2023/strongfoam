@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import {
   OPS_SESSION_COOKIE,
   OPS_SESSION_TTL_MS,
+  authenticateOpsCredentials,
   createOpsSession,
-  isConfiguredStaffEmail,
+  createUserOpsSession,
   signOpsSession,
 } from "@/lib/ops/auth";
 
@@ -14,19 +15,21 @@ export async function POST(request: Request): Promise<Response> {
   const password = String(form.get("password") ?? "");
   const origin = new URL(request.url).origin;
 
-  if (
-    !secret ||
-    !process.env.OPS_STAFF_PASSWORD ||
-    !isConfiguredStaffEmail(email) ||
-    password !== process.env.OPS_STAFF_PASSWORD
-  ) {
+  const authentication = secret
+    ? await authenticateOpsCredentials(email, password)
+    : null;
+  if (!secret || !authentication) {
     return NextResponse.redirect(new URL("/app/login?error=1", origin), 303);
   }
+  const session =
+    authentication.kind === "user"
+      ? createUserOpsSession(authentication.identity)
+      : createOpsSession(authentication.email);
 
   const response = NextResponse.redirect(new URL("/app", origin), 303);
   response.cookies.set({
     name: OPS_SESSION_COOKIE,
-    value: signOpsSession(createOpsSession(email), secret),
+    value: signOpsSession(session, secret),
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

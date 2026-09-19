@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  isOfficeMembershipRole,
   parseJobAssignmentInput,
+  parsePasswordResetInput,
   parseUserInput,
+  parseUserUpdateInput,
 } from "@/lib/ops/identity";
 
 describe("application identity", () => {
@@ -33,6 +36,38 @@ describe("application identity", () => {
         temporaryPassword: "short",
       }),
     ).toMatchObject({ ok: false, field: "temporaryPassword" });
+  });
+
+  it("validates user edits and password resets independently", () => {
+    expect(
+      parseUserUpdateInput({
+        displayName: "  Alex   Rivera ",
+        email: " ALEX@EXAMPLE.COM ",
+        role: "administrator",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        displayName: "Alex Rivera",
+        email: "alex@example.com",
+        role: "administrator",
+      },
+    });
+    expect(
+      parsePasswordResetInput({ temporaryPassword: "ResetPassword123" }),
+    ).toEqual({
+      ok: true,
+      value: { temporaryPassword: "ResetPassword123" },
+    });
+    expect(
+      parsePasswordResetInput({ temporaryPassword: "too-short" }),
+    ).toMatchObject({ ok: false, field: "temporaryPassword" });
+  });
+
+  it("separates Office roles from Field roles", () => {
+    expect(isOfficeMembershipRole("administrator")).toBe(true);
+    expect(isOfficeMembershipRole("office")).toBe(true);
+    expect(isOfficeMembershipRole("field_worker")).toBe(false);
   });
 
   it("requires a stable user id for a job assignment", () => {

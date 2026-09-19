@@ -19,6 +19,7 @@ import {
   projects,
   scheduleCalendarExceptions,
   scheduleCalendars,
+  userEvents,
   users,
   workAreas,
 } from "@/db/schema";
@@ -32,6 +33,8 @@ describe("db schema exports", () => {
     expect(estimateRequestComments).toBeDefined();
     expect(organizations).toBeDefined();
     expect(users).toBeDefined();
+    expect(users.sessionVersion).toBeDefined();
+    expect(userEvents).toBeDefined();
     expect(memberships).toBeDefined();
     expect(projects).toBeDefined();
     expect(projects.scheduleCalendarId).toBeDefined();

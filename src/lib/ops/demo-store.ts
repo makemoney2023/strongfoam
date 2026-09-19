@@ -16,6 +16,7 @@ import {
   demoOrganizations,
   demoProjects,
   demoSites,
+  demoUserEvents,
   demoUsers,
   demoWorkAreas,
   type CompanyRow,
@@ -41,6 +42,7 @@ import {
   type ScheduleCalendarRow,
   type SiteRow,
   type UserRow,
+  type UserEventRow,
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
@@ -71,6 +73,7 @@ import {
   type MembershipRole,
   type UserIdentity,
   type UserListItem,
+  type UserUpdateInput,
 } from "@/lib/ops/identity";
 import {
   validateDependencyAddition,
@@ -104,6 +107,7 @@ type DemoOpsState = {
   comments: EstimateRequestComment[];
   organizations: OrganizationRow[];
   users: UserRow[];
+  userEvents: UserEventRow[];
   memberships: MembershipRow[];
   companies: CompanyRow[];
   contacts: ContactRow[];
@@ -138,6 +142,7 @@ function getDemoState(): DemoOpsState {
       comments: demoEstimateComments(),
       organizations: demoOrganizations(),
       users: demoUsers(),
+      userEvents: demoUserEvents(),
       memberships: demoMemberships(),
       companies: demoCompanies(),
       contacts: demoContacts(),
@@ -163,8 +168,12 @@ function getDemoState(): DemoOpsState {
   if (!globalForDemo.__strongfoamDemoOps.users) {
     globalForDemo.__strongfoamDemoOps.organizations = demoOrganizations();
     globalForDemo.__strongfoamDemoOps.users = demoUsers();
+    globalForDemo.__strongfoamDemoOps.userEvents = demoUserEvents();
     globalForDemo.__strongfoamDemoOps.memberships = demoMemberships();
     globalForDemo.__strongfoamDemoOps.jobAssignments = demoJobAssignments();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.userEvents) {
+    globalForDemo.__strongfoamDemoOps.userEvents = demoUserEvents();
   }
   if (!globalForDemo.__strongfoamDemoOps.jobTaskDependencies) {
     globalForDemo.__strongfoamDemoOps.jobTaskDependencies = [];
@@ -184,6 +193,7 @@ const {
   tasks,
   comments,
   users,
+  userEvents,
   memberships,
   companies,
   contacts,
@@ -226,7 +236,26 @@ function demoIdentity(user: UserRow): UserIdentity | null {
     active: user.active,
     membershipActive: membership.active,
     role: membership.role as MembershipRole,
+    sessionVersion: user.sessionVersion,
   };
+}
+
+function recordDemoUserEvent(args: {
+  userId: string;
+  actor: string;
+  kind: string;
+  summary: string;
+  payload?: Record<string, unknown>;
+}) {
+  userEvents.unshift({
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    userId: args.userId,
+    actor: args.actor,
+    kind: args.kind,
+    summary: args.summary,
+    payload: args.payload ?? {},
+  });
 }
 
 export function listDemoUsers(): UserListItem[] {
@@ -259,6 +288,34 @@ export function getDemoFieldIdentityById(
   return user ? demoIdentity(user) : null;
 }
 
+export function listDemoUserEvents(limit = 50): UserEventRow[] {
+  return [...userEvents]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, limit);
+}
+
+export function getDemoUserAssignmentSummary(userId: string): {
+  jobAssignments: number;
+  taskAssignments: number;
+} {
+  return {
+    jobAssignments: jobAssignments.filter(
+      (assignment) => assignment.userId === userId,
+    ).length,
+    taskAssignments: jobTasks.filter((task) => task.assigneeUserId === userId)
+      .length,
+  };
+}
+
+export function countActiveDemoAdministrators(): number {
+  return listDemoUsers().filter(
+    (user) =>
+      user.active &&
+      user.membershipActive &&
+      user.role === "administrator",
+  ).length;
+}
+
 export function addDemoUser(args: {
   actor: string;
   displayName: string;
@@ -276,6 +333,7 @@ export function addDemoUser(args: {
     displayName: args.displayName,
     passwordHash: args.passwordHash,
     active: true,
+    sessionVersion: 1,
     createdBy: args.actor,
   };
   const membership: MembershipRow = {
@@ -289,6 +347,13 @@ export function addDemoUser(args: {
   };
   users.push(user);
   memberships.push(membership);
+  recordDemoUserEvent({
+    userId: user.id,
+    actor: args.actor,
+    kind: "user_created",
+    summary: `${user.displayName} created as ${args.role}`,
+    payload: { role: args.role },
+  });
   return {
     ...demoIdentity(user)!,
     createdAt: user.createdAt,
@@ -299,6 +364,7 @@ export function addDemoUser(args: {
 export function setDemoUserActive(
   userId: string,
   active: boolean,
+  actor = "system",
 ): UserListItem | null {
   const user = users.find((item) => item.id === userId);
   const membership = memberships.find(
@@ -309,9 +375,122 @@ export function setDemoUserActive(
   if (!user || !membership) return null;
   const now = new Date();
   user.active = active;
+  user.sessionVersion += 1;
   user.updatedAt = now;
   membership.active = active;
   membership.updatedAt = now;
+  recordDemoUserEvent({
+    userId,
+    actor,
+    kind: active ? "user_activated" : "user_deactivated",
+    summary: `${user.displayName} ${active ? "activated" : "deactivated"}`,
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function updateDemoUser(args: {
+  userId: string;
+  actor: string;
+  input: UserUpdateInput;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  const membership = memberships.find(
+    (item) =>
+      item.userId === args.userId &&
+      item.organizationId === STRONG_FOAM_ORGANIZATION_ID,
+  );
+  if (!user || !membership) return null;
+  if (
+    users.some(
+      (item) => item.id !== args.userId && item.email === args.input.email,
+    )
+  ) {
+    return null;
+  }
+  const previous = {
+    displayName: user.displayName,
+    email: user.email,
+    role: membership.role,
+  };
+  const now = new Date();
+  user.displayName = args.input.displayName;
+  user.email = args.input.email;
+  user.sessionVersion += 1;
+  user.updatedAt = now;
+  membership.role = args.input.role;
+  membership.updatedAt = now;
+  for (const assignment of jobAssignments) {
+    if (assignment.userId !== args.userId || assignment.role !== "foreman") {
+      continue;
+    }
+    const job = jobsList.find((item) => item.id === assignment.jobId);
+    if (job) {
+      job.foreman = user.displayName;
+      job.updatedAt = now;
+    }
+  }
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "user_updated",
+    summary: `${user.displayName} profile or role updated`,
+    payload: {
+      before: previous,
+      after: {
+        displayName: user.displayName,
+        email: user.email,
+        role: membership.role,
+      },
+    },
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function resetDemoUserPassword(args: {
+  userId: string;
+  actor: string;
+  passwordHash: string;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  if (!user || !demoIdentity(user)) return null;
+  user.passwordHash = args.passwordHash;
+  user.sessionVersion += 1;
+  user.updatedAt = new Date();
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "password_reset",
+    summary: `${user.displayName} password reset and sessions revoked`,
+  });
+  return {
+    ...demoIdentity(user)!,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export function revokeDemoUserSessions(args: {
+  userId: string;
+  actor: string;
+}): UserListItem | null {
+  const user = users.find((item) => item.id === args.userId);
+  if (!user || !demoIdentity(user)) return null;
+  user.sessionVersion += 1;
+  user.updatedAt = new Date();
+  recordDemoUserEvent({
+    userId: args.userId,
+    actor: args.actor,
+    kind: "sessions_revoked",
+    summary: `${user.displayName} sessions revoked`,
+  });
   return {
     ...demoIdentity(user)!,
     createdAt: user.createdAt,

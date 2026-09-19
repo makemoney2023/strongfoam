@@ -144,6 +144,7 @@ export const users = pgTable("users", {
   displayName: text("display_name").notNull(),
   passwordHash: text("password_hash").notNull(),
   active: boolean("active").notNull().default(true),
+  sessionVersion: integer("session_version").notNull().default(1),
   createdBy: text("created_by").notNull(),
 });
 
@@ -176,6 +177,26 @@ export const memberships = pgTable(
       sql`${table.role} IN ('administrator', 'office', 'field_lead', 'field_worker')`,
     ),
     index("memberships_user_idx").on(table.userId),
+  ],
+);
+
+export const userEvents = pgTable(
+  "user_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    actor: text("actor").notNull(),
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull(),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+  },
+  (table) => [
+    index("user_events_user_created_idx").on(table.userId, table.createdAt),
   ],
 );
 
