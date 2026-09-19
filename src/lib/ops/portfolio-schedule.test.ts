@@ -19,6 +19,7 @@ import {
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
   buildPortfolioProjects,
+  countPortfolioAttentionItems,
   createPortfolioOverlapDiagnostics,
   filterPortfolioProjects,
   getPortfolioBaselineState,
@@ -1813,39 +1814,204 @@ describe("portfolio Schedule dashboard summary", () => {
     ).toEqual(expected);
   });
 
-  it("maps every truncation flag to only its affected summary fields", () => {
-    const expected = {
-      projects: ["upcomingEvents"],
-      jobs: [
-        "unscheduledActiveWork",
-        "projectsBehindBaseline",
-        "peopleWithPotentialOverlap",
-        "upcomingEvents",
-      ],
-      tasks: [
-        "overdueTasks",
-        "unscheduledActiveWork",
-        "projectsBehindBaseline",
-        "peopleWithPotentialOverlap",
-        "upcomingEvents",
-      ],
-      dependencies: [],
-      calendarExceptions: [
-        "overdueTasks",
-        "projectsBehindBaseline",
-        "peopleWithPotentialOverlap",
-      ],
-      baselineItems: ["projectsBehindBaseline"],
-    } as const;
-
-    for (const [flag, partialCounts] of Object.entries(expected)) {
+  it.each([
+    ["projects", ["overdueTasks", "unscheduledActiveWork", "projectsBehindBaseline", "peopleWithPotentialOverlap", "upcomingEvents"]],
+    ["jobs", ["overdueTasks", "unscheduledActiveWork", "projectsBehindBaseline", "peopleWithPotentialOverlap", "upcomingEvents"]],
+    ["tasks", ["overdueTasks", "unscheduledActiveWork", "projectsBehindBaseline", "peopleWithPotentialOverlap", "upcomingEvents"]],
+    ["dependencies", []],
+    ["calendarExceptions", ["projectsBehindBaseline", "peopleWithPotentialOverlap"]],
+    ["baselineItems", ["projectsBehindBaseline"]],
+  ] as const)(
+    "maps individual %s truncation to its dependent summary fields",
+    (flag, partialCounts) => {
       expect(
         buildPortfolioScheduleSummary(
           scheduleData([], { [flag]: true }),
           now,
         ).partialCounts,
       ).toEqual(partialCounts);
-    }
+    },
+  );
+
+  it.each([
+    [
+      { dependencies: true, baselineItems: true },
+      ["projectsBehindBaseline"],
+    ],
+    [
+      { calendarExceptions: true, baselineItems: true },
+      ["projectsBehindBaseline", "peopleWithPotentialOverlap"],
+    ],
+    [
+      { jobs: true, calendarExceptions: true },
+      [
+        "overdueTasks",
+        "unscheduledActiveWork",
+        "projectsBehindBaseline",
+        "peopleWithPotentialOverlap",
+        "upcomingEvents",
+      ],
+    ],
+    [
+      {
+        projects: true,
+        jobs: true,
+        tasks: true,
+        dependencies: true,
+        calendarExceptions: true,
+        baselineItems: true,
+      },
+      [
+        "overdueTasks",
+        "unscheduledActiveWork",
+        "projectsBehindBaseline",
+        "peopleWithPotentialOverlap",
+        "upcomingEvents",
+      ],
+    ],
+  ] as const)(
+    "unions combined truncation dependencies without duplicate markers",
+    (truncation, partialCounts) => {
+      expect(
+        buildPortfolioScheduleSummary(
+          scheduleData([], truncation),
+          now,
+        ).partialCounts,
+      ).toEqual(partialCounts);
+    },
+  );
+
+  it("keeps task attention drill-through counts identical to summary counts", () => {
+    const source = scheduleData([
+      project({
+        id: "attention",
+        jobs: [
+          job({
+            id: "overdue-job-only",
+            plannedStartAt: "2026-09-01",
+            plannedEndAt: "2026-09-10",
+          }),
+          job({
+            id: "task-parent",
+            plannedStartAt: "2026-09-01",
+            plannedEndAt: "2026-09-30",
+            tasks: [
+              task({
+                id: "overdue-due",
+                jobId: "task-parent",
+                dueAt: "2026-09-18",
+              }),
+              task({
+                id: "overdue-either-date",
+                jobId: "task-parent",
+                plannedEndAt: "2026-09-30",
+                dueAt: "2026-09-18",
+              }),
+              task({
+                id: "future-task",
+                jobId: "task-parent",
+                dueAt: "2026-09-30",
+              }),
+              task({
+                id: "done-overdue",
+                jobId: "task-parent",
+                status: "done",
+                dueAt: "2026-09-01",
+              }),
+              task({
+                id: "unscheduled-task",
+                jobId: "task-parent",
+              }),
+              task({
+                id: "done-unscheduled",
+                jobId: "task-parent",
+                status: "done",
+              }),
+            ],
+          }),
+          job({
+            id: "blocked-unscheduled-job",
+            status: "blocked",
+          }),
+          job({
+            id: "complete-unscheduled-job",
+            status: "complete",
+          }),
+        ],
+      }),
+    ]);
+    const projected = buildPortfolioProjects(source.projects, now);
+    const summary = buildPortfolioScheduleSummary(source, now);
+    const attentionFilter = (
+      attention: PortfolioProjectionFilter["attention"],
+    ) =>
+      filterPortfolioProjects(
+        projected,
+        filter({ attention }),
+        now,
+      );
+    const overdueProjects = attentionFilter("overdue-tasks");
+    const unscheduledProjects = attentionFilter(
+      "unscheduled-active-work",
+    );
+
+    expect(summary.overdueTasks).toBe(2);
+    expect(
+      overdueProjects.flatMap((entry) =>
+        entry.jobs.flatMap((entryJob) =>
+          entryJob.tasks.map((entryTask) => entryTask.id),
+        ),
+      ),
+    ).toEqual(["overdue-due", "overdue-either-date"]);
+    expect(
+      overdueProjects.flatMap((entry) =>
+        entry.jobs.map((entryJob) => entryJob.id),
+      ),
+    ).not.toContain("overdue-job-only");
+    expect(
+      countPortfolioAttentionItems(
+        overdueProjects,
+        "overdue-tasks",
+        now,
+      ),
+    ).toBe(summary.overdueTasks);
+
+    expect(summary.unscheduledActiveWork).toBe(2);
+    expect(
+      unscheduledProjects.flatMap((entry) =>
+        entry.jobs.map((entryJob) => ({
+          id: entryJob.id,
+          tasks: entryJob.tasks.map((entryTask) => entryTask.id),
+        })),
+      ),
+    ).toEqual([
+      { id: "task-parent", tasks: ["unscheduled-task"] },
+      { id: "blocked-unscheduled-job", tasks: [] },
+    ]);
+    expect(
+      countPortfolioAttentionItems(
+        unscheduledProjects,
+        "unscheduled-active-work",
+        now,
+      ),
+    ).toBe(summary.unscheduledActiveWork);
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({ attention: "overdue-tasks", state: "remaining" }),
+        now,
+      ),
+    ).toEqual([]);
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({
+          attention: "unscheduled-active-work",
+          state: "blocked",
+        }),
+        now,
+      ).flatMap((entry) => entry.jobs.map((entryJob) => entryJob.id)),
+    ).toEqual(["blocked-unscheduled-job"]);
   });
 
   it("does not mutate input and remains practical at dense store bounds", () => {

@@ -122,11 +122,13 @@ describe("parsePortfolioScheduleQuery", () => {
     expect(PORTFOLIO_SCHEDULE_WIDGETS).toEqual({
       overdueTasks: {
         label: "Overdue tasks",
-        href: "/app/projects/schedule?projectStatus=active&state=overdue",
+        href:
+          "/app/projects/schedule?projectStatus=active&attention=overdue-tasks",
       },
       unscheduledActiveWork: {
         label: "Unscheduled active work",
-        href: "/app/projects/schedule?projectStatus=active&state=unscheduled",
+        href:
+          "/app/projects/schedule?projectStatus=active&attention=unscheduled-active-work",
       },
       projectsBehindBaseline: {
         label: "Projects behind baseline",
@@ -158,12 +160,12 @@ describe("parsePortfolioScheduleQuery", () => {
       [
         "Overdue tasks",
         1,
-        "/app/projects/schedule?projectStatus=active&state=overdue",
+        "/app/projects/schedule?projectStatus=active&attention=overdue-tasks",
       ],
       [
         "Unscheduled active work",
         2,
-        "/app/projects/schedule?projectStatus=active&state=unscheduled",
+        "/app/projects/schedule?projectStatus=active&attention=unscheduled-active-work",
       ],
       [
         "Projects behind baseline",
@@ -242,8 +244,21 @@ describe("portfolioScheduleHref", () => {
 
   it("builds canonical widget-style links", () => {
     expect(
-      portfolioScheduleHref({ projectStatus: "active", state: "overdue" }),
-    ).toBe("/app/projects/schedule?projectStatus=active&state=overdue");
+      portfolioScheduleHref({
+        projectStatus: "active",
+        attention: "overdue-tasks",
+      }),
+    ).toBe(
+      "/app/projects/schedule?projectStatus=active&attention=overdue-tasks",
+    );
+    expect(
+      portfolioScheduleHref({
+        projectStatus: "active",
+        attention: "unscheduled-active-work",
+      }),
+    ).toBe(
+      "/app/projects/schedule?projectStatus=active&attention=unscheduled-active-work",
+    );
     expect(
       portfolioScheduleHref({
         projectStatus: "active",

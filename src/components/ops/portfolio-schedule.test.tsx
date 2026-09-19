@@ -731,6 +731,63 @@ describe("PortfolioSchedule", () => {
     expect(filtered).toContain(">Reset filters</a>");
   });
 
+  it("shows exact matching item totals for task attention modes", () => {
+    const source = data([
+      project("attention-count", {
+        jobs: [
+          job("attention-parent", {
+            plannedStartAt: "2026-09-01",
+            plannedEndAt: "2026-09-30",
+            tasks: [
+              task("overdue-a", {
+                jobId: "attention-parent",
+                dueAt: "2026-09-18",
+              }),
+              task("overdue-b", {
+                jobId: "attention-parent",
+                plannedEndAt: "2026-09-30",
+                dueAt: "2026-09-18",
+              }),
+              task("unscheduled", {
+                jobId: "attention-parent",
+              }),
+              task("future", {
+                jobId: "attention-parent",
+                dueAt: "2026-09-30",
+              }),
+            ],
+          }),
+          job("blocked-undated", { status: "blocked" }),
+          job("overdue-job-only", {
+            plannedStartAt: "2026-09-01",
+            plannedEndAt: "2026-09-10",
+          }),
+        ],
+      }),
+    ]);
+    const renderAttention = (
+      attention: PortfolioScheduleQuery["attention"],
+    ) =>
+      renderToStaticMarkup(
+        createElement(PortfolioSchedule, {
+          data: source,
+          query: query({ attention }),
+          now: NOW,
+        }),
+      );
+    const overdue = renderAttention("overdue-tasks");
+    const unscheduled = renderAttention("unscheduled-active-work");
+
+    expect(overdue).toContain("2 matching attention items");
+    expect(overdue).toContain("Task overdue-a");
+    expect(overdue).toContain("Task overdue-b");
+    expect(overdue).not.toContain("Job overdue-job-only");
+    expect(unscheduled).toContain("2 matching attention items");
+    expect(unscheduled).toContain("Task unscheduled");
+    expect(unscheduled).toContain("Job blocked-undated");
+    expect(unscheduled).not.toContain("Task future");
+  });
+
   it("renders a dedicated Resources empty state without a table toggle", () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioSchedule, {

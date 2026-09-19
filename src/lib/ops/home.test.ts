@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildHomeSummary, isOpenRequest, isOverdue } from "./home";
 
@@ -78,5 +79,41 @@ describe("home summary", () => {
     );
     expect(summary.nextUp).toHaveLength(3);
     expect(summary.nextUp[0].id).toBe("r7");
+  });
+});
+
+describe("Home Schedule integration", () => {
+  const source = readFileSync(
+    new URL("../../app/app/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  it("preserves Home timing while capturing Schedule time after reads", () => {
+    expect(source).toMatch(
+      /buildHomeSummary\(\s*\{ requests, opportunities, projects, jobs \}\s*\)/,
+    );
+    expect(source).toContain("const scheduleNow = new Date();");
+    expect(source.indexOf("const scheduleNow = new Date();")).toBeGreaterThan(
+      source.indexOf("await Promise.all"),
+    );
+  });
+
+  it("uses exact Schedule copy and appends partial hints", () => {
+    expect(source).toContain("Exceptions across active projects.");
+    expect(source).toContain(
+      "`${hint} · Partial result — portfolio limit reached`",
+    );
+  });
+
+  it("places upcoming events after Next up and before How work flows", () => {
+    const nextUp = source.indexOf("<CardTitle>Next up</CardTitle>");
+    const upcoming = source.indexOf(
+      "<CardTitle>Upcoming schedule events</CardTitle>",
+    );
+    const workflow = source.indexOf("<CardTitle>How work flows</CardTitle>");
+
+    expect(nextUp).toBeGreaterThan(-1);
+    expect(upcoming).toBeGreaterThan(nextUp);
+    expect(workflow).toBeGreaterThan(upcoming);
   });
 });
