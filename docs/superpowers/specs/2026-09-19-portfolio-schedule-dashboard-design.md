@@ -187,7 +187,8 @@ Project state is derived in this order:
 1. **Complete** when project status is `closed`.
 2. **Blocked** when any non-complete job is blocked.
 3. **Overdue** when any open task is overdue or any non-complete job is overdue.
-4. **Unscheduled** when the project has work but no job/task schedule dates.
+4. **Unscheduled** when the project has no jobs or its work has no job/task
+   schedule dates.
 5. **Remaining** otherwise.
 
 Project date range is the earliest scheduled job/task start or milestone and
