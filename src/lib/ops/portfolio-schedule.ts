@@ -232,7 +232,10 @@ export function serializePortfolioSchedule(
           updatedAt: task.updatedAt.toISOString(),
           title: task.title,
           assignee: task.assignee,
-          status: task.status === "done" ? "done" : "open",
+          status:
+            task.status === "done"
+              ? ("done" as const)
+              : ("open" as const),
           dueAt: isoString(task.dueAt),
           plannedStartAt: isoString(task.plannedStartAt),
           plannedEndAt: isoString(task.plannedEndAt),
