@@ -1998,7 +1998,7 @@ describe("portfolio Schedule dashboard summary", () => {
     expect(
       filterPortfolioProjects(
         projected,
-        filter({ attention: "overdue-tasks", state: "remaining" }),
+        filter({ attention: "overdue-tasks", state: "complete" }),
         now,
       ),
     ).toEqual([]);
