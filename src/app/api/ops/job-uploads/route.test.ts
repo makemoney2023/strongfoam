@@ -19,6 +19,7 @@ function baseDeps() {
     getJob: vi.fn(async () => ({ id: JOB_ID }) as never),
     listWorkAreas: vi.fn(async () => [{ id: AREA_ID }] as never),
     getBlobMetadata: vi.fn(),
+    deleteBlob: vi.fn(),
     recordDocument: vi.fn(),
     blobToken: "blob-token",
   };
@@ -140,6 +141,40 @@ describe("POST /api/ops/job-uploads", () => {
         workAreaId: AREA_ID,
       },
       pathname: `jobs/${JOB_ID}/north-elevation-abc.pdf`,
+    });
+    expect(deps.deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it("deletes the uploaded blob when metadata persistence fails", async () => {
+    const deps = baseDeps();
+    const pathname = `jobs/${JOB_ID}/north-elevation-abc.pdf`;
+    deps.getBlobMetadata.mockResolvedValue({
+      pathname,
+      contentType: "application/pdf",
+      size: 2048,
+    });
+    deps.recordDocument.mockRejectedValue(new Error("database unavailable"));
+    deps.handleUpload.mockImplementation(async (options) => {
+      await options.onUploadCompleted?.({
+        blob: { pathname, contentType: "application/pdf" },
+        tokenPayload: JSON.stringify({
+          jobId: JOB_ID,
+          workAreaId: null,
+          kind: "plan",
+          filename: "north-elevation.pdf",
+          actor: "field@strongfoam.com",
+        }),
+      });
+      return { type: "blob.upload-completed", response: "ok" };
+    });
+
+    const response = await handleJobUploadPost(
+      request({ type: "blob.upload-completed" }),
+      deps as never,
+    );
+    expect(response.status).toBe(400);
+    expect(deps.deleteBlob).toHaveBeenCalledWith(pathname, {
+      token: "blob-token",
     });
   });
 });

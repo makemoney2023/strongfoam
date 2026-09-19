@@ -211,7 +211,12 @@ export async function uploadJobDocument(formData: FormData) {
   if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!hasAllowedJobDocumentSignature(bytes, parsed.value.contentType)) {
+  const verified = parseJobDocumentInput({
+    ...parsed.value,
+    sizeBytes: bytes.byteLength,
+  });
+  if (!verified.ok) fail(`/app/jobs/${jobId}`, verified.error);
+  if (!hasAllowedJobDocumentSignature(bytes, verified.value.contentType)) {
     fail(
       `/app/jobs/${jobId}`,
       "The file contents do not match the selected document type.",
@@ -220,7 +225,7 @@ export async function uploadJobDocument(formData: FormData) {
   const document = await addJobDocument({
     jobId,
     actor: session.email,
-    input: parsed.value,
+    input: verified.value,
     bytes,
   });
   if (!document) fail(`/app/jobs/${jobId}`, "That document could not be saved.");

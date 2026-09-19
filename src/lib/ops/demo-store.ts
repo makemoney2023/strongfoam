@@ -38,10 +38,11 @@ import {
   setJobDocumentBytes,
   getStoredJobDocumentBytes,
 } from "@/lib/ops/job-document-bytes";
-import type {
-  JobDocumentInput,
-  JobTaskInput,
-  WorkAreaInput,
+import {
+  sortJobTaskRows,
+  type JobDocumentInput,
+  type JobTaskInput,
+  type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type {
   EstimateRequestFilters,
@@ -770,12 +771,7 @@ export function addDemoWorkArea(args: {
 }
 
 export function listDemoJobTasks(jobId: string): JobTaskRow[] {
-  return jobTasks
-    .filter((task) => task.jobId === jobId)
-    .sort((a, b) => {
-      if (a.status !== b.status) return a.status === "open" ? -1 : 1;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
+  return sortJobTaskRows(jobTasks.filter((task) => task.jobId === jobId));
 }
 
 export function addDemoJobTask(args: {

@@ -56,10 +56,11 @@ import {
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { getStoredJobDocumentBytes } from "@/lib/ops/job-document-bytes";
-import type {
-  JobDocumentInput,
-  JobTaskInput,
-  WorkAreaInput,
+import {
+  sortJobTaskRows,
+  type JobDocumentInput,
+  type JobTaskInput,
+  type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import {
   canConvertWonWork,
@@ -953,11 +954,11 @@ export async function addWorkArea(args: {
 export async function listJobTasks(jobId: string): Promise<JobTaskRow[]> {
   if (isDemoOpsStore()) return listDemoJobTasks(jobId);
   const db = getDb();
-  return db
+  const rows = await db
     .select()
     .from(jobTasks)
-    .where(eq(jobTasks.jobId, jobId))
-    .orderBy(desc(jobTasks.createdAt));
+    .where(eq(jobTasks.jobId, jobId));
+  return sortJobTaskRows(rows);
 }
 
 export async function addJobTask(args: {
@@ -1092,17 +1093,21 @@ export async function recordUploadedJobDocument(args: {
     )[0];
   if (!document) return null;
   if (rows.length === 0) return document;
-  await db.insert(jobEvents).values({
-    jobId: args.jobId,
-    actor: args.actor,
-    kind: "document_uploaded",
-    summary: `document uploaded: ${document.filename}`,
-    payload: {
-      documentId: document.id,
-      kind: document.kind,
-      workAreaId: document.workAreaId,
-    },
-  });
+  try {
+    await db.insert(jobEvents).values({
+      jobId: args.jobId,
+      actor: args.actor,
+      kind: "document_uploaded",
+      summary: `document uploaded: ${document.filename}`,
+      payload: {
+        documentId: document.id,
+        kind: document.kind,
+        workAreaId: document.workAreaId,
+      },
+    });
+  } catch (error) {
+    console.error("Could not record the document upload event.", error);
+  }
   return document;
 }
 

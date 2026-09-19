@@ -7,6 +7,7 @@ import {
   parseJobDocumentInput,
   parseJobTaskInput,
   parseWorkAreaInput,
+  sortJobTaskRows,
 } from "@/lib/ops/job-workspace";
 
 describe("job workspace parsers", () => {
@@ -117,5 +118,30 @@ describe("job workspace parsers", () => {
         "application/pdf",
       ),
     ).toBe(false);
+  });
+
+  it("orders open tasks by due date before completed tasks", () => {
+    const createdAt = new Date("2026-09-19T00:00:00Z");
+    const rows = sortJobTaskRows([
+      {
+        id: "done",
+        status: "done",
+        dueAt: null,
+        createdAt,
+      },
+      {
+        id: "later",
+        status: "open",
+        dueAt: new Date("2026-09-21T00:00:00Z"),
+        createdAt,
+      },
+      {
+        id: "sooner",
+        status: "open",
+        dueAt: new Date("2026-09-20T00:00:00Z"),
+        createdAt,
+      },
+    ]);
+    expect(rows.map((row) => row.id)).toEqual(["sooner", "later", "done"]);
   });
 });

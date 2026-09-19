@@ -258,6 +258,18 @@ export function hasAllowedJobDocumentSignature(
   return false;
 }
 
+export function sortJobTaskRows<
+  T extends { status: string; dueAt: Date | null; createdAt: Date },
+>(tasks: T[]): T[] {
+  return [...tasks].sort((a, b) => {
+    if (a.status !== b.status) return a.status === "open" ? -1 : 1;
+    if (a.dueAt && b.dueAt) return a.dueAt.getTime() - b.dueAt.getTime();
+    if (a.dueAt) return -1;
+    if (b.dueAt) return 1;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+}
+
 export function jobDocumentHref(jobId: string, documentId: string): string {
   return `/api/ops/jobs/${jobId}/documents/${documentId}`;
 }

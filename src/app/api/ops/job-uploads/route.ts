@@ -1,4 +1,4 @@
-import { head } from "@vercel/blob";
+import { del, head } from "@vercel/blob";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getOpsSession } from "@/lib/ops/auth";
 import {
@@ -63,6 +63,7 @@ export type JobUploadPostDeps = {
   getJob: typeof getJob;
   listWorkAreas: typeof listWorkAreas;
   getBlobMetadata: typeof head;
+  deleteBlob: typeof del;
   recordDocument: typeof recordUploadedJobDocument;
   blobToken?: string;
 };
@@ -73,6 +74,7 @@ const defaultDeps: JobUploadPostDeps = {
   getJob,
   listWorkAreas,
   getBlobMetadata: head,
+  deleteBlob: del,
   recordDocument: recordUploadedJobDocument,
   blobToken: process.env.BLOB_READ_WRITE_TOKEN,
 };
@@ -147,13 +149,22 @@ export async function handleJobUploadPost(
         });
         if (!parsed.ok) throw new Error("invalid_job_document");
 
-        const document = await deps.recordDocument({
-          jobId: payload.jobId,
-          actor: payload.actor,
-          input: parsed.value,
-          pathname: blob.pathname,
-        });
-        if (!document) throw new Error("job_document_not_saved");
+        try {
+          const document = await deps.recordDocument({
+            jobId: payload.jobId,
+            actor: payload.actor,
+            input: parsed.value,
+            pathname: blob.pathname,
+          });
+          if (!document) throw new Error("job_document_not_saved");
+        } catch (error) {
+          try {
+            await deps.deleteBlob(blob.pathname, { token: deps.blobToken });
+          } catch (cleanupError) {
+            console.error("Could not clean up an orphaned job document.", cleanupError);
+          }
+          throw error;
+        }
       },
     });
     return Response.json(response);
