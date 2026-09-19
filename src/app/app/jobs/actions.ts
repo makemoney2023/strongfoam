@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getOpsSession } from "@/lib/ops/auth";
+import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
 import { parseJobConversion, parseJobStatusUpdate } from "@/lib/ops/jobs";
 import {
   hasAllowedJobDocumentSignature,
@@ -14,6 +15,7 @@ import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   addJobDocument,
+  addJobFieldNote,
   addJobTask,
   addJobToProject,
   addWorkArea,
@@ -28,12 +30,16 @@ function fail(path: string, error: string): never {
 
 function refreshJobs(projectId?: string | null, jobId?: string | null) {
   revalidatePath("/app/jobs");
+  revalidatePath("/app/field");
   revalidatePath("/app/projects");
   revalidatePath("/app/opportunities");
   revalidatePath("/app/requests");
   revalidatePath("/app/companies");
   if (projectId) revalidatePath(`/app/projects/${projectId}`);
-  if (jobId) revalidatePath(`/app/jobs/${jobId}`);
+  if (jobId) {
+    revalidatePath(`/app/jobs/${jobId}`);
+    revalidatePath(`/app/field/jobs/${jobId}`);
+  }
 }
 
 export async function convertWonWorkToProject(formData: FormData) {
@@ -112,7 +118,8 @@ export async function saveJobStatus(formData: FormData) {
   });
   if (!job) fail(`/app/jobs/${jobId}`, "That job could not be updated.");
   refreshJobs(job.projectId, job.id);
-  redirect(`/app/jobs/${job.id}?saved=1`);
+  const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${job.id}`);
+  redirect(`${returnTo}?saved=1`);
 }
 
 export async function addJobWorkArea(formData: FormData) {
@@ -181,7 +188,47 @@ export async function setJobWorkspaceTaskStatus(formData: FormData) {
   });
   if (!task) fail(`/app/jobs/${jobId}`, "That task could not be updated.");
   refreshJobs(null, jobId);
-  redirect(`/app/jobs/${jobId}?saved=1`);
+  const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${jobId}`);
+  redirect(`${returnTo}?saved=1`);
+}
+
+export async function addJobFieldEntry(formData: FormData) {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+
+  const jobId = String(formData.get("jobId") ?? "");
+  const returnTo = String(formData.get("returnTo") ?? `/app/field/jobs/${jobId}`);
+  const parsed = parseFieldNoteInput({
+    kind: String(formData.get("kind") ?? ""),
+    body: String(formData.get("body") ?? ""),
+    workAreaId: String(formData.get("workAreaId") ?? ""),
+    taskId: String(formData.get("taskId") ?? ""),
+    quantity: String(formData.get("quantity") ?? ""),
+    unit: String(formData.get("unit") ?? ""),
+  });
+  if (!jobId) fail("/app/field", "Missing job.");
+  if (!parsed.ok) fail(returnTo, parsed.error);
+
+  const note = await addJobFieldNote({
+    jobId,
+    actor: session.email,
+    input: parsed.value,
+  });
+  if (!note) fail(returnTo, "That field entry could not be saved.");
+
+  if (parsed.value.kind === "blocker") {
+    const job = await updateJobStatus({
+      jobId,
+      actor: session.email,
+      status: "blocked",
+      blockerNote: parsed.value.body,
+    });
+    if (!job) fail(returnTo, "The blocker was saved, but job status could not be updated.");
+    refreshJobs(job.projectId, jobId);
+  } else {
+    refreshJobs(null, jobId);
+  }
+  redirect(`${returnTo}?saved=1`);
 }
 
 export async function uploadJobDocument(formData: FormData) {

@@ -6,6 +6,7 @@ import {
   estimateRequestTasks,
   jobDocuments,
   jobEvents,
+  jobFieldNotes,
   jobTasks,
   jobs,
   leads,
@@ -26,5 +27,6 @@ describe("db schema exports", () => {
     expect(workAreas).toBeDefined();
     expect(jobTasks).toBeDefined();
     expect(jobDocuments).toBeDefined();
+    expect(jobFieldNotes).toBeDefined();
   });
 });

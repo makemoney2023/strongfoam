@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -121,10 +122,19 @@ export default async function JobDetailPage({
         title={formatJobNumber(job.id)}
         description={job.name}
         actions={
-          <StatusBadge
-            status={job.status}
-            label={JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ?? job.status}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge
+              status={job.status}
+              label={JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ?? job.status}
+            />
+            <Button
+              variant="outline"
+              className="min-h-11"
+              render={<Link href={`/app/field/jobs/${job.id}`} />}
+            >
+              Open field view
+            </Button>
+          </div>
         }
       />
       <Flash saved={query.saved} error={query.error} savedMessage="Job saved." />

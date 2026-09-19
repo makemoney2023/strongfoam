@@ -30,7 +30,13 @@ import { SubmitButton } from "./submit-button";
 type AreaOption = { id: string; name: string };
 type StorageMode = "demo" | "blob" | "unavailable";
 
-function UploadFields({ areas }: { areas: AreaOption[] }) {
+function UploadFields({
+  areas,
+  defaultKind,
+}: {
+  areas: AreaOption[];
+  defaultKind: "plan" | "photo" | "other";
+}) {
   return (
     <>
       <div className="space-y-2">
@@ -55,7 +61,7 @@ function UploadFields({ areas }: { areas: AreaOption[] }) {
           <NativeSelect
             id="jobDocumentKind"
             name="kind"
-            defaultValue="plan"
+            defaultValue={defaultKind}
             className="h-11"
           >
             {JOB_DOCUMENT_KINDS.map((kind) => (
@@ -90,10 +96,12 @@ export function JobDocumentUploader({
   jobId,
   areas,
   storageMode,
+  defaultKind = "plan",
 }: {
   jobId: string;
   areas: AreaOption[];
   storageMode: StorageMode;
+  defaultKind?: "plan" | "photo" | "other";
 }) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -119,7 +127,7 @@ export function JobDocumentUploader({
     return (
       <form action={uploadJobDocument} className="space-y-4">
         <input type="hidden" name="jobId" value={jobId} />
-        <UploadFields areas={areas} />
+        <UploadFields areas={areas} defaultKind={defaultKind} />
         <SubmitButton className="min-h-11" pendingLabel="Uploading…">
           <UploadCloudIcon aria-hidden="true" />
           Upload document
@@ -182,7 +190,7 @@ export function JobDocumentUploader({
 
   return (
     <form onSubmit={submitDirectUpload} className="space-y-4">
-      <UploadFields areas={areas} />
+        <UploadFields areas={areas} defaultKind={defaultKind} />
       {uploading ? (
         <Progress value={progress} aria-label="Document upload progress">
           <ProgressLabel>Uploading document</ProgressLabel>

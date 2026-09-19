@@ -3,6 +3,7 @@ import { draftCrmFromRequest, parseCrmConversion } from "@/lib/ops/crm";
 import { demoEstimateRequests } from "@/lib/ops/demo-data";
 import {
   addDemoJobDocument,
+  addDemoJobFieldNote,
   addDemoJobTask,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
@@ -14,6 +15,7 @@ import {
   getDemoProject,
   listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoOpportunities,
   listDemoWorkAreas,
@@ -226,6 +228,21 @@ describe("job workspace", () => {
         (event) => event.kind === "document_uploaded",
       ),
     ).toBe(true);
+
+    const quantity = addDemoJobFieldNote({
+      jobId: DEMO_JOB_ID,
+      actor: "morgan.cole@strongfoam.com",
+      input: {
+        kind: "quantity",
+        body: "Closed-cell at podium",
+        workAreaId: area?.id ?? null,
+        taskId: task?.id ?? null,
+        quantity: 240,
+        unit: "board_feet",
+      },
+    });
+    expect(quantity?.quantity).toBe(240);
+    expect(listDemoJobFieldNotes(DEMO_JOB_ID)[0]?.id).toBe(quantity?.id);
   });
 
   it("shares document bytes across module lookups", () => {

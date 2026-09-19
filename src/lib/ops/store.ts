@@ -8,6 +8,7 @@ import {
   estimateRequestTasks,
   jobDocuments,
   jobEvents,
+  jobFieldNotes,
   jobTasks,
   jobs,
   leads,
@@ -22,6 +23,7 @@ import {
   addDemoEstimateRequestComment,
   addDemoEstimateRequestTask,
   addDemoJobDocument,
+  addDemoJobFieldNote,
   addDemoJobTask,
   addDemoJobToProject,
   addDemoWorkArea,
@@ -43,6 +45,7 @@ import {
   listDemoEstimateRequests,
   listDemoJobDocuments,
   listDemoJobEvents,
+  listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoJobs,
   listDemoOpportunities,
@@ -62,6 +65,7 @@ import {
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import type { FieldNoteInput } from "@/lib/ops/field-workspace";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -88,6 +92,7 @@ export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
 export type JobDocumentDownload = {
   filename: string;
@@ -1154,4 +1159,71 @@ export async function getJobDocumentDownload(
     kind: "bytes",
     bytes,
   };
+}
+
+export async function listJobFieldNotes(jobId: string): Promise<JobFieldNoteRow[]> {
+  if (isDemoOpsStore()) return listDemoJobFieldNotes(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(jobFieldNotes)
+    .where(eq(jobFieldNotes.jobId, jobId))
+    .orderBy(desc(jobFieldNotes.createdAt));
+}
+
+export async function addJobFieldNote(args: {
+  jobId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): Promise<JobFieldNoteRow | null> {
+  if (isDemoOpsStore()) return addDemoJobFieldNote(args);
+  if (!(await getJob(args.jobId))) return null;
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  if (args.input.taskId) {
+    const tasks = await listJobTasks(args.jobId);
+    if (!tasks.some((task) => task.id === args.input.taskId)) return null;
+  }
+
+  const db = getDb();
+  const rows = await db
+    .insert(jobFieldNotes)
+    .values({
+      jobId: args.jobId,
+      workAreaId: args.input.workAreaId,
+      taskId: args.input.taskId,
+      kind: args.input.kind,
+      body: args.input.body,
+      quantity: args.input.quantity,
+      unit: args.input.unit,
+      createdBy: args.actor,
+    })
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+
+  const labels: Record<FieldNoteInput["kind"], string> = {
+    note: "field note added",
+    quantity: "quantity recorded",
+    blocker: "blocker reported",
+    material_request: "material request added",
+    daily_report: "daily report submitted",
+  };
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: `field_${args.input.kind}`,
+    summary: `${labels[args.input.kind]}: ${note.body.slice(0, 80)}`,
+    payload: {
+      noteId: note.id,
+      kind: note.kind,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      quantity: note.quantity,
+      unit: note.unit,
+    },
+  });
+  return note;
 }

@@ -7,6 +7,7 @@ import {
   demoEstimateTasks,
   demoJobDocuments,
   demoJobEvents,
+  demoJobFieldNotes,
   demoJobTasks,
   demoJobs,
   demoOpportunities,
@@ -21,6 +22,7 @@ import {
   type EstimateRequestTask,
   type JobDocumentRow,
   type JobEventRow,
+  type JobFieldNoteRow,
   type JobRow,
   type JobTaskRow,
   type OpportunityRow,
@@ -44,6 +46,7 @@ import {
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import type { FieldNoteInput } from "@/lib/ops/field-workspace";
 import type {
   EstimateRequestFilters,
   EstimateRequestUpdate,
@@ -65,6 +68,7 @@ type DemoOpsState = {
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
   jobDocuments: JobDocumentRow[];
+  jobFieldNotes: JobFieldNoteRow[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -89,6 +93,7 @@ function getDemoState(): DemoOpsState {
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
       jobDocuments: demoJobDocuments(),
+      jobFieldNotes: demoJobFieldNotes(),
     };
   }
   return globalForDemo.__strongfoamDemoOps;
@@ -109,6 +114,7 @@ const {
   workAreas,
   jobTasks,
   jobDocuments,
+  jobFieldNotes,
 } = getDemoState();
 
 export function isDemoOpsStore(
@@ -900,4 +906,66 @@ export function getDemoJobDocumentDownload(
   const bytes = getStoredJobDocumentBytes(document.id);
   if (!bytes) return null;
   return { document, bytes };
+}
+
+export function listDemoJobFieldNotes(jobId: string): JobFieldNoteRow[] {
+  return jobFieldNotes
+    .filter((note) => note.jobId === jobId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function addDemoJobFieldNote(args: {
+  jobId: string;
+  actor: string;
+  input: FieldNoteInput;
+}): JobFieldNoteRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  if (
+    args.input.taskId &&
+    !jobTasks.some(
+      (task) => task.id === args.input.taskId && task.jobId === args.jobId,
+    )
+  ) {
+    return null;
+  }
+
+  const note: JobFieldNoteRow = {
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    jobId: args.jobId,
+    workAreaId: args.input.workAreaId,
+    taskId: args.input.taskId,
+    kind: args.input.kind,
+    body: args.input.body,
+    quantity: args.input.quantity,
+    unit: args.input.unit,
+    createdBy: args.actor,
+  };
+  jobFieldNotes.unshift(note);
+
+  const labels: Record<FieldNoteInput["kind"], string> = {
+    note: "field note added",
+    quantity: "quantity recorded",
+    blocker: "blocker reported",
+    material_request: "material request added",
+    daily_report: "daily report submitted",
+  };
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: `field_${args.input.kind}`,
+    summary: `${labels[args.input.kind]}: ${note.body.slice(0, 80)}`,
+    payload: {
+      noteId: note.id,
+      kind: note.kind,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      quantity: note.quantity,
+      unit: note.unit,
+    },
+  });
+  return note;
 }
