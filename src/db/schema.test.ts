@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import {
@@ -56,5 +57,24 @@ describe("db schema exports", () => {
 
     expect(index?.config.unique).toBe(true);
     expect(index?.config.where).toBeDefined();
+  });
+
+  it("locks default-calendar writes before cleanup and index creation", () => {
+    const migration = readFileSync(
+      new URL(
+        "../../drizzle/0009_schedule_calendar_default.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ).trim();
+    const lock =
+      'LOCK TABLE "schedule_calendars" IN SHARE MODE;';
+    const cleanup = 'WITH "ranked_defaults" AS (';
+    const index =
+      'CREATE UNIQUE INDEX "schedule_calendars_single_default_idx"';
+
+    expect(migration.startsWith(lock)).toBe(true);
+    expect(migration.indexOf(lock)).toBeLessThan(migration.indexOf(cleanup));
+    expect(migration.indexOf(cleanup)).toBeLessThan(migration.indexOf(index));
   });
 });

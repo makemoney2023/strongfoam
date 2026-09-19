@@ -1,3 +1,5 @@
+LOCK TABLE "schedule_calendars" IN SHARE MODE;
+
 WITH "ranked_defaults" AS (
   SELECT
     "id",
