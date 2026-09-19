@@ -415,7 +415,7 @@ export default async function FieldJobPage({
                           <input type="hidden" name="returnTo" value={returnTo} />
                           <SubmitButton
                             variant="ghost"
-                            className="min-h-11 text-muted-foreground hover:text-destructive"
+                            className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
                             pendingLabel="Deleting…"
                           >
                             <Trash2Icon aria-hidden="true" />

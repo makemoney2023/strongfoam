@@ -27,22 +27,34 @@ export function createJobEventStream(
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const startedAt = Date.now();
-      let cursor = new Date(startedAt - 1_000);
+      const resumeAt = new Date(request.headers.get("last-event-id") ?? "");
+      const isReconnect = !Number.isNaN(resumeAt.getTime());
+      let cursor = isReconnect ? resumeAt : new Date(startedAt - 1_000);
       let previousJobIds: string[] | null = null;
 
-      const send = (event: string, data: unknown) => {
+      const send = (event: string, data: unknown, id?: string) => {
         controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+          encoder.encode(
+            `${id ? `id: ${id}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+          ),
         );
       };
 
-      send("ready", { at: new Date().toISOString() });
+      controller.enqueue(encoder.encode("retry: 500\n\n"));
+      send(
+        "ready",
+        { at: new Date().toISOString(), resumed: isReconnect },
+        cursor.toISOString(),
+      );
       try {
         while (
           !request.signal.aborted &&
           Date.now() - startedAt < STREAM_WINDOW_MS
         ) {
           const jobIds = [...new Set(await getJobIds())].sort();
+          if (previousJobIds === null && isReconnect) {
+            send("assignments", { jobIds, resumed: true });
+          }
           if (
             previousJobIds &&
             jobIds.join(",") !== previousJobIds.join(",")
@@ -57,12 +69,16 @@ export function createJobEventStream(
             limit: 100,
           });
           for (const event of events) {
-            send("job", {
-              id: event.id,
-              jobId: event.jobId,
-              type: event.kind,
-              at: event.createdAt.toISOString(),
-            });
+            send(
+              "job",
+              {
+                id: event.id,
+                jobId: event.jobId,
+                type: event.kind,
+                at: event.createdAt.toISOString(),
+              },
+              event.createdAt.toISOString(),
+            );
             if (event.createdAt > cursor) cursor = event.createdAt;
           }
           controller.enqueue(encoder.encode(": keep-alive\n\n"));

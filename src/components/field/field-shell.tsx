@@ -17,7 +17,11 @@ export function FieldShell({
     <div className="min-h-dvh bg-muted/30">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-5xl items-center gap-3 px-4">
-          <Link href="/field" aria-label="Field home" className="shrink-0">
+          <Link
+            href="/field"
+            aria-label="Field home"
+            className="flex min-h-11 shrink-0 items-center"
+          >
             <BrandLogo variant="onLight" priority />
           </Link>
           <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -30,7 +34,7 @@ export function FieldShell({
                 type="submit"
                 variant="ghost"
                 size="sm"
-                className="min-h-11"
+                className="min-h-11 min-w-11"
               >
                 <LogOutIcon aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">Sign out</span>
