@@ -45,6 +45,8 @@ export type ProjectScheduleJob = {
   number: string;
   name: string;
   status: JobStatus;
+  projectManager: string | null;
+  foreman: string | null;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   tasks: ProjectScheduleTask[];
@@ -56,6 +58,23 @@ export type ProjectScheduleDependency = {
   predecessorTaskId: string;
   successorTaskId: string;
   lagDays: number;
+};
+
+export type ProjectScheduleBaseline = {
+  id: string;
+  name: string;
+  capturedAt: string;
+  capturedBy: string;
+};
+
+export type ProjectScheduleBaselineItem = {
+  id: string;
+  baselineId: string;
+  entityType: "job" | "task";
+  entityId: string;
+  plannedStartAt: string | null;
+  plannedEndAt: string | null;
+  dueAt: string | null;
 };
 
 export type TaskProgress = {

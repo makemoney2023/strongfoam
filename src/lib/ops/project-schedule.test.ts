@@ -145,6 +145,8 @@ describe("project schedule", () => {
           number: "JOB-1",
           name: "Podium",
           status: "in_progress",
+          projectManager: null,
+          foreman: null,
           plannedStartAt: "2026-09-01T12:00:00.000Z",
           plannedEndAt: "2026-09-30T12:00:00.000Z",
           tasks: [
@@ -178,6 +180,8 @@ describe("project schedule", () => {
           number: "JOB-1",
           name: "Podium",
           status: "blocked",
+          projectManager: null,
+          foreman: null,
           plannedStartAt: null,
           plannedEndAt: null,
           tasks: [
@@ -209,6 +213,8 @@ describe("project schedule", () => {
         number: "JOB-1",
         name: "Podium",
         status: "in_progress" as const,
+        projectManager: null,
+        foreman: null,
         plannedStartAt: null,
         plannedEndAt: null,
         tasks: [

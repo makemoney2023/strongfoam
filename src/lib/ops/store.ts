@@ -25,7 +25,11 @@ import {
   jobs,
   leads,
   opportunities,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   sites,
   workAreas,
 } from "@/db/schema";
@@ -39,6 +43,7 @@ import {
   addDemoJobDocument,
   addDemoJobFieldNote,
   addDemoJobTaskDependency,
+  captureDemoProjectScheduleBaseline,
   addDemoJobTask,
   addDemoJobToProject,
   addDemoSite,
@@ -53,6 +58,7 @@ import {
   deleteDemoJobDocument,
   deleteDemoJobFieldNote,
   deleteDemoJobTaskDependency,
+  getDemoProjectScheduleBaseline,
   deleteDemoJobTask,
   deleteDemoOpportunity,
   deleteDemoProject,
@@ -81,10 +87,15 @@ import {
   listDemoJobs,
   listDemoOpportunities,
   listDemoProjects,
+  listDemoProjectScheduleBaselines,
+  removeDemoProjectScheduleBaseline,
+  removeDemoScheduleCalendarException,
   listDemoSites,
   listDemoWorkAreas,
   rescheduleDemoJob,
   rescheduleDemoJobTask,
+  resolveDemoProjectScheduleCalendar,
+  saveDemoProjectScheduleCalendar,
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
   setDemoJobTaskStatus,
@@ -100,6 +111,7 @@ import {
   updateDemoProject,
   updateDemoSite,
   updateDemoWorkArea,
+  upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
@@ -119,6 +131,7 @@ import {
   validateDependencyAddition,
   validateDependencyDates,
 } from "@/lib/ops/project-schedule-graph";
+import type { ResolvedWorkingCalendar } from "@/lib/ops/project-schedule-planning";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -153,6 +166,13 @@ export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
+export type ScheduleCalendarRow = typeof scheduleCalendars.$inferSelect;
+export type ScheduleCalendarExceptionRow =
+  typeof scheduleCalendarExceptions.$inferSelect;
+export type ProjectScheduleBaselineRow =
+  typeof projectScheduleBaselines.$inferSelect;
+export type ProjectScheduleBaselineItemRow =
+  typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
@@ -1508,6 +1528,381 @@ export async function rescheduleJobTask(args: {
     },
   });
   return { ok: true, task };
+}
+
+export async function listProjectScheduleBaselines(
+  projectId: string,
+): Promise<ProjectScheduleBaselineRow[]> {
+  if (isDemoOpsStore()) return listDemoProjectScheduleBaselines(projectId);
+  const db = getDb();
+  return db
+    .select()
+    .from(projectScheduleBaselines)
+    .where(
+      and(
+        eq(projectScheduleBaselines.projectId, projectId),
+        sql`${projectScheduleBaselines.deletedAt} IS NULL`,
+      ),
+    )
+    .orderBy(desc(projectScheduleBaselines.capturedAt));
+}
+
+export async function getProjectScheduleBaseline(
+  projectId: string,
+  baselineId: string,
+): Promise<{
+  baseline: ProjectScheduleBaselineRow;
+  items: ProjectScheduleBaselineItemRow[];
+} | null> {
+  if (isDemoOpsStore()) {
+    return getDemoProjectScheduleBaseline(projectId, baselineId);
+  }
+  const db = getDb();
+  const headers = await db
+    .select()
+    .from(projectScheduleBaselines)
+    .where(
+      and(
+        eq(projectScheduleBaselines.id, baselineId),
+        eq(projectScheduleBaselines.projectId, projectId),
+      ),
+    )
+    .limit(1);
+  const baseline = headers[0];
+  if (!baseline) return null;
+  const items = await db
+    .select()
+    .from(projectScheduleBaselineItems)
+    .where(eq(projectScheduleBaselineItems.baselineId, baseline.id));
+  return { baseline, items };
+}
+
+export async function captureProjectScheduleBaseline(args: {
+  projectId: string;
+  name: string;
+  actor: string;
+}): Promise<
+  | {
+      ok: true;
+      baseline: ProjectScheduleBaselineRow;
+      items: ProjectScheduleBaselineItemRow[];
+    }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return captureDemoProjectScheduleBaseline(args);
+  const name = args.name.trim();
+  if (!name) return { ok: false, error: "A baseline name is required." };
+  const project = await getProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  const db = getDb();
+  const [projectJobs, taskRows] = await Promise.all([
+    listJobs({ projectId: args.projectId }),
+    db
+      .select({ task: jobTasks })
+      .from(jobTasks)
+      .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+      .where(eq(jobs.projectId, args.projectId)),
+  ]);
+  const baseline: ProjectScheduleBaselineRow = {
+    id: crypto.randomUUID(),
+    projectId: args.projectId,
+    name,
+    capturedAt: new Date(),
+    capturedBy: args.actor,
+    deletedAt: null,
+    deletedBy: null,
+  };
+  const items: ProjectScheduleBaselineItemRow[] = [
+    ...projectJobs.map((job) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "job",
+      entityId: job.id,
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    })),
+    ...taskRows.map(({ task }) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "task",
+      entityId: task.id,
+      plannedStartAt: task.plannedStartAt,
+      plannedEndAt: task.plannedEndAt,
+      dueAt: task.dueAt,
+    })),
+  ];
+  const headerQuery = db.insert(projectScheduleBaselines).values(baseline);
+  if (items.length > 0) {
+    await db.batch([
+      headerQuery,
+      db.insert(projectScheduleBaselineItems).values(items),
+    ]);
+  } else {
+    await db.batch([headerQuery]);
+  }
+  return { ok: true, baseline, items };
+}
+
+export async function removeProjectScheduleBaseline(args: {
+  projectId: string;
+  baselineId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return removeDemoProjectScheduleBaseline(args);
+  const db = getDb();
+  const rows = await db
+    .update(projectScheduleBaselines)
+    .set({ deletedAt: new Date(), deletedBy: args.actor })
+    .where(
+      and(
+        eq(projectScheduleBaselines.id, args.baselineId),
+        eq(projectScheduleBaselines.projectId, args.projectId),
+        sql`${projectScheduleBaselines.deletedAt} IS NULL`,
+      ),
+    )
+    .returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That baseline could not be found." };
+}
+
+function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year!, month! - 1, day!));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month! - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+async function ensureDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): Promise<ScheduleCalendarRow> {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(scheduleCalendars)
+    .where(eq(scheduleCalendars.isDefault, true))
+    .orderBy(asc(scheduleCalendars.createdAt))
+    .limit(1);
+  if (existing[0]) return existing[0];
+  const rows = await db
+    .insert(scheduleCalendars)
+    .values({
+      name: "Standard Monday–Friday",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: true,
+      updatedBy: actor,
+    })
+    .returning();
+  return rows[0]!;
+}
+
+export type ResolvedProjectScheduleCalendar = ResolvedWorkingCalendar & {
+  id: string;
+  name: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export async function resolveProjectScheduleCalendar(
+  projectId: string,
+): Promise<ResolvedProjectScheduleCalendar> {
+  if (isDemoOpsStore()) {
+    return resolveDemoProjectScheduleCalendar(projectId);
+  }
+  const project = await getProject(projectId);
+  const db = getDb();
+  let calendar: ScheduleCalendarRow | undefined;
+  if (project?.scheduleCalendarId) {
+    const rows = await db
+      .select()
+      .from(scheduleCalendars)
+      .where(eq(scheduleCalendars.id, project.scheduleCalendarId))
+      .limit(1);
+    calendar = rows[0];
+  }
+  calendar ??= await ensureDefaultScheduleCalendar();
+  const exceptions = await db
+    .select()
+    .from(scheduleCalendarExceptions)
+    .where(eq(scheduleCalendarExceptions.calendarId, calendar.id))
+    .orderBy(asc(scheduleCalendarExceptions.date));
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    timeZone: calendar.timeZone,
+    weekendDays: calendar.weekendDays,
+    updatedAt: calendar.updatedAt.toISOString(),
+    updatedBy: calendar.updatedBy,
+    exceptions: exceptions.map((exception) => ({
+      id: exception.id,
+      date: exception.date,
+      name: exception.name,
+      isWorkingDay: exception.isWorkingDay,
+    })),
+  };
+}
+
+export async function saveProjectScheduleCalendar(args: {
+  projectId: string;
+  name: string;
+  timeZone: string;
+  weekendDays: number[];
+  actor: string;
+}): Promise<
+  { ok: true; calendar: ScheduleCalendarRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return saveDemoProjectScheduleCalendar(args);
+  const project = await getProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  if (!args.name.trim()) {
+    return { ok: false, error: "A calendar name is required." };
+  }
+  if (!isValidTimeZone(args.timeZone)) {
+    return { ok: false, error: "Choose a valid IANA time zone." };
+  }
+  const weekendDays = [...new Set(args.weekendDays)].sort();
+  if (
+    weekendDays.some(
+      (day) => !Number.isInteger(day) || day < 0 || day > 6,
+    )
+  ) {
+    return { ok: false, error: "Weekend days must be between 0 and 6." };
+  }
+  const db = getDb();
+  if (!project.scheduleCalendarId) {
+    const rows = await db
+      .insert(scheduleCalendars)
+      .values({
+        name: args.name.trim(),
+        timeZone: args.timeZone,
+        weekendDays,
+        isDefault: false,
+        updatedBy: args.actor,
+      })
+      .returning();
+    const calendar = rows[0];
+    if (!calendar) return { ok: false, error: "The calendar could not be saved." };
+    await db
+      .update(projects)
+      .set({ scheduleCalendarId: calendar.id, updatedAt: new Date() })
+      .where(eq(projects.id, args.projectId));
+    return { ok: true, calendar };
+  }
+  const rows = await db
+    .update(scheduleCalendars)
+    .set({
+      name: args.name.trim(),
+      timeZone: args.timeZone,
+      weekendDays,
+      updatedAt: new Date(),
+      updatedBy: args.actor,
+    })
+    .where(eq(scheduleCalendars.id, project.scheduleCalendarId))
+    .returning();
+  const calendar = rows[0];
+  return calendar
+    ? { ok: true, calendar }
+    : { ok: false, error: "The calendar could not be saved." };
+}
+
+export async function upsertScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  date: string;
+  name: string;
+  isWorkingDay: boolean;
+  actor: string;
+}): Promise<
+  | { ok: true; exception: ScheduleCalendarExceptionRow }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return upsertDemoScheduleCalendarException(args);
+  if (!isValidIsoDate(args.date)) {
+    return { ok: false, error: "Use a valid calendar date." };
+  }
+  if (!args.name.trim()) {
+    return { ok: false, error: "An exception name is required." };
+  }
+  const project = await getProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar could not be found." };
+  }
+  const db = getDb();
+  const calendar = await db
+    .select()
+    .from(scheduleCalendars)
+    .where(eq(scheduleCalendars.id, args.calendarId))
+    .limit(1);
+  if (!calendar[0]) return { ok: false, error: "That calendar could not be found." };
+  const rows = await db
+    .insert(scheduleCalendarExceptions)
+    .values({
+      calendarId: args.calendarId,
+      date: args.date,
+      name: args.name.trim(),
+      isWorkingDay: args.isWorkingDay,
+      updatedBy: args.actor,
+    })
+    .onConflictDoUpdate({
+      target: [
+        scheduleCalendarExceptions.calendarId,
+        scheduleCalendarExceptions.date,
+      ],
+      set: {
+        name: args.name.trim(),
+        isWorkingDay: args.isWorkingDay,
+        updatedAt: new Date(),
+        updatedBy: args.actor,
+      },
+    })
+    .returning();
+  return { ok: true, exception: rows[0]! };
+}
+
+export async function removeScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  exceptionId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return removeDemoScheduleCalendarException(args);
+  const project = await getProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  const db = getDb();
+  const rows = await db
+    .delete(scheduleCalendarExceptions)
+    .where(
+      and(
+        eq(scheduleCalendarExceptions.id, args.exceptionId),
+        eq(scheduleCalendarExceptions.calendarId, args.calendarId),
+      ),
+    )
+    .returning();
+  if (!rows[0]) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  await db
+    .update(scheduleCalendars)
+    .set({ updatedAt: new Date(), updatedBy: args.actor })
+    .where(eq(scheduleCalendars.id, args.calendarId));
+  return { ok: true };
 }
 
 export async function addJobTask(args: {

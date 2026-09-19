@@ -29,6 +29,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NativeSelect } from "@/components/ops/native-select";
+import { ScheduleBaselineControls } from "@/components/ops/schedule-baseline-controls";
+import { ScheduleCalendarDialog } from "@/components/ops/schedule-calendar-dialog";
+import { ProjectResourceSchedule } from "@/components/ops/project-resource-schedule";
 import {
   ScheduleRescheduleDialog,
   type ReschedulePreview,
@@ -48,6 +51,8 @@ import {
   positionInWindow,
   shiftScheduleDates,
   type ProjectScheduleJob,
+  type ProjectScheduleBaseline,
+  type ProjectScheduleBaselineItem,
   type ProjectScheduleDependency,
   type ProjectScheduleTask,
   type ScheduleFilter,
@@ -59,6 +64,10 @@ import {
   calculateCriticalPath,
   validateDependencyDates,
 } from "@/lib/ops/project-schedule-graph";
+import {
+  calculateBaselineVariance,
+  type ResolvedWorkingCalendar,
+} from "@/lib/ops/project-schedule-planning";
 import { JOB_STATUS_LABELS } from "@/lib/ops/jobs";
 import { cn } from "@/lib/utils";
 
@@ -119,6 +128,18 @@ function dateRangeLabel(start: string | null, end: string | null): string {
   return "Unscheduled";
 }
 
+function varianceLabel(
+  variance: ReturnType<typeof calculateBaselineVariance>,
+): string {
+  if (variance.state === "added") return "Added since baseline";
+  if (variance.state === "removed") return "Removed since baseline";
+  if (variance.state === "not-baselined") return "Not baselined";
+  if (variance.state === "unchanged") return "No baseline variance";
+  const signed = (value: number | null) =>
+    value === null ? "not baselined" : `${value > 0 ? "+" : ""}${value}d`;
+  return `Start ${signed(variance.startVarianceDays)} · Finish ${signed(variance.finishVarianceDays)}`;
+}
+
 function timelinePosition(
   value: string,
   window: ScheduleWindow,
@@ -139,6 +160,7 @@ function RangeMark({
   state,
   critical = false,
   highlightCritical = false,
+  baseline = false,
 }: {
   href: string;
   label: string;
@@ -148,6 +170,7 @@ function RangeMark({
   state: ScheduleState;
   critical?: boolean;
   highlightCritical?: boolean;
+  baseline?: boolean;
 }) {
   if (!start && !end) {
     return (
@@ -167,12 +190,15 @@ function RangeMark({
         aria-label={`${label}: ${dateRangeLabel(start, end)}`}
         className={cn(
           "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          baseline && "size-4 border-muted-foreground bg-transparent",
           critical && highlightCritical && "ring-2 ring-destructive ring-offset-2",
-          state === "complete"
-            ? "border-primary bg-primary"
-            : state === "blocked" || state === "overdue"
-              ? "border-destructive bg-destructive"
-              : "border-primary bg-card",
+          baseline
+            ? "border-muted-foreground bg-transparent"
+            : state === "complete"
+              ? "border-primary bg-primary"
+              : state === "blocked" || state === "overdue"
+                ? "border-destructive bg-destructive"
+                : "border-primary bg-card",
         )}
         style={{ left: `${position}%` }}
         data-critical={critical ? "true" : undefined}
@@ -200,12 +226,16 @@ function RangeMark({
       aria-label={`${label}: ${dateRangeLabel(start, end)}`}
       className={cn(
         "absolute top-2 bottom-2 overflow-hidden rounded-sm border px-2 text-xs leading-7 font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        baseline &&
+          "top-1 bottom-auto h-1 border-muted-foreground bg-transparent p-0 text-transparent",
         critical && highlightCritical && "ring-2 ring-destructive ring-offset-1",
-        state === "complete"
-          ? "border-primary bg-primary text-primary-foreground"
-          : state === "blocked" || state === "overdue"
-            ? "border-destructive bg-destructive/10 text-destructive"
-            : "border-primary/40 bg-primary/15 text-foreground",
+        baseline
+          ? "border-muted-foreground bg-transparent text-transparent"
+          : state === "complete"
+            ? "border-primary bg-primary text-primary-foreground"
+            : state === "blocked" || state === "overdue"
+              ? "border-destructive bg-destructive/10 text-destructive"
+              : "border-primary/40 bg-primary/15 text-foreground",
       )}
       style={{ left: `${left}%`, width: `${width}%` }}
       title={dateRangeLabel(start, end)}
@@ -418,6 +448,10 @@ export function ProjectSchedule({
   projectId,
   jobs,
   dependencies,
+  baselines,
+  selectedBaselineId,
+  selectedBaselineItems,
+  calendar,
   now,
   truncated = false,
   dependenciesTruncated = false,
@@ -426,12 +460,22 @@ export function ProjectSchedule({
   projectId: string;
   jobs: ProjectScheduleJob[];
   dependencies: ProjectScheduleDependency[];
+  baselines: ProjectScheduleBaseline[];
+  selectedBaselineId: string | null;
+  selectedBaselineItems: ProjectScheduleBaselineItem[];
+  calendar: ResolvedWorkingCalendar & {
+    id: string;
+    name: string;
+    updatedAt: string;
+    updatedBy: string;
+  };
   now: string;
   truncated?: boolean;
   dependenciesTruncated?: boolean;
   returnTo: string;
 }) {
   const [zoom, setZoom] = useState<ScheduleZoom>("week");
+  const [view, setView] = useState<"work" | "resources">("work");
   const [filter, setFilter] = useState<ScheduleFilter>("all");
   const [hideCompleted, setHideCompleted] = useState(false);
   const [highlightCritical, setHighlightCritical] = useState(true);
@@ -450,7 +494,20 @@ export function ProjectSchedule({
     : filteredJobs;
   const projectProgress = getTaskProgress(jobs.flatMap((job) => job.tasks));
   const allTasks = jobs.flatMap((job) => job.tasks);
-  const criticalPath = calculateCriticalPath(allTasks, dependencies);
+  const criticalPath = calculateCriticalPath(allTasks, dependencies, calendar);
+  const baselineByEntity = new Map(
+    selectedBaselineItems.map((item) => [
+      `${item.entityType}:${item.entityId}`,
+      item,
+    ]),
+  );
+  const currentEntityKeys = new Set([
+    ...jobs.map((job) => `job:${job.id}`),
+    ...allTasks.map((task) => `task:${task.id}`),
+  ]);
+  const removedBaselineItems = selectedBaselineItems.filter(
+    (item) => !currentEntityKeys.has(`${item.entityType}:${item.entityId}`),
+  );
   const taskOptions = jobs.flatMap((job) =>
     job.tasks.map((task) => ({
       id: task.id,
@@ -493,7 +550,7 @@ export function ProjectSchedule({
       label: `${job.number} · ${job.name}`,
       expectedUpdatedAt: job.updatedAt ?? now,
       before,
-      after: shiftScheduleDates(before, deltaDays),
+      after: shiftScheduleDates(before, deltaDays, calendar),
       warnings: [
         "Attached task dates do not move automatically with the job.",
       ],
@@ -510,7 +567,7 @@ export function ProjectSchedule({
       plannedEndAt: task.plannedEndAt,
       dueAt: task.dueAt,
     };
-    const after = shiftScheduleDates(before, deltaDays);
+    const after = shiftScheduleDates(before, deltaDays, calendar);
     const warnings: string[] = [];
     if (isTaskOutsideJobRange(after, job)) {
       warnings.push("The proposed task dates fall outside the parent job dates.");
@@ -529,6 +586,7 @@ export function ProjectSchedule({
             : candidate.plannedEndAt,
       })),
       dependencies,
+      calendar,
     );
     if (!dependencyValidation.ok) warnings.push(dependencyValidation.error);
     setReschedulePreview({
@@ -599,6 +657,20 @@ export function ProjectSchedule({
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
+          <div className="flex min-h-11 items-center rounded-lg border p-1">
+            {(["work", "resources"] as const).map((option) => (
+              <Button
+                key={option}
+                type="button"
+                variant={view === option ? "secondary" : "ghost"}
+                aria-pressed={view === option}
+                className="min-h-9"
+                onClick={() => setView(option)}
+              >
+                {option === "work" ? "Work" : "Resources"}
+              </Button>
+            ))}
+          </div>
           <label className="grid gap-1 text-xs font-medium">
             <span>Show</span>
             <NativeSelect
@@ -682,6 +754,33 @@ export function ProjectSchedule({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end justify-between gap-2 border-t pt-4">
+        <ScheduleBaselineControls
+          projectId={projectId}
+          baselines={baselines}
+          selectedBaselineId={selectedBaselineId}
+          itemCount={jobs.length + allTasks.length}
+          returnTo={returnTo}
+        />
+        <ScheduleCalendarDialog
+          projectId={projectId}
+          calendar={calendar}
+          returnTo={returnTo}
+        />
+      </div>
+
+      {removedBaselineItems.length > 0 ? (
+        <Alert>
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>Removed since baseline</AlertTitle>
+          <AlertDescription>
+            {removedBaselineItems.length} baseline item
+            {removedBaselineItems.length === 1 ? "" : "s"} no longer exists in
+            the live schedule.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {visibleJobs.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-8 text-center">
           <p className="font-medium">No schedule rows match this filter.</p>
@@ -697,6 +796,15 @@ export function ProjectSchedule({
             Show all
           </Button>
         </div>
+      ) : view === "resources" ? (
+        <ProjectResourceSchedule
+          jobs={visibleJobs}
+          window={window}
+          now={now}
+          calendar={calendar}
+          selectedBaselineId={selectedBaselineId}
+          selectedBaselineItems={selectedBaselineItems}
+        />
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <div className="min-w-[64rem]">
@@ -729,6 +837,17 @@ export function ProjectSchedule({
                 job.plannedStartAt ?? job.plannedEndAt,
                 window,
               );
+              const jobBaseline = baselineByEntity.get(`job:${job.id}`);
+              const jobVariance = selectedBaselineId
+                ? calculateBaselineVariance(
+                    {
+                      plannedStartAt: job.plannedStartAt,
+                      plannedEndAt: job.plannedEndAt,
+                    },
+                    jobBaseline ?? null,
+                    calendar,
+                  )
+                : null;
               return (
                 <div key={job.id}>
                   <ChartRow
@@ -767,6 +886,11 @@ export function ProjectSchedule({
                               ? "No tasks"
                               : `${jobProgress.completed} / ${jobProgress.total} tasks`}
                           </p>
+                          {jobVariance ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {varianceLabel(jobVariance)}
+                            </p>
+                          ) : null}
                         </div>
                         <Badge variant={statusVariant(jobState)}>
                           {STATE_LABELS[jobState]}
@@ -783,6 +907,17 @@ export function ProjectSchedule({
                       </div>
                     }
                   >
+                    {jobBaseline ? (
+                      <RangeMark
+                        href={`/app/jobs/${job.id}`}
+                        label={`${job.number} baseline`}
+                        start={jobBaseline.plannedStartAt}
+                        end={jobBaseline.plannedEndAt}
+                        window={window}
+                        state="remaining"
+                        baseline
+                      />
+                    ) : null}
                     <RangeMark
                       href={`/app/jobs/${job.id}`}
                       label={`${job.number} ${job.name}`}
@@ -819,6 +954,20 @@ export function ProjectSchedule({
                         const isCritical =
                           criticalPath.ok &&
                           criticalPath.criticalTaskIds.has(task.id);
+                        const taskBaseline = baselineByEntity.get(
+                          `task:${task.id}`,
+                        );
+                        const taskVariance = selectedBaselineId
+                          ? calculateBaselineVariance(
+                              {
+                                plannedStartAt: task.plannedStartAt,
+                                plannedEndAt: task.plannedEndAt,
+                                dueAt: task.dueAt,
+                              },
+                              taskBaseline ?? null,
+                              calendar,
+                            )
+                          : null;
                         return (
                           <ChartRow
                             key={task.id}
@@ -860,6 +1009,11 @@ export function ProjectSchedule({
                                       {incoming.length === 1 ? "" : "s"}
                                     </p>
                                   ) : null}
+                                  {taskVariance ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {varianceLabel(taskVariance)}
+                                    </p>
+                                  ) : null}
                                 </div>
                                 {isCritical ? (
                                   <Badge variant="destructive">Critical</Badge>
@@ -889,6 +1043,22 @@ export function ProjectSchedule({
                               </div>
                             }
                           >
+                            {taskBaseline ? (
+                              <RangeMark
+                                href={`/app/jobs/${task.jobId}#task-${task.id}`}
+                                label={`${task.title} baseline`}
+                                start={taskBaseline.plannedStartAt}
+                                end={
+                                  taskBaseline.plannedEndAt ??
+                                  (!taskBaseline.plannedStartAt
+                                    ? taskBaseline.dueAt
+                                    : null)
+                                }
+                                window={window}
+                                state="remaining"
+                                baseline
+                              />
+                            ) : null}
                             <TaskMark
                               task={task}
                               window={window}
@@ -915,6 +1085,7 @@ export function ProjectSchedule({
         </div>
       )}
 
+      {view === "work" ? (
       <details className="rounded-lg border">
         <summary className="min-h-11 cursor-pointer px-4 py-3 font-medium">
           View schedule as table
@@ -934,6 +1105,7 @@ export function ProjectSchedule({
                 <TableHead>Progress</TableHead>
                 <TableHead>Dependencies</TableHead>
                 <TableHead>Critical path</TableHead>
+                <TableHead>Baseline variance</TableHead>
                 <TableHead>Warning</TableHead>
               </TableRow>
             </TableHeader>
@@ -941,6 +1113,17 @@ export function ProjectSchedule({
               {visibleJobs.flatMap((job) => {
                 const progress = getTaskProgress(job.tasks);
                 const jobState = getJobScheduleState(job, today);
+                const jobBaseline = baselineByEntity.get(`job:${job.id}`);
+                const jobVariance = selectedBaselineId
+                  ? calculateBaselineVariance(
+                      {
+                        plannedStartAt: job.plannedStartAt,
+                        plannedEndAt: job.plannedEndAt,
+                      },
+                      jobBaseline ?? null,
+                      calendar,
+                    )
+                  : null;
                 return [
                   <TableRow key={`job-${job.id}`}>
                     <TableCell>Job</TableCell>
@@ -958,6 +1141,11 @@ export function ProjectSchedule({
                     <TableCell>{formatDate(job.plannedEndAt)}</TableCell>
                     <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
+                    <TableCell>
+                      {jobVariance
+                        ? varianceLabel(jobVariance)
+                        : "None selected"}
+                    </TableCell>
                     <TableCell>
                       {progress.percent === null
                         ? "No tasks"
@@ -980,6 +1168,20 @@ export function ProjectSchedule({
                     const isCritical =
                       criticalPath.ok &&
                       criticalPath.criticalTaskIds.has(task.id);
+                    const taskBaseline = baselineByEntity.get(
+                      `task:${task.id}`,
+                    );
+                    const taskVariance = selectedBaselineId
+                      ? calculateBaselineVariance(
+                          {
+                            plannedStartAt: task.plannedStartAt,
+                            plannedEndAt: task.plannedEndAt,
+                            dueAt: task.dueAt,
+                          },
+                          taskBaseline ?? null,
+                          calendar,
+                        )
+                      : null;
                     return (
                       <TableRow key={`task-${task.id}`}>
                         <TableCell>Task</TableCell>
@@ -1022,6 +1224,11 @@ export function ProjectSchedule({
                               : "Not calculated — add planned dates"}
                         </TableCell>
                         <TableCell>
+                          {taskVariance
+                            ? varianceLabel(taskVariance)
+                            : "None selected"}
+                        </TableCell>
+                        <TableCell>
                           {outsideJobDates
                             ? "Outside job dates"
                             : !task.plannedStartAt &&
@@ -1045,6 +1252,7 @@ export function ProjectSchedule({
           </Table>
         </div>
       </details>
+      ) : null}
       <ScheduleRescheduleDialog
         projectId={projectId}
         returnTo={returnTo}

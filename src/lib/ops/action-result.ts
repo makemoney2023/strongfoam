@@ -19,5 +19,16 @@ export function invalidFrom(result: { error: string; field?: string }): ActionSt
 }
 
 export function safeReturnTo(value: string, fallback: string): string {
-  return value.startsWith("/app/") ? value.split("?")[0] : fallback;
+  try {
+    const parsed = new URL(value, "https://strongfoam.local");
+    if (
+      parsed.origin !== "https://strongfoam.local" ||
+      !parsed.pathname.startsWith("/app/")
+    ) {
+      return fallback;
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
 }

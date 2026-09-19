@@ -12,10 +12,15 @@ import { getOpsSession } from "@/lib/ops/auth";
 import { parseProjectUpdate } from "@/lib/ops/records";
 import {
   addJobTaskDependency,
+  captureProjectScheduleBaseline as captureProjectScheduleBaselineRecord,
   deleteJobTaskDependency,
   deleteProject,
+  removeProjectScheduleBaseline as removeProjectScheduleBaselineRecord,
+  removeScheduleCalendarException as removeScheduleCalendarExceptionRecord,
   rescheduleJob,
   rescheduleJobTask,
+  saveProjectScheduleCalendar as saveProjectScheduleCalendarRecord,
+  upsertScheduleCalendarException,
   updateProject,
 } from "@/lib/ops/store";
 
@@ -181,4 +186,125 @@ export async function rescheduleProjectScheduleItem(
     returnTo,
     entityType === "job" ? "Job rescheduled." : "Task rescheduled.",
   );
+}
+
+export async function captureProjectScheduleBaseline(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await captureProjectScheduleBaselineRecord({
+    projectId,
+    name: String(formData.get("name") ?? ""),
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(
+    `/app/projects/${projectId}?scheduleBaseline=${result.baseline.id}`,
+    "Baseline captured.",
+  );
+}
+
+export async function removeProjectScheduleBaseline(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await removeProjectScheduleBaselineRecord({
+    projectId,
+    baselineId: String(formData.get("baselineId") ?? ""),
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(`/app/projects/${projectId}`, "Baseline removed.");
+}
+
+export async function saveProjectScheduleCalendar(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await saveProjectScheduleCalendarRecord({
+    projectId,
+    name: String(formData.get("name") ?? ""),
+    timeZone: String(formData.get("timeZone") ?? ""),
+    weekendDays: formData
+      .getAll("weekendDays")
+      .map((value) => Number(value)),
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(returnTo, "Working calendar saved.");
+}
+
+export async function saveScheduleCalendarException(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const calendar = await saveProjectScheduleCalendarRecord({
+    projectId,
+    name: String(formData.get("calendarName") ?? ""),
+    timeZone: String(formData.get("calendarTimeZone") ?? ""),
+    weekendDays: formData
+      .getAll("calendarWeekendDays")
+      .map((value) => Number(value)),
+    actor: session.email,
+  });
+  if (!calendar.ok) return fail(returnTo, calendar.error);
+  const result = await upsertScheduleCalendarException({
+    projectId,
+    calendarId: calendar.calendar.id,
+    date: String(formData.get("date") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    isWorkingDay: String(formData.get("isWorkingDay") ?? "") === "true",
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(returnTo, "Calendar exception saved.");
+}
+
+export async function removeScheduleCalendarException(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await removeScheduleCalendarExceptionRecord({
+    projectId,
+    calendarId: String(formData.get("calendarId") ?? ""),
+    exceptionId: String(formData.get("exceptionId") ?? ""),
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(returnTo, "Calendar exception removed.");
 }

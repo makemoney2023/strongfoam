@@ -8,6 +8,7 @@ import {
   addDemoJobTaskDependency,
   addDemoJobTask,
   addDemoWorkArea,
+  captureDemoProjectScheduleBaseline,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   deleteDemoJobFieldNote,
@@ -18,21 +19,28 @@ import {
   getDemoJob,
   getDemoJobDocumentDownload,
   getDemoProject,
+  getDemoProjectScheduleBaseline,
   listDemoJobDocuments,
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
+  listDemoProjectScheduleBaselines,
   listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
   matchesEstimateRequestFilters,
+  removeDemoProjectScheduleBaseline,
+  removeDemoScheduleCalendarException,
   rescheduleDemoJobTask,
+  resolveDemoProjectScheduleCalendar,
+  saveDemoProjectScheduleCalendar,
   setDemoJobTaskStatus,
   updateDemoEstimateRequest,
   updateDemoJobFieldNote,
   updateDemoWorkArea,
+  upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
@@ -313,6 +321,109 @@ describe("job workspace", () => {
 });
 
 describe("workspace CRUD and filters", () => {
+  it("captures immutable project baselines and soft-removes their headers", () => {
+    const expectedJobs = listDemoJobs({ projectId: DEMO_PROJECT_ID });
+    const expectedTasks = listDemoProjectJobTasks(DEMO_PROJECT_ID).tasks;
+    const result = captureDemoProjectScheduleBaseline({
+      projectId: DEMO_PROJECT_ID,
+      name: `Approved ${crypto.randomUUID()}`,
+      actor: "pm@strongfoam.com",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.items).toHaveLength(expectedJobs.length + expectedTasks.length);
+    expect(result.baseline.capturedBy).toBe("pm@strongfoam.com");
+    expect(
+      result.items.find(
+        (item) =>
+          item.entityType === "job" && item.entityId === expectedJobs[0]?.id,
+      ),
+    ).toMatchObject({
+      plannedStartAt: expectedJobs[0]?.plannedStartAt ?? null,
+      plannedEndAt: expectedJobs[0]?.plannedEndAt ?? null,
+      dueAt: null,
+    });
+
+    expect(
+      removeDemoProjectScheduleBaseline({
+        projectId: DEMO_PROJECT_ID,
+        baselineId: result.baseline.id,
+        actor: "director@strongfoam.com",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      listDemoProjectScheduleBaselines(DEMO_PROJECT_ID).some(
+        (baseline) => baseline.id === result.baseline.id,
+      ),
+    ).toBe(false);
+    const removed = getDemoProjectScheduleBaseline(
+      DEMO_PROJECT_ID,
+      result.baseline.id,
+    );
+    expect(removed?.baseline).toMatchObject({
+      capturedBy: "pm@strongfoam.com",
+      deletedBy: "director@strongfoam.com",
+    });
+    expect(removed?.baseline.deletedAt).toBeInstanceOf(Date);
+    expect(removed?.items).toEqual(result.items);
+  });
+
+  it("resolves a default calendar and audits dated exception upserts", () => {
+    const fallback = resolveDemoProjectScheduleCalendar(DEMO_PROJECT_ID);
+    expect(fallback.weekendDays).toEqual([0, 6]);
+
+    const saved = saveDemoProjectScheduleCalendar({
+      projectId: DEMO_PROJECT_ID,
+      name: "Project working calendar",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      actor: "pm@strongfoam.com",
+    });
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+
+    const date = "2026-09-26";
+    const created = upsertDemoScheduleCalendarException({
+      projectId: DEMO_PROJECT_ID,
+      calendarId: saved.calendar.id,
+      date,
+      name: "Saturday shutdown",
+      isWorkingDay: false,
+      actor: "pm@strongfoam.com",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const updated = upsertDemoScheduleCalendarException({
+      projectId: DEMO_PROJECT_ID,
+      calendarId: saved.calendar.id,
+      date,
+      name: "Saturday recovery shift",
+      isWorkingDay: true,
+      actor: "director@strongfoam.com",
+    });
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(updated.exception.id).toBe(created.exception.id);
+    expect(updated.exception).toMatchObject({
+      name: "Saturday recovery shift",
+      isWorkingDay: true,
+      updatedBy: "director@strongfoam.com",
+    });
+    expect(
+      resolveDemoProjectScheduleCalendar(DEMO_PROJECT_ID).exceptions.filter(
+        (exception) => exception.date === date,
+      ),
+    ).toHaveLength(1);
+    expect(
+      removeDemoScheduleCalendarException({
+        projectId: DEMO_PROJECT_ID,
+        calendarId: saved.calendar.id,
+        exceptionId: updated.exception.id,
+        actor: "pm@strongfoam.com",
+      }),
+    ).toEqual({ ok: true });
+  });
+
   it("reschedules tasks with stale-write and dependency protection", () => {
     const predecessor = addDemoJobTask({
       jobId: DEMO_JOB_ID,

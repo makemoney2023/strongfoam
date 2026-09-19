@@ -12,7 +12,11 @@ import {
   jobs,
   leads,
   opportunities,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   sites,
   workAreas,
 } from "@/db/schema";
@@ -31,6 +35,13 @@ export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
 export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
+export type ScheduleCalendarRow = typeof scheduleCalendars.$inferSelect;
+export type ScheduleCalendarExceptionRow =
+  typeof scheduleCalendarExceptions.$inferSelect;
+export type ProjectScheduleBaselineRow =
+  typeof projectScheduleBaselines.$inferSelect;
+export type ProjectScheduleBaselineItemRow =
+  typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 

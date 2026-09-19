@@ -31,10 +31,13 @@ import {
   getCompany,
   getOpportunity,
   getProject,
+  getProjectScheduleBaseline,
   getSite,
   listJobs,
   listProjectJobTasks,
+  listProjectScheduleBaselines,
   listProjectTaskDependencies,
+  resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import {
   PROJECT_STATUS_LABELS,
@@ -48,14 +51,17 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ scheduleBaseline?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
+  const query = await searchParams;
   const project = await getProject(id);
   if (!project) notFound();
 
@@ -66,6 +72,9 @@ export default async function ProjectDetailPage({
     jobs,
     projectTaskResult,
     dependencyResult,
+    baselines,
+    selectedBaseline,
+    scheduleCalendar,
   ] =
     await Promise.all([
       project.companyId ? getCompany(project.companyId) : null,
@@ -74,6 +83,11 @@ export default async function ProjectDetailPage({
       listJobs({ projectId: project.id }),
       listProjectJobTasks(project.id),
       listProjectTaskDependencies(project.id),
+      listProjectScheduleBaselines(project.id),
+      query.scheduleBaseline
+        ? getProjectScheduleBaseline(project.id, query.scheduleBaseline)
+        : null,
+      resolveProjectScheduleCalendar(project.id),
     ]);
 
   const tasksByJob = new Map<string, typeof projectTaskResult.tasks>();
@@ -88,6 +102,8 @@ export default async function ProjectDetailPage({
     number: formatJobNumber(job.id),
     name: job.name,
     status: job.status as JobStatus,
+    projectManager: job.projectManager,
+    foreman: job.foreman,
     plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
     plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
     tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
@@ -109,6 +125,21 @@ export default async function ProjectDetailPage({
     predecessorTaskId: edge.predecessorTaskId,
     successorTaskId: edge.successorTaskId,
     lagDays: edge.lagDays,
+  }));
+  const scheduleBaselines = baselines.map((baseline) => ({
+    id: baseline.id,
+    name: baseline.name,
+    capturedAt: baseline.capturedAt.toISOString(),
+    capturedBy: baseline.capturedBy,
+  }));
+  const selectedBaselineItems = (selectedBaseline?.items ?? []).map((item) => ({
+    id: item.id,
+    baselineId: item.baselineId,
+    entityType: item.entityType === "job" ? ("job" as const) : ("task" as const),
+    entityId: item.entityId,
+    plannedStartAt: item.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: item.plannedEndAt?.toISOString() ?? null,
+    dueAt: item.dueAt?.toISOString() ?? null,
   }));
 
   const projectOption = {
@@ -255,6 +286,10 @@ export default async function ProjectDetailPage({
               projectId={project.id}
               jobs={scheduleJobs}
               dependencies={scheduleDependencies}
+              baselines={scheduleBaselines}
+              selectedBaselineId={selectedBaseline?.baseline.id ?? null}
+              selectedBaselineItems={selectedBaselineItems}
+              calendar={scheduleCalendar}
               now={new Date().toISOString()}
               truncated={projectTaskResult.truncated}
               dependenciesTruncated={dependencyResult.truncated}

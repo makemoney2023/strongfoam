@@ -39,11 +39,30 @@ export type ScheduleAssignmentRole =
 
 export type ScheduleAssignment = ScheduleDates & {
   id: string;
+  entityId: string;
   resource: string | null;
   role: ScheduleAssignmentRole;
   entityType: "job" | "task";
   label: string;
   href: string;
+};
+
+export type ScheduleAssignmentJob = {
+  id: string;
+  number: string;
+  name: string;
+  projectManager: string | null;
+  foreman: string | null;
+  plannedStartAt: string | null;
+  plannedEndAt: string | null;
+  tasks: Array<{
+    id: string;
+    title: string;
+    assignee: string | null;
+    plannedStartAt: string | null;
+    plannedEndAt: string | null;
+    dueAt: string | null;
+  }>;
 };
 
 export type ProjectedAssignment = ScheduleAssignment & {
@@ -209,6 +228,53 @@ function normalizeResource(value: string | null): {
 } {
   const displayName = value?.trim().replace(/\s+/g, " ") || "Unassigned";
   return { key: displayName.toLocaleLowerCase(), displayName };
+}
+
+export function buildScheduleAssignments(
+  jobs: readonly ScheduleAssignmentJob[],
+): ScheduleAssignment[] {
+  return jobs.flatMap((job) => {
+    const label = `${job.number} · ${job.name}`;
+    const jobDates = {
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    };
+    return [
+      {
+        id: `job:${job.id}:project-manager`,
+        entityId: job.id,
+        entityType: "job" as const,
+        resource: job.projectManager,
+        role: "Project manager" as const,
+        label,
+        href: `/app/jobs/${job.id}`,
+        ...jobDates,
+      },
+      {
+        id: `job:${job.id}:foreman`,
+        entityId: job.id,
+        entityType: "job" as const,
+        resource: job.foreman,
+        role: "Foreman" as const,
+        label,
+        href: `/app/jobs/${job.id}`,
+        ...jobDates,
+      },
+      ...job.tasks.map((task) => ({
+        id: `task:${task.id}:assignee`,
+        entityId: task.id,
+        entityType: "task" as const,
+        resource: task.assignee,
+        role: "Task assignee" as const,
+        label: task.title,
+        href: `/app/jobs/${job.id}#task-${task.id}`,
+        plannedStartAt: task.plannedStartAt,
+        plannedEndAt: task.plannedEndAt,
+        dueAt: task.dueAt,
+      })),
+    ];
+  });
 }
 
 function assignmentRange(

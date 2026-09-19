@@ -28,6 +28,10 @@ import {
   type JobTaskRow,
   type OpportunityRow,
   type ProjectRow,
+  type ProjectScheduleBaselineItemRow,
+  type ProjectScheduleBaselineRow,
+  type ScheduleCalendarExceptionRow,
+  type ScheduleCalendarRow,
   type SiteRow,
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
@@ -56,6 +60,7 @@ import {
   validateDependencyAddition,
   validateDependencyDates,
 } from "@/lib/ops/project-schedule-graph";
+import type { ResolvedWorkingCalendar } from "@/lib/ops/project-schedule-planning";
 import type {
   CompanyInput,
   ContactInput,
@@ -91,6 +96,10 @@ type DemoOpsState = {
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
   jobTaskDependencies: JobTaskDependencyRow[];
+  scheduleCalendars: ScheduleCalendarRow[];
+  scheduleCalendarExceptions: ScheduleCalendarExceptionRow[];
+  projectScheduleBaselines: ProjectScheduleBaselineRow[];
+  projectScheduleBaselineItems: ProjectScheduleBaselineItemRow[];
   jobDocuments: JobDocumentRow[];
   jobFieldNotes: JobFieldNoteRow[];
 };
@@ -117,6 +126,10 @@ function getDemoState(): DemoOpsState {
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
       jobTaskDependencies: [],
+      scheduleCalendars: [],
+      scheduleCalendarExceptions: [],
+      projectScheduleBaselines: [],
+      projectScheduleBaselineItems: [],
       jobDocuments: demoJobDocuments(),
       jobFieldNotes: demoJobFieldNotes(),
     };
@@ -125,6 +138,12 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.jobTaskDependencies) {
     globalForDemo.__strongfoamDemoOps.jobTaskDependencies = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.scheduleCalendars) {
+    globalForDemo.__strongfoamDemoOps.scheduleCalendars = [];
+    globalForDemo.__strongfoamDemoOps.scheduleCalendarExceptions = [];
+    globalForDemo.__strongfoamDemoOps.projectScheduleBaselines = [];
+    globalForDemo.__strongfoamDemoOps.projectScheduleBaselineItems = [];
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -144,6 +163,10 @@ const {
   workAreas,
   jobTasks,
   jobTaskDependencies,
+  scheduleCalendars,
+  scheduleCalendarExceptions,
+  projectScheduleBaselines,
+  projectScheduleBaselineItems,
   jobDocuments,
   jobFieldNotes,
 } = getDemoState();
@@ -1127,6 +1150,311 @@ export function rescheduleDemoJobTask(args: {
     },
   });
   return { ok: true, task };
+}
+
+export function listDemoProjectScheduleBaselines(
+  projectId: string,
+): ProjectScheduleBaselineRow[] {
+  return projectScheduleBaselines
+    .filter(
+      (baseline) =>
+        baseline.projectId === projectId && baseline.deletedAt === null,
+    )
+    .sort((a, b) => b.capturedAt.getTime() - a.capturedAt.getTime());
+}
+
+export function getDemoProjectScheduleBaseline(
+  projectId: string,
+  baselineId: string,
+): {
+  baseline: ProjectScheduleBaselineRow;
+  items: ProjectScheduleBaselineItemRow[];
+} | null {
+  const baseline = projectScheduleBaselines.find(
+    (item) => item.id === baselineId && item.projectId === projectId,
+  );
+  if (!baseline) return null;
+  return {
+    baseline,
+    items: projectScheduleBaselineItems.filter(
+      (item) => item.baselineId === baseline.id,
+    ),
+  };
+}
+
+export function captureDemoProjectScheduleBaseline(args: {
+  projectId: string;
+  name: string;
+  actor: string;
+}):
+  | {
+      ok: true;
+      baseline: ProjectScheduleBaselineRow;
+      items: ProjectScheduleBaselineItemRow[];
+    }
+  | { ok: false; error: string } {
+  if (!getDemoProject(args.projectId)) {
+    return { ok: false, error: "That project could not be found." };
+  }
+  const name = args.name.trim();
+  if (!name) return { ok: false, error: "A baseline name is required." };
+  const baseline: ProjectScheduleBaselineRow = {
+    id: crypto.randomUUID(),
+    projectId: args.projectId,
+    name,
+    capturedAt: new Date(),
+    capturedBy: args.actor,
+    deletedAt: null,
+    deletedBy: null,
+  };
+  const projectJobs = jobsList.filter(
+    (job) => job.projectId === args.projectId,
+  );
+  const jobIds = new Set(projectJobs.map((job) => job.id));
+  const projectTasks = jobTasks.filter((task) => jobIds.has(task.jobId));
+  const items: ProjectScheduleBaselineItemRow[] = [
+    ...projectJobs.map((job) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "job",
+      entityId: job.id,
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    })),
+    ...projectTasks.map((task) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "task",
+      entityId: task.id,
+      plannedStartAt: task.plannedStartAt,
+      plannedEndAt: task.plannedEndAt,
+      dueAt: task.dueAt,
+    })),
+  ];
+  projectScheduleBaselines.push(baseline);
+  projectScheduleBaselineItems.push(...items);
+  return { ok: true, baseline, items };
+}
+
+export function removeDemoProjectScheduleBaseline(args: {
+  projectId: string;
+  baselineId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const baseline = projectScheduleBaselines.find(
+    (item) =>
+      item.id === args.baselineId &&
+      item.projectId === args.projectId &&
+      item.deletedAt === null,
+  );
+  if (!baseline) {
+    return { ok: false, error: "That baseline could not be found." };
+  }
+  baseline.deletedAt = new Date();
+  baseline.deletedBy = args.actor;
+  return { ok: true };
+}
+
+function validTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year!, month! - 1, day!));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month! - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function ensureDemoDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): ScheduleCalendarRow {
+  const existing = scheduleCalendars.find((calendar) => calendar.isDefault);
+  if (existing) return existing;
+  const now = new Date();
+  const calendar: ScheduleCalendarRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: actor,
+    name: "Standard Monday–Friday",
+    timeZone: "America/Toronto",
+    weekendDays: [0, 6],
+    isDefault: true,
+  };
+  scheduleCalendars.push(calendar);
+  return calendar;
+}
+
+export function resolveDemoProjectScheduleCalendar(
+  projectId: string,
+): ResolvedWorkingCalendar & {
+  id: string;
+  name: string;
+  updatedAt: string;
+  updatedBy: string;
+} {
+  const project = getDemoProject(projectId);
+  const calendar =
+    scheduleCalendars.find(
+      (candidate) => candidate.id === project?.scheduleCalendarId,
+    ) ?? ensureDemoDefaultScheduleCalendar();
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    timeZone: calendar.timeZone,
+    weekendDays: [...calendar.weekendDays],
+    updatedAt: calendar.updatedAt.toISOString(),
+    updatedBy: calendar.updatedBy,
+    exceptions: scheduleCalendarExceptions
+      .filter((exception) => exception.calendarId === calendar.id)
+      .map((exception) => ({
+        id: exception.id,
+        date: exception.date,
+        name: exception.name,
+        isWorkingDay: exception.isWorkingDay,
+      })),
+  };
+}
+
+export function saveDemoProjectScheduleCalendar(args: {
+  projectId: string;
+  name: string;
+  timeZone: string;
+  weekendDays: number[];
+  actor: string;
+}): { ok: true; calendar: ScheduleCalendarRow } | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  if (!args.name.trim()) {
+    return { ok: false, error: "A calendar name is required." };
+  }
+  if (!validTimeZone(args.timeZone)) {
+    return { ok: false, error: "Choose a valid IANA time zone." };
+  }
+  const weekendDays = [...new Set(args.weekendDays)].sort();
+  if (
+    weekendDays.some(
+      (day) => !Number.isInteger(day) || day < 0 || day > 6,
+    )
+  ) {
+    return { ok: false, error: "Weekend days must be between 0 and 6." };
+  }
+  let calendar = scheduleCalendars.find(
+    (candidate) => candidate.id === project.scheduleCalendarId,
+  );
+  if (!calendar) {
+    const now = new Date();
+    calendar = {
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: args.actor,
+      name: args.name.trim(),
+      timeZone: args.timeZone,
+      weekendDays,
+      isDefault: scheduleCalendars.length === 0,
+    };
+    scheduleCalendars.push(calendar);
+    project.scheduleCalendarId = calendar.id;
+    project.updatedAt = now;
+  } else {
+    calendar.name = args.name.trim();
+    calendar.timeZone = args.timeZone;
+    calendar.weekendDays = weekendDays;
+    calendar.updatedAt = new Date();
+    calendar.updatedBy = args.actor;
+  }
+  return { ok: true, calendar };
+}
+
+export function upsertDemoScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  date: string;
+  name: string;
+  isWorkingDay: boolean;
+  actor: string;
+}):
+  | { ok: true; exception: ScheduleCalendarExceptionRow }
+  | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (
+    !project ||
+    project.scheduleCalendarId !== args.calendarId ||
+    !scheduleCalendars.some((calendar) => calendar.id === args.calendarId)
+  ) {
+    return { ok: false, error: "That calendar could not be found." };
+  }
+  if (!validIsoDate(args.date)) {
+    return { ok: false, error: "Use a valid calendar date." };
+  }
+  if (!args.name.trim()) {
+    return { ok: false, error: "An exception name is required." };
+  }
+  const existing = scheduleCalendarExceptions.find(
+    (exception) =>
+      exception.calendarId === args.calendarId &&
+      exception.date === args.date,
+  );
+  if (existing) {
+    existing.name = args.name.trim();
+    existing.isWorkingDay = args.isWorkingDay;
+    existing.updatedAt = new Date();
+    existing.updatedBy = args.actor;
+    return { ok: true, exception: existing };
+  }
+  const now = new Date();
+  const exception: ScheduleCalendarExceptionRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: args.actor,
+    calendarId: args.calendarId,
+    date: args.date,
+    name: args.name.trim(),
+    isWorkingDay: args.isWorkingDay,
+  };
+  scheduleCalendarExceptions.push(exception);
+  return { ok: true, exception };
+}
+
+export function removeDemoScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  exceptionId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  const exception = scheduleCalendarExceptions.find(
+    (item) =>
+      item.id === args.exceptionId && item.calendarId === args.calendarId,
+  );
+  if (!exception) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  removeById(scheduleCalendarExceptions, exception.id);
+  const calendar = scheduleCalendars.find(
+    (item) => item.id === args.calendarId,
+  );
+  if (calendar) {
+    calendar.updatedAt = new Date();
+    calendar.updatedBy = args.actor;
+  }
+  return { ok: true };
 }
 
 export function addDemoJobTask(args: {

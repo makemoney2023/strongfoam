@@ -3,6 +3,7 @@ import {
   DEFAULT_WORKING_CALENDAR,
   addWorkingDays,
   buildResourceLanes,
+  buildScheduleAssignments,
   calculateBaselineVariance,
   isWorkingDay,
   workingDayDifference,
@@ -77,6 +78,7 @@ describe("project schedule planning", () => {
       end: string,
     ): ScheduleAssignment => ({
       id,
+      entityId: id,
       resource,
       role: "Task assignee",
       entityType: "task",
@@ -102,6 +104,7 @@ describe("project schedule planning", () => {
     const assignments: ScheduleAssignment[] = [
       {
         id: "weekend-one",
+        entityId: "weekend-one",
         resource: "Alex",
         role: "Foreman",
         entityType: "job",
@@ -112,6 +115,7 @@ describe("project schedule planning", () => {
       },
       {
         id: "weekend-two",
+        entityId: "weekend-two",
         resource: "alex",
         role: "Project manager",
         entityType: "job",
@@ -122,6 +126,7 @@ describe("project schedule planning", () => {
       },
       {
         id: "due",
+        entityId: "due",
         resource: "Alex",
         role: "Task assignee",
         entityType: "task",
@@ -134,5 +139,57 @@ describe("project schedule planning", () => {
       buildResourceLanes(assignments, DEFAULT_WORKING_CALENDAR)[0]
         ?.potentialOverlapCount,
     ).toBe(0);
+  });
+
+  it("projects job roles and task assignees without inventing capacity", () => {
+    const assignments = buildScheduleAssignments([
+      {
+        id: "job-1",
+        number: "JOB-1",
+        name: "Podium",
+        projectManager: " Alex Smith ",
+        foreman: "Morgan Cole",
+        plannedStartAt: "2026-09-10",
+        plannedEndAt: "2026-09-12",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Prep north wall",
+            assignee: "alex  smith",
+            plannedStartAt: "2026-09-11",
+            plannedEndAt: "2026-09-14",
+            dueAt: null,
+          },
+          {
+            id: "task-2",
+            title: "Confirm access",
+            assignee: null,
+            plannedStartAt: null,
+            plannedEndAt: null,
+            dueAt: "2026-09-15",
+          },
+        ],
+      },
+    ]);
+
+    expect(assignments.map((assignment) => assignment.role)).toEqual([
+      "Project manager",
+      "Foreman",
+      "Task assignee",
+      "Task assignee",
+    ]);
+    expect(assignments[0]).toMatchObject({
+      id: "job:job-1:project-manager",
+      entityId: "job-1",
+      entityType: "job",
+    });
+    const lanes = buildResourceLanes(assignments, DEFAULT_WORKING_CALENDAR);
+    expect(lanes.find((lane) => lane.key === "alex smith")).toMatchObject({
+      displayName: "Alex Smith",
+      potentialOverlapCount: 1,
+    });
+    expect(lanes.find((lane) => lane.key === "unassigned")?.assignments).toHaveLength(
+      1,
+    );
   });
 });
