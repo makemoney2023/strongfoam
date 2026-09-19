@@ -1,14 +1,21 @@
+import { PencilIcon, Trash2Icon, TrophyIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
+import { ConfirmForm } from "@/components/ops/confirm-form";
+import { EmptyState } from "@/components/ops/empty-state";
 import { Flash } from "@/components/ops/flash";
+import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -83,13 +90,51 @@ export default async function OpportunityDetailPage({
         title={opportunity.name}
         description={`${opportunity.owner ?? "Unassigned"}${opportunity.source ? ` · ${opportunity.source}` : ""}`}
         actions={
-          <StatusBadge
-            status={opportunity.stage}
-            label={
-              OPPORTUNITY_LABELS[opportunity.stage as keyof typeof OPPORTUNITY_LABELS] ??
-              opportunity.stage
-            }
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge
+              status={opportunity.stage}
+              label={
+                OPPORTUNITY_LABELS[opportunity.stage as keyof typeof OPPORTUNITY_LABELS] ??
+                opportunity.stage
+              }
+            />
+            <FormDialog
+              triggerLabel="Edit opportunity"
+              triggerIcon={<PencilIcon aria-hidden="true" />}
+              triggerVariant="outline"
+              title="Edit opportunity"
+              description="Move the stage forward as the estimate progresses."
+            >
+              <form action={saveOpportunity} className="grid gap-3 sm:grid-cols-2">
+                <input type="hidden" name="id" value={opportunity.id} />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="editOpp-name">
+                    Name <span aria-hidden="true">*</span>
+                  </Label>
+                  <Input id="editOpp-name" name="name" className="h-11" defaultValue={opportunity.name} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editOpp-stage">Stage</Label>
+                  <NativeSelect id="editOpp-stage" name="stage" defaultValue={opportunity.stage} className="h-11">
+                    {OPPORTUNITY_STAGES.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {OPPORTUNITY_LABELS[stage]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editOpp-owner">Owner</Label>
+                  <Input id="editOpp-owner" name="owner" className="h-11" defaultValue={opportunity.owner ?? ""} />
+                </div>
+                <div className="sm:col-span-2">
+                  <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                    Save opportunity
+                  </SubmitButton>
+                </div>
+              </form>
+            </FormDialog>
+          </div>
         }
       />
       <Flash saved={query.saved} error={query.error} savedMessage="Opportunity saved." />
@@ -97,42 +142,8 @@ export default async function OpportunityDetailPage({
       <Card>
         <CardHeader>
           <CardTitle>Opportunity details</CardTitle>
+          <CardDescription>Customer, site, and the request this came from.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <form action={saveOpportunity} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="id" value={opportunity.id} />
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" className="h-11" defaultValue={opportunity.name} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stage">Stage</Label>
-              <NativeSelect id="stage" name="stage" defaultValue={opportunity.stage} className="h-11">
-                {OPPORTUNITY_STAGES.map((stage) => (
-                  <option key={stage} value={stage}>
-                    {OPPORTUNITY_LABELS[stage]}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="owner">Owner</Label>
-              <Input id="owner" name="owner" className="h-11" defaultValue={opportunity.owner ?? ""} />
-            </div>
-            <div className="sm:col-span-2">
-              <SubmitButton className="min-h-11">Save opportunity</SubmitButton>
-            </div>
-          </form>
-          <form action={removeOpportunity}>
-            <input type="hidden" name="id" value={opportunity.id} />
-            <SubmitButton variant="destructive" className="min-h-11" pendingLabel="Deleting…">
-              Delete opportunity
-            </SubmitButton>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs font-medium text-muted-foreground">Company</p>
@@ -229,11 +240,45 @@ export default async function OpportunityDetailPage({
               }}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Mark this work won on the source request before creating a project and job.
-            </p>
+            <EmptyState
+              icon={<TrophyIcon aria-hidden="true" />}
+              title="Not won yet"
+              description="Mark this work won on the source request. Then come back here to create the project and first job."
+              action={
+                opportunity.sourceLeadId ? (
+                  <Button
+                    variant="outline"
+                    className="min-h-11 md:min-h-8"
+                    nativeButton={false}
+                    render={<Link href={`/app/requests/${opportunity.sourceLeadId}`} />}
+                  >
+                    Open source request
+                  </Button>
+                ) : null
+              }
+              className="py-6"
+            />
           )}
         </CardContent>
+      </Card>
+
+      <Card className="border-destructive/20">
+        <CardHeader>
+          <CardTitle>Remove opportunity</CardTitle>
+          <CardDescription>Only possible before it has been converted into a project.</CardDescription>
+          <CardAction>
+            <ConfirmForm
+              action={removeOpportunity}
+              message={`Delete ${opportunity.name}? This cannot be undone.`}
+            >
+              <input type="hidden" name="id" value={opportunity.id} />
+              <SubmitButton variant="destructive" className="min-h-11 md:min-h-8" pendingLabel="Deleting…">
+                <Trash2Icon aria-hidden="true" />
+                Delete opportunity
+              </SubmitButton>
+            </ConfirmForm>
+          </CardAction>
+        </CardHeader>
       </Card>
     </div>
   );

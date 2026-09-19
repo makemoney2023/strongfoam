@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.redirect(new URL("/app/login?error=1", origin), 303);
   }
 
-  const response = NextResponse.redirect(new URL("/app/requests", origin), 303);
+  const response = NextResponse.redirect(new URL("/app", origin), 303);
   response.cookies.set({
     name: OPS_SESSION_COOKIE,
     value: signOpsSession(createOpsSession(email), secret),

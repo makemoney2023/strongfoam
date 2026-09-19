@@ -1,10 +1,11 @@
+import { Building2Icon } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/ops/empty-state";
 import { Flash } from "@/components/ops/flash";
 import { ListFilters, FilterSubmit } from "@/components/ops/list-filters";
 import { PageHeader } from "@/components/ops/page-header";
-import { SubmitButton } from "@/components/ops/submit-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,7 +23,7 @@ import {
   listOpportunities,
   listProjects,
 } from "@/lib/ops/store";
-import { createCompany } from "./actions";
+import { NewCompanyDialog } from "./new-company-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -42,16 +43,20 @@ export default async function CompaniesPage({
     listOpportunities(),
     listProjects(),
   ]);
+  const isFiltered = Boolean(params.q?.trim());
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Companies"
-        description="Companies created or linked from estimate requests. Contacts, sites, and opportunities stay attached."
+        description="Customers and partners. Contacts, sites, opportunities, and projects stay attached to the company."
         actions={
-          <p className="text-sm text-muted-foreground">
-            {companies.length} compan{companies.length === 1 ? "y" : "ies"}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              {companies.length} compan{companies.length === 1 ? "y" : "ies"}
+            </p>
+            <NewCompanyDialog />
+          </div>
         }
       />
       <Flash saved={params.saved} error={params.error} savedMessage="Company saved." />
@@ -62,6 +67,7 @@ export default async function CompaniesPage({
           <Input
             id="q"
             name="q"
+            type="search"
             defaultValue={params.q ?? ""}
             placeholder="Name, city, email"
             className="h-11 min-w-56"
@@ -71,25 +77,38 @@ export default async function CompaniesPage({
       </ListFilters>
 
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Contacts</TableHead>
-              <TableHead>Opportunities</TableHead>
-              <TableHead>Projects</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {companies.length === 0 ? (
+        {companies.length === 0 ? (
+          <EmptyState
+            icon={<Building2Icon aria-hidden="true" />}
+            title={isFiltered ? "No companies match this search" : "No companies yet"}
+            description={
+              isFiltered
+                ? "Try a shorter name or clear the search."
+                : "Companies are created automatically when you convert an estimate request, or you can add one directly."
+            }
+            action={
+              isFiltered ? (
+                <Link href="/app/companies" className="text-sm font-medium underline underline-offset-4">
+                  Clear search
+                </Link>
+              ) : (
+                <NewCompanyDialog triggerLabel="Add your first company" />
+              )
+            }
+          />
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No companies match these filters.
-                </TableCell>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Contacts</TableHead>
+                <TableHead>Opportunities</TableHead>
+                <TableHead>Projects</TableHead>
               </TableRow>
-            ) : (
-              companies.map((company) => {
+            </TableHeader>
+            <TableBody>
+              {companies.map((company) => {
                 const companyContacts = contacts.filter(
                   (contact) => contact.companyId === company.id,
                 );
@@ -111,51 +130,18 @@ export default async function CompaniesPage({
                     </TableCell>
                     <TableCell>
                       {company.city
-                        ? `${company.city}${company.province === "ON" ? ", ON" : ""}`
+                        ? `${company.city}${company.province ? `, ${company.province}` : ""}`
                         : "—"}
                     </TableCell>
-                    <TableCell>{companyContacts.length}</TableCell>
-                    <TableCell>{companyOpportunities.length}</TableCell>
-                    <TableCell>{companyProjects.length}</TableCell>
+                    <TableCell className="tabular-nums">{companyContacts.length}</TableCell>
+                    <TableCell className="tabular-nums">{companyOpportunities.length}</TableCell>
+                    <TableCell className="tabular-nums">{companyProjects.length}</TableCell>
                   </TableRow>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a company</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form action={createCompany} className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="companyName">Name</Label>
-              <Input id="companyName" name="name" className="h-11" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyEmail">Email</Label>
-              <Input id="companyEmail" name="email" type="email" className="h-11" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyPhone">Phone</Label>
-              <Input id="companyPhone" name="phone" className="h-11" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyCity">City</Label>
-              <Input id="companyCity" name="city" className="h-11" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyProvince">Province</Label>
-              <Input id="companyProvince" name="province" className="h-11" defaultValue="ON" />
-            </div>
-            <div className="sm:col-span-2">
-              <SubmitButton className="min-h-11">Create company</SubmitButton>
-            </div>
-          </form>
-        </CardContent>
+              })}
+            </TableBody>
+          </Table>
+        )}
       </Card>
     </div>
   );
