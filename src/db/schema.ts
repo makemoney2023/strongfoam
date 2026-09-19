@@ -215,7 +215,7 @@ export const jobDocuments = pgTable("job_documents", {
   filename: text("filename").notNull(),
   contentType: text("content_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
-  pathname: text("pathname").notNull(),
+  pathname: text("pathname").notNull().unique(),
   storage: text("storage").notNull().default("memory"),
   kind: text("kind").notNull().default("plan"),
   uploadedBy: text("uploaded_by").notNull(),

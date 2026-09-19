@@ -10,6 +10,7 @@ describe("GET /api/ops/jobs/:jobId/documents/:documentId", () => {
         getDocument: async () => ({
           filename: "plan.pdf",
           contentType: "application/pdf",
+          kind: "bytes",
           bytes: new Uint8Array([1, 2, 3]),
         }),
       },
@@ -35,6 +36,7 @@ describe("GET /api/ops/jobs/:jobId/documents/:documentId", () => {
           return {
             filename: "plan.pdf",
             contentType: "application/pdf",
+            kind: "bytes",
             bytes: new Uint8Array([37, 80, 68, 70]),
           };
         },
@@ -45,6 +47,25 @@ describe("GET /api/ops/jobs/:jobId/documents/:documentId", () => {
     expect(allowed.headers.get("content-disposition")).toContain("plan.pdf");
     expect(Buffer.from(await allowed.arrayBuffer()).equals(Buffer.from([37, 80, 68, 70]))).toBe(
       true,
+    );
+  });
+
+  it("redirects database-backed files to a short-lived private Blob URL", async () => {
+    const response = await handleJobDocumentGet(
+      { jobId: "job-1", documentId: "doc-1" },
+      {
+        getSession: async () => ({ email: "estimating@strongfoam.com" }),
+        getDocument: async () => ({
+          filename: "plan.pdf",
+          contentType: "application/pdf",
+          kind: "redirect",
+          url: "https://blob.example/private-plan?token=signed",
+        }),
+      },
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://blob.example/private-plan?token=signed",
     );
   });
 });

@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  experimental: {
+    serverActions: {
+      // Demo mode posts files through a Server Action. Production uploads go
+      // directly to private Blob storage, avoiding function body limits.
+      bodySizeLimit: "26mb",
+    },
+  },
 };
 
 export default nextConfig;

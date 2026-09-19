@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/ops/app-shell";
 import { getOpsSession } from "@/lib/ops/auth";
-import { useDemoOpsStore } from "@/lib/ops/demo-store";
+import { isDemoOpsStore } from "@/lib/ops/demo-store";
 
 export default async function OpsLayout({
   children,
@@ -14,7 +14,7 @@ export default async function OpsLayout({
   }
 
   return (
-    <AppShell email={session.email} demo={useDemoOpsStore()}>
+    <AppShell email={session.email} demo={isDemoOpsStore()}>
       {children}
     </AppShell>
   );

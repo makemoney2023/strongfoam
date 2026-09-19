@@ -1,4 +1,3 @@
-import { put } from "@vercel/blob";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
@@ -54,12 +53,9 @@ import {
   setDemoJobStatus,
   setDemoJobTaskStatus,
   updateDemoEstimateRequest,
-  useDemoOpsStore,
+  isDemoOpsStore,
 } from "@/lib/ops/demo-store";
-import {
-  getStoredJobDocumentBytes,
-  setJobDocumentBytes,
-} from "@/lib/ops/job-document-bytes";
+import { getStoredJobDocumentBytes } from "@/lib/ops/job-document-bytes";
 import type {
   JobDocumentInput,
   JobTaskInput,
@@ -95,8 +91,10 @@ export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobDocumentDownload = {
   filename: string;
   contentType: string;
-  bytes: Uint8Array;
-};
+} & (
+  | { kind: "bytes"; bytes: Uint8Array }
+  | { kind: "redirect"; url: string }
+);
 
 export type CrmConversionResult =
   | {
@@ -175,7 +173,7 @@ export function parseEstimateRequestUpdate(input: {
 export async function listEstimateRequests(
   filters: EstimateRequestFilters = {},
 ): Promise<EstimateRequestRow[]> {
-  if (useDemoOpsStore()) return listDemoEstimateRequests(filters);
+  if (isDemoOpsStore()) return listDemoEstimateRequests(filters);
   const db = getDb();
   const conditions = [];
   const query = filters.q?.trim();
@@ -213,7 +211,7 @@ export async function listEstimateRequests(
 export async function getEstimateRequest(
   id: string,
 ): Promise<EstimateRequestRow | null> {
-  if (useDemoOpsStore()) return getDemoEstimateRequest(id);
+  if (isDemoOpsStore()) return getDemoEstimateRequest(id);
   const db = getDb();
   const rows = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
   return rows[0] ?? null;
@@ -222,7 +220,7 @@ export async function getEstimateRequest(
 export async function listEstimateRequestEvents(
   leadId: string,
 ): Promise<EstimateRequestEvent[]> {
-  if (useDemoOpsStore()) return listDemoEstimateRequestEvents(leadId);
+  if (isDemoOpsStore()) return listDemoEstimateRequestEvents(leadId);
   const db = getDb();
   return db
     .select()
@@ -236,7 +234,7 @@ export async function updateEstimateRequest(args: {
   actor: string;
   update: EstimateRequestUpdate;
 }): Promise<EstimateRequestRow | null> {
-  if (useDemoOpsStore()) {
+  if (isDemoOpsStore()) {
     return updateDemoEstimateRequest(args);
   }
 
@@ -332,7 +330,7 @@ async function recordEvent(args: {
 export async function listEstimateRequestTasks(
   leadId: string,
 ): Promise<EstimateRequestTask[]> {
-  if (useDemoOpsStore()) return listDemoEstimateRequestTasks(leadId);
+  if (isDemoOpsStore()) return listDemoEstimateRequestTasks(leadId);
   const db = getDb();
   return db
     .select()
@@ -344,7 +342,7 @@ export async function listEstimateRequestTasks(
 export async function listEstimateRequestComments(
   leadId: string,
 ): Promise<EstimateRequestComment[]> {
-  if (useDemoOpsStore()) return listDemoEstimateRequestComments(leadId);
+  if (isDemoOpsStore()) return listDemoEstimateRequestComments(leadId);
   const db = getDb();
   return db
     .select()
@@ -360,7 +358,7 @@ export async function addEstimateRequestTask(args: {
   assignee: string | null;
   dueAt: Date | null;
 }): Promise<EstimateRequestTask | null> {
-  if (useDemoOpsStore()) return addDemoEstimateRequestTask(args);
+  if (isDemoOpsStore()) return addDemoEstimateRequestTask(args);
   if (!(await getEstimateRequest(args.leadId))) return null;
   const db = getDb();
   const rows = await db
@@ -392,7 +390,7 @@ export async function setEstimateRequestTaskStatus(args: {
   actor: string;
   status: TaskStatus;
 }): Promise<EstimateRequestTask | null> {
-  if (useDemoOpsStore()) return setDemoEstimateRequestTaskStatus(args);
+  if (isDemoOpsStore()) return setDemoEstimateRequestTaskStatus(args);
   const db = getDb();
   const rows = await db
     .update(estimateRequestTasks)
@@ -424,7 +422,7 @@ export async function addEstimateRequestComment(args: {
   actor: string;
   body: string;
 }): Promise<EstimateRequestComment | null> {
-  if (useDemoOpsStore()) return addDemoEstimateRequestComment(args);
+  if (isDemoOpsStore()) return addDemoEstimateRequestComment(args);
   if (!(await getEstimateRequest(args.leadId))) return null;
   const db = getDb();
   const rows = await db
@@ -458,20 +456,20 @@ export function staffFileHref(
 }
 
 export async function listCompanies(): Promise<CompanyRow[]> {
-  if (useDemoOpsStore()) return listDemoCompanies();
+  if (isDemoOpsStore()) return listDemoCompanies();
   const db = getDb();
   return db.select().from(companies).orderBy(companies.name);
 }
 
 export async function getCompany(id: string): Promise<CompanyRow | null> {
-  if (useDemoOpsStore()) return getDemoCompany(id);
+  if (isDemoOpsStore()) return getDemoCompany(id);
   const db = getDb();
   const rows = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function listContacts(companyId?: string): Promise<ContactRow[]> {
-  if (useDemoOpsStore()) return listDemoContacts(companyId);
+  if (isDemoOpsStore()) return listDemoContacts(companyId);
   const db = getDb();
   return db
     .select()
@@ -481,14 +479,14 @@ export async function listContacts(companyId?: string): Promise<ContactRow[]> {
 }
 
 export async function getContact(id: string): Promise<ContactRow | null> {
-  if (useDemoOpsStore()) return getDemoContact(id);
+  if (isDemoOpsStore()) return getDemoContact(id);
   const db = getDb();
   const rows = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function listSites(companyId?: string): Promise<SiteRow[]> {
-  if (useDemoOpsStore()) return listDemoSites(companyId);
+  if (isDemoOpsStore()) return listDemoSites(companyId);
   const db = getDb();
   return db
     .select()
@@ -498,20 +496,20 @@ export async function listSites(companyId?: string): Promise<SiteRow[]> {
 }
 
 export async function getSite(id: string): Promise<SiteRow | null> {
-  if (useDemoOpsStore()) return getDemoSite(id);
+  if (isDemoOpsStore()) return getDemoSite(id);
   const db = getDb();
   const rows = await db.select().from(sites).where(eq(sites.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function listOpportunities(): Promise<OpportunityRow[]> {
-  if (useDemoOpsStore()) return listDemoOpportunities();
+  if (isDemoOpsStore()) return listDemoOpportunities();
   const db = getDb();
   return db.select().from(opportunities).orderBy(desc(opportunities.createdAt));
 }
 
 export async function getOpportunity(id: string): Promise<OpportunityRow | null> {
-  if (useDemoOpsStore()) return getDemoOpportunity(id);
+  if (isDemoOpsStore()) return getDemoOpportunity(id);
   const db = getDb();
   const rows = await db
     .select()
@@ -538,7 +536,7 @@ export async function convertRequestToCrm(args: {
   actor: string;
   input: CrmConversionInput;
 }): Promise<CrmConversionResult> {
-  if (useDemoOpsStore()) return convertDemoRequestToCrm(args);
+  if (isDemoOpsStore()) return convertDemoRequestToCrm(args);
 
   const request = await getEstimateRequest(args.leadId);
   if (!request) return { ok: false, error: "That request could not be found." };
@@ -685,7 +683,7 @@ export async function convertRequestToCrm(args: {
 }
 
 export async function listProjects(companyId?: string): Promise<ProjectRow[]> {
-  if (useDemoOpsStore()) return listDemoProjects(companyId);
+  if (isDemoOpsStore()) return listDemoProjects(companyId);
   const db = getDb();
   return db
     .select()
@@ -695,7 +693,7 @@ export async function listProjects(companyId?: string): Promise<ProjectRow[]> {
 }
 
 export async function getProject(id: string): Promise<ProjectRow | null> {
-  if (useDemoOpsStore()) return getDemoProject(id);
+  if (isDemoOpsStore()) return getDemoProject(id);
   const db = getDb();
   const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
   return rows[0] ?? null;
@@ -706,7 +704,7 @@ export async function listJobs(filters: {
   companyId?: string;
   status?: string;
 } = {}): Promise<JobRow[]> {
-  if (useDemoOpsStore()) return listDemoJobs(filters);
+  if (isDemoOpsStore()) return listDemoJobs(filters);
   const db = getDb();
   const conditions = [];
   if (filters.projectId) conditions.push(eq(jobs.projectId, filters.projectId));
@@ -720,14 +718,14 @@ export async function listJobs(filters: {
 }
 
 export async function getJob(id: string): Promise<JobRow | null> {
-  if (useDemoOpsStore()) return getDemoJob(id);
+  if (isDemoOpsStore()) return getDemoJob(id);
   const db = getDb();
   const rows = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function listJobEvents(jobId: string): Promise<JobEventRow[]> {
-  if (useDemoOpsStore()) return listDemoJobEvents(jobId);
+  if (isDemoOpsStore()) return listDemoJobEvents(jobId);
   const db = getDb();
   return db
     .select()
@@ -741,7 +739,7 @@ export async function convertOpportunityToProject(args: {
   actor: string;
   input: JobConversionInput;
 }): Promise<{ ok: true; projectId: string; jobId: string } | { ok: false; error: string }> {
-  if (useDemoOpsStore()) return convertDemoOpportunityToProject(args);
+  if (isDemoOpsStore()) return convertDemoOpportunityToProject(args);
 
   const opportunity = await getOpportunity(args.opportunityId);
   if (!opportunity) {
@@ -838,7 +836,7 @@ export async function addJobToProject(args: {
   actor: string;
   input: JobConversionInput;
 }): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
-  if (useDemoOpsStore()) return addDemoJobToProject(args);
+  if (isDemoOpsStore()) return addDemoJobToProject(args);
   const project = await getProject(args.projectId);
   if (!project) return { ok: false, error: "That project could not be found." };
   const db = getDb();
@@ -877,7 +875,7 @@ export async function updateJobStatus(args: {
   status: JobStatus;
   blockerNote: string | null;
 }): Promise<JobRow | null> {
-  if (useDemoOpsStore()) return setDemoJobStatus(args);
+  if (isDemoOpsStore()) return setDemoJobStatus(args);
   const existing = await getJob(args.jobId);
   if (!existing) return null;
   const db = getDb();
@@ -907,7 +905,7 @@ export async function updateJobStatus(args: {
 }
 
 export async function listWorkAreas(jobId: string): Promise<WorkAreaRow[]> {
-  if (useDemoOpsStore()) return listDemoWorkAreas(jobId);
+  if (isDemoOpsStore()) return listDemoWorkAreas(jobId);
   const db = getDb();
   return db
     .select()
@@ -921,7 +919,7 @@ export async function addWorkArea(args: {
   actor: string;
   input: WorkAreaInput;
 }): Promise<WorkAreaRow | null> {
-  if (useDemoOpsStore()) return addDemoWorkArea(args);
+  if (isDemoOpsStore()) return addDemoWorkArea(args);
   if (!(await getJob(args.jobId))) return null;
   const db = getDb();
   const existing = await db
@@ -953,7 +951,7 @@ export async function addWorkArea(args: {
 }
 
 export async function listJobTasks(jobId: string): Promise<JobTaskRow[]> {
-  if (useDemoOpsStore()) return listDemoJobTasks(jobId);
+  if (isDemoOpsStore()) return listDemoJobTasks(jobId);
   const db = getDb();
   return db
     .select()
@@ -967,7 +965,7 @@ export async function addJobTask(args: {
   actor: string;
   input: JobTaskInput;
 }): Promise<JobTaskRow | null> {
-  if (useDemoOpsStore()) return addDemoJobTask(args);
+  if (isDemoOpsStore()) return addDemoJobTask(args);
   if (!(await getJob(args.jobId))) return null;
   if (args.input.workAreaId) {
     const areas = await listWorkAreas(args.jobId);
@@ -1004,7 +1002,7 @@ export async function setJobTaskStatus(args: {
   actor: string;
   status: TaskStatus;
 }): Promise<JobTaskRow | null> {
-  if (useDemoOpsStore()) return setDemoJobTaskStatus(args);
+  if (isDemoOpsStore()) return setDemoJobTaskStatus(args);
   const db = getDb();
   const rows = await db
     .update(jobTasks)
@@ -1027,7 +1025,7 @@ export async function setJobTaskStatus(args: {
 }
 
 export async function listJobDocuments(jobId: string): Promise<JobDocumentRow[]> {
-  if (useDemoOpsStore()) return listDemoJobDocuments(jobId);
+  if (isDemoOpsStore()) return listDemoJobDocuments(jobId);
   const db = getDb();
   return db
     .select()
@@ -1036,67 +1034,64 @@ export async function listJobDocuments(jobId: string): Promise<JobDocumentRow[]>
     .orderBy(desc(jobDocuments.createdAt));
 }
 
-async function persistJobDocumentBytes(args: {
-  jobId: string;
-  documentId: string;
-  filename: string;
-  contentType: string;
-  bytes: Uint8Array;
-}): Promise<{ pathname: string; storage: string }> {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const pathname = `jobs/${args.jobId}/${args.documentId}/${args.filename}`;
-    await put(pathname, Buffer.from(args.bytes), {
-      access: "private",
-      contentType: args.contentType,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-    return { pathname, storage: "blob" };
-  }
-  setJobDocumentBytes(args.documentId, args.bytes);
-  return {
-    pathname: `jobs/${args.jobId}/${args.documentId}/${args.filename}`,
-    storage: "memory",
-  };
-}
-
 export async function addJobDocument(args: {
   jobId: string;
   actor: string;
   input: JobDocumentInput;
   bytes: Uint8Array;
 }): Promise<JobDocumentRow | null> {
-  if (useDemoOpsStore()) return addDemoJobDocument(args);
+  if (isDemoOpsStore()) return addDemoJobDocument(args);
+  throw new Error(
+    "Database-backed job documents must use the authenticated Blob upload flow.",
+  );
+}
+
+export async function recordUploadedJobDocument(args: {
+  jobId: string;
+  actor: string;
+  input: JobDocumentInput;
+  pathname: string;
+}): Promise<JobDocumentRow | null> {
+  if (isDemoOpsStore()) return null;
   if (!(await getJob(args.jobId))) return null;
   if (args.input.workAreaId) {
     const areas = await listWorkAreas(args.jobId);
     if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
   }
-  const id = crypto.randomUUID();
-  const stored = await persistJobDocumentBytes({
-    jobId: args.jobId,
-    documentId: id,
-    filename: args.input.filename,
-    contentType: args.input.contentType,
-    bytes: args.bytes,
-  });
   const db = getDb();
+  const existing = await db
+    .select()
+    .from(jobDocuments)
+    .where(eq(jobDocuments.pathname, args.pathname))
+    .limit(1);
+  if (existing[0]) return existing[0];
+
   const rows = await db
     .insert(jobDocuments)
     .values({
-      id,
       jobId: args.jobId,
       workAreaId: args.input.workAreaId,
       filename: args.input.filename,
       contentType: args.input.contentType,
       sizeBytes: args.input.sizeBytes,
-      pathname: stored.pathname,
-      storage: stored.storage,
+      pathname: args.pathname,
+      storage: "blob",
       kind: args.input.kind,
       uploadedBy: args.actor,
     })
+    .onConflictDoNothing({ target: jobDocuments.pathname })
     .returning();
-  const document = rows[0];
+  const document =
+    rows[0] ??
+    (
+      await db
+        .select()
+        .from(jobDocuments)
+        .where(eq(jobDocuments.pathname, args.pathname))
+        .limit(1)
+    )[0];
   if (!document) return null;
+  if (rows.length === 0) return document;
   await db.insert(jobEvents).values({
     jobId: args.jobId,
     actor: args.actor,
@@ -1115,12 +1110,13 @@ export async function getJobDocumentDownload(
   jobId: string,
   documentId: string,
 ): Promise<JobDocumentDownload | null> {
-  if (useDemoOpsStore()) {
+  if (isDemoOpsStore()) {
     const result = getDemoJobDocumentDownload(jobId, documentId);
     if (!result) return null;
     return {
       filename: result.document.filename,
       contentType: result.document.contentType,
+      kind: "bytes",
       bytes: result.bytes,
     };
   }
@@ -1136,13 +1132,12 @@ export async function getJobDocumentDownload(
 
   if (document.storage === "blob") {
     const { resolveFileUrl } = await import("@/lib/leads/adapters");
-    const signedUrl = await resolveFileUrl(document.pathname);
-    const response = await fetch(signedUrl);
-    if (!response.ok) return null;
+    const signedUrl = await resolveFileUrl(document.pathname, 5 * 60 * 1000);
     return {
       filename: document.filename,
       contentType: document.contentType,
-      bytes: new Uint8Array(await response.arrayBuffer()),
+      kind: "redirect",
+      url: signedUrl,
     };
   }
 
@@ -1151,6 +1146,7 @@ export async function getJobDocumentDownload(
   return {
     filename: document.filename,
     contentType: document.contentType,
+    kind: "bytes",
     bytes,
   };
 }

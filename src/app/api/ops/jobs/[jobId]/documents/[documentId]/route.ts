@@ -9,8 +9,10 @@ export type JobDocumentGetDeps = {
   ) => Promise<{
     filename: string;
     contentType: string;
-    bytes: Uint8Array;
-  } | null>;
+  } & (
+    | { kind: "bytes"; bytes: Uint8Array }
+    | { kind: "redirect"; url: string }
+  ) | null>;
 };
 
 export async function handleJobDocumentGet(
@@ -25,6 +27,16 @@ export async function handleJobDocumentGet(
   const document = await deps.getDocument(params.jobId, params.documentId);
   if (!document) {
     return new Response(null, { status: 404 });
+  }
+
+  if (document.kind === "redirect") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: document.url,
+        "Cache-Control": "private, no-store",
+      },
+    });
   }
 
   const filename = document.filename.replace(/"/g, "");

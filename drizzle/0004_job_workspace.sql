@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS "job_documents" (
   "filename" text NOT NULL,
   "content_type" text NOT NULL,
   "size_bytes" integer NOT NULL,
-  "pathname" text NOT NULL,
+  "pathname" text NOT NULL UNIQUE,
   "storage" text DEFAULT 'memory' NOT NULL,
   "kind" text DEFAULT 'plan' NOT NULL,
   "uploaded_by" text NOT NULL

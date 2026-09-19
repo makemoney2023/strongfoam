@@ -37,6 +37,7 @@ import type {
   Timeline,
 } from "@/lib/leads/types";
 import { MAX_UPLOAD_FILES } from "@/lib/leads/uploads";
+import { createBrowserUuid } from "@/lib/browser-id";
 import { cn } from "@/lib/utils";
 
 type Answers = {
@@ -161,31 +162,34 @@ export function EstimateSurvey() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    const existing = parseSurveyDraft(localStorage.getItem(DRAFT_STORAGE_KEY));
-    if (existing) {
-      setDraftId(existing.draftId);
-      setStartedAt(existing.startedAt);
-      setStep(existing.step);
-      setAnswers(existing.answers as Answers);
-    } else {
-      const id = crypto.randomUUID();
-      const started = Date.now();
-      setDraftId(id);
-      setStartedAt(started);
-      setStep("fit");
-      setAnswers({});
-      localStorage.setItem(
-        DRAFT_STORAGE_KEY,
-        serializeSurveyDraft({
-          version: 1,
-          startedAt: started,
-          draftId: id,
-          step: "fit",
-          answers: {},
-        }),
-      );
-    }
-    setReady(true);
+    const frame = window.requestAnimationFrame(() => {
+      const existing = parseSurveyDraft(localStorage.getItem(DRAFT_STORAGE_KEY));
+      if (existing) {
+        setDraftId(existing.draftId);
+        setStartedAt(existing.startedAt);
+        setStep(existing.step);
+        setAnswers(existing.answers as Answers);
+      } else {
+        const id = createBrowserUuid();
+        const started = Date.now();
+        setDraftId(id);
+        setStartedAt(started);
+        setStep("fit");
+        setAnswers({});
+        localStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          serializeSurveyDraft({
+            version: 1,
+            startedAt: started,
+            draftId: id,
+            step: "fit",
+            answers: {},
+          }),
+        );
+      }
+      setReady(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {

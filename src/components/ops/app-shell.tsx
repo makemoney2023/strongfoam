@@ -23,8 +23,14 @@ export function AppShell({
   return (
     <TooltipProvider>
       <SidebarProvider>
+        <a
+          href="#ops-main-content"
+          className="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform focus:translate-y-0"
+        >
+          Skip to main content
+        </a>
         <AppSidebar email={email} />
-        <SidebarInset>
+        <SidebarInset id="ops-main-content" tabIndex={-1}>
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-4" />
@@ -38,7 +44,7 @@ export function AppShell({
               </AlertDescription>
             </Alert>
           ) : null}
-          <div className="flex-1 p-6">{children}</div>
+          <div className="flex-1 p-4 sm:p-6">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

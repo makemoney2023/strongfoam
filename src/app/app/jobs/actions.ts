@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseJobConversion, parseJobStatusUpdate } from "@/lib/ops/jobs";
 import {
+  hasAllowedJobDocumentSignature,
   parseJobDocumentInput,
   parseJobTaskInput,
   parseWorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   addJobDocument,
@@ -187,8 +189,14 @@ export async function uploadJobDocument(formData: FormData) {
   if (!session) redirect("/app/login");
 
   const jobId = String(formData.get("jobId") ?? "");
-  const file = formData.get("file");
   if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!isDemoOpsStore()) {
+    fail(
+      `/app/jobs/${jobId}`,
+      "Production documents must use the configured Blob upload flow.",
+    );
+  }
+  const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     fail(`/app/jobs/${jobId}`, "Choose a PDF, JPEG, PNG, or WebP file.");
   }
@@ -203,6 +211,12 @@ export async function uploadJobDocument(formData: FormData) {
   if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!hasAllowedJobDocumentSignature(bytes, parsed.value.contentType)) {
+    fail(
+      `/app/jobs/${jobId}`,
+      "The file contents do not match the selected document type.",
+    );
+  }
   const document = await addJobDocument({
     jobId,
     actor: session.email,

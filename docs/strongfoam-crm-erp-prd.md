@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.8
+**Version:** 0.9
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -1277,11 +1277,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Convert only won work into one project per opportunity, then add extra jobs on the project | Prevents premature field work, keeps the commercial record attached, and lets a site grow extra phases without duplicating the opportunity |
 | 2026-09-18 | Use shadcn/ui for the authenticated operations product | Replaces the custom Industrial Precision staff chrome with a standard dashboard system while keeping the marketing site branded |
 | 2026-09-19 | Add job work areas, job tasks, and session-gated job documents before annotation or speech-to-text | Delivers JOB-002/JOB-003 plans and checklists so field evidence has a place to live; demo stores file bytes in memory and production uses Vercel Blob when a token is present |
+| 2026-09-19 | Upload production job files directly to private Blob storage with job-scoped tokens | Supports the 25 MB policy without routing file bodies through Vercel functions; token issuance still requires a staff session and the completion callback records immutable metadata |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.9 | 2026-09-19 | Hardened job document validation and direct private uploads, then improved the field workspace hierarchy, progress, feedback, touch targets, and accessibility |
 | 0.8 | 2026-09-19 | Added job work areas, job tasks, and authenticated plan/photo uploads on the job record |
 | 0.7 | 2026-09-18 | Adopted shadcn/ui as the operations design system and rebuilt the staff workspace |
 | 0.6 | 2026-09-18 | Added won-work conversion into a project and jobs, plus job status and activity |

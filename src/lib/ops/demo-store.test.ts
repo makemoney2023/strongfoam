@@ -20,16 +20,16 @@ import {
   matchesEstimateRequestFilters,
   setDemoJobTaskStatus,
   updateDemoEstimateRequest,
-  useDemoOpsStore,
+  isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { DEMO_JOB_ID } from "@/lib/ops/demo-data";
 
 describe("demo ops store", () => {
   it("uses demo data when the database URL is absent", () => {
-    expect(useDemoOpsStore({})).toBe(true);
-    expect(useDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
+    expect(isDemoOpsStore({})).toBe(true);
+    expect(isDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
     expect(
-      useDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
+      isDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
     ).toBe(true);
   });
 

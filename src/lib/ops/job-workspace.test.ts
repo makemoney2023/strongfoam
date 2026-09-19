@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   formatFileSize,
+  hasAllowedJobDocumentSignature,
+  isOwnedJobUploadPath,
   jobDocumentHref,
   parseJobDocumentInput,
   parseJobTaskInput,
@@ -81,5 +83,39 @@ describe("job workspace parsers", () => {
       "/api/ops/jobs/job-1/documents/doc-1",
     );
     expect(formatFileSize(2048)).toBe("2.0 KB");
+  });
+
+  it("rejects mismatched extensions, unsafe paths, and spoofed file bytes", () => {
+    expect(
+      parseJobDocumentInput({
+        filename: "plan.png",
+        contentType: "application/pdf",
+        sizeBytes: 100,
+      }).ok,
+    ).toBe(false);
+    expect(
+      isOwnedJobUploadPath(
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "jobs/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/plan.pdf",
+      ),
+    ).toBe(true);
+    expect(
+      isOwnedJobUploadPath(
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "jobs/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/plan.pdf",
+      ),
+    ).toBe(false);
+    expect(
+      hasAllowedJobDocumentSignature(
+        new Uint8Array([37, 80, 68, 70, 45]),
+        "application/pdf",
+      ),
+    ).toBe(true);
+    expect(
+      hasAllowedJobDocumentSignature(
+        new TextEncoder().encode("<script>"),
+        "application/pdf",
+      ),
+    ).toBe(false);
   });
 });
