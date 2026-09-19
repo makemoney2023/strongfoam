@@ -65,6 +65,7 @@ export type ProjectedPortfolioProject = PortfolioScheduleProject & {
   state: ScheduleState;
   range: PortfolioProjectRange;
   progress: ReturnType<typeof getTaskProgress>;
+  criticalTaskIds: ReadonlySet<string>;
   warningCounts: {
     blocked: number;
     overdue: number;
@@ -732,10 +733,13 @@ function cloneProject(
   };
 }
 
-function warningCounts(
+function projectWarnings(
   project: PortfolioScheduleProject,
   now: Date,
-): ProjectedPortfolioProject["warningCounts"] {
+): {
+  warningCounts: ProjectedPortfolioProject["warningCounts"];
+  criticalTaskIds: ReadonlySet<string>;
+} {
   let blocked = 0;
   let overdue = 0;
   let unscheduled = 0;
@@ -765,11 +769,17 @@ function warningCounts(
     ),
     project.calendar,
   );
+  const criticalTaskIds = criticalPath.ok
+    ? criticalPath.criticalTaskIds
+    : new Set<string>();
   return {
-    blocked,
-    overdue,
-    unscheduled,
-    critical: criticalPath.ok ? criticalPath.criticalTaskIds.size : 0,
+    criticalTaskIds,
+    warningCounts: {
+      blocked,
+      overdue,
+      unscheduled,
+      critical: criticalTaskIds.size,
+    },
   };
 }
 
@@ -782,12 +792,14 @@ export function buildPortfolioProjects(
     const tasks = project.jobs.flatMap((job) => job.tasks);
     const range = getPortfolioProjectRange(project);
     const baselineFinish = latestBaselineFinish(project.latestBaseline);
+    const warnings = projectWarnings(project, now);
     return {
       ...project,
       state: getPortfolioProjectState(project, now),
       range,
       progress: getTaskProgress(tasks),
-      warningCounts: warningCounts(project, now),
+      criticalTaskIds: warnings.criticalTaskIds,
+      warningCounts: warnings.warningCounts,
       baselineFinishVarianceDays:
         range.finish && baselineFinish
           ? workingDayDifference(

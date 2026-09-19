@@ -31,7 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { calculateCriticalPath } from "@/lib/ops/project-schedule-graph";
 import {
   buildPortfolioProjects,
   buildPortfolioResourceLanes,
@@ -248,15 +247,7 @@ export function buildPortfolioWorkRows(
   overlapCountsByProject: ReadonlyMap<string, number> = new Map(),
 ): PortfolioWorkRow[] {
   return projects.flatMap((project) => {
-    const tasks = project.jobs.flatMap((job) => job.tasks);
-    const criticalPath = calculateCriticalPath(
-      tasks,
-      project.dependencies.filter((edge) => edge.projectId === project.id),
-      project.calendar,
-    );
-    const criticalIds = criticalPath.ok
-      ? criticalPath.criticalTaskIds
-      : new Set<string>();
+    const criticalIds = project.criticalTaskIds;
     const baselineItems = new Map(
       (project.latestBaseline?.items ?? []).map((item) => [
         `${item.entityType}:${item.entityId}`,

@@ -17,6 +17,7 @@ import {
   buildPortfolioProjects,
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
+  filterPortfolioProjects,
 } from "@/lib/ops/portfolio-schedule";
 import type {
   PortfolioScheduleData,
@@ -254,6 +255,68 @@ describe("portfolio work model", () => {
       critical: false,
       baselineState: { kind: "not-baselined" },
     });
+  });
+
+  it("preserves the full-project critical path when filters hide its tasks", () => {
+    const projected = buildPortfolioProjects(
+      [
+        project("filtered-critical", {
+          jobs: [
+            job("critical-job", {
+              tasks: [
+                task("true-critical", {
+                  jobId: "critical-job",
+                  status: "done",
+                  plannedStartAt: "2026-09-01",
+                  plannedEndAt: "2026-09-10",
+                }),
+                task("visible-noncritical", {
+                  jobId: "critical-job",
+                  plannedStartAt: "2026-09-01",
+                  plannedEndAt: "2026-09-01",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      new Date(NOW),
+    );
+    const filtered = filterPortfolioProjects(
+      projected,
+      {
+        state: "overdue",
+        attention: "all",
+        from: null,
+        to: null,
+        hideCompleted: false,
+        overlapProjectIds: new Set(),
+      },
+      new Date(NOW),
+    );
+    const expansion = defaultPortfolioExpansion(filtered);
+    const rows = buildPortfolioWorkRows(
+      filtered,
+      expansion.projects,
+      expansion.jobs,
+      NOW,
+      "none",
+    );
+
+    expect(filtered[0]?.jobs[0]?.tasks.map((item) => item.id)).toEqual([
+      "visible-noncritical",
+    ]);
+    expect(filtered[0]?.criticalTaskIds).toBe(projected[0]?.criticalTaskIds);
+    expect([...projected[0]!.criticalTaskIds]).toEqual(["true-critical"]);
+    const projectRow = rows.find((row) => row.kind === "project");
+    expect(projectRow?.criticalCount).toBe(1);
+    expect(projectRow?.warning).toContain("1 critical");
+    expect(
+      rows.find((row) => row.key === "filtered-critical:task:visible-noncritical"),
+    ).toMatchObject({ critical: false, criticalCount: 0 });
+    expect(
+      rows.some((row) => row.key === "filtered-critical:task:true-critical"),
+    ).toBe(false);
   });
 });
 
