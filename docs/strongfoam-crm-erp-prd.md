@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.3
+**Version:** 1.4
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -486,6 +486,109 @@ Future operational releases should provide:
 - Punch lists and rework.
 - Customer completion sign-off.
 - Closeout packages and warranty service.
+
+### 16.1 Project schedule roll-up
+
+The project detail page must give project managers one schedule view across all
+jobs and job tasks. Delivery is intentionally incremental: the first release
+uses existing job dates and task due dates, while later releases add task
+durations and dependencies without changing the roll-up's hierarchy.
+
+**SCH-001:** An authorized user must be able to open a **Schedule** section on a
+project and see every job attached to that project.
+
+**SCH-002:** The schedule must use a two-level hierarchy:
+
+```text
+Project
+  → Job
+      → Job task
+```
+
+Job rows must be expandable and collapsed job rows must still show job-level
+progress and schedule state.
+
+**SCH-003:** A job with planned start and completion dates must render as a bar
+across that range. A job with one date must render as a milestone. A job with
+no planned dates must appear in a clearly labelled **Unscheduled** group rather
+than disappearing.
+
+**SCH-004:** In the first release, a task with a due date must render as a
+milestone. Tasks without a due date remain visible beneath their job in an
+**Unscheduled tasks** group. The interface must not imply a task duration that
+has not been entered.
+
+**SCH-005:** Each job row must show completed tasks, total tasks, and percentage
+complete. Project progress is:
+
+```text
+completed tasks across project ÷ total tasks across project
+```
+
+Projects or jobs with no tasks display **No tasks** instead of an inferred
+percentage. Job status remains visible and is not replaced by calculated task
+progress.
+
+**SCH-006:** The schedule must visibly distinguish open, complete, blocked,
+overdue, and unscheduled work. Status must use text or an icon in addition to
+color. A vertical **Today** marker must use the organization time zone.
+
+**SCH-007:** Managers must be able to:
+
+- Expand or collapse job task rows.
+- Switch between week and month density.
+- Filter to all, remaining, complete, blocked, overdue, or unscheduled work.
+- Move the visible window backward, forward, or back to today.
+- Open a job or task from its schedule row.
+
+**SCH-008:** The visual schedule must have an accessible tabular alternative
+that contains job/task, status, assignee, planned start, planned completion or
+due date, and progress. Keyboard and screen-reader users must not need the
+graphical timeline to retrieve schedule facts.
+
+**SCH-009:** Completed work remains visible by default. A manager may hide
+completed rows, but the application must not delete or silently exclude them
+from progress totals.
+
+**SCH-010:** The schedule is read-only in its first release. Managers edit job
+dates and task details through the existing validated edit dialogs. Dragging a
+bar or milestone must not silently change a schedule.
+
+**SCH-011:** The task-scheduling enhancement must add optional planned start,
+planned completion, and actual completion timestamps to job tasks. A task with
+both planned dates then renders as a bar; a task with only a due date remains a
+milestone.
+
+**SCH-012:** Planned task completion must not precede planned task start.
+Task dates outside the parent job range are allowed because field conditions
+may require them, but the UI must show a schedule warning.
+
+**SCH-013:** Completing a task must set its actual completion timestamp.
+Reopening it must clear that timestamp. Both changes remain attributable in the
+job activity history.
+
+**SCH-014:** Task dependencies and drag-to-reschedule are later enhancements.
+When added, dependencies must be stored as validated relationships, circular
+dependencies must be rejected, and every reschedule must pass server
+validation and create an attributable event.
+
+**SCH-015:** The initial project schedule must remain usable with at least 100
+jobs and 1,000 tasks through a bounded project-scoped query, collapsed rows,
+and horizontal timeline virtualization or bounded rendering.
+
+#### 16.1.1 Acceptance outcomes
+
+- A manager can identify completed, remaining, blocked, overdue, and
+  unscheduled work without opening each job.
+- Every project job appears, including jobs with missing dates.
+- Expanding a job shows all of its tasks, including tasks without due dates.
+- Progress totals update after a task is completed or reopened.
+- Clicking a job or task reaches the underlying source record.
+- Week and month views preserve the same records and facts.
+- The tabular alternative communicates the same schedule information as the
+  chart.
+- The 375px layout keeps row labels readable and makes the timeline
+  horizontally scrollable without shrinking touch targets.
 
 ## 17. Trade-specific requirements
 
@@ -1207,6 +1310,9 @@ Initial metrics:
 - Time from reported blocker to resolution.
 - Percentage of completed jobs with required closeout evidence.
 - Time saved on note summarization and task administration.
+- Median time for a project manager to identify the next incomplete project
+  task.
+- Percentage of active project jobs and tasks with usable schedule dates.
 - AI suggestion acceptance, correction, undo, and failure rates.
 
 Later metrics:
@@ -1246,6 +1352,16 @@ policy and human review.
 2. Add authenticated job documents and media.
 3. Build the mobile field workspace and offline-safe drafts.
 4. Add daily notes, photos, quantities, blockers, and completion workflow.
+
+### Project schedule
+
+1. Add the read-only project Schedule roll-up using job date bars and task due
+   date milestones.
+2. Add task planned start, planned completion, and actual completion timestamps.
+3. Upgrade scheduled tasks from milestones to duration bars and surface
+   out-of-job-range warnings.
+4. Evaluate dependencies and explicit drag-to-reschedule only after managers
+   validate the read-only schedule and date-entry workflow.
 
 ### Usability pass
 
@@ -1320,6 +1436,10 @@ These decisions are required before their respective implementation stage:
 8. Offline requirements beyond drafts and queued uploads.
 9. Initial estimate format, price-book ownership, taxes, and approval rules.
 10. Final data residency, retention, backup, and disaster-recovery policies.
+11. Whether task dependencies are finish-to-start only or require additional
+    dependency types.
+12. Whether non-working days and organization holiday calendars affect visual
+    duration or remain informational.
 
 ## 31. Decision log
 
@@ -1346,11 +1466,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Put every create form behind a button and every edit behind a dialog; keep field capture inline | Staff reported not finding "add company" and "add job"; progressive disclosure makes pages readable while a technician on a phone still logs a note in one tap |
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 | 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
+| 2026-09-19 | Deliver the project schedule as a read-only job/task roll-up before drag scheduling or dependencies | Existing job dates and task due dates can provide immediate management visibility without inventing task durations or allowing unvalidated timeline edits |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
 | 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |
 | 1.2 | 2026-09-19 | Moved create forms behind buttons, added New job entry points, read-first detail pages with Edit dialogs, confirmed deletes, empty states, and the Home dashboard; recorded UX-001 to UX-014 |
 | 1.1 | 2026-09-19 | Added create, edit, and delete for every record type plus status, type, and date-range filters on every list |
