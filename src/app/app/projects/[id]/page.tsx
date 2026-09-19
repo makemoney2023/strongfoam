@@ -34,6 +34,7 @@ import {
   getSite,
   listJobs,
   listProjectJobTasks,
+  listProjectTaskDependencies,
 } from "@/lib/ops/store";
 import {
   PROJECT_STATUS_LABELS,
@@ -58,13 +59,21 @@ export default async function ProjectDetailPage({
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [company, site, opportunity, jobs, projectTaskResult] =
+  const [
+    company,
+    site,
+    opportunity,
+    jobs,
+    projectTaskResult,
+    dependencyResult,
+  ] =
     await Promise.all([
       project.companyId ? getCompany(project.companyId) : null,
       project.siteId ? getSite(project.siteId) : null,
       project.opportunityId ? getOpportunity(project.opportunityId) : null,
       listJobs({ projectId: project.id }),
       listProjectJobTasks(project.id),
+      listProjectTaskDependencies(project.id),
     ]);
 
   const tasksByJob = new Map<string, typeof projectTaskResult.tasks>();
@@ -75,6 +84,7 @@ export default async function ProjectDetailPage({
   }
   const scheduleJobs = jobs.map((job) => ({
     id: job.id,
+    updatedAt: job.updatedAt.toISOString(),
     number: formatJobNumber(job.id),
     name: job.name,
     status: job.status as JobStatus,
@@ -83,6 +93,7 @@ export default async function ProjectDetailPage({
     tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
       id: task.id,
       jobId: task.jobId,
+      updatedAt: task.updatedAt.toISOString(),
       title: task.title,
       assignee: task.assignee,
       status: task.status === "done" ? ("done" as const) : ("open" as const),
@@ -91,6 +102,13 @@ export default async function ProjectDetailPage({
       plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
       completedAt: task.completedAt?.toISOString() ?? null,
     })),
+  }));
+  const scheduleDependencies = dependencyResult.edges.map((edge) => ({
+    id: edge.id,
+    projectId: edge.projectId,
+    predecessorTaskId: edge.predecessorTaskId,
+    successorTaskId: edge.successorTaskId,
+    lagDays: edge.lagDays,
   }));
 
   const projectOption = {
@@ -234,9 +252,13 @@ export default async function ProjectDetailPage({
             />
           ) : (
             <ProjectSchedule
+              projectId={project.id}
               jobs={scheduleJobs}
+              dependencies={scheduleDependencies}
               now={new Date().toISOString()}
               truncated={projectTaskResult.truncated}
+              dependenciesTruncated={dependencyResult.truncated}
+              returnTo={returnTo}
             />
           )}
         </CardContent>

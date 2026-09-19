@@ -23,6 +23,7 @@ export type ScheduleState =
 export type ProjectScheduleTask = {
   id: string;
   jobId: string;
+  updatedAt?: string;
   title: string;
   assignee: string | null;
   status: "open" | "done";
@@ -34,12 +35,21 @@ export type ProjectScheduleTask = {
 
 export type ProjectScheduleJob = {
   id: string;
+  updatedAt?: string;
   number: string;
   name: string;
   status: JobStatus;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   tasks: ProjectScheduleTask[];
+};
+
+export type ProjectScheduleDependency = {
+  id: string;
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
 };
 
 export type TaskProgress = {

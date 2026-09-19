@@ -3,10 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fail, succeed } from "@/lib/ops/action-redirect";
-import { invalidFrom, type ActionState } from "@/lib/ops/action-result";
+import {
+  invalidFrom,
+  safeReturnTo,
+  type ActionState,
+} from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseProjectUpdate } from "@/lib/ops/records";
-import { deleteProject, updateProject } from "@/lib/ops/store";
+import {
+  addJobTaskDependency,
+  deleteJobTaskDependency,
+  deleteProject,
+  updateProject,
+} from "@/lib/ops/store";
 
 export async function saveProject(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
@@ -37,4 +46,50 @@ export async function removeProject(formData: FormData): Promise<ActionState> {
   revalidatePath("/app/projects");
   revalidatePath("/app/jobs");
   return succeed("/app/projects", "Project deleted.");
+}
+
+export async function addProjectTaskDependency(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await addJobTaskDependency({
+    projectId,
+    predecessorTaskId: String(formData.get("predecessorTaskId") ?? ""),
+    successorTaskId: String(formData.get("successorTaskId") ?? ""),
+    lagDays: Number(formData.get("lagDays") ?? 0),
+    actor: session.email,
+  });
+  if (!result.ok) {
+    return result.field
+      ? { error: result.error, fields: { [result.field]: result.error } }
+      : fail(returnTo, result.error);
+  }
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(returnTo, "Dependency added.");
+}
+
+export async function removeProjectTaskDependency(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  const result = await deleteJobTaskDependency({
+    projectId,
+    dependencyId: String(formData.get("dependencyId") ?? ""),
+    actor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  revalidatePath(`/app/projects/${projectId}`);
+  return succeed(returnTo, "Dependency removed.");
 }

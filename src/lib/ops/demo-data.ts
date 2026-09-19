@@ -7,6 +7,7 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
@@ -29,6 +30,7 @@ export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 

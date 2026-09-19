@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
@@ -9,6 +20,7 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
@@ -26,6 +38,7 @@ import {
   addDemoEstimateRequestTask,
   addDemoJobDocument,
   addDemoJobFieldNote,
+  addDemoJobTaskDependency,
   addDemoJobTask,
   addDemoJobToProject,
   addDemoSite,
@@ -39,6 +52,7 @@ import {
   deleteDemoJob,
   deleteDemoJobDocument,
   deleteDemoJobFieldNote,
+  deleteDemoJobTaskDependency,
   deleteDemoJobTask,
   deleteDemoOpportunity,
   deleteDemoProject,
@@ -63,6 +77,7 @@ import {
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
+  listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
   listDemoProjects,
@@ -98,6 +113,7 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
+import { validateDependencyAddition } from "@/lib/ops/project-schedule-graph";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -131,8 +147,14 @@ export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
+
+export type ProjectDependencyResult = {
+  edges: JobTaskDependencyRow[];
+  truncated: boolean;
+};
 
 export type JobDocumentDownload = {
   filename: string;
@@ -1144,6 +1166,151 @@ export async function listProjectJobTasks(
     tasks: rows.slice(0, 1_000).map(({ task }) => task),
     truncated: rows.length > 1_000,
   };
+}
+
+export async function listProjectTaskDependencies(
+  projectId: string,
+): Promise<ProjectDependencyResult> {
+  if (isDemoOpsStore()) {
+    return listDemoProjectTaskDependencies(projectId);
+  }
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobTaskDependencies)
+    .where(eq(jobTaskDependencies.projectId, projectId))
+    .orderBy(asc(jobTaskDependencies.createdAt))
+    .limit(2_001);
+  return {
+    edges: rows.slice(0, 2_000),
+    truncated: rows.length > 2_000,
+  };
+}
+
+export async function addJobTaskDependency(args: {
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
+  actor: string;
+}): Promise<
+  | { ok: true; dependency: JobTaskDependencyRow }
+  | { ok: false; error: string; field?: string }
+> {
+  if (isDemoOpsStore()) return addDemoJobTaskDependency(args);
+  const db = getDb();
+  const membership = await db
+    .select({ task: jobTasks, projectId: jobs.projectId })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(
+      inArray(jobTasks.id, [
+        args.predecessorTaskId,
+        args.successorTaskId,
+      ]),
+    );
+  if (
+    membership.length !== 2 ||
+    membership.some((row) => row.projectId !== args.projectId)
+  ) {
+    return { ok: false, error: "Both tasks must belong to this project." };
+  }
+
+  const [taskResult, dependencyResult] = await Promise.all([
+    listProjectJobTasks(args.projectId),
+    listProjectTaskDependencies(args.projectId),
+  ]);
+  const validation = validateDependencyAddition(
+    taskResult.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    })),
+    dependencyResult.edges,
+    args,
+  );
+  if (!validation.ok) return validation;
+
+  const rows = await db
+    .insert(jobTaskDependencies)
+    .values({
+      projectId: args.projectId,
+      predecessorTaskId: args.predecessorTaskId,
+      successorTaskId: args.successorTaskId,
+      lagDays: args.lagDays,
+      createdBy: args.actor,
+    })
+    .returning();
+  const dependency = rows[0];
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be saved." };
+  }
+  const successor = membership.find(
+    (row) => row.task.id === args.successorTaskId,
+  )?.task;
+  if (successor) {
+    await db.insert(jobEvents).values({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_added",
+      summary: `task dependency added: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true, dependency };
+}
+
+export async function deleteJobTaskDependency(args: {
+  projectId: string;
+  dependencyId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoJobTaskDependency(args);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobTaskDependencies)
+    .where(
+      and(
+        eq(jobTaskDependencies.id, args.dependencyId),
+        eq(jobTaskDependencies.projectId, args.projectId),
+      ),
+    )
+    .limit(1);
+  const dependency = rows[0];
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be found." };
+  }
+  const successorRows = await db
+    .select()
+    .from(jobTasks)
+    .where(eq(jobTasks.id, dependency.successorTaskId))
+    .limit(1);
+  const successor = successorRows[0];
+  await db
+    .delete(jobTaskDependencies)
+    .where(eq(jobTaskDependencies.id, dependency.id));
+  if (successor) {
+    await db.insert(jobEvents).values({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_removed",
+      summary: `task dependency removed: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true };
 }
 
 export async function addJobTask(args: {

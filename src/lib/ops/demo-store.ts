@@ -24,6 +24,7 @@ import {
   type JobEventRow,
   type JobFieldNoteRow,
   type JobRow,
+  type JobTaskDependencyRow,
   type JobTaskRow,
   type OpportunityRow,
   type ProjectRow,
@@ -51,6 +52,7 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
+import { validateDependencyAddition } from "@/lib/ops/project-schedule-graph";
 import type {
   CompanyInput,
   ContactInput,
@@ -85,6 +87,7 @@ type DemoOpsState = {
   jobEvents: JobEventRow[];
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
+  jobTaskDependencies: JobTaskDependencyRow[];
   jobDocuments: JobDocumentRow[];
   jobFieldNotes: JobFieldNoteRow[];
 };
@@ -110,11 +113,15 @@ function getDemoState(): DemoOpsState {
       jobEvents: demoJobEvents(),
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
+      jobTaskDependencies: [],
       jobDocuments: demoJobDocuments(),
       jobFieldNotes: demoJobFieldNotes(),
     };
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
     globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.jobTaskDependencies) {
+    globalForDemo.__strongfoamDemoOps.jobTaskDependencies = [];
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -133,6 +140,7 @@ const {
   jobEvents,
   workAreas,
   jobTasks,
+  jobTaskDependencies,
   jobDocuments,
   jobFieldNotes,
 } = getDemoState();
@@ -874,6 +882,113 @@ export function listDemoProjectJobTasks(projectId: string): {
     tasks: rows.slice(0, 1_000),
     truncated: rows.length > 1_000,
   };
+}
+
+export function listDemoProjectTaskDependencies(projectId: string): {
+  edges: JobTaskDependencyRow[];
+  truncated: boolean;
+} {
+  const rows = jobTaskDependencies
+    .filter((edge) => edge.projectId === projectId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, 2_001);
+  return {
+    edges: rows.slice(0, 2_000),
+    truncated: rows.length > 2_000,
+  };
+}
+
+export function addDemoJobTaskDependency(args: {
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
+  actor: string;
+}):
+  | { ok: true; dependency: JobTaskDependencyRow }
+  | { ok: false; error: string; field?: string } {
+  const projectTasks = listDemoProjectJobTasks(args.projectId).tasks;
+  const taskIds = new Set(projectTasks.map((task) => task.id));
+  if (
+    !taskIds.has(args.predecessorTaskId) ||
+    !taskIds.has(args.successorTaskId)
+  ) {
+    return { ok: false, error: "Both tasks must belong to this project." };
+  }
+  const existing = listDemoProjectTaskDependencies(args.projectId).edges;
+  const validation = validateDependencyAddition(
+    projectTasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    })),
+    existing,
+    args,
+  );
+  if (!validation.ok) return validation;
+
+  const dependency: JobTaskDependencyRow = {
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    projectId: args.projectId,
+    predecessorTaskId: args.predecessorTaskId,
+    successorTaskId: args.successorTaskId,
+    lagDays: args.lagDays,
+    createdBy: args.actor,
+  };
+  jobTaskDependencies.push(dependency);
+  const successor = projectTasks.find(
+    (task) => task.id === args.successorTaskId,
+  );
+  if (successor) {
+    recordJobEvent({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_added",
+      summary: `task dependency added: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: args.predecessorTaskId,
+        successorTaskId: args.successorTaskId,
+        lagDays: args.lagDays,
+      },
+    });
+  }
+  return { ok: true, dependency };
+}
+
+export function deleteDemoJobTaskDependency(args: {
+  projectId: string;
+  dependencyId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const dependency = jobTaskDependencies.find(
+    (edge) =>
+      edge.id === args.dependencyId && edge.projectId === args.projectId,
+  );
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be found." };
+  }
+  const successor = jobTasks.find(
+    (task) => task.id === dependency.successorTaskId,
+  );
+  removeById(jobTaskDependencies, dependency.id);
+  if (successor) {
+    recordJobEvent({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_removed",
+      summary: `task dependency removed: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true };
 }
 
 export function addDemoJobTask(args: {

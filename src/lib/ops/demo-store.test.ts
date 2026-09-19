@@ -5,11 +5,13 @@ import {
   addDemoCompany,
   addDemoJobDocument,
   addDemoJobFieldNote,
+  addDemoJobTaskDependency,
   addDemoJobTask,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   deleteDemoJobFieldNote,
+  deleteDemoJobTaskDependency,
   deleteDemoWorkArea,
   getDemoCompany,
   getDemoEstimateRequest,
@@ -21,6 +23,7 @@ import {
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
+  listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
   listDemoWorkAreas,
@@ -309,6 +312,87 @@ describe("job workspace", () => {
 });
 
 describe("workspace CRUD and filters", () => {
+  it("validates, creates, and removes project task dependencies", () => {
+    const makeTask = (title: string) =>
+      addDemoJobTask({
+        jobId: DEMO_JOB_ID,
+        actor: "pm@strongfoam.com",
+        input: {
+          title: `${title} ${crypto.randomUUID()}`,
+          assignee: null,
+          dueAt: null,
+          plannedStartAt: new Date("2026-09-20T12:00:00.000Z"),
+          plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
+          workAreaId: null,
+        },
+      });
+    const first = makeTask("First");
+    const second = makeTask("Second");
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    if (!first || !second) return;
+
+    const before = listDemoProjectTaskDependencies(DEMO_PROJECT_ID).edges.length;
+    const result = addDemoJobTaskDependency({
+      projectId: DEMO_PROJECT_ID,
+      predecessorTaskId: first.id,
+      successorTaskId: second.id,
+      lagDays: 1,
+      actor: "pm@strongfoam.com",
+    });
+    expect(result.ok).toBe(true);
+    expect(listDemoProjectTaskDependencies(DEMO_PROJECT_ID).edges).toHaveLength(
+      before + 1,
+    );
+    expect(
+      addDemoJobTaskDependency({
+        projectId: DEMO_PROJECT_ID,
+        predecessorTaskId: first.id,
+        successorTaskId: second.id,
+        lagDays: 1,
+        actor: "pm@strongfoam.com",
+      }).ok,
+    ).toBe(false);
+    expect(
+      addDemoJobTaskDependency({
+        projectId: DEMO_PROJECT_ID,
+        predecessorTaskId: second.id,
+        successorTaskId: first.id,
+        lagDays: 0,
+        actor: "pm@strongfoam.com",
+      }).ok,
+    ).toBe(false);
+    expect(
+      addDemoJobTaskDependency({
+        projectId: DEMO_PROJECT_ID,
+        predecessorTaskId: first.id,
+        successorTaskId: first.id,
+        lagDays: 0,
+        actor: "pm@strongfoam.com",
+      }).ok,
+    ).toBe(false);
+    expect(
+      addDemoJobTaskDependency({
+        projectId: "00000000-0000-4000-8000-000000000000",
+        predecessorTaskId: first.id,
+        successorTaskId: second.id,
+        lagDays: 0,
+        actor: "pm@strongfoam.com",
+      }).ok,
+    ).toBe(false);
+    if (!result.ok) return;
+    expect(
+      deleteDemoJobTaskDependency({
+        projectId: DEMO_PROJECT_ID,
+        dependencyId: result.dependency.id,
+        actor: "pm@strongfoam.com",
+      }).ok,
+    ).toBe(true);
+    expect(listDemoProjectTaskDependencies(DEMO_PROJECT_ID).edges).toHaveLength(
+      before,
+    );
+  });
+
   it("persists planned task dates and actual completion", () => {
     const plannedStartAt = new Date("2026-09-20T12:00:00.000Z");
     const plannedEndAt = new Date("2026-09-22T12:00:00.000Z");

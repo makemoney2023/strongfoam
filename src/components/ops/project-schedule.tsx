@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NativeSelect } from "@/components/ops/native-select";
+import { TaskDependencyEditor } from "@/components/ops/task-dependency-editor";
 import {
   SCHEDULE_FILTERS,
   createScheduleWindow,
@@ -40,6 +41,7 @@ import {
   moveScheduleAnchor,
   positionInWindow,
   type ProjectScheduleJob,
+  type ProjectScheduleDependency,
   type ProjectScheduleTask,
   type ScheduleFilter,
   type ScheduleState,
@@ -326,13 +328,21 @@ function ChartRow({
 }
 
 export function ProjectSchedule({
+  projectId,
   jobs,
+  dependencies,
   now,
   truncated = false,
+  dependenciesTruncated = false,
+  returnTo,
 }: {
+  projectId: string;
   jobs: ProjectScheduleJob[];
+  dependencies: ProjectScheduleDependency[];
   now: string;
   truncated?: boolean;
+  dependenciesTruncated?: boolean;
+  returnTo: string;
 }) {
   const [zoom, setZoom] = useState<ScheduleZoom>("week");
   const [filter, setFilter] = useState<ScheduleFilter>("all");
@@ -349,6 +359,22 @@ export function ProjectSchedule({
     ? hideCompletedScheduleRows(filteredJobs)
     : filteredJobs;
   const projectProgress = getTaskProgress(jobs.flatMap((job) => job.tasks));
+  const taskOptions = jobs.flatMap((job) =>
+    job.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      jobNumber: job.number,
+    })),
+  );
+  const taskOptionById = new Map(
+    taskOptions.map((option) => [option.id, option]),
+  );
+  const incomingByTask = new Map<string, ProjectScheduleDependency[]>();
+  for (const edge of dependencies) {
+    const bucket = incomingByTask.get(edge.successorTaskId) ?? [];
+    bucket.push(edge);
+    incomingByTask.set(edge.successorTaskId, bucket);
+  }
 
   function toggleJob(id: string) {
     setExpanded((current) => {
@@ -368,6 +394,16 @@ export function ProjectSchedule({
           <AlertDescription>
             Only the first 1,000 tasks are shown. Narrow this project or review
             jobs individually for the remaining tasks.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {dependenciesTruncated ? (
+        <Alert>
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>Schedule dependency limit reached</AlertTitle>
+          <AlertDescription>
+            Only the first 2,000 dependencies are shown. Review project scope
+            before making additional schedule changes.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -573,6 +609,7 @@ export function ProjectSchedule({
                           task,
                           job,
                         );
+                        const incoming = incomingByTask.get(task.id) ?? [];
                         return (
                           <ChartRow
                             key={task.id}
@@ -608,7 +645,24 @@ export function ProjectSchedule({
                                       Outside job dates
                                     </p>
                                   ) : null}
+                                  {incoming.length > 0 ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {incoming.length} predecessor
+                                      {incoming.length === 1 ? "" : "s"}
+                                    </p>
+                                  ) : null}
                                 </div>
+                                <TaskDependencyEditor
+                                  projectId={projectId}
+                                  task={{
+                                    id: task.id,
+                                    title: task.title,
+                                    jobNumber: job.number,
+                                  }}
+                                  tasks={taskOptions}
+                                  incoming={incoming}
+                                  returnTo={returnTo}
+                                />
                               </div>
                             }
                           >
@@ -645,6 +699,7 @@ export function ProjectSchedule({
                 <TableHead>Due date</TableHead>
                 <TableHead>Actual completion</TableHead>
                 <TableHead>Progress</TableHead>
+                <TableHead>Dependencies</TableHead>
                 <TableHead>Warning</TableHead>
               </TableRow>
             </TableHeader>
@@ -674,6 +729,7 @@ export function ProjectSchedule({
                         ? "No tasks"
                         : `${progress.completed} / ${progress.total} (${progress.percent}%)`}
                     </TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>
                       {!job.plannedStartAt && !job.plannedEndAt
                         ? "Unscheduled"
@@ -685,6 +741,7 @@ export function ProjectSchedule({
                   ...job.tasks.map((task) => {
                     const taskState = getTaskScheduleState(task, today);
                     const outsideJobDates = isTaskOutsideJobRange(task, job);
+                    const incoming = incomingByTask.get(task.id) ?? [];
                     return (
                       <TableRow key={`task-${task.id}`}>
                         <TableCell>Task</TableCell>
@@ -704,6 +761,20 @@ export function ProjectSchedule({
                         <TableCell>{formatDate(task.completedAt)}</TableCell>
                         <TableCell>
                           {task.status === "done" ? "Complete" : "Open"}
+                        </TableCell>
+                        <TableCell>
+                          {incoming.length === 0
+                            ? "No predecessors"
+                            : incoming
+                                .map((edge) => {
+                                  const predecessor = taskOptionById.get(
+                                    edge.predecessorTaskId,
+                                  );
+                                  return predecessor
+                                    ? `${predecessor.jobNumber} · ${predecessor.title} (${edge.lagDays}d lag)`
+                                    : "Unknown predecessor";
+                                })
+                                .join("; ")}
                         </TableCell>
                         <TableCell>
                           {outsideJobDates
