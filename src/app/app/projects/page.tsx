@@ -1,9 +1,11 @@
+import { GanttChartIcon } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,9 +53,20 @@ export default async function ProjectsPage({
         title="Projects"
         description="One project is created from each won opportunity. Add more jobs from the project when the site needs extra crews or phases."
         actions={
-          <p className="text-sm text-muted-foreground">
-            {projects.length} project{projects.length === 1 ? "" : "s"}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              {projects.length} project{projects.length === 1 ? "" : "s"}
+            </p>
+            <Button
+              render={<Link href="/app/projects/schedule" />}
+              nativeButton={false}
+              variant="outline"
+              className="min-h-11 min-w-11"
+            >
+              <GanttChartIcon aria-hidden="true" />
+              Portfolio Schedule
+            </Button>
+          </div>
         }
       />
 
