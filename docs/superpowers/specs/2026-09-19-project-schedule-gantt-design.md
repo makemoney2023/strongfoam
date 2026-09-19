@@ -1,9 +1,9 @@
 # Project Schedule Roll-Up — Design Specification
 
-**Date:** 2026-09-19  
-**Product:** Strong Foam Operations Platform  
-**Status:** Draft, implementation-ready  
-**PRD requirements:** SCH-001 through SCH-015  
+**Date:** 2026-09-19
+**Product:** Strong Foam Operations Platform
+**Status:** Draft, implementation-ready
+**PRD requirements:** SCH-001 through SCH-015
 **Primary surface:** `/app/projects/[id]`
 
 ## Executive summary
