@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.4
+**Version:** 1.5
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -490,9 +490,10 @@ Future operational releases should provide:
 ### 16.1 Project schedule roll-up
 
 The project detail page must give project managers one schedule view across all
-jobs and job tasks. Delivery is intentionally incremental: the first release
-uses existing job dates and task due dates, while later releases add task
-durations and dependencies without changing the roll-up's hierarchy.
+jobs and job tasks. Delivery is incremental within this feature: the first
+phase uses existing job dates and task due dates, and subsequent phases add
+task durations, dependencies, critical path, and controlled rescheduling
+without changing the roll-up's hierarchy.
 
 **SCH-001:** An authorized user must be able to open a **Schedule** section on a
 project and see every job attached to that project.
@@ -567,14 +568,46 @@ may require them, but the UI must show a schedule warning.
 Reopening it must clear that timestamp. Both changes remain attributable in the
 job activity history.
 
-**SCH-014:** Task dependencies and drag-to-reschedule are later enhancements.
-When added, dependencies must be stored as validated relationships, circular
-dependencies must be rejected, and every reschedule must pass server
-validation and create an attributable event.
+**SCH-014:** Authorized managers must be able to create and remove
+finish-to-start task dependencies across jobs in the same project. Duplicate,
+self-referential, cross-project, and circular dependencies must be rejected.
+Each relationship may include a non-negative working-day lag.
 
-**SCH-015:** The initial project schedule must remain usable with at least 100
-jobs and 1,000 tasks through a bounded project-scoped query, collapsed rows,
-and horizontal timeline virtualization or bounded rendering.
+**SCH-015:** The schedule must calculate and identify the project critical path
+from scheduled task duration, finish-to-start dependencies, and lag. Critical
+status must use a label or icon in addition to color. Unscheduled tasks and
+tasks outside the dependency network must not be presented as critical.
+
+**SCH-016:** Authorized managers must be able to drag a scheduled job or task to
+propose new dates. The UI must show the exact before/after dates and require
+confirmation before saving. Task moves preserve duration; due-only milestones
+move the due date. A dependency violation must be rejected with the conflicting
+predecessor or successor named.
+
+**SCH-017:** Every reschedule must be server-validated, authorization-checked,
+protected against stale writes, and recorded with actor, source dates, target
+dates, entity version, and timestamp. Keyboard users must have a non-drag
+reschedule control with equivalent behavior.
+
+**SCH-018:** The project schedule must remain usable with at least 100 jobs,
+1,000 tasks, and 2,000 dependency edges through bounded project-scoped queries,
+collapsed rows, and horizontal timeline virtualization or bounded rendering.
+
+**SCH-019:** Authorized managers must be able to capture a named schedule
+baseline and compare current job/task dates with it. The schedule must show
+start variance, finish variance, and newly scheduled or removed items without
+changing the immutable baseline.
+
+**SCH-020:** Managers must be able to switch to a resource overlay grouped by
+the existing job project manager/foreman and task assignee values. Concurrent
+assignments for the same normalized person must be highlighted as potential
+conflicts; the overlay does not infer hours or capacity that the system does
+not store.
+
+**SCH-021:** Schedule geometry, critical path, dependency lag, and rescheduling
+must use a configurable working-day calendar. The initial calendar treats
+Saturday and Sunday as non-working and allows authorized managers to add dated
+closures or working-day exceptions. Stored timestamps remain unchanged.
 
 #### 16.1.1 Acceptance outcomes
 
@@ -584,6 +617,16 @@ and horizontal timeline virtualization or bounded rendering.
 - Expanding a job shows all of its tasks, including tasks without due dates.
 - Progress totals update after a task is completed or reopened.
 - Clicking a job or task reaches the underlying source record.
+- Valid dependency links appear between scheduled tasks, and cycles are
+  rejected.
+- Critical tasks are identified consistently from task duration, dependencies,
+  and lag.
+- Dragging or keyboard-rescheduling shows a before/after confirmation and only
+  saves after server validation.
+- A captured baseline remains immutable and displays current date variance.
+- The resource overlay groups existing assignments and flags overlapping work.
+- Calendar exceptions change schedule calculations without rewriting stored
+  dates.
 - Week and month views preserve the same records and facts.
 - The tabular alternative communicates the same schedule information as the
   chart.
@@ -1360,8 +1403,16 @@ policy and human review.
 2. Add task planned start, planned completion, and actual completion timestamps.
 3. Upgrade scheduled tasks from milestones to duration bars and surface
    out-of-job-range warnings.
-4. Evaluate dependencies and explicit drag-to-reschedule only after managers
-   validate the read-only schedule and date-entry workflow.
+4. Add finish-to-start task dependencies with non-negative lag and cycle
+   rejection.
+5. Calculate and label the critical path.
+6. Add confirmed drag and keyboard rescheduling with stale-write protection,
+   dependency validation, and attributable before/after events.
+7. Add immutable schedule baselines and current-versus-baseline variance.
+8. Add assignment/resource overlays from project manager, foreman, and task
+   assignee data with overlap warnings.
+9. Add a configurable working-day calendar and apply it consistently to
+   geometry, critical path, lag, and rescheduling.
 
 ### Usability pass
 
@@ -1436,10 +1487,6 @@ These decisions are required before their respective implementation stage:
 8. Offline requirements beyond drafts and queued uploads.
 9. Initial estimate format, price-book ownership, taxes, and approval rules.
 10. Final data residency, retention, backup, and disaster-recovery policies.
-11. Whether task dependencies are finish-to-start only or require additional
-    dependency types.
-12. Whether non-working days and organization holiday calendars affect visual
-    duration or remain informational.
 
 ## 31. Decision log
 
@@ -1466,12 +1513,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Put every create form behind a button and every edit behind a dialog; keep field capture inline | Staff reported not finding "add company" and "add job"; progressive disclosure makes pages readable while a technician on a phone still logs a note in one tap |
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
 | 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
-| 2026-09-19 | Deliver the project schedule as a read-only job/task roll-up before drag scheduling or dependencies | Existing job dates and task due dates can provide immediate management visibility without inventing task durations or allowing unvalidated timeline edits |
+| 2026-09-19 | Deliver the project schedule in validated phases: roll-up, task durations, dependency planning, controlled rescheduling, baselines, assignment overlays, and working-day calendars | Existing dates provide immediate visibility while later phases add planning power without inventing duration, capacity, or silent timeline edits |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.5 | 2026-09-19 | Expanded the project Schedule scope to include dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendar exceptions |
 | 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
 | 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |
 | 1.2 | 2026-09-19 | Moved create forms behind buttons, added New job entry points, read-first detail pages with Edit dialogs, confirmed deletes, empty states, and the Home dashboard; recorded UX-001 to UX-014 |

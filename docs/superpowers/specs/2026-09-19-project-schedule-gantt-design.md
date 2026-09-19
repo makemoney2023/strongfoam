@@ -3,7 +3,7 @@
 **Date:** 2026-09-19
 **Product:** Strong Foam Operations Platform
 **Status:** Draft, implementation-ready
-**PRD requirements:** SCH-001 through SCH-015
+**PRD requirements:** SCH-001 through SCH-021
 **Primary surface:** `/app/projects/[id]`
 
 ## Executive summary
@@ -17,7 +17,11 @@ job and its tasks into an expandable, accessible Gantt-style timeline. The
 first usable release is read-only: job bars use existing planned start/end
 dates and task milestones use existing due dates. A subsequent data-model
 enhancement adds task planned start, planned completion, and actual completion
-timestamps so tasks with duration render as bars.
+timestamps so tasks with duration render as bars. The final implementation
+phase adds finish-to-start dependencies, critical-path calculation, and
+confirmed drag/keyboard rescheduling. The complete increment also includes
+immutable baselines, assignment overlays, and a configurable working-day
+calendar.
 
 The product label is **Schedule**, not “Gantt,” because managers need the
 outcome rather than the chart terminology.
@@ -44,17 +48,19 @@ statuses. That is slow and makes missing dates easy to overlook.
 4. Provide fast drill-through to the underlying job or task.
 5. Keep the same schedule facts available to keyboard and screen-reader users.
 6. Establish the data model required for task duration and actual completion.
+7. Compare the live schedule against an immutable manager-captured baseline.
+8. Expose overlapping work from existing assignment values without inventing
+   labor capacity.
+9. Apply one working-day policy consistently across geometry, lag, critical
+   path, and rescheduling.
 
 ## Non-goals
 
-- Drag-to-reschedule in the initial release.
-- Dependency arrows, critical-path calculation, or baseline variance.
-- Crew/resource leveling.
+- Hour-based crew/resource capacity and automatic leveling.
 - Automatic schedule optimization.
-- Holiday or working-time calculations.
 - Replacing the dispatch board or calendar.
 - Inferring task duration from creation date, due date, status, or job dates.
-- Editing records directly inside the graphical timeline.
+- Cascading an entire dependency chain from one drag.
 
 ## Users and primary stories
 
@@ -102,17 +108,31 @@ Task forms accept planned start and planned completion. Tasks with both planned
 dates render as bars. Completion/reopen actions set or clear `completedAt`.
 Tasks outside the parent job range show a warning, but are not rejected.
 
-### Deferred enhancements
+### Phase C — Dependency network and controlled rescheduling
 
-- Task dependencies.
-- Critical path.
-- Baseline schedule and variance.
-- Drag-to-reschedule.
-- Crew/resource overlays.
-- Holiday calendars.
+Adds:
 
-These require separate validation because they introduce mutation, conflict,
-and planning-policy decisions.
+- Finish-to-start task dependencies across jobs in one project.
+- Non-negative working-day dependency lag.
+- Cycle, duplicate, self-reference, and cross-project rejection.
+- Dependency connectors between visible scheduled tasks.
+- Critical-path calculation from task duration, dependencies, and lag.
+- Drag-to-reschedule for scheduled jobs and tasks.
+- Keyboard-accessible reschedule dialog with the same preview and validation.
+- Exact before/after confirmation, optimistic concurrency, and audit events.
+
+### Phase D — Baseline, assignments, and working calendar
+
+Adds:
+
+- Named immutable project baselines with start/finish variance.
+- A **Resources** view grouped by normalized project manager, foreman, and task
+  assignee strings.
+- Overlap warnings for concurrent assignments without fabricated hour/capacity
+  values.
+- A working calendar with Saturday/Sunday excluded by default.
+- Authorized dated closures and working-day exceptions.
+- Working-day-aware geometry, dependency lag, critical path, and rescheduling.
 
 ## Information architecture
 
@@ -164,6 +184,19 @@ The frozen label pane contains:
 - Today resets the window so today is visible.
 - The today marker is labelled for assistive technology.
 - The left pane remains readable while the timeline scrolls horizontally.
+
+### Planning controls
+
+- **Work | Resources** switches between job/task hierarchy and assignment
+  groups without changing the visible date window.
+- **Baseline** selects a captured baseline or **None**.
+- **Capture baseline** asks for a name, previews the item count, and confirms
+  one immutable project snapshot.
+- **Working calendar** opens weekend and dated-exception management.
+- Selecting a baseline adds baseline outlines and signed start/finish variance
+  to the chart and table.
+- Resource view lists each normalized person, their role labels, scheduled
+  items, and potential overlap count.
 
 ### Job rows
 
@@ -271,7 +304,20 @@ and do not change with the filter.
 - Job row click navigates to `/app/jobs/{jobId}`.
 - Task row click navigates to `/app/jobs/{jobId}#task-{taskId}`.
 - Task list items on the job page receive matching stable anchor IDs.
-- Graphical bars and milestones are links, not drag handles.
+- In Phases A/B, graphical bars and milestones are links, not drag handles.
+- In Phase C, a dedicated grip on a scheduled bar/milestone starts a drag;
+  clicking its label still opens the source record.
+- A completed task may be rescheduled only through the same confirmed command;
+  completion state and `completedAt` do not change.
+- Dragging a task shifts both planned dates by the same visible working-day
+  delta and preserves duration. Dragging a due-only milestone changes only
+  `dueAt`.
+- Dragging a job shifts both planned dates by the same visible working-day
+  delta and preserves duration; attached task dates do not move automatically.
+- Dropping opens a preview with old dates, proposed dates, and dependency or
+  out-of-job-range warnings. No mutation occurs before confirmation.
+- Each draggable row also has a **Reschedule** menu action that opens the same
+  preview for keyboard and assistive-technology users.
 - Hover may reveal detail, but all required actions and facts remain available
   by focus and in the table.
 
@@ -361,6 +407,160 @@ CREATE INDEX "job_tasks_job_schedule_idx"
 tasks are not assigned a fabricated historical completion time; they remain
 done with `completedAt = null` until a future audited backfill policy exists.
 
+### Phase C dependency table
+
+```sql
+CREATE TABLE "job_task_dependencies" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "created_at" timestamptz DEFAULT now() NOT NULL,
+  "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "predecessor_task_id" uuid NOT NULL
+    REFERENCES "job_tasks"("id") ON DELETE CASCADE,
+  "successor_task_id" uuid NOT NULL
+    REFERENCES "job_tasks"("id") ON DELETE CASCADE,
+  "lag_days" integer DEFAULT 0 NOT NULL,
+  "created_by" text NOT NULL,
+  CONSTRAINT "job_task_dependencies_unique"
+    UNIQUE ("predecessor_task_id", "successor_task_id"),
+  CONSTRAINT "job_task_dependencies_no_self"
+    CHECK ("predecessor_task_id" <> "successor_task_id"),
+  CONSTRAINT "job_task_dependencies_lag_nonnegative"
+    CHECK ("lag_days" >= 0)
+);
+
+CREATE INDEX "job_task_dependencies_project_idx"
+  ON "job_task_dependencies" ("project_id");
+CREATE INDEX "job_task_dependencies_successor_idx"
+  ON "job_task_dependencies" ("successor_task_id");
+```
+
+The command layer must prove both tasks belong to `project_id`; database
+foreign keys alone do not enforce that relationship.
+
+### Phase D baseline and calendar tables
+
+```sql
+CREATE TABLE "schedule_calendars" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "name" text NOT NULL,
+  "time_zone" text NOT NULL,
+  "weekend_days" integer[] DEFAULT '{0,6}' NOT NULL,
+  "is_default" boolean DEFAULT false NOT NULL
+);
+
+CREATE TABLE "schedule_calendar_exceptions" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "calendar_id" uuid NOT NULL
+    REFERENCES "schedule_calendars"("id") ON DELETE CASCADE,
+  "date" date NOT NULL,
+  "name" text NOT NULL,
+  "is_working_day" boolean DEFAULT false NOT NULL,
+  UNIQUE ("calendar_id", "date")
+);
+
+ALTER TABLE "projects"
+  ADD COLUMN "schedule_calendar_id" uuid
+  REFERENCES "schedule_calendars"("id");
+
+CREATE TABLE "project_schedule_baselines" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+  "name" text NOT NULL,
+  "captured_at" timestamptz DEFAULT now() NOT NULL,
+  "captured_by" text NOT NULL,
+  "deleted_at" timestamptz,
+  "deleted_by" text
+);
+
+CREATE TABLE "project_schedule_baseline_items" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "baseline_id" uuid NOT NULL
+    REFERENCES "project_schedule_baselines"("id") ON DELETE CASCADE,
+  "entity_type" text NOT NULL CHECK ("entity_type" IN ('job', 'task')),
+  "entity_id" uuid NOT NULL,
+  "planned_start_at" timestamptz,
+  "planned_end_at" timestamptz,
+  "due_at" timestamptz,
+  UNIQUE ("baseline_id", "entity_type", "entity_id")
+);
+```
+
+Baseline capture writes one immutable item for every current project job and
+task in a transaction. Baselines have no update command. Removal is an
+explicit confirmed soft-delete that preserves capture data and actor. An item
+absent from the baseline is
+**Added since baseline**; a baseline item whose source record no longer exists
+is **Removed since baseline**.
+
+The default calendar excludes Sunday (`0`) and Saturday (`6`). A dated
+exception overrides the weekly rule. Project calendar falls back to the one
+default calendar. Calendar changes affect calculations only; they never rewrite
+stored job/task timestamps or baseline values.
+
+## Dependency and critical-path rules
+
+The included dependency type is finish-to-start:
+
+```text
+successor earliest start
+  = predecessor earliest finish + lagDays
+```
+
+Rules:
+
+- A task cannot depend on itself.
+- The same edge cannot be added twice.
+- Both tasks must belong to jobs in the same project.
+- Adding an edge that creates a cycle is rejected before persistence.
+- `lagDays` is a whole number greater than or equal to zero.
+- Dependencies may cross jobs within the project.
+- Deleting a task removes its dependency edges through cascade.
+- Removing an edge does not change task dates automatically.
+
+Critical-path calculation uses scheduled tasks that have both planned dates and
+the project's resolved working calendar:
+
+1. Duration is inclusive working days, minimum one.
+2. Topologically sort the valid dependency graph.
+3. Forward pass calculates earliest start/finish using working-day dependency
+   lag.
+4. Project finish is the maximum earliest finish across scheduled tasks.
+5. Backward pass calculates latest start/finish from that project finish.
+6. Total float is `latestStart - earliestStart`.
+7. A task is critical when total float is zero.
+
+Unscheduled tasks are excluded and labelled **Not calculated — add planned
+dates**. A cycle must never reach calculation because edge creation rejects it;
+defensive calculation returns an explicit invalid-graph result if corrupted
+data is encountered.
+
+## Baseline variance rules
+
+For each current item and selected baseline:
+
+- Start variance is signed working days from baseline start to current start.
+- Finish variance is signed working days from baseline end/due to current
+  end/due.
+- Positive variance means later; negative means earlier; zero means unchanged.
+- Missing baseline dates remain **Not baselined**, not zero variance.
+- New and removed items use explicit labels rather than synthetic dates.
+- Baseline bars render as a thin neutral outline behind current bars.
+
+## Resource overlay rules
+
+Resource keys come from existing strings:
+
+- Job `projectManager` → `Project manager`.
+- Job `foreman` → `Foreman`.
+- Task `assignee` → `Task assignee`.
+
+Normalize only for grouping: trim, collapse internal whitespace, and compare
+case-insensitively. Preserve the first stored display value. A person has a
+potential overlap when two scheduled ranges assigned to that normalized key
+share at least one working day. Due-only milestones appear but do not create
+overlap warnings. The UI says **Potential overlap**, never **Overallocated**,
+because no hour or capacity model exists.
+
 ## Application data contract
 
 The client schedule receives serializable data:
@@ -387,6 +587,22 @@ export type ProjectScheduleJob = {
   plannedEndAt: string | null;
   tasks: ProjectScheduleTask[];
 };
+
+export type ProjectScheduleDependency = {
+  id: string;
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
+};
+
+export type ProjectScheduleData = {
+  jobs: ProjectScheduleJob[];
+  dependencies: ProjectScheduleDependency[];
+  baselines: ProjectScheduleBaseline[];
+  calendar: ResolvedWorkingCalendar;
+  truncated: boolean;
+};
 ```
 
 The server owns date serialization. The client must not receive Drizzle rows
@@ -399,10 +615,15 @@ The project page must use a bounded project-scoped read:
 1. Verify the project is authorized and exists.
 2. Fetch jobs for the project.
 3. Fetch all job tasks for those job IDs in one query.
-4. Group tasks by job in application code.
-5. Bound the initial task query at 1,001 rows, render the first 1,000, and show
+4. Fetch all project dependency edges in one query.
+5. Fetch baseline headers, selected baseline items, and the resolved project
+   calendar/exceptions with bounded project-scoped reads.
+6. Group tasks by job in application code.
+7. Bound the initial task query at 1,001 rows, render the first 1,000, and show
    a bounded-result warning when the extra row proves the project exceeds the
    rendering contract.
+8. Bound dependency reads at 2,001 edges, render the first 2,000, and use the
+   same warning behavior.
 
 Do not add one task query per job. The demo adapter must return the same shape
 as the database adapter.
@@ -424,13 +645,25 @@ Validation rules:
 - A date outside the parent job range is accepted and represented as a warning.
 - `dueAt` remains supported for deadline semantics.
 
+Dependency commands validate task existence, same-project membership,
+non-negative integer lag, duplicate edge, self-reference, and cycle creation.
+
+Reschedule commands accept the entity ID, exact proposed dates, and
+`expectedUpdatedAt`. The server reloads the entity and dependencies, rejects a
+stale version, validates date order and finish-to-start constraints, then
+returns either a field/conflict error or a confirmed result.
+
 ## Activity and audit
 
 - Task create/update events include planned date fields in event payloads.
 - Task completion sets `completedAt` and records `task_completed`.
 - Task reopen clears `completedAt` and records `task_reopened`.
-- Later drag rescheduling must use a server command, validate the exact payload,
-  and record before/after dates. It is not part of this implementation.
+- Dependency create/remove events include both task IDs and lag.
+- Every job/task reschedule event includes before/after dates, actor,
+  `expectedUpdatedAt`, and the accepted entity version.
+- Drag and keyboard rescheduling call the same server command.
+- Baselines retain capture/removal actor and timestamps.
+- Calendar exception changes retain actor, before/after values, and timestamp.
 
 ## UI implementation direction
 
@@ -439,21 +672,32 @@ Validation rules:
 - Use Lucide icons.
 - Build the schedule geometry as pure functions in
   `src/lib/ops/project-schedule.ts`.
+- Build dependency validation and critical-path calculation as pure functions
+  in `src/lib/ops/project-schedule-graph.ts`.
+- Build working-day, variance, and assignment-overlap rules as pure functions
+  in `src/lib/ops/project-schedule-planning.ts`.
 - Build the chart as a focused client component in
   `src/components/ops/project-schedule.tsx`.
-- Use CSS Grid and bounded columns for Phase A/B; do not add a third-party Gantt
-  dependency before interaction needs justify it.
+- Use SVG connectors only as a visual enhancement; dependency facts must also
+  appear in task labels and the accessible table.
+- Use pointer events for drag interaction and the same reschedule dialog for
+  keyboard operation.
+- Use CSS Grid and bounded columns; do not add a third-party Gantt dependency.
 - Use semantic tokens for status; do not hard-code arbitrary status colors.
 
 ## Performance requirements
 
-- Pure schedule projection must be linear in jobs plus tasks.
+- Pure schedule projection must be linear in jobs plus tasks plus dependency
+  edges.
 - Do not render collapsed task rows.
 - Keep visible timeline columns bounded to 42 days or six months.
-- Use one project jobs query and one project tasks query.
+- Use one project jobs query, one project tasks query, and one dependency query.
 - Initial server render should not require client-side data fetching.
 - A project with 100 jobs and 1,000 tasks must remain filterable and expandable
   without a full page navigation.
+- Dependency validation and critical-path calculation must support 2,000 edges.
+- Baseline and resource projections must remain linear in visible schedule
+  items; do not compare every assignment to every other assignment.
 
 ## Test strategy
 
@@ -467,6 +711,13 @@ Validation rules:
 - Planned date validation.
 - Completion timestamp set/clear.
 - Out-of-job-range warning.
+- Duplicate, self, cross-project, and circular dependency rejection.
+- Critical-path forward/backward passes and float calculation.
+- Drag delta preserves duration.
+- Stale and dependency-violating reschedules are rejected.
+- Working-day arithmetic honors weekend rules and dated overrides.
+- Baseline variance handles changed, new, removed, and unbaselined items.
+- Resource normalization and sweep-line overlap detection.
 
 ### Store
 
@@ -474,6 +725,11 @@ Validation rules:
 - Demo and database adapters return the same shape.
 - Bounds are enforced.
 - Completion/reopen updates `completedAt`.
+- Dependency CRUD is project-scoped and attributable.
+- Reschedule uses `expectedUpdatedAt` and records before/after dates.
+- Baseline capture is transactional and baseline items are immutable.
+- Calendar exception CRUD is authorized and project calendar resolution falls
+  back to the default.
 
 ### Browser
 
@@ -484,6 +740,13 @@ Validation rules:
 - Accessible table matches the chart.
 - 375px view scrolls horizontally without clipped controls.
 - Empty, no-task, and unscheduled states are understandable.
+- Dependency connectors and predecessor labels agree.
+- Critical labels agree with the tabular alternative.
+- Drag and keyboard rescheduling produce the same preview and result.
+- Stale and dependency-conflicting moves show actionable errors.
+- Baseline capture and comparison show correct signed variance.
+- Resource view flags overlaps but does not claim hour-based capacity.
+- A closure and working-day exception update geometry and critical labels.
 
 ## Acceptance criteria
 
@@ -500,32 +763,49 @@ Validation rules:
 9. Task planned dates validate end-after-start.
 10. Completing/reopening a task sets/clears `completedAt`.
 11. Dates outside a parent job window create a warning, not data loss.
-12. Lint, typecheck, unit tests, production build, and browser checks pass.
+12. Valid finish-to-start dependencies may cross jobs in the same project.
+13. Self, duplicate, cross-project, and circular dependencies are rejected.
+14. Critical-path labels match the documented working-day algorithm.
+15. Drag and keyboard moves preserve duration and require before/after
+    confirmation.
+16. Stale or dependency-violating moves do not mutate data.
+17. Every accepted dependency and reschedule creates an attributable event.
+18. A named baseline is immutable and displays signed current-date variance.
+19. New, removed, and unbaselined items use explicit baseline states.
+20. Resource view groups normalized existing assignments and flags overlapping
+    working-day ranges.
+21. Resource view does not present invented hours, utilization, or capacity.
+22. Weekend and dated exceptions affect geometry, lag, critical path, and
+    rescheduling consistently.
+23. Calendar changes do not rewrite stored schedule or baseline timestamps.
+24. Lint, typecheck, unit tests, production build, and browser checks pass.
 
 ## Prioritization
 
 ### Must
 
-- SCH-001 through SCH-010 and SCH-015.
+- SCH-001 through SCH-021.
 - Project/job/task hierarchy.
 - Truthful bars/milestones/unscheduled rows.
 - Progress, status, filters, navigation, drill-through, and accessible table.
+- Task duration fields, actual completion, and range warnings.
+- Finish-to-start dependencies and cycle rejection.
+- Critical-path calculation and accessible labels.
+- Confirmed drag and keyboard rescheduling.
+- Immutable baseline capture and variance.
+- Assignment/resource overlay with potential-overlap warnings.
+- Working-day calendars and dated exceptions.
 
 ### Should
-
-- SCH-011 through SCH-013.
-- Task duration fields, actual completion, and range warnings.
-
-### Could
 
 - Persisted expand/filter preferences.
 - Export current schedule table.
 - Schedule exceptions on the Home dashboard.
 
-### Not in this implementation
+### Could
 
-- SCH-014 dependency graph and drag scheduling.
-- Critical path, baseline variance, and resource leveling.
+- Dependency types beyond finish-to-start.
+- Hour-based resource capacity and automatic leveling.
 
 ## Risks and mitigations
 
@@ -536,16 +816,20 @@ Validation rules:
 | Chart is inaccessible | Equivalent semantic table, text/icon statuses, keyboard links |
 | N+1 task reads slow large projects | One project-scoped task query and bounds |
 | Progress conflicts with job status | Show both; never derive one from the other |
-| Drag edits create accidental schedule changes | Read-only chart; edits remain in validated dialogs |
+| Drag edits create accidental schedule changes | Exact before/after preview and explicit confirmation before the server command |
 | Existing done tasks lack completion history | Leave `completedAt` null; never invent a timestamp |
 | Time zones move milestones to another day | Normalize and label using organization time zone |
+| Dependency cycles invalidate schedule math | Validate with a topological cycle check before insert and fail closed during calculation |
+| Drag conflicts with another manager's edit | Require `expectedUpdatedAt` and reject stale commands |
+| Drag violates a predecessor or successor | Validate the affected edge set server-side and name the conflict |
+| Critical path is mistaken for a promise | Label it as calculated from current planned dates and dependencies |
+| A later calendar edit appears to rewrite history | Keep baseline timestamps immutable and recompute only displayed working-day variance |
+| Free-text names split one person into several lanes | Normalize case and whitespace for grouping while preserving display values |
+| Overlap is mistaken for proven over-capacity | Label it potential overlap and omit hours/utilization until capacity data exists |
 
 ## Open product decisions
 
-These do not block Phase A or B:
+These do not block the included phases:
 
 1. Dependency types beyond finish-to-start.
-2. Organization holiday/non-working-day behavior.
-3. Whether future drag rescheduling applies changes immediately or requires a
-   preview/confirmation.
-4. Whether the schedule needs PDF/CSV export.
+2. Whether the schedule needs PDF/CSV export.
