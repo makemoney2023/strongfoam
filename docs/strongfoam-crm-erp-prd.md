@@ -195,6 +195,51 @@ but identity, membership, assignment, API, and event contracts must remain
 organization-scoped so multi-organization support does not require replacing
 identity keys.
 
+### 8.2 User administration
+
+**IAM-007:** Office staff must sign in with individual user credentials tied to
+the same stable identity and organization membership used by Field. The
+environment-configured shared Office credential may remain only as a documented
+bootstrap and migration fallback, and must not override a database-backed
+account with the same email.
+
+**IAM-008:** Only an active administrator may open user administration or
+create, edit, activate, deactivate, reset credentials for, or revoke sessions
+from another user. Navigation visibility is not an authorization control.
+
+**IAM-009:** User administration must let an administrator create a user, edit
+their display name and email, assign an organization role, activate or
+deactivate their identity and membership, set a temporary password, reset a
+password, and revoke all active sessions.
+
+**IAM-010:** Changes to a user's email, organization role, password, or active
+state must invalidate previously issued Office and Field sessions no later than
+the next authenticated request. Session tokens must be signed, time-limited,
+and checked against current identity and membership state.
+
+**IAM-011:** The system must prevent an administrator from deactivating their
+own account and must preserve at least one active administrator. A field user
+with current job or task assignments may not be changed to an Office-only role
+until those assignments are resolved.
+
+**IAM-012:** Every user lifecycle command must record the target user, actor,
+event type, timestamp, and a human-readable summary. Passwords and password
+hashes must never appear in audit payloads.
+
+**IAM-013:** The user list must show name, email, organization role, access
+state, assignment counts, creation date, last update, and actions appropriate
+to the current administrator. It must also expose recent user-management
+activity.
+
+**IAM-014:** Password entry and reset must enforce the current password policy,
+store only a slow password hash, and communicate temporary passwords through an
+approved private channel. Public self-registration and password disclosure are
+not permitted.
+
+**IAM-015:** The future Supabase Auth migration must preserve stable application
+user IDs, memberships, assignment references, audit history, administrator
+authorization, and immediate deactivation/session-revocation behavior.
+
 ## 9. Core lifecycle
 
 ```text
@@ -1506,6 +1551,20 @@ policy and human review.
 9. Add a configurable working-day calendar and apply it consistently to
    geometry, critical path, lag, and rescheduling.
 
+### User administration
+
+1. Replace the shared Office credential with individual database-backed
+   administrator and Office identities while retaining a non-overriding
+   bootstrap fallback.
+2. Enforce administrator authorization on the user page and every lifecycle
+   command.
+3. Add profile and role editing, activation, deactivation, password reset, and
+   explicit session revocation.
+4. Add session-version checks to Office and Field cookies so credential and
+   access changes invalidate existing sessions.
+5. Record and display append-only user lifecycle events.
+6. Preserve these contracts when identity moves to Supabase Auth and RLS.
+
 ### Usability pass
 
 1. Full create, edit, and delete coverage plus status, type, and date filters
@@ -1611,11 +1670,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Use stable user IDs for job/task assignment, Field authorization, and Schedule resource lanes | Free-text names cannot reliably route work, revoke access, distinguish duplicate names, or prove which worker received a schedule |
 | 2026-09-19 | Exchange online Office and Field changes through authoritative commands plus a durable job-event stream | Both applications need low-latency updates without dual-write databases or direct application-to-application coupling |
 | 2026-09-19 | Use bounded server-sent event polling as the first realtime transport, preserving the event contract for the Render/outbox/Supabase migration | It delivers cross-session updates on the current stack while keeping the production topology and durable catch-up path explicit |
+| 2026-09-19 | Use the shared users and memberships model for individual Office and Field authentication, with administrator-only lifecycle controls and revocable sessions | A user record that cannot authenticate consistently or be revoked immediately is not an authoritative identity; a temporary environment login remains only for bootstrap migration |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.7 | 2026-09-19 | Expanded user administration requirements for individual Office authentication, administrator RBAC, lifecycle editing, credential reset, session revocation, lockout safeguards, and audit history |
 | 1.6 | 2026-09-19 | Defined separate Field identity/application boundaries, stable assignment routing from Schedule to Field, and the two-way realtime contract; recorded the initial implementation state |
 | 1.5 | 2026-09-19 | Expanded the project Schedule scope to include dependencies, critical path, controlled rescheduling, immutable baselines, assignment overlays, and working-day calendar exceptions |
 | 1.4 | 2026-09-19 | Added SCH-001 to SCH-015 for a project-level Gantt schedule that rolls up jobs and tasks, defines progress and unscheduled work, and phases task durations and dependencies |
