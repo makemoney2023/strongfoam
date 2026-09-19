@@ -83,6 +83,7 @@ import {
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
+  listDemoPortfolioSchedule,
   listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
@@ -175,6 +176,32 @@ export type ProjectScheduleBaselineItemRow =
   typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
+
+export type PortfolioScheduleStoreFilters = {
+  q?: string;
+  projectStatus?: string;
+  projectManager?: string;
+};
+
+export type PortfolioScheduleTruncation = {
+  projects: boolean;
+  jobs: boolean;
+  tasks: boolean;
+  dependencies: boolean;
+  baselineItems: boolean;
+};
+
+export type PortfolioScheduleStoreResult = {
+  projects: ProjectRow[];
+  jobs: JobRow[];
+  tasks: JobTaskRow[];
+  dependencies: JobTaskDependencyRow[];
+  calendars: ScheduleCalendarRow[];
+  calendarExceptions: ScheduleCalendarExceptionRow[];
+  baselines: ProjectScheduleBaselineRow[];
+  baselineItems: ProjectScheduleBaselineItemRow[];
+  truncation: PortfolioScheduleTruncation;
+};
 
 export type ProjectDependencyResult = {
   edges: JobTaskDependencyRow[];
@@ -885,6 +912,169 @@ export async function listProjects(
     .from(projects)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(projects.createdAt));
+}
+
+const PORTFOLIO_PROJECT_LIMIT = 250;
+const PORTFOLIO_JOB_LIMIT = 2_000;
+const PORTFOLIO_TASK_LIMIT = 5_000;
+const PORTFOLIO_DEPENDENCY_LIMIT = 10_000;
+const PORTFOLIO_BASELINE_ITEM_LIMIT = 5_000;
+
+export async function listPortfolioSchedule(
+  filters: PortfolioScheduleStoreFilters = {},
+): Promise<PortfolioScheduleStoreResult> {
+  if (isDemoOpsStore()) return listDemoPortfolioSchedule(filters);
+
+  const db = getDb();
+  const conditions = [];
+  const query = filters.q?.trim();
+  const projectStatus = filters.projectStatus?.trim();
+  const projectManager = filters.projectManager?.trim();
+  if (projectStatus) conditions.push(eq(projects.status, projectStatus));
+  if (projectManager) {
+    conditions.push(eq(projects.projectManager, projectManager));
+  }
+  if (query) {
+    conditions.push(
+      or(
+        ilike(projects.name, like(query)),
+        ilike(projects.projectManager, like(query)),
+      ),
+    );
+  }
+
+  const projectRows = await db
+    .select()
+    .from(projects)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(projects.createdAt), asc(projects.id))
+    .limit(PORTFOLIO_PROJECT_LIMIT + 1);
+  const selectedProjects = projectRows.slice(0, PORTFOLIO_PROJECT_LIMIT);
+  if (selectedProjects.length === 0) {
+    return {
+      projects: [],
+      jobs: [],
+      tasks: [],
+      dependencies: [],
+      calendars: [],
+      calendarExceptions: [],
+      baselines: [],
+      baselineItems: [],
+      truncation: {
+        projects: false,
+        jobs: false,
+        tasks: false,
+        dependencies: false,
+        baselineItems: false,
+      },
+    };
+  }
+
+  const projectIds = selectedProjects.map((project) => project.id);
+  const [jobRows, dependencyRows, defaultCalendar, latestBaselines] =
+    await Promise.all([
+      db
+        .select()
+        .from(jobs)
+        .where(inArray(jobs.projectId, projectIds))
+        .orderBy(desc(jobs.createdAt), asc(jobs.id))
+        .limit(PORTFOLIO_JOB_LIMIT + 1),
+      db
+        .select()
+        .from(jobTaskDependencies)
+        .where(inArray(jobTaskDependencies.projectId, projectIds))
+        .orderBy(
+          asc(jobTaskDependencies.createdAt),
+          asc(jobTaskDependencies.id),
+        )
+        .limit(PORTFOLIO_DEPENDENCY_LIMIT + 1),
+      ensureDefaultScheduleCalendar(),
+      db
+        .selectDistinctOn([projectScheduleBaselines.projectId])
+        .from(projectScheduleBaselines)
+        .where(
+          and(
+            inArray(projectScheduleBaselines.projectId, projectIds),
+            sql`${projectScheduleBaselines.deletedAt} IS NULL`,
+          ),
+        )
+        .orderBy(
+          asc(projectScheduleBaselines.projectId),
+          desc(projectScheduleBaselines.capturedAt),
+          desc(projectScheduleBaselines.id),
+        ),
+    ]);
+
+  const selectedJobs = jobRows.slice(0, PORTFOLIO_JOB_LIMIT);
+  const renderedJobIds = selectedJobs.map((job) => job.id);
+  const calendarIds = [
+    ...new Set([
+      defaultCalendar.id,
+      ...selectedProjects.flatMap((project) =>
+        project.scheduleCalendarId ? [project.scheduleCalendarId] : [],
+      ),
+    ]),
+  ];
+  const baselineIds = latestBaselines.map((baseline) => baseline.id);
+  const [taskRows, selectedCalendars, calendarExceptions, baselineItemRows] =
+    await Promise.all([
+      renderedJobIds.length > 0
+        ? db
+            .select()
+            .from(jobTasks)
+            .where(inArray(jobTasks.jobId, renderedJobIds))
+            .orderBy(asc(jobTasks.createdAt), asc(jobTasks.id))
+            .limit(PORTFOLIO_TASK_LIMIT + 1)
+        : Promise.resolve([]),
+      db
+        .select()
+        .from(scheduleCalendars)
+        .where(inArray(scheduleCalendars.id, calendarIds))
+        .orderBy(asc(scheduleCalendars.createdAt), asc(scheduleCalendars.id)),
+      db
+        .select()
+        .from(scheduleCalendarExceptions)
+        .where(inArray(scheduleCalendarExceptions.calendarId, calendarIds))
+        .orderBy(
+          asc(scheduleCalendarExceptions.date),
+          asc(scheduleCalendarExceptions.id),
+        ),
+      baselineIds.length > 0
+        ? db
+            .select()
+            .from(projectScheduleBaselineItems)
+            .where(
+              inArray(projectScheduleBaselineItems.baselineId, baselineIds),
+            )
+            .orderBy(
+              asc(projectScheduleBaselineItems.baselineId),
+              asc(projectScheduleBaselineItems.entityType),
+              asc(projectScheduleBaselineItems.entityId),
+              asc(projectScheduleBaselineItems.id),
+            )
+            .limit(PORTFOLIO_BASELINE_ITEM_LIMIT + 1)
+        : Promise.resolve([]),
+    ]);
+
+  return {
+    projects: selectedProjects,
+    jobs: selectedJobs,
+    tasks: taskRows.slice(0, PORTFOLIO_TASK_LIMIT),
+    dependencies: dependencyRows.slice(0, PORTFOLIO_DEPENDENCY_LIMIT),
+    calendars: selectedCalendars,
+    calendarExceptions,
+    baselines: latestBaselines,
+    baselineItems: baselineItemRows.slice(0, PORTFOLIO_BASELINE_ITEM_LIMIT),
+    truncation: {
+      projects: projectRows.length > PORTFOLIO_PROJECT_LIMIT,
+      jobs: jobRows.length > PORTFOLIO_JOB_LIMIT,
+      tasks: taskRows.length > PORTFOLIO_TASK_LIMIT,
+      dependencies:
+        dependencyRows.length > PORTFOLIO_DEPENDENCY_LIMIT,
+      baselineItems:
+        baselineItemRows.length > PORTFOLIO_BASELINE_ITEM_LIMIT,
+    },
+  };
 }
 
 export async function getProject(id: string): Promise<ProjectRow | null> {
@@ -1695,7 +1885,7 @@ async function ensureDefaultScheduleCalendar(
     .select()
     .from(scheduleCalendars)
     .where(eq(scheduleCalendars.isDefault, true))
-    .orderBy(asc(scheduleCalendars.createdAt))
+    .orderBy(asc(scheduleCalendars.createdAt), asc(scheduleCalendars.id))
     .limit(1);
   if (existing[0]) return existing[0];
   const rows = await db

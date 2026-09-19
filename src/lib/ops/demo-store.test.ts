@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { draftCrmFromRequest, parseCrmConversion } from "@/lib/ops/crm";
-import { demoEstimateRequests } from "@/lib/ops/demo-data";
+import {
+  demoEstimateRequests,
+  type JobRow,
+  type JobTaskDependencyRow,
+  type JobTaskRow,
+  type ProjectRow,
+  type ProjectScheduleBaselineItemRow,
+  type ProjectScheduleBaselineRow,
+  type ScheduleCalendarExceptionRow,
+  type ScheduleCalendarRow,
+} from "@/lib/ops/demo-data";
 import {
   addDemoCompany,
   addDemoJobDocument,
@@ -42,8 +52,291 @@ import {
   updateDemoWorkArea,
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
+  boundedRows,
+  listDemoPortfolioSchedule,
 } from "@/lib/ops/demo-store";
 import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
+import { listPortfolioSchedule } from "@/lib/ops/store";
+
+type DemoPortfolioState = {
+  projects: ProjectRow[];
+  jobsList: JobRow[];
+  jobTasks: JobTaskRow[];
+  jobTaskDependencies: JobTaskDependencyRow[];
+  scheduleCalendars: ScheduleCalendarRow[];
+  scheduleCalendarExceptions: ScheduleCalendarExceptionRow[];
+  projectScheduleBaselines: ProjectScheduleBaselineRow[];
+  projectScheduleBaselineItems: ProjectScheduleBaselineItemRow[];
+};
+
+const PORTFOLIO_IDS = {
+  projectExplicit: "10000000-0000-4000-8000-000000000001",
+  projectFallback: "20000000-0000-4000-8000-000000000002",
+  projectArchived: "30000000-0000-4000-8000-000000000003",
+  jobExplicit: "11000000-0000-4000-8000-000000000001",
+  jobFallback: "21000000-0000-4000-8000-000000000002",
+  jobArchived: "31000000-0000-4000-8000-000000000003",
+  taskExplicit: "12000000-0000-4000-8000-000000000001",
+  taskExplicitSecond: "12000000-0000-4000-8000-000000000002",
+  taskFallback: "22000000-0000-4000-8000-000000000002",
+  taskFallbackSecond: "22000000-0000-4000-8000-000000000003",
+  taskArchived: "32000000-0000-4000-8000-000000000003",
+  taskArchivedSecond: "32000000-0000-4000-8000-000000000004",
+  dependencyExplicit: "13000000-0000-4000-8000-000000000001",
+  dependencyFallback: "23000000-0000-4000-8000-000000000002",
+  dependencyArchived: "33000000-0000-4000-8000-000000000003",
+  calendarDefault: "14000000-0000-4000-8000-000000000001",
+  calendarExplicit: "24000000-0000-4000-8000-000000000002",
+  calendarUnrelated: "34000000-0000-4000-8000-000000000003",
+  baselineOld: "15000000-0000-4000-8000-000000000001",
+  baselineTieLow: "25000000-0000-4000-8000-000000000002",
+  baselineTieHigh: "f5000000-0000-4000-8000-000000000003",
+  baselineDeleted: "d5000000-0000-4000-8000-000000000004",
+  baselineFallback: "35000000-0000-4000-8000-000000000005",
+} as const;
+
+function getDemoPortfolioState(): DemoPortfolioState {
+  return (
+    globalThis as typeof globalThis & {
+      __strongfoamDemoOps: DemoPortfolioState;
+    }
+  ).__strongfoamDemoOps;
+}
+
+function addPortfolioFixtures(state: DemoPortfolioState): void {
+  const createdAt = new Date("2026-09-19T12:00:00.000Z");
+  const updatedAt = new Date("2026-09-19T13:00:00.000Z");
+  const project = (
+    id: string,
+    name: string,
+    status: string,
+    projectManager: string,
+    scheduleCalendarId: string | null,
+    offset: number,
+  ): ProjectRow => ({
+    id,
+    createdAt: new Date(createdAt.getTime() + offset),
+    updatedAt,
+    companyId: null,
+    siteId: null,
+    opportunityId: null,
+    sourceLeadId: null,
+    name,
+    status,
+    projectManager,
+    scheduleCalendarId,
+  });
+  state.projects.push(
+    project(
+      PORTFOLIO_IDS.projectExplicit,
+      "North Tower",
+      "active",
+      "Portfolio Alex Rivera",
+      PORTFOLIO_IDS.calendarExplicit,
+      3,
+    ),
+    project(
+      PORTFOLIO_IDS.projectFallback,
+      "South Yard",
+      "active",
+      "Jordan Patel",
+      null,
+      2,
+    ),
+    project(
+      PORTFOLIO_IDS.projectArchived,
+      "Archive Warehouse",
+      "archived",
+      "Portfolio Alex Rivera",
+      PORTFOLIO_IDS.calendarUnrelated,
+      1,
+    ),
+  );
+
+  const job = (id: string, projectId: string): JobRow => ({
+    id,
+    createdAt,
+    updatedAt,
+    projectId,
+    companyId: null,
+    siteId: null,
+    opportunityId: null,
+    name: `Job ${id}`,
+    status: "draft",
+    scope: null,
+    services: [],
+    projectManager: null,
+    foreman: null,
+    plannedStartAt: null,
+    plannedEndAt: null,
+    blockerNote: null,
+  });
+  state.jobsList.push(
+    job(PORTFOLIO_IDS.jobExplicit, PORTFOLIO_IDS.projectExplicit),
+    job(PORTFOLIO_IDS.jobFallback, PORTFOLIO_IDS.projectFallback),
+    job(PORTFOLIO_IDS.jobArchived, PORTFOLIO_IDS.projectArchived),
+  );
+
+  const task = (id: string, jobId: string): JobTaskRow => ({
+    id,
+    createdAt,
+    updatedAt,
+    jobId,
+    workAreaId: null,
+    title: `Task ${id}`,
+    assignee: null,
+    dueAt: null,
+    plannedStartAt: null,
+    plannedEndAt: null,
+    completedAt: null,
+    status: "open",
+    createdBy: "fixture@strongfoam.com",
+  });
+  state.jobTasks.push(
+    task(PORTFOLIO_IDS.taskExplicit, PORTFOLIO_IDS.jobExplicit),
+    task(PORTFOLIO_IDS.taskExplicitSecond, PORTFOLIO_IDS.jobExplicit),
+    task(PORTFOLIO_IDS.taskFallback, PORTFOLIO_IDS.jobFallback),
+    task(PORTFOLIO_IDS.taskFallbackSecond, PORTFOLIO_IDS.jobFallback),
+    task(PORTFOLIO_IDS.taskArchived, PORTFOLIO_IDS.jobArchived),
+    task(PORTFOLIO_IDS.taskArchivedSecond, PORTFOLIO_IDS.jobArchived),
+  );
+
+  const dependency = (
+    id: string,
+    projectId: string,
+    predecessorTaskId: string,
+    successorTaskId: string,
+  ): JobTaskDependencyRow => ({
+    id,
+    createdAt,
+    projectId,
+    predecessorTaskId,
+    successorTaskId,
+    lagDays: 0,
+    createdBy: "fixture@strongfoam.com",
+  });
+  state.jobTaskDependencies.push(
+    dependency(
+      PORTFOLIO_IDS.dependencyExplicit,
+      PORTFOLIO_IDS.projectExplicit,
+      PORTFOLIO_IDS.taskExplicit,
+      PORTFOLIO_IDS.taskExplicitSecond,
+    ),
+    dependency(
+      PORTFOLIO_IDS.dependencyFallback,
+      PORTFOLIO_IDS.projectFallback,
+      PORTFOLIO_IDS.taskFallback,
+      PORTFOLIO_IDS.taskFallbackSecond,
+    ),
+    dependency(
+      PORTFOLIO_IDS.dependencyArchived,
+      PORTFOLIO_IDS.projectArchived,
+      PORTFOLIO_IDS.taskArchived,
+      PORTFOLIO_IDS.taskArchivedSecond,
+    ),
+  );
+
+  const calendar = (
+    id: string,
+    name: string,
+    isDefault: boolean,
+  ): ScheduleCalendarRow => ({
+    id,
+    createdAt,
+    updatedAt,
+    updatedBy: "fixture@strongfoam.com",
+    name,
+    timeZone: "America/Toronto",
+    weekendDays: [0, 6],
+    isDefault,
+  });
+  state.scheduleCalendars.push(
+    calendar(PORTFOLIO_IDS.calendarDefault, "Default", true),
+    calendar(PORTFOLIO_IDS.calendarExplicit, "North Tower", false),
+    calendar(PORTFOLIO_IDS.calendarUnrelated, "Archive", false),
+  );
+  state.scheduleCalendarExceptions.push(
+    {
+      id: "16000000-0000-4000-8000-000000000001",
+      createdAt,
+      updatedAt,
+      updatedBy: "fixture@strongfoam.com",
+      calendarId: PORTFOLIO_IDS.calendarDefault,
+      date: "2026-12-25",
+      name: "Default holiday",
+      isWorkingDay: false,
+    },
+    {
+      id: "26000000-0000-4000-8000-000000000002",
+      createdAt,
+      updatedAt,
+      updatedBy: "fixture@strongfoam.com",
+      calendarId: PORTFOLIO_IDS.calendarExplicit,
+      date: "2026-12-26",
+      name: "North shutdown",
+      isWorkingDay: false,
+    },
+    {
+      id: "36000000-0000-4000-8000-000000000003",
+      createdAt,
+      updatedAt,
+      updatedBy: "fixture@strongfoam.com",
+      calendarId: PORTFOLIO_IDS.calendarUnrelated,
+      date: "2026-12-27",
+      name: "Archive shutdown",
+      isWorkingDay: false,
+    },
+  );
+
+  const capturedAt = new Date("2026-09-18T12:00:00.000Z");
+  const baseline = (
+    id: string,
+    projectId: string,
+    capturedOffset: number,
+    deletedAt: Date | null = null,
+  ): ProjectScheduleBaselineRow => ({
+    id,
+    projectId,
+    name: `Baseline ${id}`,
+    capturedAt: new Date(capturedAt.getTime() + capturedOffset),
+    capturedBy: "fixture@strongfoam.com",
+    deletedAt,
+    deletedBy: deletedAt ? "fixture@strongfoam.com" : null,
+  });
+  state.projectScheduleBaselines.push(
+    baseline(PORTFOLIO_IDS.baselineOld, PORTFOLIO_IDS.projectExplicit, 1),
+    baseline(PORTFOLIO_IDS.baselineTieLow, PORTFOLIO_IDS.projectExplicit, 2),
+    baseline(PORTFOLIO_IDS.baselineTieHigh, PORTFOLIO_IDS.projectExplicit, 2),
+    baseline(
+      PORTFOLIO_IDS.baselineDeleted,
+      PORTFOLIO_IDS.projectExplicit,
+      3,
+      updatedAt,
+    ),
+    baseline(
+      PORTFOLIO_IDS.baselineFallback,
+      PORTFOLIO_IDS.projectFallback,
+      1,
+    ),
+  );
+  for (const baselineId of [
+    PORTFOLIO_IDS.baselineOld,
+    PORTFOLIO_IDS.baselineTieLow,
+    PORTFOLIO_IDS.baselineTieHigh,
+    PORTFOLIO_IDS.baselineDeleted,
+    PORTFOLIO_IDS.baselineFallback,
+  ]) {
+    state.projectScheduleBaselineItems.push({
+      id: crypto.randomUUID(),
+      baselineId,
+      entityType: "job",
+      entityId: PORTFOLIO_IDS.jobExplicit,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      dueAt: null,
+    });
+  }
+}
 
 describe("demo ops store", () => {
   it("uses demo data when the database URL is absent", () => {
@@ -709,5 +1002,202 @@ describe("workspace CRUD and filters", () => {
       province: "ON",
     });
     expect(getDemoCompany(company.id)?.city).toBe("Waterloo");
+  });
+});
+
+describe("portfolio Schedule store", () => {
+  let state: DemoPortfolioState;
+  let snapshot: DemoPortfolioState;
+
+  beforeEach(() => {
+    state = getDemoPortfolioState();
+    snapshot = {
+      projects: [...state.projects],
+      jobsList: [...state.jobsList],
+      jobTasks: [...state.jobTasks],
+      jobTaskDependencies: [...state.jobTaskDependencies],
+      scheduleCalendars: [...state.scheduleCalendars],
+      scheduleCalendarExceptions: [...state.scheduleCalendarExceptions],
+      projectScheduleBaselines: [...state.projectScheduleBaselines],
+      projectScheduleBaselineItems: [...state.projectScheduleBaselineItems],
+    };
+    addPortfolioFixtures(state);
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(snapshot) as Array<keyof DemoPortfolioState>) {
+      state[key].splice(0, state[key].length, ...snapshot[key] as never[]);
+    }
+  });
+
+  it("filters by status and exact trimmed project manager", () => {
+    const active = listDemoPortfolioSchedule({ projectStatus: "active" });
+    expect(active.projects.some((project) => project.id === PORTFOLIO_IDS.projectExplicit)).toBe(
+      true,
+    );
+    expect(active.projects.some((project) => project.id === PORTFOLIO_IDS.projectArchived)).toBe(
+      false,
+    );
+
+    const managed = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "  Portfolio Alex Rivera  ",
+    });
+    expect(managed.projects.map((project) => project.id)).toEqual([
+      PORTFOLIO_IDS.projectExplicit,
+    ]);
+    expect(
+      listDemoPortfolioSchedule({
+        projectStatus: "active",
+        projectManager: "Portfolio Alex",
+      }).projects,
+    ).toEqual([]);
+    expect(
+      listDemoPortfolioSchedule({ projectStatus: "archived" }).projects.some(
+        (project) => project.id === PORTFOLIO_IDS.projectArchived,
+      ),
+    ).toBe(true);
+  });
+
+  it("matches q against project name and project manager", () => {
+    expect(
+      listDemoPortfolioSchedule({ q: "  north tower  " }).projects.map(
+        (project) => project.id,
+      ),
+    ).toEqual([PORTFOLIO_IDS.projectExplicit]);
+    expect(
+      listDemoPortfolioSchedule({
+        q: "portfolio alex",
+        projectStatus: "archived",
+      }).projects.map((project) => project.id),
+    ).toEqual([PORTFOLIO_IDS.projectArchived]);
+  });
+
+  it("does not leak unrelated jobs, tasks, or dependencies", () => {
+    const result = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+
+    expect(result.jobs.map((job) => job.id)).toEqual([
+      PORTFOLIO_IDS.jobExplicit,
+    ]);
+    expect(result.tasks.map((task) => task.id)).toEqual([
+      PORTFOLIO_IDS.taskExplicit,
+      PORTFOLIO_IDS.taskExplicitSecond,
+    ]);
+    expect(result.dependencies.map((dependency) => dependency.id)).toEqual([
+      PORTFOLIO_IDS.dependencyExplicit,
+    ]);
+  });
+
+  it("returns only the deterministic latest non-deleted baseline and its items", () => {
+    const result = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+
+    expect(result.baselines.map((baseline) => baseline.id)).toEqual([
+      PORTFOLIO_IDS.baselineTieHigh,
+    ]);
+    expect(result.baselineItems).toHaveLength(1);
+    expect(result.baselineItems[0]?.baselineId).toBe(
+      PORTFOLIO_IDS.baselineTieHigh,
+    );
+  });
+
+  it("returns only selected explicit and default calendars and their exceptions", () => {
+    const result = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+
+    expect(result.calendars.map((calendar) => calendar.id).sort()).toEqual(
+      [
+        PORTFOLIO_IDS.calendarDefault,
+        PORTFOLIO_IDS.calendarExplicit,
+      ].sort(),
+    );
+    expect(
+      result.calendarExceptions.map((exception) => exception.calendarId).sort(),
+    ).toEqual(
+      [
+        PORTFOLIO_IDS.calendarDefault,
+        PORTFOLIO_IDS.calendarExplicit,
+      ].sort(),
+    );
+  });
+
+  it("distinguishes exact-bound and over-bound rows", () => {
+    expect(boundedRows(["a", "b"], 2)).toEqual({
+      rows: ["a", "b"],
+      truncated: false,
+    });
+    expect(boundedRows(["a", "b", "c"], 2)).toEqual({
+      rows: ["a", "b"],
+      truncated: true,
+    });
+  });
+
+  it("returns fresh arrays without mutating demo state", () => {
+    const projectOrder = state.projects.map((project) => project.id);
+    const first = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+    const second = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+
+    expect(first.projects).not.toBe(second.projects);
+    expect(first.jobs).not.toBe(second.jobs);
+    expect(first.tasks).not.toBe(second.tasks);
+    expect(first.dependencies).not.toBe(second.dependencies);
+    expect(first.calendars).not.toBe(second.calendars);
+    expect(first.calendarExceptions).not.toBe(second.calendarExceptions);
+    expect(first.baselines).not.toBe(second.baselines);
+    expect(first.baselineItems).not.toBe(second.baselineItems);
+    first.projects.length = 0;
+    first.jobs.length = 0;
+    expect(second.projects).toHaveLength(1);
+    expect(second.jobs).toHaveLength(1);
+    expect(state.projects.map((project) => project.id)).toEqual(projectOrder);
+  });
+
+  it("delegates the public store read to the demo adapter", async () => {
+    const filters = {
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    };
+
+    await expect(listPortfolioSchedule(filters)).resolves.toEqual(
+      listDemoPortfolioSchedule(filters),
+    );
+  });
+
+  it("returns empty dependent arrays and false truncation for no projects", () => {
+    expect(
+      listDemoPortfolioSchedule({
+        projectStatus: "missing",
+        projectManager: "Nobody",
+      }),
+    ).toEqual({
+      projects: [],
+      jobs: [],
+      tasks: [],
+      dependencies: [],
+      calendars: [],
+      calendarExceptions: [],
+      baselines: [],
+      baselineItems: [],
+      truncation: {
+        projects: false,
+        jobs: false,
+        tasks: false,
+        dependencies: false,
+        baselineItems: false,
+      },
+    });
   });
 });

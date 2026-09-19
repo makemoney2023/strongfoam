@@ -77,6 +77,8 @@ import type {
   JobListFilters,
   JobTaskListFilters,
   OpportunityListFilters,
+  PortfolioScheduleStoreFilters,
+  PortfolioScheduleStoreResult,
   ProjectListFilters,
 } from "@/lib/ops/store";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
@@ -175,6 +177,22 @@ export function isDemoOpsStore(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   return env.OPS_DEMO === "1" || !env.DATABASE_URL;
+}
+
+const PORTFOLIO_PROJECT_LIMIT = 250;
+const PORTFOLIO_JOB_LIMIT = 2_000;
+const PORTFOLIO_TASK_LIMIT = 5_000;
+const PORTFOLIO_DEPENDENCY_LIMIT = 10_000;
+const PORTFOLIO_BASELINE_ITEM_LIMIT = 5_000;
+
+export function boundedRows<T>(
+  rows: readonly T[],
+  limit: number,
+): { rows: T[]; truncated: boolean } {
+  return {
+    rows: rows.slice(0, limit),
+    truncated: rows.length > limit,
+  };
 }
 
 export function matchesEstimateRequestFilters(
@@ -625,6 +643,156 @@ export function listDemoProjects(
       return isInDateRange(project.createdAt, resolved);
     })
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function listDemoPortfolioSchedule(
+  filters: PortfolioScheduleStoreFilters = {},
+): PortfolioScheduleStoreResult {
+  const query = filters.q?.trim();
+  const projectStatus = filters.projectStatus?.trim();
+  const projectManager = filters.projectManager?.trim();
+  const projectResult = boundedRows(
+    projects
+      .filter((project) => {
+        if (projectStatus && project.status !== projectStatus) return false;
+        if (projectManager && project.projectManager !== projectManager) {
+          return false;
+        }
+        return matchesQuery(query, [project.name, project.projectManager]);
+      })
+      .sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_PROJECT_LIMIT + 1),
+    PORTFOLIO_PROJECT_LIMIT,
+  );
+  const selectedProjects = projectResult.rows;
+  if (selectedProjects.length === 0) {
+    return {
+      projects: [],
+      jobs: [],
+      tasks: [],
+      dependencies: [],
+      calendars: [],
+      calendarExceptions: [],
+      baselines: [],
+      baselineItems: [],
+      truncation: {
+        projects: false,
+        jobs: false,
+        tasks: false,
+        dependencies: false,
+        baselineItems: false,
+      },
+    };
+  }
+
+  const projectIds = new Set(selectedProjects.map((project) => project.id));
+  const jobResult = boundedRows(
+    jobsList
+      .filter((job) => job.projectId && projectIds.has(job.projectId))
+      .sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_JOB_LIMIT + 1),
+    PORTFOLIO_JOB_LIMIT,
+  );
+  const jobIds = new Set(jobResult.rows.map((job) => job.id));
+  const taskResult = boundedRows(
+    jobTasks
+      .filter((task) => jobIds.has(task.jobId))
+      .sort(
+        (a, b) =>
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_TASK_LIMIT + 1),
+    PORTFOLIO_TASK_LIMIT,
+  );
+  const dependencyResult = boundedRows(
+    jobTaskDependencies
+      .filter((dependency) => projectIds.has(dependency.projectId))
+      .sort(
+        (a, b) =>
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_DEPENDENCY_LIMIT + 1),
+    PORTFOLIO_DEPENDENCY_LIMIT,
+  );
+
+  const defaultCalendar = ensureDemoDefaultScheduleCalendar();
+  const calendarIds = new Set([
+    defaultCalendar.id,
+    ...selectedProjects.flatMap((project) =>
+      project.scheduleCalendarId ? [project.scheduleCalendarId] : [],
+    ),
+  ]);
+  const selectedCalendars = scheduleCalendars
+    .filter((calendar) => calendarIds.has(calendar.id))
+    .sort(
+      (a, b) =>
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    );
+  const selectedCalendarExceptions = scheduleCalendarExceptions
+    .filter((exception) => calendarIds.has(exception.calendarId))
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+    );
+
+  const latestBaselines = projectScheduleBaselines
+    .filter(
+      (baseline) =>
+        projectIds.has(baseline.projectId) && baseline.deletedAt === null,
+    )
+    .sort(
+      (a, b) =>
+        a.projectId.localeCompare(b.projectId) ||
+        b.capturedAt.getTime() - a.capturedAt.getTime() ||
+        b.id.localeCompare(a.id),
+    )
+    .filter(
+      (baseline, index, rows) =>
+        index === 0 || rows[index - 1]?.projectId !== baseline.projectId,
+    );
+  const baselineIds = new Set(latestBaselines.map((baseline) => baseline.id));
+  const baselineItemResult = boundedRows(
+    projectScheduleBaselineItems
+      .filter((item) => baselineIds.has(item.baselineId))
+      .sort(
+        (a, b) =>
+          a.baselineId.localeCompare(b.baselineId) ||
+          a.entityType.localeCompare(b.entityType) ||
+          a.entityId.localeCompare(b.entityId) ||
+          a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_BASELINE_ITEM_LIMIT + 1),
+    PORTFOLIO_BASELINE_ITEM_LIMIT,
+  );
+
+  return {
+    projects: selectedProjects,
+    jobs: jobResult.rows,
+    tasks: taskResult.rows,
+    dependencies: dependencyResult.rows,
+    calendars: selectedCalendars,
+    calendarExceptions: selectedCalendarExceptions,
+    baselines: latestBaselines,
+    baselineItems: baselineItemResult.rows,
+    truncation: {
+      projects: projectResult.truncated,
+      jobs: jobResult.truncated,
+      tasks: taskResult.truncated,
+      dependencies: dependencyResult.truncated,
+      baselineItems: baselineItemResult.truncated,
+    },
+  };
 }
 
 export function getDemoProject(id: string): ProjectRow | null {
@@ -1279,7 +1447,13 @@ function validIsoDate(value: string): boolean {
 function ensureDemoDefaultScheduleCalendar(
   actor = "system@strongfoam.com",
 ): ScheduleCalendarRow {
-  const existing = scheduleCalendars.find((calendar) => calendar.isDefault);
+  const existing = scheduleCalendars
+    .filter((calendar) => calendar.isDefault)
+    .sort(
+      (a, b) =>
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id.localeCompare(b.id),
+    )[0];
   if (existing) return existing;
   const now = new Date();
   const calendar: ScheduleCalendarRow = {
