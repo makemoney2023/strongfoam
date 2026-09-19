@@ -7,10 +7,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { DetailList } from "@/components/ops/detail-list";
 import { EmptyState } from "@/components/ops/empty-state";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
@@ -71,10 +71,12 @@ function CompanyFields({
           Name <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("name")} name="name" className="h-11" defaultValue={defaults.name ?? ""} required />
+        <FieldError name="name" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("email")}>Email</Label>
         <Input id={id("email")} name="email" type="email" className="h-11" defaultValue={defaults.email ?? ""} />
+        <FieldError name="email" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("phone")}>Phone</Label>
@@ -113,18 +115,21 @@ function ContactFields({
           First name <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("firstName")} name="firstName" className="h-11" defaultValue={defaults.firstName ?? ""} required />
+        <FieldError name="firstName" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("lastName")}>
           Last name <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("lastName")} name="lastName" className="h-11" defaultValue={defaults.lastName ?? ""} required />
+        <FieldError name="lastName" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("email")}>
           Email <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("email")} name="email" type="email" className="h-11" defaultValue={defaults.email ?? ""} required />
+        <FieldError name="email" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("phone")}>Phone</Label>
@@ -159,18 +164,21 @@ function SiteFields({
           Site name <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("name")} name="name" className="h-11" defaultValue={defaults.name ?? ""} required />
+        <FieldError name="name" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("city")}>
           City <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("city")} name="city" className="h-11" defaultValue={defaults.city ?? ""} required />
+        <FieldError name="city" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("province")}>
           Province <span aria-hidden="true">*</span>
         </Label>
         <Input id={id("province")} name="province" className="h-11" defaultValue={defaults.province ?? "ON"} required />
+        <FieldError name="province" />
       </div>
     </>
   );
@@ -178,17 +186,14 @@ function SiteFields({
 
 export default async function CompanyDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
-  const query = await searchParams;
   const company = await getCompany(id);
   if (!company) notFound();
 
@@ -218,7 +223,7 @@ export default async function CompanyDetailPage({
             triggerVariant="outline"
             title="Edit company"
           >
-            <form action={saveCompany} className="grid gap-3 sm:grid-cols-2">
+            <ActionForm action={saveCompany} className="grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="id" value={company.id} />
               <CompanyFields idPrefix="editCompany" defaults={company} />
               <div className="sm:col-span-2">
@@ -226,11 +231,10 @@ export default async function CompanyDetailPage({
                   Save company
                 </SubmitButton>
               </div>
-            </form>
+            </ActionForm>
           </FormDialog>
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Company saved." />
 
       <Card>
         <CardHeader>
@@ -276,7 +280,7 @@ export default async function CompanyDetailPage({
                 title="Add a contact"
                 description={`New contact for ${company.name}.`}
               >
-                <form action={createCompanyContact} className="grid gap-3 sm:grid-cols-2">
+                <ActionForm action={createCompanyContact} className="grid gap-3 sm:grid-cols-2">
                   <input type="hidden" name="companyId" value={company.id} />
                   <ContactFields idPrefix="newContact" />
                   <div className="sm:col-span-2">
@@ -284,7 +288,7 @@ export default async function CompanyDetailPage({
                       Add contact
                     </SubmitButton>
                   </div>
-                </form>
+                </ActionForm>
               </FormDialog>
             </CardAction>
           </CardHeader>
@@ -334,7 +338,7 @@ export default async function CompanyDetailPage({
                         triggerAriaLabel={`Edit ${contact.firstName} ${contact.lastName}`}
                         title="Edit contact"
                       >
-                        <form action={saveCompanyContact} className="grid gap-3 sm:grid-cols-2">
+                        <ActionForm action={saveCompanyContact} className="grid gap-3 sm:grid-cols-2">
                           <input type="hidden" name="companyId" value={company.id} />
                           <input type="hidden" name="id" value={contact.id} />
                           <ContactFields idPrefix={`contact-${contact.id}`} defaults={contact} />
@@ -343,7 +347,7 @@ export default async function CompanyDetailPage({
                               Save contact
                             </SubmitButton>
                           </div>
-                        </form>
+                        </ActionForm>
                       </FormDialog>
                       <ConfirmForm
                         action={removeCompanyContact}
@@ -380,7 +384,7 @@ export default async function CompanyDetailPage({
                 title="Add a site"
                 description={`New site for ${company.name}.`}
               >
-                <form action={createCompanySite} className="grid gap-3 sm:grid-cols-2">
+                <ActionForm action={createCompanySite} className="grid gap-3 sm:grid-cols-2">
                   <input type="hidden" name="companyId" value={company.id} />
                   <SiteFields idPrefix="newSite" />
                   <div className="sm:col-span-2">
@@ -388,7 +392,7 @@ export default async function CompanyDetailPage({
                       Add site
                     </SubmitButton>
                   </div>
-                </form>
+                </ActionForm>
               </FormDialog>
             </CardAction>
           </CardHeader>
@@ -421,7 +425,7 @@ export default async function CompanyDetailPage({
                         triggerAriaLabel={`Edit ${site.name}`}
                         title="Edit site"
                       >
-                        <form action={saveCompanySite} className="grid gap-3 sm:grid-cols-2">
+                        <ActionForm action={saveCompanySite} className="grid gap-3 sm:grid-cols-2">
                           <input type="hidden" name="companyId" value={company.id} />
                           <input type="hidden" name="id" value={site.id} />
                           <SiteFields idPrefix={`site-${site.id}`} defaults={site} />
@@ -430,7 +434,7 @@ export default async function CompanyDetailPage({
                               Save site
                             </SubmitButton>
                           </div>
-                        </form>
+                        </ActionForm>
                       </FormDialog>
                       <ConfirmForm
                         action={removeCompanySite}

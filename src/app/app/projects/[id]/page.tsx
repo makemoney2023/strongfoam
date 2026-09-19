@@ -2,9 +2,9 @@ import { HammerIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConfirmForm } from "@/components/ops/confirm-form";
+import { ActionForm } from "@/components/ops/action-form";
 import { DetailList } from "@/components/ops/detail-list";
 import { EmptyState } from "@/components/ops/empty-state";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
@@ -41,17 +41,14 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
-  const query = await searchParams;
   const project = await getProject(id);
   if (!project) notFound();
 
@@ -93,7 +90,7 @@ export default async function ProjectDetailPage({
               triggerVariant="outline"
               title="Edit project"
             >
-              <form action={saveProject} className="grid gap-3 sm:grid-cols-2">
+              <ActionForm action={saveProject} className="grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="id" value={project.id} />
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="editProject-name">
@@ -125,13 +122,12 @@ export default async function ProjectDetailPage({
                     Save project
                   </SubmitButton>
                 </div>
-              </form>
+              </ActionForm>
             </FormDialog>
             <NewJobDialog project={projectOption} returnTo={returnTo} triggerLabel="Add job" />
           </div>
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Project saved." />
 
       <Card>
         <CardHeader>

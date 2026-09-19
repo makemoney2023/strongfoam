@@ -69,10 +69,10 @@ export function parseFieldNoteInput(input: {
   taskId?: string | null;
   quantity?: string | number | null;
   unit?: string | null;
-}): { ok: true; value: FieldNoteInput } | { ok: false; error: string } {
+}): { ok: true; value: FieldNoteInput } | { ok: false; error: string; field?: string } {
   const kind = input.kind?.trim() || "note";
   if (!isFieldNoteKind(kind)) {
-    return { ok: false, error: "Choose a valid field entry type." };
+    return { ok: false, error: "Choose a valid field entry type.", field: "kind" };
   }
 
   const body = input.body?.trim() ?? "";
@@ -89,22 +89,24 @@ export function parseFieldNoteInput(input: {
               : kind === "material_request"
                 ? "Describe the material or clarification needed."
                 : "A field note is required.",
+      field: "body",
     };
   }
   if (body.length > MAX_BODY_LENGTH) {
     return {
       ok: false,
       error: `Field notes must be ${MAX_BODY_LENGTH} characters or fewer.`,
+      field: "body",
     };
   }
 
   const workAreaId = input.workAreaId?.trim() || null;
   if (workAreaId && !isUuid(workAreaId)) {
-    return { ok: false, error: "Choose a valid work area." };
+    return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
   const taskId = input.taskId?.trim() || null;
   if (taskId && !isUuid(taskId)) {
-    return { ok: false, error: "Choose a valid task." };
+    return { ok: false, error: "Choose a valid task.", field: "taskId" };
   }
 
   let quantity: number | null = null;
@@ -115,14 +117,14 @@ export function parseFieldNoteInput(input: {
         ? input.quantity
         : Number(String(input.quantity ?? "").trim());
     if (!Number.isInteger(raw) || raw <= 0) {
-      return { ok: false, error: "Enter a whole quantity greater than zero." };
+      return { ok: false, error: "Enter a whole quantity greater than zero.", field: "quantity" };
     }
     if (raw > 1_000_000) {
-      return { ok: false, error: "Quantity is too large." };
+      return { ok: false, error: "Quantity is too large.", field: "quantity" };
     }
     const rawUnit = input.unit?.trim() ?? "";
     if (!isFieldQuantityUnit(rawUnit)) {
-      return { ok: false, error: "Choose a quantity unit." };
+      return { ok: false, error: "Choose a quantity unit.", field: "unit" };
     }
     quantity = raw;
     unit = rawUnit;

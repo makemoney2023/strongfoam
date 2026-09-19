@@ -57,28 +57,28 @@ export function parseJobConversion(input: {
   plannedEndAt?: string;
 }):
   | { ok: true; value: JobConversionInput }
-  | { ok: false; error: string } {
+  | { ok: false; error: string; field?: string } {
   const projectName = input.projectName?.trim() ?? "";
   const jobName = input.jobName?.trim() ?? "";
-  if (!projectName) return { ok: false, error: "A project name is required." };
-  if (!jobName) return { ok: false, error: "A job name is required." };
+  if (!projectName) return { ok: false, error: "A project name is required.", field: "projectName" };
+  if (!jobName) return { ok: false, error: "A job name is required.", field: "jobName" };
 
   const plannedStartAt = input.plannedStartAt
     ? new Date(input.plannedStartAt)
     : null;
   const plannedEndAt = input.plannedEndAt ? new Date(input.plannedEndAt) : null;
   if (plannedStartAt && Number.isNaN(plannedStartAt.getTime())) {
-    return { ok: false, error: "Planned start date is invalid." };
+    return { ok: false, error: "Planned start date is invalid.", field: "plannedStartAt" };
   }
   if (plannedEndAt && Number.isNaN(plannedEndAt.getTime())) {
-    return { ok: false, error: "Planned end date is invalid." };
+    return { ok: false, error: "Planned end date is invalid.", field: "plannedEndAt" };
   }
   if (
     plannedStartAt &&
     plannedEndAt &&
     plannedEndAt.getTime() < plannedStartAt.getTime()
   ) {
-    return { ok: false, error: "Planned end must be on or after the start date." };
+    return { ok: false, error: "Planned end must be on or after the start date.", field: "plannedEndAt" };
   }
 
   return {
@@ -111,7 +111,7 @@ export function parseJobDetails(input: {
   foreman?: string | null;
   plannedStartAt?: string;
   plannedEndAt?: string;
-}): { ok: true; value: JobDetailsInput } | { ok: false; error: string } {
+}): { ok: true; value: JobDetailsInput } | { ok: false; error: string; field?: string } {
   const parsed = parseJobConversion({
     projectName: "Project",
     jobName: input.name,
@@ -140,14 +140,14 @@ export function parseJobStatusUpdate(input: {
   blockerNote?: string;
 }):
   | { ok: true; value: { status: JobStatus; blockerNote: string | null } }
-  | { ok: false; error: string } {
+  | { ok: false; error: string; field?: string } {
   const status = input.status ?? "";
   if (!isJobStatus(status)) {
-    return { ok: false, error: "Choose a valid job status." };
+    return { ok: false, error: "Choose a valid job status.", field: "status" };
   }
   const blockerNote = input.blockerNote?.trim() || null;
   if (status === "blocked" && !blockerNote) {
-    return { ok: false, error: "A blocker note is required when a job is blocked." };
+    return { ok: false, error: "A blocker note is required when a job is blocked.", field: "blockerNote" };
   }
   return {
     ok: true,

@@ -2,6 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  fail,
+  invalidFrom,
+  safeReturnTo,
+  succeed,
+  type ActionState,
+} from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
 import {
@@ -39,13 +46,6 @@ import {
   updateWorkArea,
 } from "@/lib/ops/store";
 
-function fail(path: string, error: string): never {
-  redirect(`${path}?error=${encodeURIComponent(error)}`);
-}
-
-function safeReturnTo(value: string, fallback: string): string {
-  return value.startsWith("/app/") ? value.split("?")[0] : fallback;
-}
 
 function refreshJobs(projectId?: string | null, jobId?: string | null) {
   revalidatePath("/app/jobs");
@@ -61,7 +61,7 @@ function refreshJobs(projectId?: string | null, jobId?: string | null) {
   }
 }
 
-export async function convertWonWorkToProject(formData: FormData) {
+export async function convertWonWorkToProject(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -76,21 +76,21 @@ export async function convertWonWorkToProject(formData: FormData) {
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
   });
-  if (!opportunityId) fail(returnTo, "Missing opportunity.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!opportunityId) return fail(returnTo, "Missing opportunity.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const result = await convertOpportunityToProject({
     opportunityId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!result.ok) fail(returnTo, result.error);
+  if (!result.ok) return fail(returnTo, result.error);
 
   refreshJobs(result.projectId, result.jobId);
-  redirect(`/app/jobs/${result.jobId}?saved=1`);
+  return succeed(`/app/jobs/${result.jobId}`, "Job created.");
 }
 
-export async function addProjectJob(formData: FormData) {
+export async function addProjectJob(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -108,20 +108,20 @@ export async function addProjectJob(formData: FormData) {
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
   });
-  if (!projectId) fail(returnTo, "Choose a project for this job.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!projectId) return fail(returnTo, "Choose a project for this job.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const result = await addJobToProject({
     projectId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!result.ok) fail(returnTo, result.error);
+  if (!result.ok) return fail(returnTo, result.error);
   refreshJobs(projectId, result.jobId);
-  redirect(`/app/jobs/${result.jobId}?saved=1`);
+  return succeed(`/app/jobs/${result.jobId}`, "Job created.");
 }
 
-export async function saveJobStatus(formData: FormData) {
+export async function saveJobStatus(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -130,8 +130,8 @@ export async function saveJobStatus(formData: FormData) {
     status: String(formData.get("status") ?? ""),
     blockerNote: String(formData.get("blockerNote") ?? ""),
   });
-  if (!jobId) fail("/app/jobs", "Missing job.");
-  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const job = await updateJobStatus({
     jobId,
@@ -139,13 +139,13 @@ export async function saveJobStatus(formData: FormData) {
     status: parsed.value.status,
     blockerNote: parsed.value.blockerNote,
   });
-  if (!job) fail(`/app/jobs/${jobId}`, "That job could not be updated.");
+  if (!job) return fail(`/app/jobs/${jobId}`, "That job could not be updated.");
   refreshJobs(job.projectId, job.id);
   const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${job.id}`);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function addJobWorkArea(formData: FormData) {
+export async function addJobWorkArea(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -155,20 +155,20 @@ export async function addJobWorkArea(formData: FormData) {
     kind: String(formData.get("kind") ?? ""),
     notes: String(formData.get("notes") ?? ""),
   });
-  if (!jobId) fail("/app/jobs", "Missing job.");
-  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const area = await addWorkArea({
     jobId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!area) fail(`/app/jobs/${jobId}`, "That work area could not be saved.");
+  if (!area) return fail(`/app/jobs/${jobId}`, "That work area could not be saved.");
   refreshJobs(null, jobId);
-  redirect(`/app/jobs/${jobId}?saved=1`);
+  return succeed(`/app/jobs/${jobId}`);
 }
 
-export async function addJobWorkspaceTask(formData: FormData) {
+export async function addJobWorkspaceTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -179,20 +179,20 @@ export async function addJobWorkspaceTask(formData: FormData) {
     dueAt: String(formData.get("dueAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
-  if (!jobId) fail("/app/jobs", "Missing job.");
-  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const task = await addJobTask({
     jobId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!task) fail(`/app/jobs/${jobId}`, "That task could not be saved.");
+  if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be saved.");
   refreshJobs(null, jobId);
-  redirect(`/app/jobs/${jobId}?saved=1`);
+  return succeed(`/app/jobs/${jobId}`);
 }
 
-export async function setJobWorkspaceTaskStatus(formData: FormData) {
+export async function setJobWorkspaceTaskStatus(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -200,7 +200,7 @@ export async function setJobWorkspaceTaskStatus(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
   const status = String(formData.get("status") ?? "") as TaskStatus;
   if (!jobId || !taskId || (status !== "open" && status !== "done")) {
-    fail(jobId ? `/app/jobs/${jobId}` : "/app/jobs", "That task could not be updated.");
+    return fail(jobId ? `/app/jobs/${jobId}` : "/app/jobs", "That task could not be updated.");
   }
 
   const task = await setJobTaskStatus({
@@ -209,13 +209,13 @@ export async function setJobWorkspaceTaskStatus(formData: FormData) {
     actor: session.email,
     status,
   });
-  if (!task) fail(`/app/jobs/${jobId}`, "That task could not be updated.");
+  if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be updated.");
   refreshJobs(null, jobId);
   const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${jobId}`);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function addJobFieldEntry(formData: FormData) {
+export async function addJobFieldEntry(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -229,15 +229,15 @@ export async function addJobFieldEntry(formData: FormData) {
     quantity: String(formData.get("quantity") ?? ""),
     unit: String(formData.get("unit") ?? ""),
   });
-  if (!jobId) fail("/app/field", "Missing job.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId) return fail("/app/field", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const note = await addJobFieldNote({
     jobId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!note) fail(returnTo, "That field entry could not be saved.");
+  if (!note) return fail(returnTo, "That field entry could not be saved.");
 
   if (parsed.value.kind === "blocker") {
     const job = await updateJobStatus({
@@ -246,29 +246,29 @@ export async function addJobFieldEntry(formData: FormData) {
       status: "blocked",
       blockerNote: parsed.value.body,
     });
-    if (!job) fail(returnTo, "The blocker was saved, but job status could not be updated.");
+    if (!job) return fail(returnTo, "The blocker was saved, but job status could not be updated.");
     refreshJobs(job.projectId, jobId);
   } else {
     refreshJobs(null, jobId);
   }
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function uploadJobDocument(formData: FormData) {
+export async function uploadJobDocument(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
   const jobId = String(formData.get("jobId") ?? "");
-  if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!jobId) return fail("/app/jobs", "Missing job.");
   if (!isDemoOpsStore()) {
-    fail(
+    return fail(
       `/app/jobs/${jobId}`,
       "Production documents must use the configured Blob upload flow.",
     );
   }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    fail(`/app/jobs/${jobId}`, "Choose a PDF, JPEG, PNG, or WebP file.");
+    return fail(`/app/jobs/${jobId}`, "Choose a PDF, JPEG, PNG, or WebP file.");
   }
 
   const parsed = parseJobDocumentInput({
@@ -278,16 +278,16 @@ export async function uploadJobDocument(formData: FormData) {
     kind: String(formData.get("kind") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
-  if (!parsed.ok) fail(`/app/jobs/${jobId}`, parsed.error);
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const verified = parseJobDocumentInput({
     ...parsed.value,
     sizeBytes: bytes.byteLength,
   });
-  if (!verified.ok) fail(`/app/jobs/${jobId}`, verified.error);
+  if (!verified.ok) return invalidFrom(verified);
   if (!hasAllowedJobDocumentSignature(bytes, verified.value.contentType)) {
-    fail(
+    return fail(
       `/app/jobs/${jobId}`,
       "The file contents do not match the selected document type.",
     );
@@ -298,16 +298,16 @@ export async function uploadJobDocument(formData: FormData) {
     input: verified.value,
     bytes,
   });
-  if (!document) fail(`/app/jobs/${jobId}`, "That document could not be saved.");
+  if (!document) return fail(`/app/jobs/${jobId}`, "That document could not be saved.");
   refreshJobs(null, jobId);
   const returnTo = safeReturnTo(
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
   );
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function saveJobDetails(formData: FormData) {
+export async function saveJobDetails(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -317,37 +317,37 @@ export async function saveJobDetails(formData: FormData) {
     `/app/jobs/${jobId}`,
   );
   const parsed = parseJobDetails({
-    name: String(formData.get("name") ?? ""),
+    name: String(formData.get("jobName") || formData.get("name") || ""),
     scope: String(formData.get("scope") ?? ""),
     projectManager: String(formData.get("projectManager") ?? ""),
     foreman: String(formData.get("foreman") ?? ""),
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
   });
-  if (!jobId) fail("/app/jobs", "Missing job.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const job = await updateJobDetails({
     jobId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!job) fail(returnTo, "That job could not be updated.");
+  if (!job) return fail(returnTo, "That job could not be updated.");
   refreshJobs(job.projectId, job.id);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function removeJob(formData: FormData) {
+export async function removeJob(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
-  if (!jobId) fail("/app/jobs", "Missing job.");
+  if (!jobId) return fail("/app/jobs", "Missing job.");
   const result = await deleteJob(jobId);
-  if (!result.ok) fail(`/app/jobs/${jobId}`, result.error);
+  if (!result.ok) return fail(`/app/jobs/${jobId}`, result.error);
   refreshJobs();
-  redirect("/app/jobs?saved=1");
+  return succeed("/app/jobs", "Job deleted.");
 }
 
-export async function saveJobWorkArea(formData: FormData) {
+export async function saveJobWorkArea(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -361,20 +361,20 @@ export async function saveJobWorkArea(formData: FormData) {
     kind: String(formData.get("kind") ?? ""),
     notes: String(formData.get("notes") ?? ""),
   });
-  if (!jobId || !workAreaId) fail(returnTo, "Missing work area.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId || !workAreaId) return fail(returnTo, "Missing work area.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const area = await updateWorkArea({
     jobId,
     workAreaId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!area) fail(returnTo, "That work area could not be updated.");
+  if (!area) return fail(returnTo, "That work area could not be updated.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function removeJobWorkArea(formData: FormData) {
+export async function removeJobWorkArea(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -383,18 +383,18 @@ export async function removeJobWorkArea(formData: FormData) {
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
   );
-  if (!jobId || !workAreaId) fail(returnTo, "Missing work area.");
+  if (!jobId || !workAreaId) return fail(returnTo, "Missing work area.");
   const area = await deleteWorkArea({
     jobId,
     workAreaId,
     actor: session.email,
   });
-  if (!area) fail(returnTo, "That work area could not be deleted.");
+  if (!area) return fail(returnTo, "That work area could not be deleted.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function saveJobWorkspaceTask(formData: FormData) {
+export async function saveJobWorkspaceTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -409,20 +409,20 @@ export async function saveJobWorkspaceTask(formData: FormData) {
     dueAt: String(formData.get("dueAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
-  if (!jobId || !taskId) fail(returnTo, "Missing task.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId || !taskId) return fail(returnTo, "Missing task.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const task = await updateJobTask({
     jobId,
     taskId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!task) fail(returnTo, "That task could not be updated.");
+  if (!task) return fail(returnTo, "That task could not be updated.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function removeJobWorkspaceTask(formData: FormData) {
+export async function removeJobWorkspaceTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -431,18 +431,18 @@ export async function removeJobWorkspaceTask(formData: FormData) {
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
   );
-  if (!jobId || !taskId) fail(returnTo, "Missing task.");
+  if (!jobId || !taskId) return fail(returnTo, "Missing task.");
   const task = await deleteJobTask({
     jobId,
     taskId,
     actor: session.email,
   });
-  if (!task) fail(returnTo, "That task could not be deleted.");
+  if (!task) return fail(returnTo, "That task could not be deleted.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function saveJobDocumentMeta(formData: FormData) {
+export async function saveJobDocumentMeta(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -455,20 +455,20 @@ export async function saveJobDocumentMeta(formData: FormData) {
     kind: String(formData.get("kind") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
-  if (!jobId || !documentId) fail(returnTo, "Missing document.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId || !documentId) return fail(returnTo, "Missing document.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const document = await updateJobDocument({
     jobId,
     documentId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!document) fail(returnTo, "That document could not be updated.");
+  if (!document) return fail(returnTo, "That document could not be updated.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function removeJobDocument(formData: FormData) {
+export async function removeJobDocument(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -477,18 +477,18 @@ export async function removeJobDocument(formData: FormData) {
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
   );
-  if (!jobId || !documentId) fail(returnTo, "Missing document.");
+  if (!jobId || !documentId) return fail(returnTo, "Missing document.");
   const document = await deleteJobDocument({
     jobId,
     documentId,
     actor: session.email,
   });
-  if (!document) fail(returnTo, "That document could not be deleted.");
+  if (!document) return fail(returnTo, "That document could not be deleted.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function saveJobFieldEntry(formData: FormData) {
+export async function saveJobFieldEntry(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -505,20 +505,20 @@ export async function saveJobFieldEntry(formData: FormData) {
     quantity: String(formData.get("quantity") ?? ""),
     unit: String(formData.get("unit") ?? ""),
   });
-  if (!jobId || !noteId) fail(returnTo, "Missing field entry.");
-  if (!parsed.ok) fail(returnTo, parsed.error);
+  if (!jobId || !noteId) return fail(returnTo, "Missing field entry.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const note = await updateJobFieldNote({
     jobId,
     noteId,
     actor: session.email,
     input: parsed.value,
   });
-  if (!note) fail(returnTo, "That field entry could not be updated.");
+  if (!note) return fail(returnTo, "That field entry could not be updated.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }
 
-export async function removeJobFieldEntry(formData: FormData) {
+export async function removeJobFieldEntry(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const jobId = String(formData.get("jobId") ?? "");
@@ -527,13 +527,13 @@ export async function removeJobFieldEntry(formData: FormData) {
     String(formData.get("returnTo") ?? ""),
     `/app/field/jobs/${jobId}`,
   );
-  if (!jobId || !noteId) fail(returnTo, "Missing field entry.");
+  if (!jobId || !noteId) return fail(returnTo, "Missing field entry.");
   const note = await deleteJobFieldNote({
     jobId,
     noteId,
     actor: session.email,
   });
-  if (!note) fail(returnTo, "That field entry could not be deleted.");
+  if (!note) return fail(returnTo, "That field entry could not be deleted.");
   refreshJobs(null, jobId);
-  redirect(`${returnTo}?saved=1`);
+  return succeed(returnTo);
 }

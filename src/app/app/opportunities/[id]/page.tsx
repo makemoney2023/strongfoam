@@ -3,8 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
+import { ActionForm } from "@/components/ops/action-form";
 import { EmptyState } from "@/components/ops/empty-state";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
@@ -50,17 +50,14 @@ export const dynamic = "force-dynamic";
 
 export default async function OpportunityDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
-  const query = await searchParams;
   const opportunity = await getOpportunity(id);
   if (!opportunity) notFound();
 
@@ -105,7 +102,7 @@ export default async function OpportunityDetailPage({
               title="Edit opportunity"
               description="Move the stage forward as the estimate progresses."
             >
-              <form action={saveOpportunity} className="grid gap-3 sm:grid-cols-2">
+              <ActionForm action={saveOpportunity} className="grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="id" value={opportunity.id} />
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="editOpp-name">
@@ -132,12 +129,11 @@ export default async function OpportunityDetailPage({
                     Save opportunity
                   </SubmitButton>
                 </div>
-              </form>
+              </ActionForm>
             </FormDialog>
           </div>
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Opportunity saved." />
 
       <Card>
         <CardHeader>

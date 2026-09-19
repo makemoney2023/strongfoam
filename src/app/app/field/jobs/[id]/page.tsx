@@ -11,9 +11,10 @@ import {
   PhoneIcon,
   Trash2Icon,
 } from "lucide-react";
+import { ActionForm } from "@/components/ops/action-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
+import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { NativeSelect } from "@/components/ops/native-select";
@@ -76,8 +77,6 @@ export default async function FieldJobPage({
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
-    saved?: string;
-    error?: string;
     taskStatus?: string;
     kind?: string;
     docKind?: string;
@@ -139,7 +138,6 @@ export default async function FieldJobPage({
           />
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Field update saved." />
 
       <ListFilters>
         <div className="space-y-2">
@@ -300,23 +298,16 @@ export default async function FieldJobPage({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <form action={setJobWorkspaceTaskStatus} className="flex-1">
-                      <input type="hidden" name="jobId" value={job.id} />
-                      <input type="hidden" name="taskId" value={task.id} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <input
-                        type="hidden"
-                        name="status"
-                        value={task.status === "done" ? "open" : "done"}
-                      />
-                      <SubmitButton
-                        variant={task.status === "done" ? "outline" : "default"}
-                        className="min-h-11 w-full"
-                        pendingLabel={task.status === "done" ? "Reopening…" : "Completing…"}
-                      >
-                        {task.status === "done" ? "Reopen task" : "Complete task"}
-                      </SubmitButton>
-                    </form>
+                    <TaskStatusButton
+                      action={setJobWorkspaceTaskStatus}
+                      jobId={job.id}
+                      taskId={task.id}
+                      status={task.status === "done" ? "done" : "open"}
+                      returnTo={returnTo}
+                      completeLabel="Complete task"
+                      reopenLabel="Reopen task"
+                      className="min-h-11 w-full"
+                    />
                     <ConfirmForm
                       action={removeJobWorkspaceTask}
                       message={`Delete task “${task.title}”? This cannot be undone.`}
@@ -356,7 +347,7 @@ export default async function FieldJobPage({
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          <form action={addJobFieldEntry} className="grid gap-4 sm:grid-cols-2">
+          <ActionForm action={addJobFieldEntry} className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" name="jobId" value={job.id} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <FieldEntryFields idPrefix="fieldEntry" areas={areaOptions} tasks={taskOptions} />
@@ -369,7 +360,7 @@ export default async function FieldJobPage({
                 Reporting a blocker also marks the job blocked for the office.
               </p>
             </div>
-          </form>
+          </ActionForm>
 
           <div className="space-y-3 border-t pt-5">
             <h3 className="text-sm font-semibold">Recent entries</h3>
@@ -398,7 +389,7 @@ export default async function FieldJobPage({
                           triggerAriaLabel="Edit field entry"
                           title="Edit field entry"
                         >
-                          <form action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                          <ActionForm action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
                             <input type="hidden" name="jobId" value={job.id} />
                             <input type="hidden" name="noteId" value={note.id} />
                             <input type="hidden" name="returnTo" value={returnTo} />
@@ -420,7 +411,7 @@ export default async function FieldJobPage({
                                 Save entry
                               </SubmitButton>
                             </div>
-                          </form>
+                          </ActionForm>
                         </FormDialog>
                         <ConfirmForm
                           action={removeJobFieldEntry}
@@ -509,7 +500,7 @@ export default async function FieldJobPage({
                         title="Edit file"
                         description={document.filename}
                       >
-                        <form action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
+                        <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
                           <input type="hidden" name="jobId" value={job.id} />
                           <input type="hidden" name="documentId" value={document.id} />
                           <input type="hidden" name="returnTo" value={returnTo} />
@@ -523,7 +514,7 @@ export default async function FieldJobPage({
                               Save file
                             </SubmitButton>
                           </div>
-                        </form>
+                        </ActionForm>
                       </FormDialog>
                       <ConfirmForm
                         action={removeJobDocument}

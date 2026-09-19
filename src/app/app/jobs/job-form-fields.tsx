@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ops/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,7 @@ export function JobFormFields({
           maxLength={160}
           required
         />
+        <FieldError name="jobName" />
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor={id("scope")}>Scope</Label>
@@ -72,6 +74,7 @@ export function JobFormFields({
           className="h-11"
           defaultValue={defaults.plannedStartAt ?? ""}
         />
+        <FieldError name="plannedStartAt" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("plannedEndAt")}>Planned end</Label>
@@ -82,6 +85,7 @@ export function JobFormFields({
           className="h-11"
           defaultValue={defaults.plannedEndAt ?? ""}
         />
+        <FieldError name="plannedEndAt" />
       </div>
     </>
   );

@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { FormDialog } from "@/components/ops/form-dialog";
+import { ActionForm } from "@/components/ops/action-form";
 import { NativeSelect } from "@/components/ops/native-select";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export function NewJobDialog({
       }
     >
       {hasProjects ? (
-        <form action={addProjectJob} className="grid gap-3 sm:grid-cols-2">
+        <ActionForm action={addProjectJob} className="grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="returnTo" value={returnTo} />
           {project ? (
             <>
@@ -90,7 +91,7 @@ export function NewJobDialog({
               Create job
             </SubmitButton>
           </div>
-        </form>
+        </ActionForm>
       ) : (
         <div className="space-y-4">
           <ol className="list-decimal space-y-2 pl-5 text-sm">

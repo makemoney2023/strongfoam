@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  fail,
+  invalidFrom,
+  succeed,
+  type ActionState,
+} from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import {
   parseCommentInput,
@@ -29,7 +35,7 @@ import {
   updateEstimateRequestTask,
 } from "@/lib/ops/store";
 
-export async function saveEstimateRequestReview(formData: FormData) {
+export async function saveEstimateRequestReview(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) {
     redirect("/app/login");
@@ -45,9 +51,8 @@ export async function saveEstimateRequestReview(formData: FormData) {
     note: String(formData.get("note") ?? ""),
   });
 
-  if (!id || !parsed.ok) {
-    redirect(`/app/requests/${id || ""}?error=${encodeURIComponent(parsed.ok ? "Missing request." : parsed.error)}`);
-  }
+  if (!id) return fail("/app/requests", "Missing request.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   await updateEstimateRequest({
     id,
@@ -56,14 +61,11 @@ export async function saveEstimateRequestReview(formData: FormData) {
   });
   revalidatePath("/app/requests");
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-function fail(id: string, error: string): never {
-  redirect(`/app/requests/${id}?error=${encodeURIComponent(error)}`);
-}
 
-export async function addRequestTask(formData: FormData) {
+export async function addRequestTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -73,8 +75,8 @@ export async function addRequestTask(formData: FormData) {
     assignee: String(formData.get("assignee") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
   });
-  if (!id) fail("", "Missing request.");
-  if (!parsed.ok) fail(id, parsed.error);
+  if (!id) return fail("/app/requests", "Missing request.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   await addEstimateRequestTask({
     leadId: id,
@@ -82,10 +84,10 @@ export async function addRequestTask(formData: FormData) {
     ...parsed.value,
   });
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function setRequestTaskStatus(formData: FormData) {
+export async function setRequestTaskStatus(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -93,7 +95,7 @@ export async function setRequestTaskStatus(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
   const status = String(formData.get("status") ?? "") as TaskStatus;
   if (!id || !taskId || (status !== "open" && status !== "done")) {
-    fail(id, "That task could not be updated.");
+    return fail(`/app/requests/${id}`, "That task could not be updated.");
   }
 
   await setEstimateRequestTaskStatus({
@@ -103,10 +105,10 @@ export async function setRequestTaskStatus(formData: FormData) {
     status,
   });
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function saveRequestTask(formData: FormData) {
+export async function saveRequestTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -117,8 +119,8 @@ export async function saveRequestTask(formData: FormData) {
     assignee: String(formData.get("assignee") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
   });
-  if (!id || !taskId) fail(id, "That task could not be updated.");
-  if (!parsed.ok) fail(id, parsed.error);
+  if (!id || !taskId) return fail(`/app/requests/${id}`, "That task could not be updated.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const task = await updateEstimateRequestTask({
     leadId: id,
@@ -126,46 +128,46 @@ export async function saveRequestTask(formData: FormData) {
     actor: session.email,
     ...parsed.value,
   });
-  if (!task) fail(id, "That task could not be updated.");
+  if (!task) return fail(`/app/requests/${id}`, "That task could not be updated.");
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function removeRequestTask(formData: FormData) {
+export async function removeRequestTask(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
   const id = String(formData.get("id") ?? "");
   const taskId = String(formData.get("taskId") ?? "");
-  if (!id || !taskId) fail(id, "That task could not be deleted.");
+  if (!id || !taskId) return fail(`/app/requests/${id}`, "That task could not be deleted.");
   const task = await deleteEstimateRequestTask({
     leadId: id,
     taskId,
     actor: session.email,
   });
-  if (!task) fail(id, "That task could not be deleted.");
+  if (!task) return fail(`/app/requests/${id}`, "That task could not be deleted.");
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function removeRequestComment(formData: FormData) {
+export async function removeRequestComment(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
   const id = String(formData.get("id") ?? "");
   const commentId = String(formData.get("commentId") ?? "");
-  if (!id || !commentId) fail(id, "That comment could not be deleted.");
+  if (!id || !commentId) return fail(`/app/requests/${id}`, "That comment could not be deleted.");
   const comment = await deleteEstimateRequestComment({
     leadId: id,
     commentId,
     actor: session.email,
   });
-  if (!comment) fail(id, "That comment could not be deleted.");
+  if (!comment) return fail(`/app/requests/${id}`, "That comment could not be deleted.");
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function addRequestComment(formData: FormData) {
+export async function addRequestComment(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
@@ -173,8 +175,8 @@ export async function addRequestComment(formData: FormData) {
   const parsed = parseCommentInput({
     body: String(formData.get("body") ?? ""),
   });
-  if (!id) fail("", "Missing request.");
-  if (!parsed.ok) fail(id, parsed.error);
+  if (!id) return fail("/app/requests", "Missing request.");
+  if (!parsed.ok) return invalidFrom(parsed);
 
   await addEstimateRequestComment({
     leadId: id,
@@ -182,16 +184,16 @@ export async function addRequestComment(formData: FormData) {
     body: parsed.value.body,
   });
   revalidatePath(`/app/requests/${id}`);
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }
 
-export async function convertRequestToCrmRecords(formData: FormData) {
+export async function convertRequestToCrmRecords(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
   const id = String(formData.get("id") ?? "");
   const request = id ? await getEstimateRequest(id) : null;
-  if (!id || !request) fail(id, "That request could not be found.");
+  if (!id || !request) return fail(`/app/requests/${id}`, "That request could not be found.");
 
   const parsed = parseCrmConversion({
     companyName: String(formData.get("companyName") ?? ""),
@@ -213,7 +215,7 @@ export async function convertRequestToCrmRecords(formData: FormData) {
     linkContactId: String(formData.get("linkContactId") ?? ""),
     createNew: String(formData.get("createNew") ?? ""),
   });
-  if (!parsed.ok) fail(id, parsed.error);
+  if (!parsed.ok) return invalidFrom(parsed);
 
   const [allCompanies, allContacts] = await Promise.all([
     listCompanies(),
@@ -230,18 +232,18 @@ export async function convertRequestToCrmRecords(formData: FormData) {
     linkContactId: parsed.value.linkContactId,
     createNew: parsed.value.createNew,
   });
-  if (decisionError) fail(id, decisionError);
+  if (decisionError) return invalidFrom(decisionError);
 
   const result = await convertRequestToCrm({
     leadId: id,
     actor: session.email,
     input: parsed.value,
   });
-  if (!result.ok) fail(id, result.error);
+  if (!result.ok) return fail(`/app/requests/${id}`, result.error);
 
   revalidatePath("/app/requests");
   revalidatePath(`/app/requests/${id}`);
   revalidatePath("/app/companies");
   revalidatePath("/app/opportunities");
-  redirect(`/app/requests/${id}?saved=1`);
+  return succeed(`/app/requests/${id}`);
 }

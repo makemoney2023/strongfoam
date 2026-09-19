@@ -10,6 +10,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./app-sidebar";
+import { CommandPalette } from "./command-palette";
+import { NoticeToaster } from "./notice-toaster";
 
 export function AppShell({
   email,
@@ -34,8 +36,12 @@ export function AppShell({
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger className="size-11 md:size-8" />
             <Separator orientation="vertical" className="h-4" />
-            <p className="text-sm text-muted-foreground">Staff workspace</p>
+            <p className="hidden text-sm text-muted-foreground sm:block">Staff workspace</p>
+            <div className="ml-auto">
+              <CommandPalette />
+            </div>
           </header>
+          <NoticeToaster />
           {demo ? (
             <Alert className="rounded-none border-x-0 border-t-0">
               <AlertDescription>

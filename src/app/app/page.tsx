@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Flash } from "@/components/ops/flash";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Button } from "@/components/ui/button";
@@ -90,14 +89,9 @@ function StatCard({
   );
 }
 
-export default async function OpsHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ saved?: string; error?: string }>;
-}) {
+export default async function OpsHomePage() {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
-  const query = await searchParams;
 
   const [requests, opportunities, projects, jobs, companies] = await Promise.all([
     listEstimateRequests(),
@@ -133,7 +127,6 @@ export default async function OpsHomePage({
           </div>
         }
       />
-      <Flash saved={query.saved} error={query.error} />
 
       <section aria-label="Needs attention" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard

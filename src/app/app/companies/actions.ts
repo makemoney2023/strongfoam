@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  fail,
+  invalidFrom,
+  succeed,
+  type ActionState,
+} from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import {
   parseCompanyInput,
@@ -20,10 +26,6 @@ import {
   updateSite,
 } from "@/lib/ops/store";
 
-function fail(path: string, error: string): never {
-  redirect(`${path}?error=${encodeURIComponent(error)}`);
-}
-
 function refreshCompanies(companyId?: string) {
   revalidatePath("/app/companies");
   revalidatePath("/app/opportunities");
@@ -32,7 +34,7 @@ function refreshCompanies(companyId?: string) {
   if (companyId) revalidatePath(`/app/companies/${companyId}`);
 }
 
-export async function createCompany(formData: FormData) {
+export async function createCompany(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const parsed = parseCompanyInput({
@@ -42,13 +44,13 @@ export async function createCompany(formData: FormData) {
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
-  if (!parsed.ok) fail("/app/companies", parsed.error);
+  if (!parsed.ok) return invalidFrom(parsed);
   const company = await addCompany(parsed.value);
   refreshCompanies(company.id);
-  redirect(`/app/companies/${company.id}?saved=1`);
+  return succeed(`/app/companies/${company.id}`, "Company created.");
 }
 
-export async function saveCompany(formData: FormData) {
+export async function saveCompany(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const id = String(formData.get("id") ?? "");
@@ -59,26 +61,26 @@ export async function saveCompany(formData: FormData) {
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
-  if (!id) fail("/app/companies", "Missing company.");
-  if (!parsed.ok) fail(`/app/companies/${id}`, parsed.error);
+  if (!id) return fail("/app/companies", "Missing company.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const company = await updateCompany(id, parsed.value);
-  if (!company) fail(`/app/companies/${id}`, "That company could not be updated.");
+  if (!company) return fail(`/app/companies/${id}`, "That company could not be updated.");
   refreshCompanies(id);
-  redirect(`/app/companies/${id}?saved=1`);
+  return succeed(`/app/companies/${id}`, "Company saved.");
 }
 
-export async function removeCompany(formData: FormData) {
+export async function removeCompany(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const id = String(formData.get("id") ?? "");
-  if (!id) fail("/app/companies", "Missing company.");
+  if (!id) return fail("/app/companies", "Missing company.");
   const result = await deleteCompany(id);
-  if (!result.ok) fail(`/app/companies/${id}`, result.error);
+  if (!result.ok) return fail(`/app/companies/${id}`, result.error);
   refreshCompanies();
-  redirect("/app/companies?saved=1");
+  return succeed("/app/companies", "Company deleted.");
 }
 
-export async function createCompanyContact(formData: FormData) {
+export async function createCompanyContact(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
@@ -89,15 +91,15 @@ export async function createCompanyContact(formData: FormData) {
     phone: String(formData.get("phone") ?? ""),
     role: String(formData.get("role") ?? ""),
   });
-  if (!companyId) fail("/app/companies", "Missing company.");
-  if (!parsed.ok) fail(`/app/companies/${companyId}`, parsed.error);
+  if (!companyId) return fail("/app/companies", "Missing company.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const contact = await addContact({ companyId, input: parsed.value });
-  if (!contact) fail(`/app/companies/${companyId}`, "That contact could not be saved.");
+  if (!contact) return fail(`/app/companies/${companyId}`, "That contact could not be saved.");
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Contact added.");
 }
 
-export async function saveCompanyContact(formData: FormData) {
+export async function saveCompanyContact(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
@@ -109,27 +111,27 @@ export async function saveCompanyContact(formData: FormData) {
     phone: String(formData.get("phone") ?? ""),
     role: String(formData.get("role") ?? ""),
   });
-  if (!companyId || !id) fail("/app/companies", "Missing contact.");
-  if (!parsed.ok) fail(`/app/companies/${companyId}`, parsed.error);
+  if (!companyId || !id) return fail("/app/companies", "Missing contact.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const contact = await updateContact(id, parsed.value);
-  if (!contact) fail(`/app/companies/${companyId}`, "That contact could not be updated.");
+  if (!contact) return fail(`/app/companies/${companyId}`, "That contact could not be updated.");
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Contact saved.");
 }
 
-export async function removeCompanyContact(formData: FormData) {
+export async function removeCompanyContact(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
   const id = String(formData.get("id") ?? "");
-  if (!companyId || !id) fail("/app/companies", "Missing contact.");
+  if (!companyId || !id) return fail("/app/companies", "Missing contact.");
   const contact = await deleteContact(id);
-  if (!contact) fail(`/app/companies/${companyId}`, "That contact could not be deleted.");
+  if (!contact) return fail(`/app/companies/${companyId}`, "That contact could not be deleted.");
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Contact deleted.");
 }
 
-export async function createCompanySite(formData: FormData) {
+export async function createCompanySite(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
@@ -138,15 +140,15 @@ export async function createCompanySite(formData: FormData) {
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
-  if (!companyId) fail("/app/companies", "Missing company.");
-  if (!parsed.ok) fail(`/app/companies/${companyId}`, parsed.error);
+  if (!companyId) return fail("/app/companies", "Missing company.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const site = await addSite({ companyId, input: parsed.value });
-  if (!site) fail(`/app/companies/${companyId}`, "That site could not be saved.");
+  if (!site) return fail(`/app/companies/${companyId}`, "That site could not be saved.");
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Site added.");
 }
 
-export async function saveCompanySite(formData: FormData) {
+export async function saveCompanySite(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
@@ -156,22 +158,22 @@ export async function saveCompanySite(formData: FormData) {
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
-  if (!companyId || !id) fail("/app/companies", "Missing site.");
-  if (!parsed.ok) fail(`/app/companies/${companyId}`, parsed.error);
+  if (!companyId || !id) return fail("/app/companies", "Missing site.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const site = await updateSite(id, parsed.value);
-  if (!site) fail(`/app/companies/${companyId}`, "That site could not be updated.");
+  if (!site) return fail(`/app/companies/${companyId}`, "That site could not be updated.");
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Site saved.");
 }
 
-export async function removeCompanySite(formData: FormData) {
+export async function removeCompanySite(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const companyId = String(formData.get("companyId") ?? "");
   const id = String(formData.get("id") ?? "");
-  if (!companyId || !id) fail("/app/companies", "Missing site.");
+  if (!companyId || !id) return fail("/app/companies", "Missing site.");
   const result = await deleteSite(id);
-  if (!result.ok) fail(`/app/companies/${companyId}`, result.error);
+  if (!result.ok) return fail(`/app/companies/${companyId}`, result.error);
   refreshCompanies(companyId);
-  redirect(`/app/companies/${companyId}?saved=1`);
+  return succeed(`/app/companies/${companyId}`, "Site deleted.");
 }

@@ -1,6 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +26,7 @@ type TriggerVariant = "default" | "outline" | "secondary" | "ghost" | "link";
 
 /**
  * Progressive-disclosure wrapper: a labelled trigger button that opens a modal
- * containing a server-action form. The form's redirect closes the dialog.
+ * containing a server-action form. Closing a dirty form asks for confirmation.
  */
 export function FormDialog({
   triggerLabel,
@@ -41,32 +51,81 @@ export function FormDialog({
   contentClassName?: string;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [dirty, setDirty] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+
+  function requestClose() {
+    if (dirty) {
+      setDiscardOpen(true);
+      return;
+    }
+    setOpen(false);
+  }
+
   return (
-    <Dialog defaultOpen={defaultOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant={triggerVariant}
-            className={cn("min-h-11 md:min-h-8", triggerClassName)}
-            aria-label={triggerAriaLabel}
-          />
-        }
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            setOpen(true);
+            return;
+          }
+          requestClose();
+        }}
       >
-        {triggerIcon}
-        {triggerLabel}
-      </DialogTrigger>
-      <DialogContent
-        className={cn(
-          "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg",
-          contentClassName,
-        )}
-      >
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
-        </DialogHeader>
-        {children}
-      </DialogContent>
-    </Dialog>
+        <DialogTrigger
+          render={
+            <Button
+              variant={triggerVariant}
+              className={cn("min-h-11 md:min-h-8", triggerClassName)}
+              aria-label={triggerAriaLabel}
+            />
+          }
+        >
+          {triggerIcon}
+          {triggerLabel}
+        </DialogTrigger>
+        <DialogContent
+          className={cn(
+            "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg",
+            contentClassName,
+          )}
+          onChange={() => setDirty(true)}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            {description ? <DialogDescription>{description}</DialogDescription> : null}
+          </DialogHeader>
+          {children}
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your edits in “{title}” will be lost if you close this form.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              variant="destructive"
+              className="min-h-11 sm:min-h-8"
+              onClick={() => {
+                setDiscardOpen(false);
+                setDirty(false);
+                setOpen(false);
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

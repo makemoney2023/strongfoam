@@ -17,10 +17,11 @@ import {
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConfirmForm } from "@/components/ops/confirm-form";
+import { TaskStatusButton } from "@/components/ops/task-status-button";
+import { ActionForm } from "@/components/ops/action-form";
 import { DetailList } from "@/components/ops/detail-list";
 import { EmptyState } from "@/components/ops/empty-state";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { NativeSelect } from "@/components/ops/native-select";
@@ -135,8 +136,6 @@ export default async function JobDetailPage({
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
-    saved?: string;
-    error?: string;
     taskStatus?: string;
     noteKind?: string;
     docKind?: string;
@@ -207,7 +206,7 @@ export default async function JobDetailPage({
               title="Edit job"
               description="Name, scope, crew, and planned dates."
             >
-              <form action={saveJobDetails} className="grid gap-3 sm:grid-cols-2">
+              <ActionForm action={saveJobDetails} className="grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="jobId" value={job.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <JobFormFields
@@ -226,7 +225,7 @@ export default async function JobDetailPage({
                     Save job
                   </SubmitButton>
                 </div>
-              </form>
+              </ActionForm>
             </FormDialog>
             <Button
               variant="outline"
@@ -239,7 +238,6 @@ export default async function JobDetailPage({
           </div>
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Job saved." />
 
       <ListFilters>
         <div className="space-y-2">
@@ -456,7 +454,7 @@ export default async function JobDetailPage({
                   title="Add a work area"
                   description="Tasks, plans, and field entries can be pinned to a work area."
                 >
-                  <form action={addJobWorkArea} className="grid gap-3 sm:grid-cols-2">
+                  <ActionForm action={addJobWorkArea} className="grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="jobId" value={job.id} />
                     <WorkAreaFields idPrefix="newArea" />
                     <div className="sm:col-span-2">
@@ -464,7 +462,7 @@ export default async function JobDetailPage({
                         Add work area
                       </SubmitButton>
                     </div>
-                  </form>
+                  </ActionForm>
                 </FormDialog>
               </CardAction>
             </CardHeader>
@@ -498,7 +496,7 @@ export default async function JobDetailPage({
                             triggerAriaLabel={`Edit ${area.name}`}
                             title="Edit work area"
                           >
-                            <form action={saveJobWorkArea} className="grid gap-3 sm:grid-cols-2">
+                            <ActionForm action={saveJobWorkArea} className="grid gap-3 sm:grid-cols-2">
                               <input type="hidden" name="jobId" value={job.id} />
                               <input type="hidden" name="workAreaId" value={area.id} />
                               <input type="hidden" name="returnTo" value={returnTo} />
@@ -508,7 +506,7 @@ export default async function JobDetailPage({
                                   Save area
                                 </SubmitButton>
                               </div>
-                            </form>
+                            </ActionForm>
                           </FormDialog>
                           <ConfirmForm
                             action={removeJobWorkArea}
@@ -555,7 +553,7 @@ export default async function JobDetailPage({
                   title="Add a task"
                   description="Crews can complete tasks from the field view."
                 >
-                  <form action={addJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
+                  <ActionForm action={addJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="jobId" value={job.id} />
                     <TaskFields idPrefix="newTask" areas={areaOptions} />
                     <div className="sm:col-span-2">
@@ -563,7 +561,7 @@ export default async function JobDetailPage({
                         Add task
                       </SubmitButton>
                     </div>
-                  </form>
+                  </ActionForm>
                 </FormDialog>
               </CardAction>
             </CardHeader>
@@ -626,21 +624,13 @@ export default async function JobDetailPage({
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
-                        <form action={setJobWorkspaceTaskStatus}>
-                          <input type="hidden" name="jobId" value={job.id} />
-                          <input type="hidden" name="taskId" value={task.id} />
-                          <input
-                            type="hidden"
-                            name="status"
-                            value={task.status === "done" ? "open" : "done"}
-                          />
-                          <SubmitButton
-                            className="min-h-11 md:min-h-8"
-                            pendingLabel={task.status === "done" ? "Reopening…" : "Completing…"}
-                          >
-                            {task.status === "done" ? "Reopen" : "Complete"}
-                          </SubmitButton>
-                        </form>
+                        <TaskStatusButton
+                          action={setJobWorkspaceTaskStatus}
+                          jobId={job.id}
+                          taskId={task.id}
+                          status={task.status === "done" ? "done" : "open"}
+                          returnTo={returnTo}
+                        />
                         <FormDialog
                           triggerLabel="Edit"
                           triggerIcon={<PencilIcon aria-hidden="true" />}
@@ -648,7 +638,7 @@ export default async function JobDetailPage({
                           triggerAriaLabel={`Edit ${task.title}`}
                           title="Edit task"
                         >
-                          <form action={saveJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
+                          <ActionForm action={saveJobWorkspaceTask} className="grid gap-3 sm:grid-cols-2">
                             <input type="hidden" name="jobId" value={job.id} />
                             <input type="hidden" name="taskId" value={task.id} />
                             <input type="hidden" name="returnTo" value={returnTo} />
@@ -667,7 +657,7 @@ export default async function JobDetailPage({
                                 Save task
                               </SubmitButton>
                             </div>
-                          </form>
+                          </ActionForm>
                         </FormDialog>
                         <ConfirmForm
                           action={removeJobWorkspaceTask}
@@ -768,7 +758,7 @@ export default async function JobDetailPage({
                           title="Edit document"
                           description={document.filename}
                         >
-                          <form action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
+                          <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
                             <input type="hidden" name="jobId" value={job.id} />
                             <input type="hidden" name="documentId" value={document.id} />
                             <input type="hidden" name="returnTo" value={returnTo} />
@@ -782,7 +772,7 @@ export default async function JobDetailPage({
                                 Save document
                               </SubmitButton>
                             </div>
-                          </form>
+                          </ActionForm>
                         </FormDialog>
                         <ConfirmForm
                           action={removeJobDocument}
@@ -822,7 +812,7 @@ export default async function JobDetailPage({
                   title="Add a field entry"
                   description="Reporting a blocker also marks the job blocked."
                 >
-                  <form action={addJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                  <ActionForm action={addJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
                     <FieldEntryFields idPrefix="newEntry" areas={areaOptions} tasks={taskOptions} />
@@ -831,7 +821,7 @@ export default async function JobDetailPage({
                         Save entry
                       </SubmitButton>
                     </div>
-                  </form>
+                  </ActionForm>
                 </FormDialog>
               </CardAction>
             </CardHeader>
@@ -878,7 +868,7 @@ export default async function JobDetailPage({
                             triggerAriaLabel="Edit field entry"
                             title="Edit field entry"
                           >
-                            <form action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
+                            <ActionForm action={saveJobFieldEntry} className="grid gap-3 sm:grid-cols-2">
                               <input type="hidden" name="jobId" value={job.id} />
                               <input type="hidden" name="noteId" value={note.id} />
                               <input type="hidden" name="returnTo" value={returnTo} />
@@ -900,7 +890,7 @@ export default async function JobDetailPage({
                                   Save entry
                                 </SubmitButton>
                               </div>
-                            </form>
+                            </ActionForm>
                           </FormDialog>
                           <ConfirmForm
                             action={removeJobFieldEntry}
@@ -990,7 +980,7 @@ export default async function JobDetailPage({
             </div>
           </CardHeader>
           <CardContent>
-            <form action={saveJobStatus} className="space-y-4">
+            <ActionForm action={saveJobStatus} className="space-y-4">
               <input type="hidden" name="jobId" value={job.id} />
               <div className="space-y-2">
                 <Label htmlFor="status">Job status</Label>
@@ -1026,7 +1016,7 @@ export default async function JobDetailPage({
               >
                 Save status
               </SubmitButton>
-            </form>
+            </ActionForm>
           </CardContent>
         </Card>
       </div>

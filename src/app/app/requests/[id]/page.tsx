@@ -7,9 +7,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
-import { Flash } from "@/components/ops/flash";
 import { FormDialog } from "@/components/ops/form-dialog";
+import {
+  CompanyLinkPicker,
+  ContactLinkPicker,
+} from "@/components/ops/link-record-picker";
+import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
@@ -83,17 +88,14 @@ function field(value: unknown): string {
 
 export default async function EstimateRequestDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
-  const query = await searchParams;
   const request = await getEstimateRequest(id);
   if (!request) notFound();
 
@@ -155,8 +157,6 @@ export default async function EstimateRequestDetailPage({
           />
         }
       />
-      <Flash saved={query.saved} error={query.error} savedMessage="Review saved." />
-
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.8fr)]">
         <section className="space-y-6">
           <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -300,57 +300,33 @@ export default async function EstimateRequestDetailPage({
                 </div>
               </dl>
             ) : (
-              <form action={convertRequestToCrmRecords} className="mt-4 space-y-4">
+              <ActionForm action={convertRequestToCrmRecords} className="mt-4 space-y-4">
                 <input type="hidden" name="id" value={request.id} />
                 <p className="text-sm text-muted-foreground">
                   Create or link a company, contact, site, and opportunity from
                   this submission without retyping the captured details.
                 </p>
-                {companyMatches.length > 0 || contactMatches.length > 0 ? (
-                  <div className="rounded-md bg-muted px-3 py-3 text-sm">
-                    <p className="font-semibold">Likely duplicates</p>
-                    {companyMatches.map((match) => (
-                      <p key={match.id} className="mt-1">
-                        Company {match.name} matches by {match.reason}.
-                      </p>
-                    ))}
-                    {contactMatches.map((match) => (
-                      <p key={match.id} className="mt-1">
-                        Contact {match.name} ({match.email}) matches by{" "}
-                        {match.reason}.
-                      </p>
-                    ))}
-                    <p className="mt-2 text-muted-foreground">
-                      Link the existing records or confirm creating new ones.
-                    </p>
-                  </div>
-                ) : null}
+                <CompanyLinkPicker
+                  companies={allCompanies.map((company) => ({
+                    id: company.id,
+                    name: company.name,
+                  }))}
+                  matches={companyMatches}
+                  defaultLinkedId={companyMatches[0]?.id ?? ""}
+                />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Company</Label>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="companyName">
+                      Company name <span aria-hidden="true">*</span>
+                    </Label>
                     <Input
                       id="companyName"
                       name="companyName"
                       defaultValue={draft.companyName}
-                      className="h-8"
+                      className="h-11"
                       required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="linkCompanyId">Link existing company</Label>
-                    <select
-                      id="linkCompanyId"
-                      name="linkCompanyId"
-                      defaultValue={companyMatches[0]?.id ?? ""}
-                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                    >
-                      <option value="">Create new company</option>
-                      {allCompanies.map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
+                    <FieldError name="companyName" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First name</Label>
@@ -358,9 +334,10 @@ export default async function EstimateRequestDetailPage({
                       id="firstName"
                       name="firstName"
                       defaultValue={draft.firstName}
-                      className="h-8"
+                      className="h-11"
                       required
                     />
+                    <FieldError name="firstName" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last name</Label>
@@ -368,9 +345,10 @@ export default async function EstimateRequestDetailPage({
                       id="lastName"
                       name="lastName"
                       defaultValue={draft.lastName}
-                      className="h-8"
+                      className="h-11"
                       required
                     />
+                    <FieldError name="lastName" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -379,9 +357,10 @@ export default async function EstimateRequestDetailPage({
                       name="email"
                       type="email"
                       defaultValue={draft.email}
-                      className="h-8"
+                      className="h-11"
                       required
                     />
+                    <FieldError name="email" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone</Label>
@@ -389,34 +368,26 @@ export default async function EstimateRequestDetailPage({
                       id="phone"
                       name="phone"
                       defaultValue={draft.phone}
-                      className="h-8"
+                      className="h-11"
                     />
                   </div>
+                  <ContactLinkPicker
+                    contacts={allContacts.map((contact) => ({
+                      id: contact.id,
+                      name: formatFullName(contact.firstName, contact.lastName),
+                      email: contact.email,
+                    }))}
+                    matches={contactMatches}
+                    defaultLinkedId={contactMatches[0]?.id ?? ""}
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
                     <Input
                       id="role"
                       name="role"
                       defaultValue={draft.role ?? ""}
-                      className="h-8"
+                      className="h-11"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="linkContactId">Link existing contact</Label>
-                    <select
-                      id="linkContactId"
-                      name="linkContactId"
-                      defaultValue={contactMatches[0]?.id ?? ""}
-                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                    >
-                      <option value="">Create new contact</option>
-                      {allContacts.map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {formatFullName(contact.firstName, contact.lastName)} ·{" "}
-                          {contact.email}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="siteName">Site</Label>
@@ -483,16 +454,10 @@ export default async function EstimateRequestDetailPage({
                     />
                   </div>
                 </div>
-                {companyMatches.length > 0 || contactMatches.length > 0 ? (
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="createNew" value="on" />
-                    Create new records even if matches exist
-                  </label>
-                ) : null}
-                <Button type="submit" variant="outline" className="h-8">
+                <Button type="submit" variant="outline" className="min-h-11">
                   Create CRM records
                 </Button>
-              </form>
+              </ActionForm>
             )}
           </div>
 
@@ -594,7 +559,7 @@ export default async function EstimateRequestDetailPage({
                 title="Add a task"
                 description={`Follow-up for ${formatRequestNumber(request.id)}.`}
               >
-                <form action={addRequestTask} className="grid gap-3 sm:grid-cols-2">
+                <ActionForm action={addRequestTask} className="grid gap-3 sm:grid-cols-2">
                   <input type="hidden" name="id" value={request.id} />
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="newReqTask-title">
@@ -615,7 +580,7 @@ export default async function EstimateRequestDetailPage({
                       Add task
                     </SubmitButton>
                   </div>
-                </form>
+                </ActionForm>
               </FormDialog>
             </div>
             {tasks.length === 0 ? (
@@ -652,21 +617,12 @@ export default async function EstimateRequestDetailPage({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
-                      <form action={setRequestTaskStatus}>
-                        <input type="hidden" name="id" value={request.id} />
-                        <input type="hidden" name="taskId" value={task.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={task.status === "done" ? "open" : "done"}
-                        />
-                        <SubmitButton
-                          className="min-h-11 md:min-h-8"
-                          pendingLabel={task.status === "done" ? "Reopening…" : "Completing…"}
-                        >
-                          {task.status === "done" ? "Reopen" : "Complete"}
-                        </SubmitButton>
-                      </form>
+                      <TaskStatusButton
+                        action={setRequestTaskStatus}
+                        requestId={request.id}
+                        taskId={task.id}
+                        status={task.status === "done" ? "done" : "open"}
+                      />
                       <FormDialog
                         triggerLabel="Edit"
                         triggerIcon={<PencilIcon aria-hidden="true" />}
@@ -674,7 +630,7 @@ export default async function EstimateRequestDetailPage({
                         triggerAriaLabel={`Edit ${task.title}`}
                         title="Edit task"
                       >
-                        <form action={saveRequestTask} className="grid gap-3 sm:grid-cols-2">
+                        <ActionForm action={saveRequestTask} className="grid gap-3 sm:grid-cols-2">
                           <input type="hidden" name="id" value={request.id} />
                           <input type="hidden" name="taskId" value={task.id} />
                           <div className="space-y-2 sm:col-span-2">
@@ -713,7 +669,7 @@ export default async function EstimateRequestDetailPage({
                               Save task
                             </SubmitButton>
                           </div>
-                        </form>
+                        </ActionForm>
                       </FormDialog>
                       <ConfirmForm
                         action={removeRequestTask}
@@ -742,7 +698,7 @@ export default async function EstimateRequestDetailPage({
             <p className="text-sm text-muted-foreground">
               Use @name to mention a teammate.
             </p>
-            <form action={addRequestComment} className="mt-4 space-y-3">
+            <ActionForm action={addRequestComment} className="mt-4 space-y-3">
               <input type="hidden" name="id" value={request.id} />
               <div className="space-y-2">
                 <Label htmlFor="commentBody">Add a comment</Label>
@@ -757,7 +713,7 @@ export default async function EstimateRequestDetailPage({
               <SubmitButton variant="default" className="min-h-11 md:min-h-8" pendingLabel="Posting…">
                 Post comment
               </SubmitButton>
-            </form>
+            </ActionForm>
             {comments.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">No comments yet.</p>
             ) : (
@@ -817,7 +773,7 @@ export default async function EstimateRequestDetailPage({
 
         <aside className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="text-base font-semibold">Review</h2>
-          <form action={saveEstimateRequestReview} className="mt-4 space-y-4">
+          <ActionForm action={saveEstimateRequestReview} className="mt-4 space-y-4">
             <input type="hidden" name="id" value={request.id} />
             <div className="space-y-2">
               <Label htmlFor="workflowStatus">Workflow status</Label>
@@ -878,7 +834,7 @@ export default async function EstimateRequestDetailPage({
             <Button type="submit" className="w-full">
               Save review
             </Button>
-          </form>
+          </ActionForm>
         </aside>
       </div>
     </div>

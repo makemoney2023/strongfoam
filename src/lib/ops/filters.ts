@@ -75,3 +75,49 @@ export function matchesQuery(
     .toLowerCase()
     .includes(needle);
 }
+
+export const DATE_PRESETS = ["today", "this_week", "overdue", "last_30"] as const;
+export type DatePreset = (typeof DATE_PRESETS)[number];
+
+export const DATE_PRESET_LABELS: Record<DatePreset, string> = {
+  today: "Today",
+  this_week: "This week",
+  overdue: "Overdue",
+  last_30: "Last 30 days",
+};
+
+export function isDatePreset(value: string): value is DatePreset {
+  return DATE_PRESETS.includes(value as DatePreset);
+}
+
+/** Monday of the week containing `now` (local time). */
+export function startOfWeek(now: Date): Date {
+  const start = startOfDay(now);
+  const day = start.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + mondayOffset);
+  return start;
+}
+
+export function dateRangeForPreset(
+  preset: DatePreset,
+  now: Date = new Date(),
+): { from: string; to: string } {
+  const today = startOfDay(now);
+  switch (preset) {
+    case "today":
+      return { from: dateInputValue(today), to: dateInputValue(today) };
+    case "this_week":
+      return { from: dateInputValue(startOfWeek(today)), to: dateInputValue(today) };
+    case "overdue": {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { from: "", to: dateInputValue(yesterday) };
+    }
+    case "last_30": {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      return { from: dateInputValue(start), to: dateInputValue(today) };
+    }
+  }
+}

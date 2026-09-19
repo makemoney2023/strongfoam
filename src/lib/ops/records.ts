@@ -52,13 +52,14 @@ export type ProjectUpdateInput = {
 
 const MAX_SHORT_TEXT_LENGTH = 160;
 
-function requireName(value: string | undefined, label: string) {
+function requireName(value: string | undefined, label: string, field = "name") {
   const name = value?.trim() ?? "";
-  if (!name) return { ok: false as const, error: `A ${label} is required.` };
+  if (!name) return { ok: false as const, error: `A ${label} is required.`, field };
   if (name.length > MAX_SHORT_TEXT_LENGTH) {
     return {
       ok: false as const,
       error: `${label[0].toUpperCase()}${label.slice(1)}s must be ${MAX_SHORT_TEXT_LENGTH} characters or fewer.`,
+      field,
     };
   }
   return { ok: true as const, value: name };
@@ -74,12 +75,12 @@ export function parseCompanyInput(input: {
   phone?: string;
   city?: string;
   province?: string;
-}): { ok: true; value: CompanyInput } | { ok: false; error: string } {
+}): { ok: true; value: CompanyInput } | { ok: false; error: string; field?: string } {
   const name = requireName(input.name, "company name");
   if (!name.ok) return name;
   const email = input.email?.trim() || null;
   if (email && !email.includes("@")) {
-    return { ok: false, error: "A valid company email is required." };
+    return { ok: false, error: "A valid company email is required.", field: "email" };
   }
   return {
     ok: true,
@@ -99,15 +100,18 @@ export function parseContactInput(input: {
   email?: string;
   phone?: string;
   role?: string;
-}): { ok: true; value: ContactInput } | { ok: false; error: string } {
+}): { ok: true; value: ContactInput } | { ok: false; error: string; field?: string } {
   const firstName = input.firstName?.trim() ?? "";
   const lastName = input.lastName?.trim() ?? "";
   const email = input.email?.trim().toLowerCase() ?? "";
-  if (!firstName || !lastName) {
-    return { ok: false, error: "A contact first and last name are required." };
+  if (!firstName) {
+    return { ok: false, error: "A contact first name is required.", field: "firstName" };
+  }
+  if (!lastName) {
+    return { ok: false, error: "A contact last name is required.", field: "lastName" };
   }
   if (!email || !email.includes("@")) {
-    return { ok: false, error: "A valid contact email is required." };
+    return { ok: false, error: "A valid contact email is required.", field: "email" };
   }
   return {
     ok: true,
@@ -125,13 +129,16 @@ export function parseSiteInput(input: {
   name?: string;
   city?: string;
   province?: string;
-}): { ok: true; value: SiteInput } | { ok: false; error: string } {
+}): { ok: true; value: SiteInput } | { ok: false; error: string; field?: string } {
   const name = requireName(input.name, "site name");
   if (!name.ok) return name;
   const city = input.city?.trim() ?? "";
   const province = input.province?.trim() ?? "";
-  if (!city || !province) {
-    return { ok: false, error: "A site city and province are required." };
+  if (!city) {
+    return { ok: false, error: "A site city is required.", field: "city" };
+  }
+  if (!province) {
+    return { ok: false, error: "A site province is required.", field: "province" };
   }
   return {
     ok: true,
@@ -147,12 +154,12 @@ export function parseOpportunityUpdate(input: {
   name?: string;
   stage?: string;
   owner?: string;
-}): { ok: true; value: OpportunityUpdateInput } | { ok: false; error: string } {
+}): { ok: true; value: OpportunityUpdateInput } | { ok: false; error: string; field?: string } {
   const name = requireName(input.name, "opportunity name");
   if (!name.ok) return name;
   const stage = input.stage ?? "";
   if (!isOpportunityStage(stage)) {
-    return { ok: false, error: "Choose a valid opportunity stage." };
+    return { ok: false, error: "Choose a valid opportunity stage.", field: "stage" };
   }
   return {
     ok: true,
@@ -168,12 +175,12 @@ export function parseProjectUpdate(input: {
   name?: string;
   status?: string;
   projectManager?: string;
-}): { ok: true; value: ProjectUpdateInput } | { ok: false; error: string } {
+}): { ok: true; value: ProjectUpdateInput } | { ok: false; error: string; field?: string } {
   const name = requireName(input.name, "project name");
   if (!name.ok) return name;
   const status = input.status ?? "active";
   if (!isProjectStatus(status)) {
-    return { ok: false, error: "Choose a valid project status." };
+    return { ok: false, error: "Choose a valid project status.", field: "status" };
   }
   return {
     ok: true,

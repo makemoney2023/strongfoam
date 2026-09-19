@@ -32,6 +32,7 @@ describe("parseEstimateRequestUpdate", () => {
     ).toEqual({
       ok: false,
       error: "A lost reason is required when a request is marked lost.",
+      field: "lostReason",
     });
   });
 });

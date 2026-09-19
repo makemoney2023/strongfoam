@@ -228,21 +228,21 @@ export function parseEstimateRequestUpdate(input: {
   nextActionDueAt?: string;
   lostReason?: string;
   note?: string;
-}): { ok: true; value: EstimateRequestUpdate } | { ok: false; error: string } {
+}): { ok: true; value: EstimateRequestUpdate } | { ok: false; error: string; field?: string } {
   const workflowStatus = input.workflowStatus ?? "";
   if (!isWorkflowStatus(workflowStatus)) {
-    return { ok: false, error: "Choose a valid workflow status." };
+    return { ok: false, error: "Choose a valid workflow status.", field: "workflowStatus" };
   }
 
   const lostReason = input.lostReason?.trim() || null;
   const lostReasonError = requireLostReason(workflowStatus, lostReason);
-  if (lostReasonError) return { ok: false, error: lostReasonError };
+  if (lostReasonError) return { ok: false, error: lostReasonError, field: "lostReason" };
 
   const nextActionDueAt = input.nextActionDueAt
     ? new Date(input.nextActionDueAt)
     : null;
   if (nextActionDueAt && Number.isNaN(nextActionDueAt.getTime())) {
-    return { ok: false, error: "Next-action due date is invalid." };
+    return { ok: false, error: "Next-action due date is invalid.", field: "nextActionDueAt" };
   }
 
   return {

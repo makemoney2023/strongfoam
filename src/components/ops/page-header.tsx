@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
+import { RecentVisit } from "@/components/ops/recent-visit";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,6 +23,7 @@ export function PageHeader({
 }) {
   return (
     <div className="space-y-3">
+      <RecentVisit title={title} />
       {crumbs && crumbs.length > 0 ? (
         <Breadcrumb>
           <BreadcrumbList>

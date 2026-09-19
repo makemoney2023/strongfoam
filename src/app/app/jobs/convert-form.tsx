@@ -1,4 +1,5 @@
 import { SubmitButton } from "@/components/ops/submit-button";
+import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { convertWonWorkToProject } from "./actions";
@@ -19,7 +20,7 @@ export function ConvertWonWorkForm({
   };
 }) {
   return (
-    <form action={convertWonWorkToProject} className="grid gap-3 sm:grid-cols-2">
+    <ActionForm action={convertWonWorkToProject} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="opportunityId" value={opportunityId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <div className="space-y-2 sm:col-span-2">
@@ -33,6 +34,7 @@ export function ConvertWonWorkForm({
           defaultValue={defaults.projectName}
           required
         />
+        <FieldError name="projectName" />
       </div>
       <JobFormFields
         idPrefix="convert"
@@ -52,6 +54,6 @@ export function ConvertWonWorkForm({
           Create project and job
         </SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

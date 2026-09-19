@@ -105,7 +105,7 @@ describe("CRM matching", () => {
         linkContactId: null,
         createNew: false,
       }),
-    ).toMatch(/similar company/i);
+    ).toMatchObject({ error: expect.stringMatching(/similar company/i) });
     expect(
       requiresDuplicateDecision({
         companyMatches,

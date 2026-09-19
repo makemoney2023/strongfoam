@@ -1,3 +1,4 @@
+import { FieldError } from "@/components/ops/action-form";
 import { NativeSelect } from "@/components/ops/native-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,7 @@ export function WorkAreaFields({
           placeholder="Level 2, Unit 304, Roof deck…"
           required
         />
+        <FieldError name="name" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("kind")}>Type</Label>
@@ -94,6 +96,7 @@ export function TaskFields({
           maxLength={160}
           required
         />
+        <FieldError name="title" />
       </div>
       <div className="space-y-2">
         <Label htmlFor={id("assignee")}>Assignee</Label>
@@ -281,6 +284,7 @@ export function FieldEntryFields({
           placeholder="Note, quantity context, blocker, material request, or daily report"
           required
         />
+        <FieldError name="body" />
       </div>
     </>
   );

@@ -2,7 +2,6 @@ import { Building2Icon } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ops/empty-state";
-import { Flash } from "@/components/ops/flash";
 import { ListFilters, FilterSubmit } from "@/components/ops/list-filters";
 import { PageHeader } from "@/components/ops/page-header";
 import { Card } from "@/components/ui/card";
@@ -30,7 +29,7 @@ export const dynamic = "force-dynamic";
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; saved?: string; error?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
@@ -59,7 +58,6 @@ export default async function CompaniesPage({
           </div>
         }
       />
-      <Flash saved={params.saved} error={params.error} savedMessage="Company saved." />
 
       <ListFilters>
         <div className="space-y-2">

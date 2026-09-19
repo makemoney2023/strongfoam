@@ -2,15 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  fail,
+  invalidFrom,
+  succeed,
+  type ActionState,
+} from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseOpportunityUpdate } from "@/lib/ops/records";
 import { deleteOpportunity, updateOpportunity } from "@/lib/ops/store";
 
-function fail(path: string, error: string): never {
-  redirect(`${path}?error=${encodeURIComponent(error)}`);
-}
-
-export async function saveOpportunity(formData: FormData) {
+export async function saveOpportunity(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const id = String(formData.get("id") ?? "");
@@ -19,24 +21,24 @@ export async function saveOpportunity(formData: FormData) {
     stage: String(formData.get("stage") ?? ""),
     owner: String(formData.get("owner") ?? ""),
   });
-  if (!id) fail("/app/opportunities", "Missing opportunity.");
-  if (!parsed.ok) fail(`/app/opportunities/${id}`, parsed.error);
+  if (!id) return fail("/app/opportunities", "Missing opportunity.");
+  if (!parsed.ok) return invalidFrom(parsed);
   const opportunity = await updateOpportunity({ id, input: parsed.value });
-  if (!opportunity) fail(`/app/opportunities/${id}`, "That opportunity could not be updated.");
+  if (!opportunity) return fail(`/app/opportunities/${id}`, "That opportunity could not be updated.");
   revalidatePath("/app/opportunities");
   revalidatePath(`/app/opportunities/${id}`);
   revalidatePath("/app/companies");
-  redirect(`/app/opportunities/${id}?saved=1`);
+  return succeed(`/app/opportunities/${id}`, "Opportunity saved.");
 }
 
-export async function removeOpportunity(formData: FormData) {
+export async function removeOpportunity(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   const id = String(formData.get("id") ?? "");
-  if (!id) fail("/app/opportunities", "Missing opportunity.");
+  if (!id) return fail("/app/opportunities", "Missing opportunity.");
   const result = await deleteOpportunity(id);
-  if (!result.ok) fail(`/app/opportunities/${id}`, result.error);
+  if (!result.ok) return fail(`/app/opportunities/${id}`, result.error);
   revalidatePath("/app/opportunities");
   revalidatePath("/app/companies");
-  redirect("/app/opportunities?saved=1");
+  return succeed("/app/opportunities", "Opportunity deleted.");
 }

@@ -1,5 +1,6 @@
 import { PlusIcon } from "lucide-react";
 import { FormDialog } from "@/components/ops/form-dialog";
+import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,16 +24,18 @@ export function NewCompanyDialog({
       title="Add a company"
       description="Only the name is required. Contacts and sites can be added from the company page afterwards."
     >
-      <form action={createCompany} className="grid gap-3 sm:grid-cols-2">
+      <ActionForm action={createCompany} className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="newCompany-name">
             Name <span aria-hidden="true">*</span>
           </Label>
           <Input id="newCompany-name" name="name" className="h-11" maxLength={160} required autoFocus />
+          <FieldError name="name" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="newCompany-email">Email</Label>
           <Input id="newCompany-email" name="email" type="email" className="h-11" />
+          <FieldError name="email" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="newCompany-phone">Phone</Label>
@@ -51,7 +54,7 @@ export function NewCompanyDialog({
             Create company
           </SubmitButton>
         </div>
-      </form>
+      </ActionForm>
     </FormDialog>
   );
 }

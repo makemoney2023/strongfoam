@@ -83,24 +83,26 @@ export function parseWorkAreaInput(input: {
   name?: string;
   kind?: string;
   notes?: string;
-}): { ok: true; value: WorkAreaInput } | { ok: false; error: string } {
+}): { ok: true; value: WorkAreaInput } | { ok: false; error: string; field?: string } {
   const name = input.name?.trim() ?? "";
-  if (!name) return { ok: false, error: "A work area name is required." };
+  if (!name) return { ok: false, error: "A work area name is required.", field: "name" };
   if (name.length > MAX_SHORT_TEXT_LENGTH) {
     return {
       ok: false,
       error: `Work area names must be ${MAX_SHORT_TEXT_LENGTH} characters or fewer.`,
+      field: "name",
     };
   }
   const kind = input.kind?.trim() || "area";
   if (!isWorkAreaKind(kind)) {
-    return { ok: false, error: "Choose a valid work area type." };
+    return { ok: false, error: "Choose a valid work area type.", field: "kind" };
   }
   const notes = input.notes?.trim() || null;
   if (notes && notes.length > MAX_NOTES_LENGTH) {
     return {
       ok: false,
       error: `Work area notes must be ${MAX_NOTES_LENGTH} characters or fewer.`,
+      field: "notes",
     };
   }
   return {
@@ -118,7 +120,7 @@ export function parseJobTaskInput(input: {
   assignee?: string;
   dueAt?: string;
   workAreaId?: string;
-}): { ok: true; value: JobTaskInput } | { ok: false; error: string } {
+}): { ok: true; value: JobTaskInput } | { ok: false; error: string; field?: string } {
   const parsed = parseTaskInput({
     title: input.title,
     assignee: input.assignee,
@@ -129,6 +131,7 @@ export function parseJobTaskInput(input: {
     return {
       ok: false,
       error: `Task titles must be ${MAX_SHORT_TEXT_LENGTH} characters or fewer.`,
+      field: "title",
     };
   }
   if (
@@ -138,11 +141,12 @@ export function parseJobTaskInput(input: {
     return {
       ok: false,
       error: `Assignee names must be ${MAX_SHORT_TEXT_LENGTH} characters or fewer.`,
+      field: "assignee",
     };
   }
   const workAreaId = input.workAreaId?.trim() || null;
   if (workAreaId && !isUuid(workAreaId)) {
-    return { ok: false, error: "Choose a valid work area." };
+    return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
   return {
     ok: true,
@@ -175,7 +179,7 @@ export function parseJobDocumentInput(input: {
   sizeBytes?: number;
   kind?: string;
   workAreaId?: string | null;
-}): { ok: true; value: JobDocumentInput } | { ok: false; error: string } {
+}): { ok: true; value: JobDocumentInput } | { ok: false; error: string; field?: string } {
   const filename = sanitizeJobDocumentFilename(input.filename ?? "");
   if (!filename) {
     return { ok: false, error: "A document filename is required." };
@@ -206,11 +210,11 @@ export function parseJobDocumentInput(input: {
   }
   const kind = input.kind?.trim() || "plan";
   if (!isJobDocumentKind(kind)) {
-    return { ok: false, error: "Choose a valid document type." };
+    return { ok: false, error: "Choose a valid document type.", field: "kind" };
   }
   const workAreaId = input.workAreaId?.trim() || null;
   if (workAreaId && !isUuid(workAreaId)) {
-    return { ok: false, error: "Choose a valid work area." };
+    return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
   return {
     ok: true,
@@ -229,14 +233,14 @@ export function parseJobDocumentMeta(input: {
   workAreaId?: string | null;
 }):
   | { ok: true; value: { kind: JobDocumentKind; workAreaId: string | null } }
-  | { ok: false; error: string } {
+  | { ok: false; error: string; field?: string } {
   const kind = input.kind?.trim() || "plan";
   if (!isJobDocumentKind(kind)) {
-    return { ok: false, error: "Choose a valid document type." };
+    return { ok: false, error: "Choose a valid document type.", field: "kind" };
   }
   const workAreaId = input.workAreaId?.trim() || null;
   if (workAreaId && !isUuid(workAreaId)) {
-    return { ok: false, error: "Choose a valid work area." };
+    return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
   return { ok: true, value: { kind, workAreaId } };
 }

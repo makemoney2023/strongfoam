@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   dateInputValue,
+  dateRangeForPreset,
   datetimeLocalValue,
   isInDateRange,
   matchesQuery,
   parseDateParam,
   parseDateRange,
+  startOfWeek,
 } from "@/lib/ops/filters";
 
 describe("date and list filters", () => {
@@ -39,5 +41,26 @@ describe("date and list filters", () => {
     expect(matchesQuery("acme", ["Acme Construction", "Kitchener"])).toBe(true);
     expect(matchesQuery("toronto", ["Acme Construction", "Kitchener"])).toBe(false);
     expect(matchesQuery("", ["Anything"])).toBe(true);
+  });
+
+  it("builds date-range presets from a fixed instant", () => {
+    const wednesday = new Date("2026-09-16T15:00:00");
+    expect(dateInputValue(startOfWeek(wednesday))).toBe("2026-09-14");
+    expect(dateRangeForPreset("today", wednesday)).toEqual({
+      from: "2026-09-16",
+      to: "2026-09-16",
+    });
+    expect(dateRangeForPreset("this_week", wednesday)).toEqual({
+      from: "2026-09-14",
+      to: "2026-09-16",
+    });
+    expect(dateRangeForPreset("overdue", wednesday)).toEqual({
+      from: "",
+      to: "2026-09-15",
+    });
+    expect(dateRangeForPreset("last_30", wednesday)).toEqual({
+      from: "2026-08-18",
+      to: "2026-09-16",
+    });
   });
 });

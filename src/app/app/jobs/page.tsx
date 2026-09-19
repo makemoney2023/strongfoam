@@ -2,7 +2,6 @@ import { HammerIcon } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ops/empty-state";
-import { Flash } from "@/components/ops/flash";
 import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
@@ -34,8 +33,6 @@ export default async function JobsPage({
     q?: string;
     from?: string;
     to?: string;
-    saved?: string;
-    error?: string;
   }>;
 }) {
   if (!(await getOpsSession())) {
@@ -76,7 +73,6 @@ export default async function JobsPage({
           </div>
         }
       />
-      <Flash saved={params.saved} error={params.error} savedMessage="Job saved." />
 
       <ListFilters>
         <div className="space-y-2">

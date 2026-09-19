@@ -179,7 +179,7 @@ export function parseCrmConversion(input: {
   createNew?: string | boolean;
 }):
   | { ok: true; value: CrmConversionInput }
-  | { ok: false; error: string } {
+  | { ok: false; error: string; field?: string } {
   const companyName = input.companyName?.trim() ?? "";
   const firstName = input.firstName?.trim() ?? "";
   const lastName = input.lastName?.trim() ?? "";
@@ -189,21 +189,27 @@ export function parseCrmConversion(input: {
   const opportunityName = input.opportunityName?.trim() ?? "";
   const stage = input.stage ?? "qualification";
 
-  if (!companyName) return { ok: false, error: "A company name is required." };
-  if (!firstName || !lastName) {
-    return { ok: false, error: "A contact first and last name are required." };
+  if (!companyName) return { ok: false, error: "A company name is required.", field: "companyName" };
+  if (!firstName) {
+    return { ok: false, error: "A contact first name is required.", field: "firstName" };
+  }
+  if (!lastName) {
+    return { ok: false, error: "A contact last name is required.", field: "lastName" };
   }
   if (!email || !email.includes("@")) {
-    return { ok: false, error: "A valid contact email is required." };
+    return { ok: false, error: "A valid contact email is required.", field: "email" };
   }
-  if (!city || !province) {
-    return { ok: false, error: "A site city and province are required." };
+  if (!city) {
+    return { ok: false, error: "A site city is required.", field: "city" };
+  }
+  if (!province) {
+    return { ok: false, error: "A site province is required.", field: "province" };
   }
   if (!opportunityName) {
-    return { ok: false, error: "An opportunity name is required." };
+    return { ok: false, error: "An opportunity name is required.", field: "opportunityName" };
   }
   if (!isOpportunityStage(stage)) {
-    return { ok: false, error: "Choose a valid opportunity stage." };
+    return { ok: false, error: "Choose a valid opportunity stage.", field: "stage" };
   }
 
   return {
@@ -283,13 +289,19 @@ export function requiresDuplicateDecision(args: {
   linkCompanyId: string | null;
   linkContactId: string | null;
   createNew: boolean;
-}): string | null {
+}): { error: string; field: string } | null {
   if (args.createNew) return null;
   if (args.companyMatches.length > 0 && !args.linkCompanyId) {
-    return "A similar company already exists. Link it or confirm creating a new company.";
+    return {
+      error: "A similar company already exists. Link it or confirm creating a new company.",
+      field: "linkCompanyId",
+    };
   }
   if (args.contactMatches.length > 0 && !args.linkContactId) {
-    return "A similar contact already exists. Link it or confirm creating a new contact.";
+    return {
+      error: "A similar contact already exists. Link it or confirm creating a new contact.",
+      field: "linkContactId",
+    };
   }
   return null;
 }

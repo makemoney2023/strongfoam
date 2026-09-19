@@ -1,4 +1,5 @@
 "use client";
+import { ActionForm } from "@/components/ops/action-form";
 
 import { upload } from "@vercel/blob/client";
 import {
@@ -125,14 +126,14 @@ export function JobDocumentUploader({
 
   if (storageMode === "demo") {
     return (
-      <form action={uploadJobDocument} className="space-y-4">
+      <ActionForm action={uploadJobDocument} className="space-y-4">
         <input type="hidden" name="jobId" value={jobId} />
         <UploadFields areas={areas} defaultKind={defaultKind} />
         <SubmitButton className="min-h-11" pendingLabel="Uploading…">
           <UploadCloudIcon aria-hidden="true" />
           Upload document
         </SubmitButton>
-      </form>
+      </ActionForm>
     );
   }
 

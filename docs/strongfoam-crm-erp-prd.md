@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.2
+**Version:** 1.3
 **Created:** 2026-09-18
 **Last updated:** 2026-09-19
 
@@ -792,23 +792,31 @@ follow them:
   and a short "how work flows" guide.
 - **UX-006 (shipped):** Field capture on a phone stays inline; only edits and
   deletes use dialogs so a technician can log a note in one tap.
+- **UX-007 (shipped):** Save, delete, and upload feedback uses Sonner toasts
+  written through a short-lived cookie. Redirects no longer carry `?saved=`
+  or `?error=` banners.
+- **UX-008 (shipped):** A command palette (`Cmd+K` / header Search) finds
+  companies, contacts, requests, opportunities, projects, and jobs, and lists
+  recently opened records when the box is empty.
+- **UX-009 (shipped):** Request conversion uses an explicit link-or-create
+  picker. Likely company and contact matches are radio choices; creating a
+  new record is a separate confirmed option.
+- **UX-010 (shipped):** Completing or reopening a task on job, field, and
+  request pages is optimistic. Failures toast and the refreshed page restores
+  the previous state.
+- **UX-011 (shipped):** `ConfirmForm` uses a shadcn AlertDialog that names the
+  record instead of `window.confirm`.
+- **UX-012 (shipped):** Filter bars include Today, This week, Overdue, and
+  Last 30 days presets that set the same `from`/`to` params.
+- **UX-013 (shipped):** Closing a dirty edit dialog asks before discarding
+  unsaved changes.
+- **UX-014 (shipped):** Validation errors return as action state and render
+  under the field. Only missing-record and authorization failures redirect
+  with a toast.
 
-Backlog for the next usability pass, in priority order:
-
-| ID | Requirement | Why | Notes |
-|---|---|---|---|
-| UX-007 | Replace `?saved=1` query-param banners with transient toasts (shadcn Sonner) for save, delete, and upload feedback | Banners linger in the URL and reappear on refresh; toasts confirm the action and get out of the way | Keep a non-visual `aria-live` announcement; remove `saved`/`error` params from redirects once toasts exist |
-| UX-008 | Global command palette (`Cmd+K`) searching companies, contacts, requests, projects, and jobs with recent items | Sidebar plus per-page search will not scale once data grows | Component already listed in 22.6; server search must reuse the existing list filters |
-| UX-009 | Explicit "Link to existing company" picker when reviewing a request or converting it, with duplicate-match suggestions surfaced before creation | Prevents duplicate companies from implicit creation during conversion | Extends the EST-009 duplicate-match behaviour |
-| UX-010 | Optimistic task complete/reopen on job and field pages using `useOptimistic`, with rollback on failure | Round-tripping a full page refresh for a checkbox feels slow on jobsite connections | Must preserve the activity log entry and confirmation of failure |
-| UX-011 | Replace `window.confirm` in `ConfirmForm` with a shadcn `AlertDialog` that names the record and its dependents | Consistent look, keyboard handling, and room to state consequences (for example, "This removes 3 tasks") | `ConfirmForm` is the single swap point |
-| UX-012 | Date-range presets ("Today", "This week", "Overdue", "Last 30 days") beside the from/to inputs on every filter bar | Typing two dates is the slowest way to answer "what is due this week" | Presets set the same `from`/`to` params the lists already parse |
-| UX-013 | Unsaved-change protection on edit dialogs (confirm before closing a dirty form) | Required by 22.6 form rules; dialogs currently discard silently on Escape or overlay click | Track dirty state in `FormDialog` |
-| UX-014 | Inline field validation with messages under the input rather than a page-level error banner after redirect | Errors should appear where the user can fix them | Requires server actions to return field errors instead of redirecting with `error=` |
-
-Each backlog item is complete when it is applied on every surface where the
-pattern occurs, passes keyboard and 375px checks, and is browser-verified in
-demo mode.
+Each item is complete when it is applied on every surface where the pattern
+occurs, passes keyboard and 375px checks, and is browser-verified in demo
+mode.
 
 ## 23. Technical and deployment architecture
 
@@ -1247,7 +1255,7 @@ policy and human review.
    states, and the Home dashboard (UX-001 to UX-006, done).
 3. Toasts, command palette, company linking, optimistic tasks, alert dialogs,
    date presets, dirty-form protection, and inline validation (UX-007 to
-   UX-014, next).
+   UX-014, done).
 
 ### Plans and voice
 
@@ -1337,11 +1345,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Ship a mobile-first field landing and job view before blueprint annotation | Delivers FLD-001/002 and the first FLD-003 actions so technicians can work from today's assignment without waiting on markup or offline sync |
 | 2026-09-19 | Put every create form behind a button and every edit behind a dialog; keep field capture inline | Staff reported not finding "add company" and "add job"; progressive disclosure makes pages readable while a technician on a phone still logs a note in one tap |
 | 2026-09-19 | Track usability work as numbered UX requirements in section 22.10 | Keeps ease-of-use improvements visible and prioritized alongside feature work rather than lost in PR descriptions |
+| 2026-09-19 | Ship UX-007 to UX-014 in one pass: toasts, command palette, company linking, optimistic tasks, AlertDialog, date presets, dirty-form protection, and inline validation | The next-pass backlog was already specified; implementing it together keeps every surface on the same interaction model |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.3 | 2026-09-19 | Shipped UX-007 to UX-014: Sonner toasts, Cmd+K search, link-or-create company picker, optimistic tasks, AlertDialog confirms, date presets, dirty-form protection, and inline field errors |
 | 1.2 | 2026-09-19 | Moved create forms behind buttons, added New job entry points, read-first detail pages with Edit dialogs, confirmed deletes, empty states, and the Home dashboard; recorded UX-001 to UX-014 |
 | 1.1 | 2026-09-19 | Added create, edit, and delete for every record type plus status, type, and date-range filters on every list |
 | 1.0 | 2026-09-19 | Added the mobile field landing page and job field log for tasks, notes, quantities, photos, blockers, material requests, and daily reports |
