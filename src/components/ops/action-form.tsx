@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useEffect,
   useContext,
   type ComponentProps,
   type ReactNode,
@@ -62,9 +63,19 @@ export function ActionForm({
     EMPTY_ACTION_STATE,
   );
 
+  useEffect(() => {
+    if (state.notice?.kind !== "success") return;
+    window.dispatchEvent(new CustomEvent("ops-action-success"));
+  }, [state.notice]);
+
   return (
     <ActionStateContext.Provider value={state}>
-      <form action={formAction} className={cn(className)} {...props} noValidate>
+      <form
+        action={formAction}
+        className={cn(className)}
+        {...props}
+        noValidate
+      >
         <FormError />
         {children}
       </form>

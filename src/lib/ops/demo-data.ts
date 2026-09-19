@@ -21,6 +21,7 @@ import {
   scheduleCalendarExceptions,
   scheduleCalendars,
   sites,
+  userEvents,
   users,
   workAreas,
 } from "@/db/schema";
@@ -31,6 +32,7 @@ export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
+export type UserEventRow = typeof userEvents.$inferSelect;
 export type MembershipRow = typeof memberships.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
@@ -59,12 +61,17 @@ export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
+export const DEMO_ADMIN_USER_ID = "10101010-1010-4010-8010-101010101010";
+export const DEMO_ADMIN_EMAIL = "admin@strongfoam.demo";
 export const DEMO_FIELD_USER_ID = "12121212-1212-4121-8121-121212121212";
 export const DEMO_FIELD_EMAIL = "field@strongfoam.demo";
 export const DEMO_FIELD_PASSWORD = "StrongFoamDemo1!";
+export const DEMO_ADMIN_PASSWORD = DEMO_FIELD_PASSWORD;
 export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 
 const now = Date.now();
+const demoPasswordHash =
+  "scrypt$7374726f6e67666f616d2d64656d6f$c1a1b8e28f4a619028057bd86bb213c4f3b81464c82ced3681ecadd556c8965d65249cccd9a6ed407823609e5e7f1d12503a0b7a5b0057d9c50105c08a7d49ad";
 
 export function demoOrganizations(): OrganizationRow[] {
   return [
@@ -81,14 +88,25 @@ export function demoOrganizations(): OrganizationRow[] {
 export function demoUsers(): UserRow[] {
   return [
     {
+      id: DEMO_ADMIN_USER_ID,
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      email: DEMO_ADMIN_EMAIL,
+      displayName: "Demo Administrator",
+      passwordHash: demoPasswordHash,
+      active: true,
+      sessionVersion: 1,
+      createdBy: "system",
+    },
+    {
       id: DEMO_FIELD_USER_ID,
       createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
       email: DEMO_FIELD_EMAIL,
       displayName: "Jordan Field",
-      passwordHash:
-        "scrypt$7374726f6e67666f616d2d64656d6f$c1a1b8e28f4a619028057bd86bb213c4f3b81464c82ced3681ecadd556c8965d65249cccd9a6ed407823609e5e7f1d12503a0b7a5b0057d9c50105c08a7d49ad",
+      passwordHash: demoPasswordHash,
       active: true,
+      sessionVersion: 1,
       createdBy: "demo@strongfoam.ca",
     },
   ];
@@ -97,6 +115,15 @@ export function demoUsers(): UserRow[] {
 export function demoMemberships(): MembershipRow[] {
   return [
     {
+      id: "11111111-1010-4010-8010-101010101010",
+      createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000),
+      organizationId: DEMO_ORGANIZATION_ID,
+      userId: DEMO_ADMIN_USER_ID,
+      role: "administrator",
+      active: true,
+    },
+    {
       id: "13131313-1313-4131-8131-131313131313",
       createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
@@ -104,6 +131,20 @@ export function demoMemberships(): MembershipRow[] {
       userId: DEMO_FIELD_USER_ID,
       role: "field_worker",
       active: true,
+    },
+  ];
+}
+
+export function demoUserEvents(): UserEventRow[] {
+  return [
+    {
+      id: "15151515-1515-4151-8151-151515151515",
+      createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000),
+      userId: DEMO_FIELD_USER_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      kind: "user_created",
+      summary: "Jordan Field created as Field worker",
+      payload: { role: "field_worker" },
     },
   ];
 }

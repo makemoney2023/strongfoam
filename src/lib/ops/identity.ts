@@ -20,6 +20,7 @@ export const MEMBERSHIP_ROLE_LABELS: Record<MembershipRole, string> = {
 };
 
 export const FIELD_MEMBERSHIP_ROLES = ["field_lead", "field_worker"] as const;
+export const OFFICE_MEMBERSHIP_ROLES = ["administrator", "office"] as const;
 
 export const JOB_ASSIGNMENT_ROLES = ["foreman", "technician"] as const;
 export type JobAssignmentRole = (typeof JOB_ASSIGNMENT_ROLES)[number];
@@ -36,6 +37,8 @@ export type UserInput = {
   temporaryPassword: string;
 };
 
+export type UserUpdateInput = Omit<UserInput, "temporaryPassword">;
+
 export type UserIdentity = {
   userId: string;
   organizationId: string;
@@ -45,6 +48,7 @@ export type UserIdentity = {
   active: boolean;
   membershipActive: boolean;
   role: MembershipRole;
+  sessionVersion: number;
 };
 
 export type UserListItem = UserIdentity & {
@@ -75,19 +79,26 @@ export function isFieldMembershipRole(
   );
 }
 
+export function isOfficeMembershipRole(
+  value: string,
+): value is (typeof OFFICE_MEMBERSHIP_ROLES)[number] {
+  return OFFICE_MEMBERSHIP_ROLES.includes(
+    value as (typeof OFFICE_MEMBERSHIP_ROLES)[number],
+  );
+}
+
 export function isJobAssignmentRole(
   value: string,
 ): value is JobAssignmentRole {
   return JOB_ASSIGNMENT_ROLES.includes(value as JobAssignmentRole);
 }
 
-export function parseUserInput(input: {
+function parseUserProfile(input: {
   displayName?: string;
   email?: string;
   role?: string;
-  temporaryPassword?: string;
 }):
-  | { ok: true; value: UserInput }
+  | { ok: true; value: UserUpdateInput }
   | { ok: false; error: string; field?: string } {
   const displayName = input.displayName?.trim().replace(/\s+/g, " ") ?? "";
   if (displayName.length < 2 || displayName.length > 120) {
@@ -112,11 +123,16 @@ export function parseUserInput(input: {
     return { ok: false, error: "Choose a valid role.", field: "role" };
   }
 
-  const temporaryPassword = input.temporaryPassword ?? "";
+  return { ok: true, value: { displayName, email, role } };
+}
+
+function parsePassword(password: string):
+  | { ok: true; value: string }
+  | { ok: false; error: string; field: "temporaryPassword" } {
   if (
-    temporaryPassword.length < 12 ||
-    !/[A-Za-z]/.test(temporaryPassword) ||
-    !/[0-9]/.test(temporaryPassword)
+    password.length < 12 ||
+    !/[A-Za-z]/.test(password) ||
+    !/[0-9]/.test(password)
   ) {
     return {
       ok: false,
@@ -125,11 +141,50 @@ export function parseUserInput(input: {
       field: "temporaryPassword",
     };
   }
+  return { ok: true, value: password };
+}
+
+export function parseUserInput(input: {
+  displayName?: string;
+  email?: string;
+  role?: string;
+  temporaryPassword?: string;
+}):
+  | { ok: true; value: UserInput }
+  | { ok: false; error: string; field?: string } {
+  const profile = parseUserProfile(input);
+  if (!profile.ok) return profile;
+  const password = parsePassword(input.temporaryPassword ?? "");
+  if (!password.ok) return password;
 
   return {
     ok: true,
-    value: { displayName, email, role, temporaryPassword },
+    value: {
+      ...profile.value,
+      temporaryPassword: password.value,
+    },
   };
+}
+
+export function parseUserUpdateInput(input: {
+  displayName?: string;
+  email?: string;
+  role?: string;
+}):
+  | { ok: true; value: UserUpdateInput }
+  | { ok: false; error: string; field?: string } {
+  return parseUserProfile(input);
+}
+
+export function parsePasswordResetInput(input: {
+  temporaryPassword?: string;
+}):
+  | { ok: true; value: { temporaryPassword: string } }
+  | { ok: false; error: string; field?: string } {
+  const password = parsePassword(input.temporaryPassword ?? "");
+  return password.ok
+    ? { ok: true, value: { temporaryPassword: password.value } }
+    : password;
 }
 
 export function parseJobAssignmentInput(input: {

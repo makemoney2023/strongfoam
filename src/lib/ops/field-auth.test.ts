@@ -14,6 +14,7 @@ describe("field session", () => {
         organizationId: "00000000-0000-4000-8000-000000000001",
         email: "field@example.com",
         role: "field_worker",
+        sessionVersion: 3,
       },
       now,
     );
@@ -29,6 +30,7 @@ describe("field session", () => {
         organizationId: "00000000-0000-4000-8000-000000000001",
         email: "field@example.com",
         role: "field_worker",
+        sessionVersion: 1,
         issuedAt: 1,
         expiresAt: 2,
       },
@@ -42,6 +44,7 @@ describe("field session", () => {
         organizationId: "00000000-0000-4000-8000-000000000001",
         email: "office@example.com",
         role: "office",
+        sessionVersion: 1,
         issuedAt: 1,
         expiresAt: 10,
       },

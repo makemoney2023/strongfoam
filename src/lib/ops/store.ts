@@ -35,6 +35,7 @@ import {
   scheduleCalendarExceptions,
   scheduleCalendars,
   sites,
+  userEvents,
   users,
   workAreas,
 } from "@/db/schema";
@@ -102,8 +103,11 @@ import {
   removeDemoProjectScheduleBaseline,
   removeDemoScheduleCalendarException,
   listDemoSites,
+  listDemoUserEvents,
   listDemoUsers,
   listDemoWorkAreas,
+  getDemoUserAssignmentSummary,
+  countActiveDemoAdministrators,
   canDemoFieldUserAccessJob,
   canDemoFieldUserAccessTask,
   removeDemoJobAssignment,
@@ -115,6 +119,8 @@ import {
   setDemoJobStatus,
   setDemoJobTaskStatus,
   setDemoUserActive,
+  resetDemoUserPassword,
+  revokeDemoUserSessions,
   updateDemoCompany,
   updateDemoContact,
   updateDemoEstimateRequest,
@@ -126,6 +132,7 @@ import {
   updateDemoOpportunity,
   updateDemoProject,
   updateDemoSite,
+  updateDemoUser,
   updateDemoWorkArea,
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
@@ -151,6 +158,7 @@ import {
   type MembershipRole,
   type UserIdentity,
   type UserListItem,
+  type UserUpdateInput,
 } from "@/lib/ops/identity";
 import {
   validateDependencyAddition,
@@ -184,6 +192,7 @@ export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect
 export type CompanyRow = typeof companies.$inferSelect;
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
+export type UserEventRow = typeof userEvents.$inferSelect;
 export type MembershipRow = typeof memberships.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
@@ -354,6 +363,7 @@ function mapIdentity(row: {
     active: row.user.active,
     membershipActive: row.membership.active,
     role: row.membership.role as MembershipRole,
+    sessionVersion: row.user.sessionVersion,
   };
 }
 
@@ -389,7 +399,7 @@ export async function listActiveFieldUsers(): Promise<UserListItem[]> {
   );
 }
 
-async function getFieldIdentity(
+async function getIdentity(
   by: { id: string } | { email: string },
 ): Promise<UserIdentity | null> {
   if (isDemoOpsStore()) {
@@ -415,13 +425,75 @@ async function getFieldIdentity(
 export function getFieldIdentityById(
   userId: string,
 ): Promise<UserIdentity | null> {
-  return getFieldIdentity({ id: userId });
+  return getIdentity({ id: userId });
 }
 
 export function getFieldIdentityByEmail(
   email: string,
 ): Promise<UserIdentity | null> {
-  return getFieldIdentity({ email: email.trim().toLowerCase() });
+  return getIdentity({ email: email.trim().toLowerCase() });
+}
+
+export function getUserIdentityById(
+  userId: string,
+): Promise<UserIdentity | null> {
+  return getIdentity({ id: userId });
+}
+
+export function getUserIdentityByEmail(
+  email: string,
+): Promise<UserIdentity | null> {
+  return getIdentity({ email: email.trim().toLowerCase() });
+}
+
+export async function listUserEvents(limit = 50): Promise<UserEventRow[]> {
+  if (isDemoOpsStore()) return listDemoUserEvents(limit);
+  const db = getDb();
+  return db
+    .select()
+    .from(userEvents)
+    .orderBy(desc(userEvents.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 100));
+}
+
+export async function getUserAssignmentSummary(userId: string): Promise<{
+  jobAssignments: number;
+  taskAssignments: number;
+}> {
+  if (isDemoOpsStore()) return getDemoUserAssignmentSummary(userId);
+  const db = getDb();
+  const [direct, tasks] = await Promise.all([
+    db
+      .select({ id: jobAssignments.id })
+      .from(jobAssignments)
+      .where(eq(jobAssignments.userId, userId)),
+    db
+      .select({ id: jobTasks.id })
+      .from(jobTasks)
+      .where(eq(jobTasks.assigneeUserId, userId)),
+  ]);
+  return {
+    jobAssignments: direct.length,
+    taskAssignments: tasks.length,
+  };
+}
+
+export async function countActiveAdministrators(): Promise<number> {
+  if (isDemoOpsStore()) return countActiveDemoAdministrators();
+  const db = getDb();
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(memberships, eq(memberships.userId, users.id))
+    .where(
+      and(
+        eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+        eq(memberships.role, "administrator"),
+        eq(users.active, true),
+        eq(memberships.active, true),
+      ),
+    );
+  return rows.length;
 }
 
 export async function addUser(args: {
@@ -459,6 +531,13 @@ export async function addUser(args: {
     const membership = membershipRows[0];
     if (!membership) return null;
     const identity = mapIdentity({ user, membership });
+    await tx.insert(userEvents).values({
+      userId: user.id,
+      actor: args.actor,
+      kind: "user_created",
+      summary: `${user.displayName} created as ${args.role}`,
+      payload: { role: args.role },
+    });
     return identity
       ? { ...identity, createdAt: user.createdAt, updatedAt: user.updatedAt }
       : null;
@@ -468,14 +547,23 @@ export async function addUser(args: {
 export async function setUserActive(args: {
   userId: string;
   active: boolean;
+  actor: string;
 }): Promise<UserListItem | null> {
-  if (isDemoOpsStore()) return setDemoUserActive(args.userId, args.active);
+  if (isDemoOpsStore()) {
+    return setDemoUserActive(args.userId, args.active, args.actor);
+  }
   const db = getDb();
   await db.transaction(async (tx) => {
-    await tx
+    const rows = await tx
       .update(users)
-      .set({ active: args.active, updatedAt: new Date() })
-      .where(eq(users.id, args.userId));
+      .set({
+        active: args.active,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, args.userId))
+      .returning({ displayName: users.displayName });
+    if (!rows[0]) return;
     await tx
       .update(memberships)
       .set({ active: args.active, updatedAt: new Date() })
@@ -485,8 +573,16 @@ export async function setUserActive(args: {
           eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
         ),
       );
+    await tx.insert(userEvents).values({
+      userId: args.userId,
+      actor: args.actor,
+      kind: args.active ? "user_activated" : "user_deactivated",
+      summary: `${rows[0].displayName} ${
+        args.active ? "activated" : "deactivated"
+      }`,
+    });
   });
-  const identity = await getFieldIdentityById(args.userId);
+  const identity = await getUserIdentityById(args.userId);
   if (!identity) return null;
   const userRows = await db
     .select()
@@ -496,6 +592,173 @@ export async function setUserActive(args: {
   const user = userRows[0];
   return user
     ? { ...identity, createdAt: user.createdAt, updatedAt: user.updatedAt }
+    : null;
+}
+
+export async function updateUser(args: {
+  userId: string;
+  actor: string;
+  input: UserUpdateInput;
+}): Promise<UserListItem | null> {
+  if (isDemoOpsStore()) return updateDemoUser(args);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const duplicates = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.email, args.input.email),
+          sql`${users.id} <> ${args.userId}`,
+        ),
+      )
+      .limit(1);
+    if (duplicates.length > 0) return null;
+    const currentRows = await tx
+      .select({ user: users, membership: memberships })
+      .from(users)
+      .innerJoin(memberships, eq(memberships.userId, users.id))
+      .where(
+        and(
+          eq(users.id, args.userId),
+          eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+        ),
+      )
+      .limit(1);
+    const current = currentRows[0];
+    if (!current) return null;
+    const now = new Date();
+    const updatedRows = await tx
+      .update(users)
+      .set({
+        displayName: args.input.displayName,
+        email: args.input.email,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: now,
+      })
+      .where(eq(users.id, args.userId))
+      .returning();
+    const updated = updatedRows[0];
+    if (!updated) return null;
+    await tx
+      .update(memberships)
+      .set({ role: args.input.role, updatedAt: now })
+      .where(
+        and(
+          eq(memberships.userId, args.userId),
+          eq(memberships.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+        ),
+      );
+    const foremanAssignments = await tx
+      .select({ jobId: jobAssignments.jobId })
+      .from(jobAssignments)
+      .where(
+        and(
+          eq(jobAssignments.userId, args.userId),
+          eq(jobAssignments.role, "foreman"),
+        ),
+      );
+    for (const assignment of foremanAssignments) {
+      await tx
+        .update(jobs)
+        .set({ foreman: args.input.displayName, updatedAt: now })
+        .where(eq(jobs.id, assignment.jobId));
+    }
+    await tx.insert(userEvents).values({
+      userId: args.userId,
+      actor: args.actor,
+      kind: "user_updated",
+      summary: `${args.input.displayName} profile or role updated`,
+      payload: {
+        before: {
+          displayName: current.user.displayName,
+          email: current.user.email,
+          role: current.membership.role,
+        },
+        after: {
+          displayName: args.input.displayName,
+          email: args.input.email,
+          role: args.input.role,
+        },
+      },
+    });
+    const identity = mapIdentity({
+      user: updated,
+      membership: {
+        ...current.membership,
+        role: args.input.role,
+        updatedAt: now,
+      },
+    });
+    return identity
+      ? { ...identity, createdAt: updated.createdAt, updatedAt: updated.updatedAt }
+      : null;
+  });
+}
+
+export async function resetUserPassword(args: {
+  userId: string;
+  actor: string;
+  passwordHash: string;
+}): Promise<UserListItem | null> {
+  if (isDemoOpsStore()) return resetDemoUserPassword(args);
+  const db = getDb();
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(users)
+      .set({
+        passwordHash: args.passwordHash,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, args.userId))
+      .returning();
+    const user = rows[0];
+    if (!user) return null;
+    await tx.insert(userEvents).values({
+      userId: args.userId,
+      actor: args.actor,
+      kind: "password_reset",
+      summary: `${user.displayName} password reset and sessions revoked`,
+    });
+    return user;
+  });
+  if (!updated) return null;
+  const identity = await getUserIdentityById(args.userId);
+  return identity
+    ? { ...identity, createdAt: updated.createdAt, updatedAt: updated.updatedAt }
+    : null;
+}
+
+export async function revokeUserSessions(args: {
+  userId: string;
+  actor: string;
+}): Promise<UserListItem | null> {
+  if (isDemoOpsStore()) return revokeDemoUserSessions(args);
+  const db = getDb();
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(users)
+      .set({
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, args.userId))
+      .returning();
+    const user = rows[0];
+    if (!user) return null;
+    await tx.insert(userEvents).values({
+      userId: args.userId,
+      actor: args.actor,
+      kind: "sessions_revoked",
+      summary: `${user.displayName} sessions revoked`,
+    });
+    return user;
+  });
+  if (!updated) return null;
+  const identity = await getUserIdentityById(args.userId);
+  return identity
+    ? { ...identity, createdAt: updated.createdAt, updatedAt: updated.updatedAt }
     : null;
 }
 

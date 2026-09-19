@@ -12,6 +12,7 @@ export type FieldSessionToken = {
   organizationId: string;
   email: string;
   role: MembershipRole;
+  sessionVersion: number;
   issuedAt: number;
   expiresAt: number;
 };
@@ -64,6 +65,7 @@ export function verifyFieldSessionToken(
       typeof session.organizationId !== "string" ||
       typeof session.email !== "string" ||
       !isFieldMembershipRole(session.role) ||
+      typeof session.sessionVersion !== "number" ||
       typeof session.issuedAt !== "number" ||
       typeof session.expiresAt !== "number" ||
       session.expiresAt <= now
@@ -82,6 +84,7 @@ export function createFieldSessionToken(
     organizationId: string;
     email: string;
     role: MembershipRole;
+    sessionVersion: number;
   },
   now = Date.now(),
 ): FieldSessionToken {
@@ -108,7 +111,8 @@ export async function getFieldSession(): Promise<FieldSession | null> {
     !identity.membershipActive ||
     !isFieldMembershipRole(identity.role) ||
     identity.email !== session.email ||
-    identity.organizationId !== session.organizationId
+    identity.organizationId !== session.organizationId ||
+    identity.sessionVersion !== session.sessionVersion
   ) {
     return null;
   }

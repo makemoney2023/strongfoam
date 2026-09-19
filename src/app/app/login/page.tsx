@@ -11,6 +11,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
+import {
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_PASSWORD,
+} from "@/lib/ops/demo-data";
+import { isDemoOpsStore } from "@/lib/ops/demo-store";
 
 export default async function OpsLoginPage({
   searchParams,
@@ -30,8 +35,8 @@ export default async function OpsLoginPage({
           <CardDescription>Operations</CardDescription>
           <CardTitle className="text-2xl">Sign in</CardTitle>
           <CardDescription>
-            Staff access only. Use a configured estimator email and the shared
-            operations password.
+            Staff access only. Use the individual credentials provided by an
+            administrator.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -39,6 +44,13 @@ export default async function OpsLoginPage({
             {params.error ? (
               <Alert variant="destructive">
                 <AlertDescription>Those credentials are not authorized.</AlertDescription>
+              </Alert>
+            ) : null}
+            {isDemoOpsStore() ? (
+              <Alert>
+                <AlertDescription>
+                  Demo administrator: {DEMO_ADMIN_EMAIL} / {DEMO_ADMIN_PASSWORD}
+                </AlertDescription>
               </Alert>
             ) : null}
             <div className="space-y-2">

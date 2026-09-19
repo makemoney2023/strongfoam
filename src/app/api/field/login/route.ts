@@ -35,6 +35,7 @@ export async function POST(request: Request): Promise<Response> {
     organizationId: identity.organizationId,
     email: identity.email,
     role: identity.role,
+    sessionVersion: identity.sessionVersion,
   });
   const response = NextResponse.redirect(new URL("/field", origin), 303);
   response.cookies.set({
