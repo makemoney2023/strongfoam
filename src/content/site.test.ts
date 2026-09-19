@@ -14,6 +14,13 @@ describe("site content for scroll overlays", () => {
     expect(site.primaryOps.street).toContain("Breithaupt");
   });
 
+  it("exposes light and dark brand logos for app and marketing chrome", () => {
+    expect(site.brandLogos.onLight).toBe("/media/brand/SFI-Logo-Jpeg-EDIT.jpg");
+    expect(site.brandLogos.onDark).toBe(
+      "/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png",
+    );
+  });
+
   it("covers all five homepage service anchors", () => {
     expect(services.map((s) => s.id)).toEqual([
       "spray-foam",

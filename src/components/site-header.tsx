@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { BrandLogo } from "@/components/brand-logo";
 import { navLinks } from "@/content/nav";
 import { site } from "@/content/site";
 import { cn } from "@/lib/utils";
@@ -82,9 +83,8 @@ export function SiteHeader() {
               className="border-white/10 bg-[color:var(--sf-ink)] text-white"
             >
               <SheetHeader>
-                <SheetTitle className="font-[family-name:var(--font-display)] text-xl text-white">
-                  Strong Foam
-                </SheetTitle>
+                <SheetTitle className="sr-only">{site.brand}</SheetTitle>
+                <BrandLogo variant="onDark" className="h-9" />
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4" aria-label="Mobile">
                 {navLinks.map((link) => (

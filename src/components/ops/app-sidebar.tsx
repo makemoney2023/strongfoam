@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
+import { site } from "@/content/site";
 import {
   BriefcaseBusinessIcon,
   Building2Icon,
@@ -43,8 +45,12 @@ export function AppSidebar({ email }: { email: string }) {
   return (
     <Sidebar>
       <SidebarHeader className="px-3 py-3">
-        <Link href="/app" className="px-1 text-sm font-semibold tracking-tight">
-          Strong Foam
+        <Link
+          href="/app"
+          className="flex items-center px-1"
+          aria-label={`${site.brand} home`}
+        >
+          <BrandLogo variant="onLight" priority />
         </Link>
         <p className="px-1 text-xs text-muted-foreground">Operations</p>
       </SidebarHeader>
