@@ -30,6 +30,7 @@ import {
   getPortfolioTaskScheduleState,
   getPortfolioWorkingDayGradient,
   getPortfolioWorkingDaySegments,
+  isPortfolioTaskAttentionOverdue,
   isPortfolioWorkingDay,
   localScheduleDateKey,
   normalizePortfolioScheduleDates,
@@ -1954,6 +1955,11 @@ describe("portfolio Schedule dashboard summary", () => {
     const unscheduledProjects = attentionFilter(
       "unscheduled-active-work",
     );
+    const genericOverdueProjects = filterPortfolioProjects(
+      projected,
+      filter({ state: "overdue" }),
+      now,
+    );
 
     expect(summary.overdueTasks).toBe(2);
     expect(
@@ -1968,6 +1974,13 @@ describe("portfolio Schedule dashboard summary", () => {
         entry.jobs.map((entryJob) => entryJob.id),
       ),
     ).not.toContain("overdue-job-only");
+    expect(
+      genericOverdueProjects.flatMap((entry) =>
+        entry.jobs.flatMap((entryJob) =>
+          entryJob.tasks.map((entryTask) => entryTask.id),
+        ),
+      ),
+    ).toEqual(["overdue-due"]);
     expect(
       countPortfolioAttentionItems(
         overdueProjects,
@@ -2770,6 +2783,32 @@ describe("portfolio resource projection", () => {
       if (previousTimeZone === undefined) delete process.env.TZ;
       else process.env.TZ = previousTimeZone;
     }
+  });
+
+  it("keeps row-state completion precedence separate from overdue attention", () => {
+    const sourceCalendar = calendar({ timeZone: "UTC" });
+    const attentionTask = task({
+      plannedEndAt: "2026-09-30",
+      dueAt: "2026-09-18",
+    });
+
+    expect(
+      getPortfolioTaskScheduleState(attentionTask, now, sourceCalendar),
+    ).toBe("remaining");
+    expect(
+      isPortfolioTaskAttentionOverdue(
+        attentionTask,
+        now,
+        sourceCalendar,
+      ),
+    ).toBe(true);
+    expect(
+      isPortfolioTaskAttentionOverdue(
+        { ...attentionTask, status: "done" },
+        now,
+        sourceCalendar,
+      ),
+    ).toBe(false);
   });
 
   it("strictly normalizes malformed baseline dates", () => {
