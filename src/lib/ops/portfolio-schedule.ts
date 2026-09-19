@@ -379,6 +379,16 @@ function validScheduleDate(value: string | null): string | null {
   return validDate(value)?.value ?? null;
 }
 
+export function portfolioCalendarDate(
+  value: string,
+  calendar: ResolvedWorkingCalendar,
+): string | null {
+  const validated = validDate(value);
+  if (!validated) return null;
+  const localDate = calendarDate(validated.value, calendar);
+  return validDate(localDate)?.value ?? null;
+}
+
 function earliest(values: readonly DatedValue[]): string | null {
   let result: DatedValue | null = null;
   for (const value of values) {
@@ -614,7 +624,7 @@ function cloneAssignmentCalendar(
 }
 
 export function buildPortfolioScheduleAssignments(
-  projects: readonly ProjectedPortfolioProject[],
+  projects: readonly PortfolioScheduleProject[],
 ): PortfolioScheduleAssignment[] {
   return projects.flatMap((project) =>
     buildScheduleAssignments(project.jobs).map((assignment) => ({
@@ -634,7 +644,13 @@ function normalizedResource(value: string | null): {
   displayName: string;
 } {
   const displayName = value?.trim().replace(/\s+/g, " ") || "Unassigned";
-  return { key: displayName.toLocaleLowerCase(), displayName };
+  return { key: displayName.toLowerCase(), displayName };
+}
+
+function compareLexical(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 function dateOrdinal(value: string): number {
@@ -655,8 +671,14 @@ function portfolioAssignmentRange(
   assignment: PortfolioScheduleAssignment,
 ): PortfolioAssignmentRange | null {
   if (!assignment.plannedStartAt || !assignment.plannedEndAt) return null;
-  const start = calendarDate(assignment.plannedStartAt, assignment.calendar);
-  const end = calendarDate(assignment.plannedEndAt, assignment.calendar);
+  const start = portfolioCalendarDate(
+    assignment.plannedStartAt,
+    assignment.calendar,
+  );
+  const end = portfolioCalendarDate(
+    assignment.plannedEndAt,
+    assignment.calendar,
+  );
   if (!start || !end || dateOrdinal(start) > dateOrdinal(end)) return null;
   return { start, end };
 }
@@ -701,7 +723,7 @@ function assignmentSortDate(
     assignment.plannedEndAt ??
     assignment.dueAt;
   if (!value) return null;
-  const localDate = calendarDate(value, assignment.calendar);
+  const localDate = portfolioCalendarDate(value, assignment.calendar);
   return localDate ? dateOrdinal(localDate) : null;
 }
 
@@ -715,14 +737,14 @@ function comparePortfolioAssignments(
   if (leftDate === null && rightDate !== null) return 1;
   if (leftDate !== rightDate) return (leftDate ?? 0) - (rightDate ?? 0);
   return (
-    left.projectName.localeCompare(right.projectName) ||
-    left.projectId.localeCompare(right.projectId) ||
-    left.label.localeCompare(right.label) ||
+    compareLexical(left.projectName, right.projectName) ||
+    compareLexical(left.projectId, right.projectId) ||
+    compareLexical(left.label, right.label) ||
     PORTFOLIO_ROLE_ORDER.indexOf(left.role) -
       PORTFOLIO_ROLE_ORDER.indexOf(right.role) ||
-    left.entityType.localeCompare(right.entityType) ||
-    left.entityId.localeCompare(right.entityId) ||
-    left.id.localeCompare(right.id)
+    compareLexical(left.entityType, right.entityType) ||
+    compareLexical(left.entityId, right.entityId) ||
+    compareLexical(left.id, right.id)
   );
 }
 
@@ -812,10 +834,7 @@ export function buildPortfolioResourceLanes(
     .sort((left, right) => {
       if (left.key === "unassigned") return 1;
       if (right.key === "unassigned") return -1;
-      return (
-        left.displayName.localeCompare(right.displayName) ||
-        left.key.localeCompare(right.key)
-      );
+      return compareLexical(left.key, right.key);
     });
 }
 
@@ -825,7 +844,7 @@ function calendarDayOrdinal(
 ): number | null {
   const validated = validDate(value);
   if (!validated) return null;
-  const localDate = calendarDate(validated.value, calendar);
+  const localDate = portfolioCalendarDate(validated.value, calendar);
   const local = validDate(localDate);
   return local ? Math.floor(local.timestamp / 86_400_000) : null;
 }

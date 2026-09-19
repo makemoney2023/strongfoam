@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PortfolioResourceSchedule } from "@/components/ops/portfolio-resource-schedule";
 import type {
   ProjectScheduleJob,
   ProjectScheduleTask,
 } from "@/lib/ops/project-schedule";
+import { createScheduleWindow } from "@/lib/ops/project-schedule";
 import {
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
@@ -10,6 +14,7 @@ import {
   filterPortfolioProjects,
   getPortfolioProjectRange,
   getPortfolioProjectState,
+  portfolioCalendarDate,
   serializePortfolioSchedule,
   type PortfolioProjectionFilter,
   type PortfolioScheduleProject,
@@ -1284,6 +1289,133 @@ function resourceLanes(projects: PortfolioScheduleProject[]) {
 }
 
 describe("portfolio resource projection", () => {
+  it("renders linked projects, assignment roles, calendar dates, and 44px timeline targets", () => {
+    const projects = buildPortfolioProjects(
+      [
+        project({
+          id: "project-linked",
+          name: "Linked project",
+          calendar: calendar({ timeZone: "America/Toronto" }),
+          jobs: [
+            job({
+              id: "job-linked",
+              projectManager: "Alex",
+              foreman: null,
+              plannedStartAt: "2026-09-21",
+              plannedEndAt: "2026-09-22T02:00:00.000Z",
+              tasks: [
+                task({
+                  id: "task-linked",
+                  jobId: "job-linked",
+                  assignee: "Alex",
+                  dueAt: "2026-09-21",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+      now,
+    );
+
+    const html = renderToStaticMarkup(
+      createElement(PortfolioResourceSchedule, {
+        projects,
+        window: createScheduleWindow(
+          "week",
+          new Date("2026-09-21T12:00:00.000Z"),
+        ),
+        now: now.toISOString(),
+        baseline: "none",
+      }),
+    );
+
+    expect(html).toContain('href="/app/projects/project-linked"');
+    expect(html).toContain('aria-label="Open project Linked project"');
+    expect(html).toContain(
+      'aria-label="Assignment role: Project manager">Project manager',
+    );
+    expect(html).toContain(
+      'aria-label="Assignment role: Task assignee">Task assignee',
+    );
+    expect(html).toContain("Sep 21, 2026 – Sep 21, 2026");
+    expect(html).toContain("before:h-11");
+    expect(html).toContain("before:min-w-11");
+    expect(html).toContain("before:size-11");
+  });
+
+  it("projects PM, foreman, and task roles with project and calendar provenance", () => {
+    const source = project({
+      id: "project-provenance",
+      name: "Harbour tower",
+      calendar: calendar({
+        id: "calendar-provenance",
+        timeZone: "America/Vancouver",
+      }),
+      jobs: [
+        job({
+          id: "job-provenance",
+          projectManager: "Alex",
+          foreman: "Morgan",
+          tasks: [
+            task({
+              id: "task-provenance",
+              jobId: "job-provenance",
+              assignee: "Sam",
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const assignments = buildPortfolioScheduleAssignments([source]);
+
+    expect(assignments.map((assignment) => assignment.role)).toEqual([
+      "Project manager",
+      "Foreman",
+      "Task assignee",
+    ]);
+    expect(assignments).toMatchObject([
+      {
+        projectId: "project-provenance",
+        projectName: "Harbour tower",
+        calendar: {
+          id: "calendar-provenance",
+          timeZone: "America/Vancouver",
+        },
+      },
+      {
+        projectId: "project-provenance",
+        projectName: "Harbour tower",
+        calendar: {
+          id: "calendar-provenance",
+          timeZone: "America/Vancouver",
+        },
+      },
+      {
+        projectId: "project-provenance",
+        projectName: "Harbour tower",
+        calendar: {
+          id: "calendar-provenance",
+          timeZone: "America/Vancouver",
+        },
+      },
+    ]);
+    expect(assignments.every((assignment) => assignment.calendar !== source.calendar)).toBe(
+      true,
+    );
+  });
+
+  it("keeps date-only values fixed and converts timestamps to the project calendar date", () => {
+    const toronto = calendar({ timeZone: "America/Toronto" });
+
+    expect(portfolioCalendarDate("2026-09-21", toronto)).toBe("2026-09-21");
+    expect(
+      portfolioCalendarDate("2026-09-21T02:00:00.000Z", toronto),
+    ).toBe("2026-09-20");
+    expect(portfolioCalendarDate("2026-02-30", toronto)).toBeNull();
+  });
+
   it("groups a normalized person across projects with combined roles and first display spelling", () => {
     const lanes = resourceLanes([
       project({
@@ -1460,6 +1592,46 @@ describe("portfolio resource projection", () => {
     expect(lane?.potentialOverlapCount).toBe(1);
   });
 
+  it("detects overlap from project-local dates across timezone boundaries", () => {
+    const lane = resourceLanes([
+      project({
+        id: "project-toronto",
+        calendar: calendar({
+          id: "calendar-toronto",
+          timeZone: "America/Toronto",
+        }),
+        jobs: [
+          job({
+            id: "job-toronto",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-22T02:00:00.000Z",
+            plannedEndAt: "2026-09-22T02:00:00.000Z",
+          }),
+        ],
+      }),
+      project({
+        id: "project-vancouver",
+        calendar: calendar({
+          id: "calendar-vancouver",
+          timeZone: "America/Vancouver",
+        }),
+        jobs: [
+          job({
+            id: "job-vancouver",
+            projectManager: "Alex",
+            plannedStartAt: "2026-09-21T12:00:00.000Z",
+            plannedEndAt: "2026-09-21T12:00:00.000Z",
+          }),
+        ],
+      }),
+    ]).find((candidate) => candidate.key === "alex");
+
+    expect(lane?.potentialOverlapCount).toBe(1);
+    expect(lane?.assignments.map((assignment) => assignment.hasPotentialOverlap)).toEqual(
+      [true, true],
+    );
+  });
+
   it("keeps due-only milestones visible but excludes them from overlap detection", () => {
     const lane = resourceLanes([
       project({
@@ -1557,6 +1729,57 @@ describe("portfolio resource projection", () => {
     expect(lane?.assignments.every((assignment) => assignment.hasPotentialOverlap)).toBe(
       true,
     );
+  });
+
+  it("uses deterministic lexical lane and assignment order for every input permutation", () => {
+    const sources = [
+      project({
+        id: "project-z",
+        name: "Zulu",
+        jobs: [job({ id: "job-z", projectManager: "Zoe" })],
+      }),
+      project({
+        id: "project-ring",
+        name: "Ring",
+        jobs: [job({ id: "job-ring", projectManager: "Åke" })],
+      }),
+      project({
+        id: "project-a",
+        name: "Alpha",
+        jobs: [job({ id: "job-a", projectManager: "Amy" })],
+      }),
+      project({
+        id: "project-b",
+        name: "Beta",
+        jobs: [job({ id: "job-b", projectManager: "Zoe" })],
+      }),
+    ];
+    const projection = (items: PortfolioScheduleProject[]) =>
+      buildPortfolioResourceLanes(
+        buildPortfolioScheduleAssignments(items),
+      ).map((lane) => ({
+        key: lane.key,
+        assignments: lane.assignments.map(
+          (assignment) => `${assignment.projectId}:${assignment.id}`,
+        ),
+      }));
+
+    const forward = projection(sources);
+    const reverse = projection([...sources].reverse());
+
+    expect(forward.map((lane) => lane.key)).toEqual([
+      "amy",
+      "zoe",
+      "åke",
+      "unassigned",
+    ]);
+    expect(reverse).toEqual(forward);
+    expect(
+      forward.find((lane) => lane.key === "zoe")?.assignments,
+    ).toEqual([
+      "project-b:job:job-b:project-manager",
+      "project-z:job:job-z:project-manager",
+    ]);
   });
 
   it("does not mutate or retain aliases to project input", () => {

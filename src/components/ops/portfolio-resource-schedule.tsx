@@ -14,6 +14,7 @@ import {
 import {
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
+  portfolioCalendarDate,
   type PortfolioScheduleAssignment,
   type ProjectedPortfolioProject,
 } from "@/lib/ops/portfolio-schedule";
@@ -26,7 +27,6 @@ import {
 } from "@/lib/ops/project-schedule";
 import {
   calculateBaselineVariance,
-  calendarDate,
   isWorkingDay,
   type ResolvedWorkingCalendar,
   type ScheduleDates,
@@ -37,22 +37,45 @@ type ProjectedPortfolioAssignment = PortfolioScheduleAssignment & {
   hasPotentialOverlap: boolean;
 };
 
-function formatDate(value: string | null | undefined): string {
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+function formatDate(
+  value: string | null | undefined,
+  calendar: ResolvedWorkingCalendar,
+): string {
   if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-CA", { dateStyle: "medium" }).format(date);
+  const localDate = portfolioCalendarDate(value, calendar);
+  if (!localDate) return "—";
+  const [year, month, day] = localDate.split("-").map(Number);
+  const monthLabel = MONTH_LABELS[month! - 1];
+  return monthLabel ? `${monthLabel} ${day}, ${year}` : "—";
 }
 
-function scheduleDateLabel(dates: ScheduleDates): string {
+function scheduleDateLabel(
+  dates: ScheduleDates,
+  calendar: ResolvedWorkingCalendar,
+): string {
   if (dates.plannedStartAt && dates.plannedEndAt) {
-    return `${formatDate(dates.plannedStartAt)} – ${formatDate(dates.plannedEndAt)}`;
+    return `${formatDate(dates.plannedStartAt, calendar)} – ${formatDate(dates.plannedEndAt, calendar)}`;
   }
   const plannedMilestone = dates.plannedStartAt ?? dates.plannedEndAt;
   if (plannedMilestone) {
-    return `Milestone ${formatDate(plannedMilestone)}`;
+    return `Milestone ${formatDate(plannedMilestone, calendar)}`;
   }
-  if (dates.dueAt) return `Due ${formatDate(dates.dueAt)}`;
+  if (dates.dueAt) return `Due ${formatDate(dates.dueAt, calendar)}`;
   return "Unscheduled";
 }
 
@@ -72,7 +95,7 @@ function localWindowValue(
   value: string,
   calendar: ResolvedWorkingCalendar,
 ): Date | null {
-  const localDate = calendarDate(value, calendar);
+  const localDate = portfolioCalendarDate(value, calendar);
   if (!localDate) return null;
   const parsed = new Date(`${localDate}T12:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -133,19 +156,26 @@ function AssignmentMark({
       assignment.calendar,
     );
     if (position === null) return null;
+    if (baseline) {
+      return (
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-muted-foreground bg-transparent"
+          style={{ left: `${position}%` }}
+        />
+      );
+    }
     return (
       <Link
         href={assignment.href}
-        aria-label={`${assignment.label}: ${scheduleDateLabel(assignment)}`}
+        aria-label={`${assignment.label}: ${scheduleDateLabel(assignment, assignment.calendar)}`}
         className={cn(
-          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          baseline
-            ? "size-4 border-muted-foreground bg-transparent"
-            : state === "complete"
-              ? "border-primary bg-primary"
-              : state === "blocked" || state === "overdue"
-                ? "border-destructive bg-destructive"
-                : "border-primary bg-card",
+          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          state === "complete"
+            ? "border-primary bg-primary"
+            : state === "blocked" || state === "overdue"
+              ? "border-destructive bg-destructive"
+              : "border-primary bg-card",
         )}
         style={{ left: `${position}%` }}
       />
@@ -163,23 +193,32 @@ function AssignmentMark({
   }
   const left = clampedAssignmentPosition(start, window, assignment.calendar);
   const right = clampedAssignmentPosition(end, window, assignment.calendar);
+  if (baseline) {
+    return (
+      <span
+        aria-hidden="true"
+        className="absolute top-1 h-1 overflow-hidden rounded-sm border border-muted-foreground bg-transparent"
+        style={{ left: `${left}%`, width: `${Math.max(right - left, 0.8)}%` }}
+      />
+    );
+  }
   return (
     <Link
       href={assignment.href}
-      aria-label={`${assignment.label}: ${scheduleDateLabel(assignment)}`}
+      aria-label={`${assignment.label}: ${scheduleDateLabel(assignment, assignment.calendar)}`}
       className={cn(
-        "absolute top-2 bottom-2 overflow-hidden rounded-sm border px-2 text-xs leading-7 whitespace-nowrap focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        baseline
-          ? "top-1 bottom-auto h-1 border-muted-foreground bg-transparent p-0 text-transparent"
-          : state === "complete"
-            ? "border-primary bg-primary text-primary-foreground"
-            : state === "blocked" || state === "overdue"
-              ? "border-destructive bg-destructive/10 text-destructive"
-              : "border-primary/40 bg-primary/15",
+        "absolute top-2 bottom-2 rounded-sm border px-2 text-xs leading-7 whitespace-nowrap before:absolute before:top-1/2 before:left-1/2 before:h-11 before:w-full before:min-w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        state === "complete"
+          ? "border-primary bg-primary text-primary-foreground"
+          : state === "blocked" || state === "overdue"
+            ? "border-destructive bg-destructive/10 text-destructive"
+            : "border-primary/40 bg-primary/15",
       )}
       style={{ left: `${left}%`, width: `${Math.max(right - left, 0.8)}%` }}
     >
-      {assignment.label}
+      <span className="block overflow-hidden text-ellipsis">
+        {assignment.label}
+      </span>
     </Link>
   );
 }
@@ -204,9 +243,14 @@ function AssignmentTimelineBackdrop({
         aria-hidden="true"
       >
         {window.columns.map((column) => {
+          const columnDate = portfolioCalendarDate(
+            column.start.toISOString().slice(0, 10),
+            calendar,
+          );
           const working =
             window.columns.length !== 42 ||
-            isWorkingDay(column.start.toISOString(), calendar);
+            !columnDate ||
+            isWorkingDay(columnDate, calendar);
           return (
             <span
               key={column.key}
@@ -223,7 +267,7 @@ function AssignmentTimelineBackdrop({
           className="pointer-events-none absolute inset-y-0 z-10 border-l-2 border-primary"
           style={{ left: `${todayPosition}%` }}
           role="img"
-          aria-label={`Today, ${formatDate(now)}`}
+          aria-label={`Today, ${formatDate(now, calendar)}`}
         />
       ) : null}
     </>
@@ -395,8 +439,18 @@ export function PortfolioResourceSchedule({
                             {assignment.label}
                           </Link>
                           <p className="truncate text-xs text-muted-foreground">
-                            {assignment.projectName} ·{" "}
-                            {scheduleDateLabel(assignment)}
+                            <Link
+                              href={`/app/projects/${assignment.projectId}`}
+                              aria-label={`Open project ${assignment.projectName}`}
+                              className="hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            >
+                              {assignment.projectName}
+                            </Link>{" "}
+                            ·{" "}
+                            {scheduleDateLabel(
+                              assignment,
+                              assignment.calendar,
+                            )}
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Badge variant="outline">{assignment.role}</Badge>
@@ -464,7 +518,7 @@ export function PortfolioResourceSchedule({
             <TableHeader>
               <TableRow>
                 <TableHead>Resource</TableHead>
-                <TableHead>Roles</TableHead>
+                <TableHead>Role</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Source item</TableHead>
                 <TableHead>Dates</TableHead>
@@ -489,8 +543,20 @@ export function PortfolioResourceSchedule({
                   return (
                     <TableRow key={`${assignment.projectId}:${assignment.id}`}>
                       <TableCell>{lane.displayName}</TableCell>
-                      <TableCell>{lane.roles.join(", ")}</TableCell>
-                      <TableCell>{assignment.projectName}</TableCell>
+                      <TableCell
+                        aria-label={`Assignment role: ${assignment.role}`}
+                      >
+                        {assignment.role}
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/app/projects/${assignment.projectId}`}
+                          aria-label={`Open project ${assignment.projectName}`}
+                          className="hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          {assignment.projectName}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <Link
                           href={assignment.href}
@@ -499,7 +565,12 @@ export function PortfolioResourceSchedule({
                           {assignment.label}
                         </Link>
                       </TableCell>
-                      <TableCell>{scheduleDateLabel(assignment)}</TableCell>
+                      <TableCell>
+                        {scheduleDateLabel(
+                          assignment,
+                          assignment.calendar,
+                        )}
+                      </TableCell>
                       <TableCell>
                         {variance ? varianceLabel(variance) : "None selected"}
                       </TableCell>
