@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ops/empty-state";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
+import { ProjectSchedule } from "@/components/ops/project-schedule";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { SubmitButton } from "@/components/ops/submit-button";
 import {
@@ -21,13 +22,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
-import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
+import {
+  JOB_STATUS_LABELS,
+  formatJobNumber,
+  type JobStatus,
+} from "@/lib/ops/jobs";
 import {
   getCompany,
   getOpportunity,
   getProject,
+  getProjectScheduleBaseline,
   getSite,
   listJobs,
+  listProjectJobTasks,
+  listProjectScheduleBaselines,
+  listProjectTaskDependencies,
+  resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import {
   PROJECT_STATUS_LABELS,
@@ -41,23 +51,96 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ scheduleBaseline?: string }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
   const { id } = await params;
+  const query = await searchParams;
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [company, site, opportunity, jobs] = await Promise.all([
-    project.companyId ? getCompany(project.companyId) : null,
-    project.siteId ? getSite(project.siteId) : null,
-    project.opportunityId ? getOpportunity(project.opportunityId) : null,
-    listJobs({ projectId: project.id }),
-  ]);
+  const [
+    company,
+    site,
+    opportunity,
+    jobs,
+    projectTaskResult,
+    dependencyResult,
+    baselines,
+    selectedBaseline,
+    scheduleCalendar,
+  ] =
+    await Promise.all([
+      project.companyId ? getCompany(project.companyId) : null,
+      project.siteId ? getSite(project.siteId) : null,
+      project.opportunityId ? getOpportunity(project.opportunityId) : null,
+      listJobs({ projectId: project.id }),
+      listProjectJobTasks(project.id),
+      listProjectTaskDependencies(project.id),
+      listProjectScheduleBaselines(project.id),
+      query.scheduleBaseline
+        ? getProjectScheduleBaseline(project.id, query.scheduleBaseline)
+        : null,
+      resolveProjectScheduleCalendar(project.id),
+    ]);
+
+  const tasksByJob = new Map<string, typeof projectTaskResult.tasks>();
+  for (const task of projectTaskResult.tasks) {
+    const bucket = tasksByJob.get(task.jobId) ?? [];
+    bucket.push(task);
+    tasksByJob.set(task.jobId, bucket);
+  }
+  const scheduleJobs = jobs.map((job) => ({
+    id: job.id,
+    updatedAt: job.updatedAt.toISOString(),
+    number: formatJobNumber(job.id),
+    name: job.name,
+    status: job.status as JobStatus,
+    projectManager: job.projectManager,
+    foreman: job.foreman,
+    plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+    tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
+      id: task.id,
+      jobId: task.jobId,
+      updatedAt: task.updatedAt.toISOString(),
+      title: task.title,
+      assignee: task.assignee,
+      status: task.status === "done" ? ("done" as const) : ("open" as const),
+      dueAt: task.dueAt?.toISOString() ?? null,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+      completedAt: task.completedAt?.toISOString() ?? null,
+    })),
+  }));
+  const scheduleDependencies = dependencyResult.edges.map((edge) => ({
+    id: edge.id,
+    projectId: edge.projectId,
+    predecessorTaskId: edge.predecessorTaskId,
+    successorTaskId: edge.successorTaskId,
+    lagDays: edge.lagDays,
+  }));
+  const scheduleBaselines = baselines.map((baseline) => ({
+    id: baseline.id,
+    name: baseline.name,
+    capturedAt: baseline.capturedAt.toISOString(),
+    capturedBy: baseline.capturedBy,
+  }));
+  const selectedBaselineItems = (selectedBaseline?.items ?? []).map((item) => ({
+    id: item.id,
+    baselineId: item.baselineId,
+    entityType: item.entityType === "job" ? ("job" as const) : ("task" as const),
+    entityId: item.entityId,
+    plannedStartAt: item.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: item.plannedEndAt?.toISOString() ?? null,
+    dueAt: item.dueAt?.toISOString() ?? null,
+  }));
 
   const projectOption = {
     id: project.id,
@@ -173,6 +256,46 @@ export default async function ProjectDetailPage({
               },
             ]}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule</CardTitle>
+          <CardDescription>
+            Jobs, task progress, due dates, blockers, and unscheduled work.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobs.length === 0 ? (
+            <EmptyState
+              icon={<HammerIcon aria-hidden="true" />}
+              title="Add the first job to build this project schedule"
+              description="Jobs and their tasks roll up here once work is attached to the project."
+              action={
+                <NewJobDialog
+                  project={projectOption}
+                  returnTo={returnTo}
+                  triggerLabel="Add job"
+                />
+              }
+              className="py-6"
+            />
+          ) : (
+            <ProjectSchedule
+              projectId={project.id}
+              jobs={scheduleJobs}
+              dependencies={scheduleDependencies}
+              baselines={scheduleBaselines}
+              selectedBaselineId={selectedBaseline?.baseline.id ?? null}
+              selectedBaselineItems={selectedBaselineItems}
+              calendar={scheduleCalendar}
+              now={new Date().toISOString()}
+              truncated={projectTaskResult.truncated}
+              dependenciesTruncated={dependencyResult.truncated}
+              returnTo={returnTo}
+            />
+          )}
         </CardContent>
       </Card>
 

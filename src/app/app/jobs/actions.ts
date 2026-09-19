@@ -38,6 +38,7 @@ import {
   deleteJobFieldNote,
   deleteJobTask,
   deleteWorkArea,
+  getJob,
   setJobTaskStatus,
   updateJobDetails,
   updateJobDocument,
@@ -178,6 +179,8 @@ export async function addJobWorkspaceTask(formData: FormData): Promise<ActionSta
     title: String(formData.get("title") ?? ""),
     assignee: String(formData.get("assignee") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
+    plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
+    plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
   if (!jobId) return fail("/app/jobs", "Missing job.");
@@ -189,7 +192,8 @@ export async function addJobWorkspaceTask(formData: FormData): Promise<ActionSta
     input: parsed.value,
   });
   if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be saved.");
-  refreshJobs(null, jobId);
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
   return succeed(`/app/jobs/${jobId}`);
 }
 
@@ -211,7 +215,8 @@ export async function setJobWorkspaceTaskStatus(formData: FormData): Promise<Act
     status,
   });
   if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be updated.");
-  refreshJobs(null, jobId);
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
   const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${jobId}`);
   return succeed(returnTo, status === "done" ? "Task completed." : "Task reopened.");
 }
@@ -437,6 +442,8 @@ export async function saveJobWorkspaceTask(formData: FormData): Promise<ActionSt
     title: String(formData.get("title") ?? ""),
     assignee: String(formData.get("assignee") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
+    plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
+    plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
   });
   if (!jobId || !taskId) return fail(returnTo, "Missing task.");
@@ -448,7 +455,8 @@ export async function saveJobWorkspaceTask(formData: FormData): Promise<ActionSt
     input: parsed.value,
   });
   if (!task) return fail(returnTo, "That task could not be updated.");
-  refreshJobs(null, jobId);
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
   return succeed(returnTo);
 }
 
@@ -468,7 +476,8 @@ export async function removeJobWorkspaceTask(formData: FormData): Promise<Action
     actor: session.email,
   });
   if (!task) return fail(returnTo, "That task could not be deleted.");
-  refreshJobs(null, jobId);
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
   return succeed(returnTo);
 }
 

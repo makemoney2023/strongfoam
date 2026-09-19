@@ -53,6 +53,32 @@ describe("job workspace parsers", () => {
     expect(parsed.value.assignee).toBe("Morgan Cole");
   });
 
+  it("accepts a task planned range", () => {
+    const parsed = parseJobTaskInput({
+      title: "Install north wall",
+      plannedStartAt: "2026-09-20T08:00",
+      plannedEndAt: "2026-09-22T16:00",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.plannedStartAt).toBeInstanceOf(Date);
+    expect(parsed.value.plannedEndAt).toBeInstanceOf(Date);
+  });
+
+  it("rejects task planned completion before planned start", () => {
+    expect(
+      parseJobTaskInput({
+        title: "Install north wall",
+        plannedStartAt: "2026-09-22T16:00",
+        plannedEndAt: "2026-09-20T08:00",
+      }),
+    ).toEqual({
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+      field: "plannedEndAt",
+    });
+  });
+
   it("collects every non-empty file from a multi-file upload", () => {
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array([1, 2, 3])], "a.jpg", { type: "image/jpeg" }));
