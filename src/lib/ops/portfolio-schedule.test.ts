@@ -2537,9 +2537,9 @@ describe("portfolio resource projection", () => {
       (candidate) => candidate.key === "alex",
     );
 
-    expect(assignments[0]?.calendar).not.toBe(assignments[2]?.calendar);
+    expect(assignments[0]?.calendar).toBe(assignments[2]?.calendar);
     expect(lane?.potentialOverlapCount).toBe(1);
-    expect(diagnostics.signatureBuilds).toBe(2);
+    expect(diagnostics.signatureBuilds).toBe(1);
     expect(diagnostics.calendarIndexBuilds).toBe(1);
     expect(diagnostics.pairIndexBuilds).toBe(1);
   });
@@ -2830,7 +2830,8 @@ describe("portfolio resource projection", () => {
     );
     const [sharedCalendar] = calendars;
 
-    expect(assignments).toHaveLength(250);
+    expect(sources).toHaveLength(250);
+    expect(assignments).toHaveLength(500);
     expect(calendars.size).toBe(1);
     expect(sharedCalendar).toBeDefined();
     expect(
