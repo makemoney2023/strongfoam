@@ -51,8 +51,24 @@ export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
+export const DEMO_SCHEDULE_NOW = "2026-09-19T12:00:00.000Z";
 
-const now = Date.now();
+const now = new Date(DEMO_SCHEDULE_NOW).getTime();
+const DAY = 24 * 60 * 60 * 1000;
+
+const DEMO_SECOND_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
+const DEMO_EMPTY_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3";
+const DEMO_CLOSED_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4";
+const DEMO_SECOND_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+const DEMO_BLOCKED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3";
+const DEMO_CLOSED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4";
+const DEMO_DEFAULT_CALENDAR_ID = "00000000-0000-4000-8000-000000000001";
+const DEMO_FIRST_CALENDAR_ID = "ca000001-0000-4000-8000-000000000001";
+const DEMO_SECOND_CALENDAR_ID = "ca000002-0000-4000-8000-000000000002";
+
+function demoDate(dayOffset: number): Date {
+  return new Date(now + dayOffset * DAY);
+}
 
 export function demoEstimateRequests(): EstimateRequestRow[] {
   return [
@@ -216,6 +232,45 @@ export function demoProjects(): ProjectRow[] {
       name: "Acme podium insulation",
       status: "active",
       projectManager: "Alex Rivera",
+      scheduleCalendarId: DEMO_FIRST_CALENDAR_ID,
+    },
+    {
+      id: DEMO_SECOND_PROJECT_ID,
+      createdAt: demoDate(-7),
+      updatedAt: demoDate(-1),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      sourceLeadId: null,
+      name: "Harbour mechanical retrofit",
+      status: "active",
+      projectManager: "Jordan Patel",
+      scheduleCalendarId: DEMO_SECOND_CALENDAR_ID,
+    },
+    {
+      id: DEMO_EMPTY_PROJECT_ID,
+      createdAt: demoDate(-6),
+      updatedAt: demoDate(-2),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      sourceLeadId: null,
+      name: "Elm Street attic",
+      status: "active",
+      projectManager: "Taylor Singh",
+      scheduleCalendarId: null,
+    },
+    {
+      id: DEMO_CLOSED_PROJECT_ID,
+      createdAt: demoDate(-30),
+      updatedAt: demoDate(-4),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      sourceLeadId: null,
+      name: "King Street closeout",
+      status: "closed",
+      projectManager: "Alex Rivera",
       scheduleCalendarId: null,
     },
   ];
@@ -237,8 +292,62 @@ export function demoJobs(): JobRow[] {
       services: ["spray-foam", "avb"],
       projectManager: "Alex Rivera",
       foreman: "Morgan Cole",
-      plannedStartAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
-      plannedEndAt: new Date(now + 4 * 24 * 60 * 60 * 1000),
+      plannedStartAt: demoDate(-1),
+      plannedEndAt: demoDate(13),
+      blockerNote: null,
+    },
+    {
+      id: DEMO_SECOND_JOB_ID,
+      createdAt: demoDate(-7),
+      updatedAt: demoDate(-1),
+      projectId: DEMO_SECOND_PROJECT_ID,
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      name: "Mechanical room fireproofing",
+      status: "in_progress",
+      scope: "Fireproofing and insulation at the mechanical penthouse.",
+      services: ["spray-foam"],
+      projectManager: "Jordan Patel",
+      foreman: "Casey Wong",
+      plannedStartAt: demoDate(3),
+      plannedEndAt: demoDate(6),
+      blockerNote: null,
+    },
+    {
+      id: DEMO_BLOCKED_JOB_ID,
+      createdAt: demoDate(-5),
+      updatedAt: demoDate(-1),
+      projectId: DEMO_SECOND_PROJECT_ID,
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      name: "Loading dock air barrier",
+      status: "blocked",
+      scope: "Awaiting substrate remediation before AVB installation.",
+      services: ["avb"],
+      projectManager: "Jordan Patel",
+      foreman: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      blockerNote: "Concrete repairs must cure before installation.",
+    },
+    {
+      id: DEMO_CLOSED_JOB_ID,
+      createdAt: demoDate(-30),
+      updatedAt: demoDate(-4),
+      projectId: DEMO_CLOSED_PROJECT_ID,
+      companyId: "66666666-6666-4666-8666-666666666666",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      opportunityId: null,
+      name: "Closeout deficiency review",
+      status: "closed",
+      scope: "Final deficiency walk and closeout package.",
+      services: ["spray-foam"],
+      projectManager: "Alex Rivera",
+      foreman: "Morgan Cole",
+      plannedStartAt: demoDate(-12),
+      plannedEndAt: demoDate(-8),
       blockerNote: null,
     },
   ];
@@ -281,16 +390,278 @@ export function demoJobTasks(): JobTaskRow[] {
       updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
-      title: "Install closed-cell at podium deck",
+      title: "Prepare podium deck",
       assignee: "Morgan Cole",
-      dueAt: new Date(now + 24 * 60 * 60 * 1000),
-      plannedStartAt: new Date(now - 24 * 60 * 60 * 1000),
-      plannedEndAt: new Date(now + 2 * 24 * 60 * 60 * 1000),
+      dueAt: demoDate(-1),
+      plannedStartAt: demoDate(2),
+      plannedEndAt: demoDate(3),
       completedAt: null,
       status: "open",
       createdBy: "alex.rivera@strongfoam.com",
     },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      title: "Install closed-cell at podium deck",
+      assignee: "Jamie Brooks",
+      dueAt: demoDate(6),
+      plannedStartAt: demoDate(4),
+      plannedEndAt: demoDate(6),
+      completedAt: null,
+      status: "open",
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      title: "Parallel Weekend-only staging",
+      assignee: "Morgan Cole",
+      dueAt: demoDate(7),
+      plannedStartAt: demoDate(7),
+      plannedEndAt: demoDate(7),
+      completedAt: null,
+      status: "open",
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_JOB_ID,
+      workAreaId: null,
+      title: "Confirm north elevation access",
+      assignee: null,
+      dueAt: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+      status: "open",
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd5",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_JOB_ID,
+      workAreaId: null,
+      title: "Submit podium inspection photos",
+      assignee: "Jamie Brooks",
+      dueAt: demoDate(8),
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+      status: "open",
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd6",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      title: "Lay out mechanical room",
+      assignee: "  morgan   cole ",
+      dueAt: demoDate(-2),
+      plannedStartAt: demoDate(3),
+      plannedEndAt: demoDate(4),
+      completedAt: null,
+      status: "open",
+      createdBy: "jordan.patel@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd7",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      title: "Apply mechanical room fireproofing",
+      assignee: "Casey Wong",
+      dueAt: demoDate(6),
+      plannedStartAt: demoDate(5),
+      plannedEndAt: demoDate(6),
+      completedAt: null,
+      status: "open",
+      createdBy: "jordan.patel@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd8",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      title: "Parallel Weekend-only material check",
+      assignee: "morgan cole",
+      dueAt: demoDate(7),
+      plannedStartAt: demoDate(7),
+      plannedEndAt: demoDate(7),
+      completedAt: null,
+      status: "open",
+      createdBy: "jordan.patel@strongfoam.com",
+    },
+    {
+      id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd9",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      title: "Issue mechanical room QA report",
+      assignee: "Casey Wong",
+      dueAt: demoDate(10),
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+      status: "open",
+      createdBy: "jordan.patel@strongfoam.com",
+    },
   ];
+}
+
+export function demoJobTaskDependencies(): JobTaskDependencyRow[] {
+  return [
+    {
+      id: "de000001-0000-4000-8000-000000000001",
+      createdAt: demoDate(-2),
+      projectId: DEMO_PROJECT_ID,
+      predecessorTaskId: DEMO_JOB_TASK_ID,
+      successorTaskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      lagDays: 0,
+      createdBy: "alex.rivera@strongfoam.com",
+    },
+    {
+      id: "de000002-0000-4000-8000-000000000002",
+      createdAt: demoDate(-2),
+      projectId: DEMO_SECOND_PROJECT_ID,
+      predecessorTaskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd6",
+      successorTaskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd7",
+      lagDays: 0,
+      createdBy: "jordan.patel@strongfoam.com",
+    },
+  ];
+}
+
+export function demoScheduleCalendars(): ScheduleCalendarRow[] {
+  return [
+    {
+      id: DEMO_DEFAULT_CALENDAR_ID,
+      createdAt: new Date("2000-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2000-01-01T00:00:00.000Z"),
+      updatedBy: "system@strongfoam.com",
+      name: "Standard Monday–Friday",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: true,
+    },
+    {
+      id: DEMO_FIRST_CALENDAR_ID,
+      createdAt: demoDate(-8),
+      updatedAt: demoDate(-2),
+      updatedBy: "alex.rivera@strongfoam.com",
+      name: "Acme site calendar",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: false,
+    },
+    {
+      id: DEMO_SECOND_CALENDAR_ID,
+      createdAt: demoDate(-7),
+      updatedAt: demoDate(-2),
+      updatedBy: "jordan.patel@strongfoam.com",
+      name: "Harbour four-day calendar",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 5, 6],
+      isDefault: false,
+    },
+  ];
+}
+
+export function demoScheduleCalendarExceptions(): ScheduleCalendarExceptionRow[] {
+  return [
+    {
+      id: "ce000001-0000-4000-8000-000000000001",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      updatedBy: "alex.rivera@strongfoam.com",
+      calendarId: DEMO_FIRST_CALENDAR_ID,
+      date: "2026-09-28",
+      name: "Podium crane shutdown",
+      isWorkingDay: false,
+    },
+    {
+      id: "ce000002-0000-4000-8000-000000000002",
+      createdAt: demoDate(-2),
+      updatedAt: demoDate(-2),
+      updatedBy: "jordan.patel@strongfoam.com",
+      calendarId: DEMO_SECOND_CALENDAR_ID,
+      date: "2026-09-20",
+      name: "Sunday recovery shift",
+      isWorkingDay: true,
+    },
+  ];
+}
+
+export function demoProjectScheduleBaselines(): ProjectScheduleBaselineRow[] {
+  return [
+    {
+      id: "ba000001-0000-4000-8000-000000000001",
+      projectId: DEMO_PROJECT_ID,
+      name: "Acme tender baseline",
+      capturedAt: demoDate(-5),
+      capturedBy: "alex.rivera@strongfoam.com",
+      deletedAt: null,
+      deletedBy: null,
+    },
+    {
+      id: "ba000002-0000-4000-8000-000000000002",
+      projectId: DEMO_SECOND_PROJECT_ID,
+      name: "Harbour recovery baseline",
+      capturedAt: demoDate(-4),
+      capturedBy: "jordan.patel@strongfoam.com",
+      deletedAt: null,
+      deletedBy: null,
+    },
+  ];
+}
+
+export function demoProjectScheduleBaselineItems(): ProjectScheduleBaselineItemRow[] {
+  return [
+    {
+      id: "be000001-0000-4000-8000-000000000001",
+      baselineId: "ba000001-0000-4000-8000-000000000001",
+      entityType: "job",
+      entityId: DEMO_JOB_ID,
+      plannedStartAt: demoDate(-1),
+      plannedEndAt: demoDate(10),
+      dueAt: null,
+    },
+    {
+      id: "be000002-0000-4000-8000-000000000002",
+      baselineId: "ba000002-0000-4000-8000-000000000002",
+      entityType: "job",
+      entityId: DEMO_SECOND_JOB_ID,
+      plannedStartAt: demoDate(3),
+      plannedEndAt: demoDate(12),
+      dueAt: null,
+    },
+  ];
+}
+
+export function demoPortfolioScheduleSeed() {
+  return {
+    projects: demoProjects(),
+    jobs: demoJobs(),
+    tasks: demoJobTasks(),
+    dependencies: demoJobTaskDependencies(),
+    calendars: demoScheduleCalendars(),
+    calendarExceptions: demoScheduleCalendarExceptions(),
+    baselines: demoProjectScheduleBaselines(),
+    baselineItems: demoProjectScheduleBaselineItems(),
+  };
 }
 
 export function demoJobDocuments(): JobDocumentRow[] {

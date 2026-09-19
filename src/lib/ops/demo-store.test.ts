@@ -1123,7 +1123,9 @@ describe("workspace CRUD and filters", () => {
   it("filters jobs by status and planned date", () => {
     const inProgress = listDemoJobs({ status: "in_progress" });
     expect(inProgress.some((job) => job.id === DEMO_JOB_ID)).toBe(true);
-    expect(listDemoJobs({ status: "closed" })).toEqual([]);
+    const closed = listDemoJobs({ status: "closed" });
+    expect(closed).toHaveLength(1);
+    expect(closed.every((job) => job.status === "closed")).toBe(true);
     expect(listDemoJobs({ q: "north elevation" }).some((job) => job.id === DEMO_JOB_ID)).toBe(
       true,
     );
