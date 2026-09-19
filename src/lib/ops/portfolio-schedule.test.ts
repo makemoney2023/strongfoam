@@ -15,6 +15,7 @@ import type {
 } from "@/lib/ops/project-schedule";
 import { createScheduleWindow } from "@/lib/ops/project-schedule";
 import {
+  buildPortfolioScheduleSummary,
   buildPortfolioResourceLanes,
   buildPortfolioScheduleAssignments,
   buildPortfolioProjects,
@@ -35,6 +36,7 @@ import {
   PORTFOLIO_UNASSIGNED_RESOURCE_KEY,
   serializePortfolioSchedule,
   type PortfolioProjectionFilter,
+  type PortfolioScheduleData,
   type PortfolioScheduleAssignment,
   type PortfolioScheduleProject,
 } from "@/lib/ops/portfolio-schedule";
@@ -1426,6 +1428,449 @@ describe("portfolio schedule", () => {
     expect(result?.jobs[0]).not.toBe(source.jobs[0]);
     expect(result?.jobs[0]?.tasks).not.toBe(source.jobs[0]?.tasks);
     expect(result?.dependencies).not.toBe(source.dependencies);
+  });
+});
+
+describe("portfolio Schedule dashboard summary", () => {
+  function scheduleData(
+    projects: PortfolioScheduleProject[],
+    truncation: Partial<PortfolioScheduleData["truncation"]> = {},
+  ): PortfolioScheduleData {
+    return {
+      projects,
+      truncation: {
+        projects: false,
+        jobs: false,
+        tasks: false,
+        dependencies: false,
+        calendarExceptions: false,
+        baselineItems: false,
+        ...truncation,
+      },
+    };
+  }
+
+  function baseline(
+    id: string,
+    finish: string,
+  ): PortfolioScheduleProject["latestBaseline"] {
+    return {
+      id: `baseline-${id}`,
+      name: "Approved",
+      capturedAt: "2026-09-01T12:00:00.000Z",
+      items: [
+        {
+          id: `baseline-item-${id}`,
+          baselineId: `baseline-${id}`,
+          entityType: "job",
+          entityId: `job-${id}`,
+          plannedStartAt: null,
+          plannedEndAt: finish,
+          dueAt: null,
+        },
+      ],
+    };
+  }
+
+  it("returns exact complete-fixture attention counts", () => {
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        project({
+          id: "behind",
+          name: "Behind",
+          jobs: [
+            job({
+              id: "scheduled-a",
+              projectManager: "  Alex Smith ",
+              plannedStartAt: "2026-09-10",
+              plannedEndAt: "2026-09-22",
+              tasks: [
+                task({
+                  id: "overdue",
+                  jobId: "scheduled-a",
+                  plannedEndAt: "2026-09-18",
+                  dueAt: "2026-09-30",
+                }),
+                task({
+                  id: "unscheduled-task",
+                  jobId: "scheduled-a",
+                }),
+              ],
+            }),
+            job({
+              id: "scheduled-b",
+              projectManager: "alex smith",
+              plannedStartAt: "2026-09-19",
+              plannedEndAt: "2026-09-23",
+            }),
+          ],
+          latestBaseline: baseline("behind", "2026-09-18"),
+        }),
+        project({
+          id: "unscheduled",
+          name: "Unscheduled",
+          jobs: [job({ id: "undated-job", projectManager: "Morgan" })],
+        }),
+      ]),
+      now,
+    );
+
+    expect(summary).toMatchObject({
+      overdueTasks: 1,
+      unscheduledActiveWork: 2,
+      projectsBehindBaseline: 1,
+      peopleWithPotentialOverlap: 1,
+      partialCounts: [],
+    });
+  });
+
+  it("never counts completed tasks as overdue or unscheduled", () => {
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        project({
+          jobs: [
+            job({
+              plannedStartAt: "2026-09-01",
+              plannedEndAt: "2026-09-30",
+              tasks: [
+                task({
+                  id: "done-overdue",
+                  status: "done",
+                  dueAt: "2026-09-01",
+                }),
+                task({ id: "done-undated", status: "done" }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+      now,
+    );
+
+    expect(summary.overdueTasks).toBe(0);
+    expect(summary.unscheduledActiveWork).toBe(0);
+  });
+
+  it("counts malformed dates as unscheduled and omits their events", () => {
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        project({
+          jobs: [
+            job({
+              plannedStartAt: "2026-02-30",
+              plannedEndAt: "not-a-date",
+              tasks: [
+                task({
+                  dueAt: "2026-02-30T12:00:00.000Z",
+                  plannedStartAt: "invalid",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+      now,
+    );
+
+    expect(summary.unscheduledActiveWork).toBe(2);
+    expect(summary.upcomingEvents).toEqual([]);
+  });
+
+  it("uses each project timezone for overdue and event boundaries", () => {
+    const instant = new Date("2026-09-21T02:00:00.000Z");
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        project({
+          id: "toronto",
+          name: "Toronto",
+          calendar: calendar({ timeZone: "America/Toronto" }),
+          jobs: [
+            job({
+              id: "toronto-job",
+              tasks: [
+                task({
+                  id: "toronto-task",
+                  jobId: "toronto-job",
+                  dueAt: "2026-09-20",
+                }),
+              ],
+            }),
+          ],
+        }),
+        project({
+          id: "tokyo",
+          name: "Tokyo",
+          calendar: calendar({ timeZone: "Asia/Tokyo" }),
+          jobs: [
+            job({
+              id: "tokyo-job",
+              tasks: [
+                task({
+                  id: "tokyo-task",
+                  jobId: "tokyo-job",
+                  dueAt: "2026-09-20",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+      instant,
+    );
+
+    expect(summary.overdueTasks).toBe(1);
+    expect(summary.upcomingEvents).toMatchObject([
+      {
+        projectId: "toronto",
+        entityType: "task",
+        kind: "due",
+        date: "2026-09-20",
+      },
+      {
+        projectId: "toronto",
+        entityType: "project",
+        kind: "finish",
+        date: "2026-09-20",
+      },
+      {
+        projectId: "toronto",
+        entityType: "project",
+        kind: "start",
+        date: "2026-09-20",
+      },
+    ]);
+  });
+
+  it("counts only positive baseline variance, not zero, negative, or missing", () => {
+    const withVariance = (
+      id: string,
+      finish: string,
+      baselineFinish?: string,
+    ) =>
+      project({
+        id,
+        jobs: [
+          job({
+            id: `job-${id}`,
+            plannedStartAt: "2026-09-10",
+            plannedEndAt: finish,
+          }),
+        ],
+        latestBaseline: baselineFinish
+          ? baseline(id, baselineFinish)
+          : null,
+      });
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        withVariance("positive", "2026-09-22", "2026-09-18"),
+        withVariance("zero", "2026-09-18", "2026-09-18"),
+        withVariance("negative", "2026-09-17", "2026-09-18"),
+        withVariance("missing", "2026-09-22"),
+      ]),
+      now,
+    );
+
+    expect(summary.projectsBehindBaseline).toBe(1);
+  });
+
+  it("counts normalized resource lanes with conflicts, not pairs or assignments", () => {
+    const overlappingProject = (id: string, person: string) =>
+      project({
+        id,
+        jobs: [
+          job({
+            id: `job-${id}`,
+            projectManager: person,
+            foreman: null,
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-23",
+          }),
+        ],
+      });
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        overlappingProject("alex-a", " Alex  Smith "),
+        overlappingProject("alex-b", "alex smith"),
+        overlappingProject("alex-c", "ALEX SMITH"),
+        overlappingProject("morgan-a", "Morgan"),
+        overlappingProject("morgan-b", " morgan "),
+      ]),
+      now,
+    );
+
+    expect(summary.peopleWithPotentialOverlap).toBe(2);
+  });
+
+  it("includes today and day 14 while excluding yesterday and day 15", () => {
+    const summary = buildPortfolioScheduleSummary(
+      scheduleData([
+        project({
+          id: "window",
+          name: "Window",
+          calendar: calendar({ timeZone: "UTC" }),
+          jobs: [
+            job({
+              id: "window-job",
+              plannedStartAt: null,
+              plannedEndAt: null,
+              tasks: [
+                task({
+                  id: "yesterday",
+                  jobId: "window-job",
+                  dueAt: "2026-09-18",
+                }),
+                task({
+                  id: "today",
+                  jobId: "window-job",
+                  dueAt: "2026-09-19",
+                }),
+                task({
+                  id: "day-14",
+                  jobId: "window-job",
+                  dueAt: "2026-10-03",
+                }),
+                task({
+                  id: "day-15",
+                  jobId: "window-job",
+                  dueAt: "2026-10-04",
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+      now,
+    );
+
+    expect(
+      summary.upcomingEvents
+        .filter((event) => event.entityType === "task")
+        .map((event) => event.id),
+    ).toEqual(["window:task:today:due", "window:task:day-14:due"]);
+  });
+
+  it("returns the first five events in deterministic tie order", () => {
+    const source = project({
+      id: "ties",
+      name: "Alpha",
+      calendar: calendar({ timeZone: "UTC" }),
+      jobs: [
+        job({
+          id: "ties-job",
+          name: "Zulu",
+          plannedStartAt: "2026-09-19",
+          plannedEndAt: "2026-09-25",
+          tasks: [
+            task({
+              id: "task-b",
+              jobId: "ties-job",
+              title: "Same",
+              dueAt: "2026-09-20",
+            }),
+            task({
+              id: "task-a",
+              jobId: "ties-job",
+              title: "Same",
+              dueAt: "2026-09-20",
+            }),
+            task({
+              id: "task-c",
+              jobId: "ties-job",
+              title: "Able",
+              dueAt: "2026-09-20",
+            }),
+          ],
+        }),
+      ],
+    });
+    const expected = [
+      "ties:project:ties:start",
+      "ties:job:ties-job:start",
+      "ties:task:task-c:due",
+      "ties:task:task-a:due",
+      "ties:task:task-b:due",
+    ];
+
+    expect(
+      buildPortfolioScheduleSummary(scheduleData([source]), now)
+        .upcomingEvents.map((event) => event.id),
+    ).toEqual(expected);
+    expect(
+      buildPortfolioScheduleSummary(
+        scheduleData([
+          {
+            ...source,
+            jobs: [
+              {
+                ...source.jobs[0]!,
+                tasks: [...source.jobs[0]!.tasks].reverse(),
+              },
+            ],
+          },
+        ]),
+        now,
+      ).upcomingEvents.map((event) => event.id),
+    ).toEqual(expected);
+  });
+
+  it("maps every truncation flag to only its affected summary fields", () => {
+    const expected = {
+      projects: ["upcomingEvents"],
+      jobs: [
+        "unscheduledActiveWork",
+        "projectsBehindBaseline",
+        "peopleWithPotentialOverlap",
+        "upcomingEvents",
+      ],
+      tasks: [
+        "overdueTasks",
+        "unscheduledActiveWork",
+        "projectsBehindBaseline",
+        "peopleWithPotentialOverlap",
+        "upcomingEvents",
+      ],
+      dependencies: [],
+      calendarExceptions: [
+        "overdueTasks",
+        "projectsBehindBaseline",
+        "peopleWithPotentialOverlap",
+      ],
+      baselineItems: ["projectsBehindBaseline"],
+    } as const;
+
+    for (const [flag, partialCounts] of Object.entries(expected)) {
+      expect(
+        buildPortfolioScheduleSummary(
+          scheduleData([], { [flag]: true }),
+          now,
+        ).partialCounts,
+      ).toEqual(partialCounts);
+    }
+  });
+
+  it("does not mutate input and remains practical at dense store bounds", () => {
+    const source = scheduleData([
+      project({
+        id: "dense",
+        calendar: calendar({ timeZone: "UTC" }),
+        jobs: Array.from({ length: 500 }, (_, index) =>
+          job({
+            id: `dense-job-${index}`,
+            projectManager: index % 2 === 0 ? "Alex" : "Morgan",
+            foreman: null,
+            plannedStartAt: "2026-09-21",
+            plannedEndAt: "2026-09-22",
+          }),
+        ),
+      }),
+    ]);
+    const snapshot = structuredClone(source);
+
+    const summary = buildPortfolioScheduleSummary(source, now);
+
+    expect(summary.peopleWithPotentialOverlap).toBe(2);
+    expect(summary.upcomingEvents).toHaveLength(5);
+    expect(source).toEqual(snapshot);
   });
 });
 

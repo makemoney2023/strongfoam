@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PORTFOLIO_SCHEDULE_WIDGETS,
   parsePortfolioScheduleQuery,
   portfolioScheduleHref,
 } from "@/lib/ops/portfolio-schedule-query";
@@ -115,6 +116,85 @@ describe("parsePortfolioScheduleQuery", () => {
     parsePortfolioScheduleQuery(input);
 
     expect(input).toEqual(snapshot);
+  });
+
+  it("exports canonical count-to-link widget definitions", () => {
+    expect(PORTFOLIO_SCHEDULE_WIDGETS).toEqual({
+      overdueTasks: {
+        label: "Overdue tasks",
+        href: "/app/projects/schedule?projectStatus=active&state=overdue",
+      },
+      unscheduledActiveWork: {
+        label: "Unscheduled active work",
+        href: "/app/projects/schedule?projectStatus=active&state=unscheduled",
+      },
+      projectsBehindBaseline: {
+        label: "Projects behind baseline",
+        href:
+          "/app/projects/schedule?projectStatus=active&attention=behind-baseline",
+      },
+      peopleWithPotentialOverlap: {
+        label: "Potential resource overlaps",
+        href:
+          "/app/projects/schedule?projectStatus=active&attention=resource-overlap&view=resources",
+      },
+    });
+
+    const counts = {
+      overdueTasks: 1,
+      unscheduledActiveWork: 2,
+      projectsBehindBaseline: 3,
+      peopleWithPotentialOverlap: 4,
+    };
+    expect(
+      Object.entries(PORTFOLIO_SCHEDULE_WIDGETS).map(
+        ([key, widget]) => [
+          widget.label,
+          counts[key as keyof typeof counts],
+          widget.href,
+        ],
+      ),
+    ).toEqual([
+      [
+        "Overdue tasks",
+        1,
+        "/app/projects/schedule?projectStatus=active&state=overdue",
+      ],
+      [
+        "Unscheduled active work",
+        2,
+        "/app/projects/schedule?projectStatus=active&state=unscheduled",
+      ],
+      [
+        "Projects behind baseline",
+        3,
+        "/app/projects/schedule?projectStatus=active&attention=behind-baseline",
+      ],
+      [
+        "Potential resource overlaps",
+        4,
+        "/app/projects/schedule?projectStatus=active&attention=resource-overlap&view=resources",
+      ],
+    ]);
+  });
+
+  it("keeps every widget href in sync with the parser", () => {
+    for (const widget of Object.values(PORTFOLIO_SCHEDULE_WIDGETS)) {
+      const url = new URL(widget.href, "https://example.test");
+      const parsed = parsePortfolioScheduleQuery(
+        Object.fromEntries(url.searchParams),
+      );
+
+      expect(
+        portfolioScheduleHref({
+          projectStatus: parsed.projectStatus,
+          state: parsed.state === "all" ? undefined : parsed.state,
+          attention:
+            parsed.attention === "all" ? undefined : parsed.attention,
+          view: parsed.view === "work" ? undefined : parsed.view,
+        }),
+      ).toBe(widget.href);
+    }
   });
 });
 
