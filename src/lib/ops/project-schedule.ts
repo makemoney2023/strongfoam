@@ -1,4 +1,10 @@
 import type { JobStatus } from "@/lib/ops/jobs";
+import {
+  DEFAULT_WORKING_CALENDAR,
+  addWorkingDays,
+  calendarDate,
+  type ResolvedWorkingCalendar,
+} from "@/lib/ops/project-schedule-planning";
 
 export const SCHEDULE_ZOOMS = ["week", "month"] as const;
 export type ScheduleZoom = (typeof SCHEDULE_ZOOMS)[number];
@@ -337,11 +343,23 @@ export function moveScheduleAnchor(
   return next;
 }
 
-function shiftIsoDate(value: string | null, deltaDays: number): string | null {
+function shiftIsoDate(
+  value: string | null,
+  deltaDays: number,
+  calendar: ResolvedWorkingCalendar,
+): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  date.setDate(date.getDate() + deltaDays);
+  const sourceDate = calendarDate(value, calendar);
+  if (!sourceDate) return value;
+  const targetDate = addWorkingDays(sourceDate, deltaDays, calendar);
+  const sourceOrdinal = new Date(`${sourceDate}T00:00:00.000Z`).getTime();
+  const targetOrdinal = new Date(`${targetDate}T00:00:00.000Z`).getTime();
+  date.setUTCDate(
+    date.getUTCDate() +
+      Math.round((targetOrdinal - sourceOrdinal) / 86_400_000),
+  );
   return date.toISOString();
 }
 
@@ -352,6 +370,7 @@ export function shiftScheduleDates(
     dueAt: string | null;
   },
   deltaDays: number,
+  calendar: ResolvedWorkingCalendar = DEFAULT_WORKING_CALENDAR,
 ): {
   plannedStartAt: string | null;
   plannedEndAt: string | null;
@@ -362,14 +381,18 @@ export function shiftScheduleDates(
   }
   if (dates.plannedStartAt || dates.plannedEndAt) {
     return {
-      plannedStartAt: shiftIsoDate(dates.plannedStartAt, deltaDays),
-      plannedEndAt: shiftIsoDate(dates.plannedEndAt, deltaDays),
+      plannedStartAt: shiftIsoDate(
+        dates.plannedStartAt,
+        deltaDays,
+        calendar,
+      ),
+      plannedEndAt: shiftIsoDate(dates.plannedEndAt, deltaDays, calendar),
       dueAt: dates.dueAt,
     };
   }
   return {
     plannedStartAt: null,
     plannedEndAt: null,
-    dueAt: shiftIsoDate(dates.dueAt, deltaDays),
+    dueAt: shiftIsoDate(dates.dueAt, deltaDays, calendar),
   };
 }

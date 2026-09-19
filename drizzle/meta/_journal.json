@@ -57,6 +57,13 @@
       "when": 1758239100000,
       "tag": "0007_job_task_dependencies",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758240000000,
+      "tag": "0008_schedule_planning",
+      "breakpoints": true
     }
   ]
 }

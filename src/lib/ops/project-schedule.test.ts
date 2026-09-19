@@ -260,7 +260,7 @@ describe("project schedule", () => {
     expect(month.getMonth()).toBe(2);
   });
 
-  it("shifts a task range while preserving duration", () => {
+  it("shifts a task range by working days while preserving duration", () => {
     expect(
       shiftScheduleDates(
         {
@@ -271,8 +271,8 @@ describe("project schedule", () => {
         3,
       ),
     ).toEqual({
-      plannedStartAt: "2026-09-13T12:00:00.000Z",
-      plannedEndAt: "2026-09-15T12:00:00.000Z",
+      plannedStartAt: "2026-09-15T12:00:00.000Z",
+      plannedEndAt: "2026-09-16T12:00:00.000Z",
       dueAt: null,
     });
   });
@@ -288,5 +288,18 @@ describe("project schedule", () => {
         -2,
       ).dueAt,
     ).toBe("2026-09-08T12:00:00.000Z");
+  });
+
+  it("moves Friday by one working day to Monday", () => {
+    expect(
+      shiftScheduleDates(
+        {
+          plannedStartAt: "2026-09-18T12:00:00.000Z",
+          plannedEndAt: null,
+          dueAt: null,
+        },
+        1,
+      ).plannedStartAt,
+    ).toBe("2026-09-21T12:00:00.000Z");
   });
 });

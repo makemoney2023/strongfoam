@@ -1,3 +1,12 @@
+import {
+  DEFAULT_WORKING_CALENDAR,
+  addWorkingDays,
+  calendarDate,
+  isWorkingDay,
+  workingDayDifference,
+  type ResolvedWorkingCalendar,
+} from "@/lib/ops/project-schedule-planning";
+
 export type ScheduleGraphTask = {
   id: string;
   title?: string;
@@ -119,17 +128,19 @@ export function validateDependencyAddition(
   return { ok: true };
 }
 
-function dayOrdinal(value: string): number | null {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return Math.floor(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000,
-  );
+function dayOrdinal(
+  value: string,
+  calendar: ResolvedWorkingCalendar,
+): number | null {
+  const date = calendarDate(value, calendar);
+  if (!date) return null;
+  return Math.floor(new Date(`${date}T00:00:00.000Z`).getTime() / 86_400_000);
 }
 
 export function calculateCriticalPath(
   tasks: readonly ScheduleGraphTask[],
   edges: readonly ScheduleDependency[],
+  calendar: ResolvedWorkingCalendar = DEFAULT_WORKING_CALENDAR,
 ):
   | {
       ok: true;
@@ -162,10 +173,16 @@ export function calculateCriticalPath(
 
   const durations = new Map<string, number>();
   for (const task of scheduled) {
-    const start = dayOrdinal(task.plannedStartAt);
-    const end = dayOrdinal(task.plannedEndAt);
+    const start = dayOrdinal(task.plannedStartAt, calendar);
+    const end = dayOrdinal(task.plannedEndAt, calendar);
     if (start === null || end === null) continue;
-    durations.set(task.id, Math.max(1, end - start + 1));
+    const workingDuration =
+      workingDayDifference(
+        task.plannedStartAt,
+        task.plannedEndAt,
+        calendar,
+      ) + (isWorkingDay(task.plannedStartAt, calendar) ? 1 : 0);
+    durations.set(task.id, Math.max(1, workingDuration));
   }
 
   const incoming = new Map(taskIds.map((id) => [id, [] as ScheduleDependency[]]));
@@ -228,6 +245,7 @@ export function calculateCriticalPath(
 export function validateDependencyDates(
   tasks: readonly ScheduleGraphTask[],
   edges: readonly ScheduleDependency[],
+  calendar: ResolvedWorkingCalendar = DEFAULT_WORKING_CALENDAR,
 ):
   | { ok: true }
   | {
@@ -241,12 +259,18 @@ export function validateDependencyDates(
     const predecessor = tasksById.get(edge.predecessorTaskId);
     const successor = tasksById.get(edge.successorTaskId);
     if (!predecessor?.plannedEndAt || !successor?.plannedStartAt) continue;
-    const predecessorFinish = dayOrdinal(predecessor.plannedEndAt);
-    const successorStart = dayOrdinal(successor.plannedStartAt);
+    const predecessorFinish = calendarDate(
+      predecessor.plannedEndAt,
+      calendar,
+    );
+    const successorStart = calendarDate(successor.plannedStartAt, calendar);
+    const earliestStart = predecessorFinish
+      ? addWorkingDays(predecessorFinish, edge.lagDays, calendar)
+      : null;
     if (
-      predecessorFinish !== null &&
+      earliestStart !== null &&
       successorStart !== null &&
-      successorStart < predecessorFinish + edge.lagDays
+      successorStart < earliestStart
     ) {
       return {
         ok: false,

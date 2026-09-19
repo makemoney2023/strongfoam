@@ -205,6 +205,7 @@ export function demoProjects(): ProjectRow[] {
       name: "Acme podium insulation",
       status: "active",
       projectManager: "Alex Rivera",
+      scheduleCalendarId: null,
     },
   ];
 }

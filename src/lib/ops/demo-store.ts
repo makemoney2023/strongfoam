@@ -699,6 +699,7 @@ export function convertDemoOpportunityToProject(args: {
     name: args.input.projectName,
     status: "active",
     projectManager: args.input.projectManager,
+    scheduleCalendarId: null,
   };
   projects.unshift(project);
   opportunity.projectId = project.id;

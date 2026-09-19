@@ -11,7 +11,11 @@ import {
   jobTasks,
   jobs,
   leads,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   workAreas,
 } from "@/db/schema";
 
@@ -23,6 +27,11 @@ describe("db schema exports", () => {
     expect(estimateRequestTasks).toBeDefined();
     expect(estimateRequestComments).toBeDefined();
     expect(projects).toBeDefined();
+    expect(projects.scheduleCalendarId).toBeDefined();
+    expect(scheduleCalendars).toBeDefined();
+    expect(scheduleCalendarExceptions).toBeDefined();
+    expect(projectScheduleBaselines).toBeDefined();
+    expect(projectScheduleBaselineItems).toBeDefined();
     expect(jobs).toBeDefined();
     expect(jobEvents).toBeDefined();
     expect(workAreas).toBeDefined();
