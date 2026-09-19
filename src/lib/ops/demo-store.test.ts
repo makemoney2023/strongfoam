@@ -207,6 +207,8 @@ describe("job workspace", () => {
         title: "Tape the AVB laps",
         assignee: "Morgan Cole",
         dueAt: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
         workAreaId: area?.id ?? null,
       },
     });
@@ -297,6 +299,8 @@ describe("job workspace", () => {
           title: "Missing area",
           assignee: null,
           dueAt: null,
+          plannedStartAt: null,
+          plannedEndAt: null,
           workAreaId: "00000000-0000-4000-8000-000000000000",
         },
       }),
@@ -305,6 +309,40 @@ describe("job workspace", () => {
 });
 
 describe("workspace CRUD and filters", () => {
+  it("persists planned task dates and actual completion", () => {
+    const plannedStartAt = new Date("2026-09-20T12:00:00.000Z");
+    const plannedEndAt = new Date("2026-09-22T12:00:00.000Z");
+    const task = addDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        title: `Schedule test ${crypto.randomUUID()}`,
+        assignee: "Morgan Cole",
+        dueAt: null,
+        plannedStartAt,
+        plannedEndAt,
+        workAreaId: null,
+      },
+    });
+
+    expect(task?.plannedStartAt).toEqual(plannedStartAt);
+    expect(task?.plannedEndAt).toEqual(plannedEndAt);
+    const completed = setDemoJobTaskStatus({
+      jobId: DEMO_JOB_ID,
+      taskId: task?.id ?? "",
+      actor: "estimating@strongfoam.com",
+      status: "done",
+    });
+    expect(completed?.completedAt).toBeInstanceOf(Date);
+    const reopened = setDemoJobTaskStatus({
+      jobId: DEMO_JOB_ID,
+      taskId: task?.id ?? "",
+      actor: "estimating@strongfoam.com",
+      status: "open",
+    });
+    expect(reopened?.completedAt).toBeNull();
+  });
+
   it("updates and deletes work areas and field notes", () => {
     const area = addDemoWorkArea({
       jobId: DEMO_JOB_ID,

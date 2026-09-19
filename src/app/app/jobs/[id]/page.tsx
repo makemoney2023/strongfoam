@@ -650,6 +650,12 @@ export default async function JobDetailPage({
                                 title: task.title,
                                 assignee: task.assignee,
                                 dueAt: datetimeLocalValue(task.dueAt),
+                                plannedStartAt: datetimeLocalValue(
+                                  task.plannedStartAt,
+                                ),
+                                plannedEndAt: datetimeLocalValue(
+                                  task.plannedEndAt,
+                                ),
                                 workAreaId: task.workAreaId,
                               }}
                             />

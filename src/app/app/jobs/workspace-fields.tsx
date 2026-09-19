@@ -78,6 +78,8 @@ export function TaskFields({
     title?: string;
     assignee?: string | null;
     dueAt?: string;
+    plannedStartAt?: string;
+    plannedEndAt?: string;
     workAreaId?: string | null;
   };
 }) {
@@ -117,6 +119,29 @@ export function TaskFields({
           className="h-11"
           defaultValue={defaults.dueAt ?? ""}
         />
+        <FieldError name="dueAt" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("plannedStartAt")}>Planned start</Label>
+        <Input
+          id={id("plannedStartAt")}
+          name="plannedStartAt"
+          type="datetime-local"
+          className="h-11"
+          defaultValue={defaults.plannedStartAt ?? ""}
+        />
+        <FieldError name="plannedStartAt" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("plannedEndAt")}>Planned completion</Label>
+        <Input
+          id={id("plannedEndAt")}
+          name="plannedEndAt"
+          type="datetime-local"
+          className="h-11"
+          defaultValue={defaults.plannedEndAt ?? ""}
+        />
+        <FieldError name="plannedEndAt" />
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor={id("workAreaId")}>Work area</Label>

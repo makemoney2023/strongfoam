@@ -1166,6 +1166,8 @@ export async function addJobTask(args: {
       title: args.input.title,
       assignee: args.input.assignee,
       dueAt: args.input.dueAt,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
       status: "open",
       createdBy: args.actor,
     })
@@ -1177,7 +1179,12 @@ export async function addJobTask(args: {
     actor: args.actor,
     kind: "task_created",
     summary: `task created: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -1192,7 +1199,11 @@ export async function setJobTaskStatus(args: {
   const db = getDb();
   const rows = await db
     .update(jobTasks)
-    .set({ status: args.status, updatedAt: new Date() })
+    .set({
+      status: args.status,
+      completedAt: args.status === "done" ? new Date() : null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
     .returning();
   const task = rows[0];
@@ -1205,7 +1216,11 @@ export async function setJobTaskStatus(args: {
       args.status === "done"
         ? `task completed: ${task.title}`
         : `task reopened: ${task.title}`,
-    payload: { taskId: task.id, status: args.status },
+    payload: {
+      taskId: task.id,
+      status: args.status,
+      completedAt: task.completedAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -1779,6 +1794,8 @@ export async function updateJobTask(args: {
       title: args.input.title,
       assignee: args.input.assignee,
       dueAt: args.input.dueAt,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
       workAreaId: args.input.workAreaId,
       updatedAt: new Date(),
     })
@@ -1791,7 +1808,12 @@ export async function updateJobTask(args: {
     actor: args.actor,
     kind: "task_updated",
     summary: `task updated: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
