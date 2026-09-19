@@ -433,7 +433,7 @@ export function PortfolioResourceSchedule({
                           <Link
                             href={assignment.href}
                             aria-label={`Open source ${assignment.entityType} ${assignment.label}`}
-                            className="inline-flex min-h-11 max-w-full items-center px-2 text-sm hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            className="inline-flex min-h-11 min-w-11 max-w-full items-center px-2 text-sm hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                           >
                             <span className="truncate">
                               {assignment.label}
@@ -443,7 +443,7 @@ export function PortfolioResourceSchedule({
                             <Link
                               href={`/app/projects/${assignment.projectId}`}
                               aria-label={`Open project ${assignment.projectName}`}
-                              className="inline-flex min-h-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                              className="inline-flex min-h-11 min-w-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                             >
                               {assignment.projectName}
                             </Link>{" "}
@@ -553,7 +553,7 @@ export function PortfolioResourceSchedule({
                         <Link
                           href={`/app/projects/${assignment.projectId}`}
                           aria-label={`Open project ${assignment.projectName}`}
-                          className="inline-flex min-h-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="inline-flex min-h-11 min-w-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
                           {assignment.projectName}
                         </Link>
@@ -562,7 +562,7 @@ export function PortfolioResourceSchedule({
                         <Link
                           href={assignment.href}
                           aria-label={`Open source ${assignment.entityType} ${assignment.label}`}
-                          className="inline-flex min-h-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="inline-flex min-h-11 min-w-11 items-center px-2 align-middle hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
                           {assignment.label}
                         </Link>

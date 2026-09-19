@@ -1358,10 +1358,10 @@ describe("portfolio resource projection", () => {
     expect(html).toContain("before:min-w-11");
     expect(html).toContain("before:size-11");
     expect(html).toContain(
-      'aria-label="Open source job JOB-1 · North wall" class="inline-flex min-h-11',
+      'aria-label="Open source job JOB-1 · North wall" class="inline-flex min-h-11 min-w-11',
     );
     expect(html).toContain(
-      'aria-label="Open project Linked project" class="inline-flex min-h-11',
+      'aria-label="Open project Linked project" class="inline-flex min-h-11 min-w-11',
     );
   });
 
