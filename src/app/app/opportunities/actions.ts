@@ -2,12 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  fail,
-  invalidFrom,
-  succeed,
-  type ActionState,
-} from "@/lib/ops/action-result";
+import { fail, succeed } from "@/lib/ops/action-redirect";
+import { invalidFrom, type ActionState } from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { parseOpportunityUpdate } from "@/lib/ops/records";
 import { deleteOpportunity, updateOpportunity } from "@/lib/ops/store";

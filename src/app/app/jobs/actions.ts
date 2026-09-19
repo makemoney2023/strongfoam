@@ -2,11 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { fail, succeed } from "@/lib/ops/action-redirect";
 import {
-  fail,
   invalidFrom,
   safeReturnTo,
-  succeed,
   type ActionState,
 } from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";

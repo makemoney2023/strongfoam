@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-
 export const OPS_NOTICE_COOKIE = "sf-ops-notice";
 
 export type OpsNotice = {
@@ -26,14 +24,4 @@ export function parseOpsNotice(value?: string | null): OpsNotice | null {
     return null;
   }
   return null;
-}
-
-export async function setOpsNotice(notice: OpsNotice): Promise<void> {
-  const jar = await cookies();
-  jar.set(OPS_NOTICE_COOKIE, encodeOpsNotice(notice), {
-    path: "/",
-    maxAge: 30,
-    sameSite: "lax",
-    httpOnly: false,
-  });
 }
