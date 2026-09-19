@@ -43,6 +43,8 @@ export type JobTaskInput = {
   title: string;
   assignee: string | null;
   dueAt: Date | null;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
   workAreaId: string | null;
 };
 
@@ -161,6 +163,8 @@ export function parseJobTaskInput(input: {
   title?: string;
   assignee?: string;
   dueAt?: string;
+  plannedStartAt?: string;
+  plannedEndAt?: string;
   workAreaId?: string;
 }): { ok: true; value: JobTaskInput } | { ok: false; error: string; field?: string } {
   const parsed = parseTaskInput({
@@ -186,6 +190,37 @@ export function parseJobTaskInput(input: {
       field: "assignee",
     };
   }
+  const plannedStartAt = input.plannedStartAt
+    ? new Date(input.plannedStartAt)
+    : null;
+  const plannedEndAt = input.plannedEndAt
+    ? new Date(input.plannedEndAt)
+    : null;
+  if (plannedStartAt && Number.isNaN(plannedStartAt.getTime())) {
+    return {
+      ok: false,
+      error: "Planned start is invalid.",
+      field: "plannedStartAt",
+    };
+  }
+  if (plannedEndAt && Number.isNaN(plannedEndAt.getTime())) {
+    return {
+      ok: false,
+      error: "Planned completion is invalid.",
+      field: "plannedEndAt",
+    };
+  }
+  if (
+    plannedStartAt &&
+    plannedEndAt &&
+    plannedEndAt.getTime() < plannedStartAt.getTime()
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+      field: "plannedEndAt",
+    };
+  }
   const workAreaId = input.workAreaId?.trim() || null;
   if (workAreaId && !isUuid(workAreaId)) {
     return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
@@ -194,6 +229,8 @@ export function parseJobTaskInput(input: {
     ok: true,
     value: {
       ...parsed.value,
+      plannedStartAt,
+      plannedEndAt,
       workAreaId,
     },
   };

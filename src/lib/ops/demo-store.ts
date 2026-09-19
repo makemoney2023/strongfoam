@@ -24,9 +24,14 @@ import {
   type JobEventRow,
   type JobFieldNoteRow,
   type JobRow,
+  type JobTaskDependencyRow,
   type JobTaskRow,
   type OpportunityRow,
   type ProjectRow,
+  type ProjectScheduleBaselineItemRow,
+  type ProjectScheduleBaselineRow,
+  type ScheduleCalendarExceptionRow,
+  type ScheduleCalendarRow,
   type SiteRow,
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
@@ -51,6 +56,11 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
+import {
+  validateDependencyAddition,
+  validateDependencyDates,
+} from "@/lib/ops/project-schedule-graph";
+import type { ResolvedWorkingCalendar } from "@/lib/ops/project-schedule-planning";
 import type {
   CompanyInput,
   ContactInput,
@@ -85,6 +95,11 @@ type DemoOpsState = {
   jobEvents: JobEventRow[];
   workAreas: WorkAreaRow[];
   jobTasks: JobTaskRow[];
+  jobTaskDependencies: JobTaskDependencyRow[];
+  scheduleCalendars: ScheduleCalendarRow[];
+  scheduleCalendarExceptions: ScheduleCalendarExceptionRow[];
+  projectScheduleBaselines: ProjectScheduleBaselineRow[];
+  projectScheduleBaselineItems: ProjectScheduleBaselineItemRow[];
   jobDocuments: JobDocumentRow[];
   jobFieldNotes: JobFieldNoteRow[];
 };
@@ -110,11 +125,25 @@ function getDemoState(): DemoOpsState {
       jobEvents: demoJobEvents(),
       workAreas: demoWorkAreas(),
       jobTasks: demoJobTasks(),
+      jobTaskDependencies: [],
+      scheduleCalendars: [],
+      scheduleCalendarExceptions: [],
+      projectScheduleBaselines: [],
+      projectScheduleBaselineItems: [],
       jobDocuments: demoJobDocuments(),
       jobFieldNotes: demoJobFieldNotes(),
     };
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
     globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.jobTaskDependencies) {
+    globalForDemo.__strongfoamDemoOps.jobTaskDependencies = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.scheduleCalendars) {
+    globalForDemo.__strongfoamDemoOps.scheduleCalendars = [];
+    globalForDemo.__strongfoamDemoOps.scheduleCalendarExceptions = [];
+    globalForDemo.__strongfoamDemoOps.projectScheduleBaselines = [];
+    globalForDemo.__strongfoamDemoOps.projectScheduleBaselineItems = [];
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -133,6 +162,11 @@ const {
   jobEvents,
   workAreas,
   jobTasks,
+  jobTaskDependencies,
+  scheduleCalendars,
+  scheduleCalendarExceptions,
+  projectScheduleBaselines,
+  projectScheduleBaselineItems,
   jobDocuments,
   jobFieldNotes,
 } = getDemoState();
@@ -688,6 +722,7 @@ export function convertDemoOpportunityToProject(args: {
     name: args.input.projectName,
     status: "active",
     projectManager: args.input.projectManager,
+    scheduleCalendarId: null,
   };
   projects.unshift(project);
   opportunity.projectId = project.id;
@@ -859,6 +894,569 @@ export function listDemoJobTasks(
   );
 }
 
+export function listDemoProjectJobTasks(projectId: string): {
+  tasks: JobTaskRow[];
+  truncated: boolean;
+} {
+  const jobIds = new Set(
+    jobsList.filter((job) => job.projectId === projectId).map((job) => job.id),
+  );
+  const rows = jobTasks
+    .filter((task) => jobIds.has(task.jobId))
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, 1_001);
+  return {
+    tasks: rows.slice(0, 1_000),
+    truncated: rows.length > 1_000,
+  };
+}
+
+export function listDemoProjectTaskDependencies(projectId: string): {
+  edges: JobTaskDependencyRow[];
+  truncated: boolean;
+} {
+  const rows = jobTaskDependencies
+    .filter((edge) => edge.projectId === projectId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .slice(0, 2_001);
+  return {
+    edges: rows.slice(0, 2_000),
+    truncated: rows.length > 2_000,
+  };
+}
+
+export function addDemoJobTaskDependency(args: {
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
+  actor: string;
+}):
+  | { ok: true; dependency: JobTaskDependencyRow }
+  | { ok: false; error: string; field?: string } {
+  const projectTasks = listDemoProjectJobTasks(args.projectId).tasks;
+  const taskIds = new Set(projectTasks.map((task) => task.id));
+  if (
+    !taskIds.has(args.predecessorTaskId) ||
+    !taskIds.has(args.successorTaskId)
+  ) {
+    return { ok: false, error: "Both tasks must belong to this project." };
+  }
+  const existing = listDemoProjectTaskDependencies(args.projectId).edges;
+  const validation = validateDependencyAddition(
+    projectTasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    })),
+    existing,
+    args,
+  );
+  if (!validation.ok) return validation;
+
+  const dependency: JobTaskDependencyRow = {
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    projectId: args.projectId,
+    predecessorTaskId: args.predecessorTaskId,
+    successorTaskId: args.successorTaskId,
+    lagDays: args.lagDays,
+    createdBy: args.actor,
+  };
+  jobTaskDependencies.push(dependency);
+  const successor = projectTasks.find(
+    (task) => task.id === args.successorTaskId,
+  );
+  if (successor) {
+    recordJobEvent({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_added",
+      summary: `task dependency added: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: args.predecessorTaskId,
+        successorTaskId: args.successorTaskId,
+        lagDays: args.lagDays,
+      },
+    });
+  }
+  return { ok: true, dependency };
+}
+
+export function deleteDemoJobTaskDependency(args: {
+  projectId: string;
+  dependencyId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const dependency = jobTaskDependencies.find(
+    (edge) =>
+      edge.id === args.dependencyId && edge.projectId === args.projectId,
+  );
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be found." };
+  }
+  const successor = jobTasks.find(
+    (task) => task.id === dependency.successorTaskId,
+  );
+  removeById(jobTaskDependencies, dependency.id);
+  if (successor) {
+    recordJobEvent({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_removed",
+      summary: `task dependency removed: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true };
+}
+
+export function rescheduleDemoJob(args: {
+  projectId: string;
+  jobId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): { ok: true; job: JobRow } | { ok: false; error: string } {
+  const job = jobsList.find(
+    (item) => item.id === args.jobId && item.projectId === args.projectId,
+  );
+  if (!job) return { ok: false, error: "That job could not be found." };
+  if (job.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const before = {
+    plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+  };
+  job.plannedStartAt = args.plannedStartAt;
+  job.plannedEndAt = args.plannedEndAt;
+  job.updatedAt = new Date();
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_rescheduled",
+    summary: `job rescheduled: ${job.name}`,
+    payload: {
+      before,
+      after: {
+        plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: job.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, job };
+}
+
+export function rescheduleDemoJobTask(args: {
+  projectId: string;
+  jobId: string;
+  taskId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  dueAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): { ok: true; task: JobTaskRow } | { ok: false; error: string } {
+  const job = jobsList.find(
+    (item) => item.id === args.jobId && item.projectId === args.projectId,
+  );
+  const task = jobTasks.find(
+    (item) => item.id === args.taskId && item.jobId === args.jobId,
+  );
+  if (!job || !task) {
+    return { ok: false, error: "That task could not be found." };
+  }
+  if (task.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const projectTasks = listDemoProjectJobTasks(args.projectId).tasks;
+  const validation = validateDependencyDates(
+    projectTasks.map((item) => ({
+      id: item.id,
+      title: item.title,
+      plannedStartAt:
+        item.id === task.id
+          ? args.plannedStartAt?.toISOString() ?? null
+          : item.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt:
+        item.id === task.id
+          ? args.plannedEndAt?.toISOString() ?? null
+          : item.plannedEndAt?.toISOString() ?? null,
+    })),
+    listDemoProjectTaskDependencies(args.projectId).edges,
+  );
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  const before = {
+    plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    dueAt: task.dueAt?.toISOString() ?? null,
+  };
+  task.plannedStartAt = args.plannedStartAt;
+  task.plannedEndAt = args.plannedEndAt;
+  task.dueAt = args.dueAt;
+  task.updatedAt = new Date();
+  recordJobEvent({
+    jobId: task.jobId,
+    actor: args.actor,
+    kind: "task_rescheduled",
+    summary: `task rescheduled: ${task.title}`,
+    payload: {
+      before,
+      after: {
+        plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+        dueAt: task.dueAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: task.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, task };
+}
+
+export function listDemoProjectScheduleBaselines(
+  projectId: string,
+): ProjectScheduleBaselineRow[] {
+  return projectScheduleBaselines
+    .filter(
+      (baseline) =>
+        baseline.projectId === projectId && baseline.deletedAt === null,
+    )
+    .sort((a, b) => b.capturedAt.getTime() - a.capturedAt.getTime());
+}
+
+export function getDemoProjectScheduleBaseline(
+  projectId: string,
+  baselineId: string,
+): {
+  baseline: ProjectScheduleBaselineRow;
+  items: ProjectScheduleBaselineItemRow[];
+} | null {
+  const baseline = projectScheduleBaselines.find(
+    (item) => item.id === baselineId && item.projectId === projectId,
+  );
+  if (!baseline) return null;
+  return {
+    baseline,
+    items: projectScheduleBaselineItems.filter(
+      (item) => item.baselineId === baseline.id,
+    ),
+  };
+}
+
+export function captureDemoProjectScheduleBaseline(args: {
+  projectId: string;
+  name: string;
+  actor: string;
+}):
+  | {
+      ok: true;
+      baseline: ProjectScheduleBaselineRow;
+      items: ProjectScheduleBaselineItemRow[];
+    }
+  | { ok: false; error: string } {
+  if (!getDemoProject(args.projectId)) {
+    return { ok: false, error: "That project could not be found." };
+  }
+  const name = args.name.trim();
+  if (!name) return { ok: false, error: "A baseline name is required." };
+  const baseline: ProjectScheduleBaselineRow = {
+    id: crypto.randomUUID(),
+    projectId: args.projectId,
+    name,
+    capturedAt: new Date(),
+    capturedBy: args.actor,
+    deletedAt: null,
+    deletedBy: null,
+  };
+  const projectJobs = jobsList.filter(
+    (job) => job.projectId === args.projectId,
+  );
+  const jobIds = new Set(projectJobs.map((job) => job.id));
+  const projectTasks = jobTasks.filter((task) => jobIds.has(task.jobId));
+  const items: ProjectScheduleBaselineItemRow[] = [
+    ...projectJobs.map((job) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "job",
+      entityId: job.id,
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    })),
+    ...projectTasks.map((task) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "task",
+      entityId: task.id,
+      plannedStartAt: task.plannedStartAt,
+      plannedEndAt: task.plannedEndAt,
+      dueAt: task.dueAt,
+    })),
+  ];
+  projectScheduleBaselines.push(baseline);
+  projectScheduleBaselineItems.push(...items);
+  return { ok: true, baseline, items };
+}
+
+export function removeDemoProjectScheduleBaseline(args: {
+  projectId: string;
+  baselineId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const baseline = projectScheduleBaselines.find(
+    (item) =>
+      item.id === args.baselineId &&
+      item.projectId === args.projectId &&
+      item.deletedAt === null,
+  );
+  if (!baseline) {
+    return { ok: false, error: "That baseline could not be found." };
+  }
+  baseline.deletedAt = new Date();
+  baseline.deletedBy = args.actor;
+  return { ok: true };
+}
+
+function validTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year!, month! - 1, day!));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month! - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function ensureDemoDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): ScheduleCalendarRow {
+  const existing = scheduleCalendars.find((calendar) => calendar.isDefault);
+  if (existing) return existing;
+  const now = new Date();
+  const calendar: ScheduleCalendarRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: actor,
+    name: "Standard Monday–Friday",
+    timeZone: "America/Toronto",
+    weekendDays: [0, 6],
+    isDefault: true,
+  };
+  scheduleCalendars.push(calendar);
+  return calendar;
+}
+
+export function resolveDemoProjectScheduleCalendar(
+  projectId: string,
+): ResolvedWorkingCalendar & {
+  id: string;
+  name: string;
+  updatedAt: string;
+  updatedBy: string;
+} {
+  const project = getDemoProject(projectId);
+  const calendar =
+    scheduleCalendars.find(
+      (candidate) => candidate.id === project?.scheduleCalendarId,
+    ) ?? ensureDemoDefaultScheduleCalendar();
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    timeZone: calendar.timeZone,
+    weekendDays: [...calendar.weekendDays],
+    updatedAt: calendar.updatedAt.toISOString(),
+    updatedBy: calendar.updatedBy,
+    exceptions: scheduleCalendarExceptions
+      .filter((exception) => exception.calendarId === calendar.id)
+      .map((exception) => ({
+        id: exception.id,
+        date: exception.date,
+        name: exception.name,
+        isWorkingDay: exception.isWorkingDay,
+      })),
+  };
+}
+
+export function saveDemoProjectScheduleCalendar(args: {
+  projectId: string;
+  name: string;
+  timeZone: string;
+  weekendDays: number[];
+  actor: string;
+}): { ok: true; calendar: ScheduleCalendarRow } | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  if (!args.name.trim()) {
+    return { ok: false, error: "A calendar name is required." };
+  }
+  if (!validTimeZone(args.timeZone)) {
+    return { ok: false, error: "Choose a valid IANA time zone." };
+  }
+  const weekendDays = [...new Set(args.weekendDays)].sort();
+  if (
+    weekendDays.some(
+      (day) => !Number.isInteger(day) || day < 0 || day > 6,
+    )
+  ) {
+    return { ok: false, error: "Weekend days must be between 0 and 6." };
+  }
+  let calendar = scheduleCalendars.find(
+    (candidate) => candidate.id === project.scheduleCalendarId,
+  );
+  if (!calendar) {
+    const now = new Date();
+    calendar = {
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: args.actor,
+      name: args.name.trim(),
+      timeZone: args.timeZone,
+      weekendDays,
+      isDefault: scheduleCalendars.length === 0,
+    };
+    scheduleCalendars.push(calendar);
+    project.scheduleCalendarId = calendar.id;
+    project.updatedAt = now;
+  } else {
+    calendar.name = args.name.trim();
+    calendar.timeZone = args.timeZone;
+    calendar.weekendDays = weekendDays;
+    calendar.updatedAt = new Date();
+    calendar.updatedBy = args.actor;
+  }
+  return { ok: true, calendar };
+}
+
+export function upsertDemoScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  date: string;
+  name: string;
+  isWorkingDay: boolean;
+  actor: string;
+}):
+  | { ok: true; exception: ScheduleCalendarExceptionRow }
+  | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (
+    !project ||
+    project.scheduleCalendarId !== args.calendarId ||
+    !scheduleCalendars.some((calendar) => calendar.id === args.calendarId)
+  ) {
+    return { ok: false, error: "That calendar could not be found." };
+  }
+  if (!validIsoDate(args.date)) {
+    return { ok: false, error: "Use a valid calendar date." };
+  }
+  if (!args.name.trim()) {
+    return { ok: false, error: "An exception name is required." };
+  }
+  const existing = scheduleCalendarExceptions.find(
+    (exception) =>
+      exception.calendarId === args.calendarId &&
+      exception.date === args.date,
+  );
+  if (existing) {
+    existing.name = args.name.trim();
+    existing.isWorkingDay = args.isWorkingDay;
+    existing.updatedAt = new Date();
+    existing.updatedBy = args.actor;
+    return { ok: true, exception: existing };
+  }
+  const now = new Date();
+  const exception: ScheduleCalendarExceptionRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    updatedBy: args.actor,
+    calendarId: args.calendarId,
+    date: args.date,
+    name: args.name.trim(),
+    isWorkingDay: args.isWorkingDay,
+  };
+  scheduleCalendarExceptions.push(exception);
+  return { ok: true, exception };
+}
+
+export function removeDemoScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  exceptionId: string;
+  actor: string;
+}): { ok: true } | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  const exception = scheduleCalendarExceptions.find(
+    (item) =>
+      item.id === args.exceptionId && item.calendarId === args.calendarId,
+  );
+  if (!exception) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  removeById(scheduleCalendarExceptions, exception.id);
+  const calendar = scheduleCalendars.find(
+    (item) => item.id === args.calendarId,
+  );
+  if (calendar) {
+    calendar.updatedAt = new Date();
+    calendar.updatedBy = args.actor;
+  }
+  return { ok: true };
+}
+
 export function addDemoJobTask(args: {
   jobId: string;
   actor: string;
@@ -878,6 +1476,9 @@ export function addDemoJobTask(args: {
     title: args.input.title,
     assignee: args.input.assignee,
     dueAt: args.input.dueAt,
+    plannedStartAt: args.input.plannedStartAt,
+    plannedEndAt: args.input.plannedEndAt,
+    completedAt: null,
     status: "open",
     createdBy: args.actor,
   };
@@ -887,7 +1488,12 @@ export function addDemoJobTask(args: {
     actor: args.actor,
     kind: "task_created",
     summary: `task created: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -903,6 +1509,7 @@ export function setDemoJobTaskStatus(args: {
   );
   if (!task) return null;
   task.status = args.status;
+  task.completedAt = args.status === "done" ? new Date() : null;
   task.updatedAt = new Date();
   recordJobEvent({
     jobId: args.jobId,
@@ -912,7 +1519,11 @@ export function setDemoJobTaskStatus(args: {
       args.status === "done"
         ? `task completed: ${task.title}`
         : `task reopened: ${task.title}`,
-    payload: { taskId: task.id, status: args.status },
+    payload: {
+      taskId: task.id,
+      status: args.status,
+      completedAt: task.completedAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -1358,6 +1969,8 @@ export function updateDemoJobTask(args: {
   task.title = args.input.title;
   task.assignee = args.input.assignee;
   task.dueAt = args.input.dueAt;
+  task.plannedStartAt = args.input.plannedStartAt;
+  task.plannedEndAt = args.input.plannedEndAt;
   task.workAreaId = args.input.workAreaId;
   task.updatedAt = new Date();
   recordJobEvent({
@@ -1365,7 +1978,12 @@ export function updateDemoJobTask(args: {
     actor: args.actor,
     kind: "task_updated",
     summary: `task updated: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }

@@ -7,10 +7,15 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   workAreas,
 } from "@/db/schema";
 
@@ -22,10 +27,22 @@ describe("db schema exports", () => {
     expect(estimateRequestTasks).toBeDefined();
     expect(estimateRequestComments).toBeDefined();
     expect(projects).toBeDefined();
+    expect(projects.scheduleCalendarId).toBeDefined();
+    expect(scheduleCalendars).toBeDefined();
+    expect(scheduleCalendarExceptions).toBeDefined();
+    expect(projectScheduleBaselines).toBeDefined();
+    expect(projectScheduleBaselineItems).toBeDefined();
     expect(jobs).toBeDefined();
     expect(jobEvents).toBeDefined();
     expect(workAreas).toBeDefined();
     expect(jobTasks).toBeDefined();
+    expect(jobTasks.plannedStartAt).toBeDefined();
+    expect(jobTasks.plannedEndAt).toBeDefined();
+    expect(jobTasks.completedAt).toBeDefined();
+    expect(jobTaskDependencies).toBeDefined();
+    expect(jobTaskDependencies.predecessorTaskId).toBeDefined();
+    expect(jobTaskDependencies.successorTaskId).toBeDefined();
+    expect(jobTaskDependencies.lagDays).toBeDefined();
     expect(jobDocuments).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
   });

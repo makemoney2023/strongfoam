@@ -7,11 +7,16 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
   opportunities,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   sites,
   workAreas,
 } from "@/db/schema";
@@ -29,6 +34,14 @@ export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
+export type ScheduleCalendarRow = typeof scheduleCalendars.$inferSelect;
+export type ScheduleCalendarExceptionRow =
+  typeof scheduleCalendarExceptions.$inferSelect;
+export type ProjectScheduleBaselineRow =
+  typeof projectScheduleBaselines.$inferSelect;
+export type ProjectScheduleBaselineItemRow =
+  typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
@@ -203,6 +216,7 @@ export function demoProjects(): ProjectRow[] {
       name: "Acme podium insulation",
       status: "active",
       projectManager: "Alex Rivera",
+      scheduleCalendarId: null,
     },
   ];
 }
@@ -270,6 +284,9 @@ export function demoJobTasks(): JobTaskRow[] {
       title: "Install closed-cell at podium deck",
       assignee: "Morgan Cole",
       dueAt: new Date(now + 24 * 60 * 60 * 1000),
+      plannedStartAt: new Date(now - 24 * 60 * 60 * 1000),
+      plannedEndAt: new Date(now + 2 * 24 * 60 * 60 * 1000),
+      completedAt: null,
       status: "open",
       createdBy: "alex.rivera@strongfoam.com",
     },

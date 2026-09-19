@@ -1,4 +1,15 @@
-import { and, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
@@ -9,11 +20,16 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobTaskDependencies,
   jobTasks,
   jobs,
   leads,
   opportunities,
+  projectScheduleBaselineItems,
+  projectScheduleBaselines,
   projects,
+  scheduleCalendarExceptions,
+  scheduleCalendars,
   sites,
   workAreas,
 } from "@/db/schema";
@@ -26,6 +42,8 @@ import {
   addDemoEstimateRequestTask,
   addDemoJobDocument,
   addDemoJobFieldNote,
+  addDemoJobTaskDependency,
+  captureDemoProjectScheduleBaseline,
   addDemoJobTask,
   addDemoJobToProject,
   addDemoSite,
@@ -39,6 +57,8 @@ import {
   deleteDemoJob,
   deleteDemoJobDocument,
   deleteDemoJobFieldNote,
+  deleteDemoJobTaskDependency,
+  getDemoProjectScheduleBaseline,
   deleteDemoJobTask,
   deleteDemoOpportunity,
   deleteDemoProject,
@@ -62,11 +82,20 @@ import {
   listDemoJobEvents,
   listDemoJobFieldNotes,
   listDemoJobTasks,
+  listDemoProjectJobTasks,
+  listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
   listDemoProjects,
+  listDemoProjectScheduleBaselines,
+  removeDemoProjectScheduleBaseline,
+  removeDemoScheduleCalendarException,
   listDemoSites,
   listDemoWorkAreas,
+  rescheduleDemoJob,
+  rescheduleDemoJobTask,
+  resolveDemoProjectScheduleCalendar,
+  saveDemoProjectScheduleCalendar,
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
   setDemoJobTaskStatus,
@@ -82,6 +111,7 @@ import {
   updateDemoProject,
   updateDemoSite,
   updateDemoWorkArea,
+  upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
@@ -97,6 +127,11 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
+import {
+  validateDependencyAddition,
+  validateDependencyDates,
+} from "@/lib/ops/project-schedule-graph";
+import type { ResolvedWorkingCalendar } from "@/lib/ops/project-schedule-planning";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -130,8 +165,21 @@ export type JobRow = typeof jobs.$inferSelect;
 export type JobEventRow = typeof jobEvents.$inferSelect;
 export type WorkAreaRow = typeof workAreas.$inferSelect;
 export type JobTaskRow = typeof jobTasks.$inferSelect;
+export type JobTaskDependencyRow = typeof jobTaskDependencies.$inferSelect;
+export type ScheduleCalendarRow = typeof scheduleCalendars.$inferSelect;
+export type ScheduleCalendarExceptionRow =
+  typeof scheduleCalendarExceptions.$inferSelect;
+export type ProjectScheduleBaselineRow =
+  typeof projectScheduleBaselines.$inferSelect;
+export type ProjectScheduleBaselineItemRow =
+  typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
+
+export type ProjectDependencyResult = {
+  edges: JobTaskDependencyRow[];
+  truncated: boolean;
+};
 
 export type JobDocumentDownload = {
   filename: string;
@@ -1127,6 +1175,736 @@ export async function listJobTasks(
   return sortJobTaskRows(rows);
 }
 
+export async function listProjectJobTasks(
+  projectId: string,
+): Promise<{ tasks: JobTaskRow[]; truncated: boolean }> {
+  if (isDemoOpsStore()) return listDemoProjectJobTasks(projectId);
+  const db = getDb();
+  const rows = await db
+    .select({ task: jobTasks })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(eq(jobs.projectId, projectId))
+    .orderBy(asc(jobTasks.createdAt))
+    .limit(1_001);
+  return {
+    tasks: rows.slice(0, 1_000).map(({ task }) => task),
+    truncated: rows.length > 1_000,
+  };
+}
+
+export async function listProjectTaskDependencies(
+  projectId: string,
+): Promise<ProjectDependencyResult> {
+  if (isDemoOpsStore()) {
+    return listDemoProjectTaskDependencies(projectId);
+  }
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobTaskDependencies)
+    .where(eq(jobTaskDependencies.projectId, projectId))
+    .orderBy(asc(jobTaskDependencies.createdAt))
+    .limit(2_001);
+  return {
+    edges: rows.slice(0, 2_000),
+    truncated: rows.length > 2_000,
+  };
+}
+
+export async function addJobTaskDependency(args: {
+  projectId: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  lagDays: number;
+  actor: string;
+}): Promise<
+  | { ok: true; dependency: JobTaskDependencyRow }
+  | { ok: false; error: string; field?: string }
+> {
+  if (isDemoOpsStore()) return addDemoJobTaskDependency(args);
+  const db = getDb();
+  const membership = await db
+    .select({ task: jobTasks, projectId: jobs.projectId })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(
+      inArray(jobTasks.id, [
+        args.predecessorTaskId,
+        args.successorTaskId,
+      ]),
+    );
+  if (
+    membership.length !== 2 ||
+    membership.some((row) => row.projectId !== args.projectId)
+  ) {
+    return { ok: false, error: "Both tasks must belong to this project." };
+  }
+
+  const [taskResult, dependencyResult] = await Promise.all([
+    listProjectJobTasks(args.projectId),
+    listProjectTaskDependencies(args.projectId),
+  ]);
+  const validation = validateDependencyAddition(
+    taskResult.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    })),
+    dependencyResult.edges,
+    args,
+  );
+  if (!validation.ok) return validation;
+
+  const rows = await db
+    .insert(jobTaskDependencies)
+    .values({
+      projectId: args.projectId,
+      predecessorTaskId: args.predecessorTaskId,
+      successorTaskId: args.successorTaskId,
+      lagDays: args.lagDays,
+      createdBy: args.actor,
+    })
+    .returning();
+  const dependency = rows[0];
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be saved." };
+  }
+  const successor = membership.find(
+    (row) => row.task.id === args.successorTaskId,
+  )?.task;
+  if (successor) {
+    await db.insert(jobEvents).values({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_added",
+      summary: `task dependency added: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true, dependency };
+}
+
+export async function deleteJobTaskDependency(args: {
+  projectId: string;
+  dependencyId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return deleteDemoJobTaskDependency(args);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobTaskDependencies)
+    .where(
+      and(
+        eq(jobTaskDependencies.id, args.dependencyId),
+        eq(jobTaskDependencies.projectId, args.projectId),
+      ),
+    )
+    .limit(1);
+  const dependency = rows[0];
+  if (!dependency) {
+    return { ok: false, error: "That dependency could not be found." };
+  }
+  const successorRows = await db
+    .select()
+    .from(jobTasks)
+    .where(eq(jobTasks.id, dependency.successorTaskId))
+    .limit(1);
+  const successor = successorRows[0];
+  await db
+    .delete(jobTaskDependencies)
+    .where(eq(jobTaskDependencies.id, dependency.id));
+  if (successor) {
+    await db.insert(jobEvents).values({
+      jobId: successor.jobId,
+      actor: args.actor,
+      kind: "task_dependency_removed",
+      summary: `task dependency removed: ${successor.title}`,
+      payload: {
+        dependencyId: dependency.id,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      },
+    });
+  }
+  return { ok: true };
+}
+
+export async function rescheduleJob(args: {
+  projectId: string;
+  jobId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): Promise<
+  { ok: true; job: JobRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return rescheduleDemoJob(args);
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const db = getDb();
+  const currentRows = await db
+    .select()
+    .from(jobs)
+    .where(
+      and(eq(jobs.id, args.jobId), eq(jobs.projectId, args.projectId)),
+    )
+    .limit(1);
+  const current = currentRows[0];
+  if (!current) return { ok: false, error: "That job could not be found." };
+  if (current.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  const acceptedUpdatedAt = new Date();
+  const rows = await db
+    .update(jobs)
+    .set({
+      plannedStartAt: args.plannedStartAt,
+      plannedEndAt: args.plannedEndAt,
+      updatedAt: acceptedUpdatedAt,
+    })
+    .where(
+      and(
+        eq(jobs.id, args.jobId),
+        eq(jobs.projectId, args.projectId),
+        eq(jobs.updatedAt, args.expectedUpdatedAt),
+      ),
+    )
+    .returning();
+  const job = rows[0];
+  if (!job) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_rescheduled",
+    summary: `job rescheduled: ${job.name}`,
+    payload: {
+      before: {
+        plannedStartAt: current.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: current.plannedEndAt?.toISOString() ?? null,
+      },
+      after: {
+        plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: job.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, job };
+}
+
+export async function rescheduleJobTask(args: {
+  projectId: string;
+  jobId: string;
+  taskId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  dueAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): Promise<
+  { ok: true; task: JobTaskRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return rescheduleDemoJobTask(args);
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const db = getDb();
+  const currentRows = await db
+    .select({ task: jobTasks, projectId: jobs.projectId })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(
+      and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)),
+    )
+    .limit(1);
+  const current = currentRows[0]?.task;
+  if (!current || currentRows[0]?.projectId !== args.projectId) {
+    return { ok: false, error: "That task could not be found." };
+  }
+  if (current.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+
+  const [taskResult, dependencyResult] = await Promise.all([
+    listProjectJobTasks(args.projectId),
+    listProjectTaskDependencies(args.projectId),
+  ]);
+  const validation = validateDependencyDates(
+    taskResult.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt:
+        task.id === args.taskId
+          ? args.plannedStartAt?.toISOString() ?? null
+          : task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt:
+        task.id === args.taskId
+          ? args.plannedEndAt?.toISOString() ?? null
+          : task.plannedEndAt?.toISOString() ?? null,
+    })),
+    dependencyResult.edges,
+  );
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  const acceptedUpdatedAt = new Date();
+  const rows = await db
+    .update(jobTasks)
+    .set({
+      plannedStartAt: args.plannedStartAt,
+      plannedEndAt: args.plannedEndAt,
+      dueAt: args.dueAt,
+      updatedAt: acceptedUpdatedAt,
+    })
+    .where(
+      and(
+        eq(jobTasks.id, args.taskId),
+        eq(jobTasks.jobId, args.jobId),
+        eq(jobTasks.updatedAt, args.expectedUpdatedAt),
+      ),
+    )
+    .returning();
+  const task = rows[0];
+  if (!task) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  await db.insert(jobEvents).values({
+    jobId: task.jobId,
+    actor: args.actor,
+    kind: "task_rescheduled",
+    summary: `task rescheduled: ${task.title}`,
+    payload: {
+      before: {
+        plannedStartAt: current.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: current.plannedEndAt?.toISOString() ?? null,
+        dueAt: current.dueAt?.toISOString() ?? null,
+      },
+      after: {
+        plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+        dueAt: task.dueAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: task.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, task };
+}
+
+export async function listProjectScheduleBaselines(
+  projectId: string,
+): Promise<ProjectScheduleBaselineRow[]> {
+  if (isDemoOpsStore()) return listDemoProjectScheduleBaselines(projectId);
+  const db = getDb();
+  return db
+    .select()
+    .from(projectScheduleBaselines)
+    .where(
+      and(
+        eq(projectScheduleBaselines.projectId, projectId),
+        sql`${projectScheduleBaselines.deletedAt} IS NULL`,
+      ),
+    )
+    .orderBy(desc(projectScheduleBaselines.capturedAt));
+}
+
+export async function getProjectScheduleBaseline(
+  projectId: string,
+  baselineId: string,
+): Promise<{
+  baseline: ProjectScheduleBaselineRow;
+  items: ProjectScheduleBaselineItemRow[];
+} | null> {
+  if (isDemoOpsStore()) {
+    return getDemoProjectScheduleBaseline(projectId, baselineId);
+  }
+  const db = getDb();
+  const headers = await db
+    .select()
+    .from(projectScheduleBaselines)
+    .where(
+      and(
+        eq(projectScheduleBaselines.id, baselineId),
+        eq(projectScheduleBaselines.projectId, projectId),
+      ),
+    )
+    .limit(1);
+  const baseline = headers[0];
+  if (!baseline) return null;
+  const items = await db
+    .select()
+    .from(projectScheduleBaselineItems)
+    .where(eq(projectScheduleBaselineItems.baselineId, baseline.id));
+  return { baseline, items };
+}
+
+export async function captureProjectScheduleBaseline(args: {
+  projectId: string;
+  name: string;
+  actor: string;
+}): Promise<
+  | {
+      ok: true;
+      baseline: ProjectScheduleBaselineRow;
+      items: ProjectScheduleBaselineItemRow[];
+    }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return captureDemoProjectScheduleBaseline(args);
+  const name = args.name.trim();
+  if (!name) return { ok: false, error: "A baseline name is required." };
+  const project = await getProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  const db = getDb();
+  const [projectJobs, taskRows] = await Promise.all([
+    listJobs({ projectId: args.projectId }),
+    db
+      .select({ task: jobTasks })
+      .from(jobTasks)
+      .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+      .where(eq(jobs.projectId, args.projectId)),
+  ]);
+  const baseline: ProjectScheduleBaselineRow = {
+    id: crypto.randomUUID(),
+    projectId: args.projectId,
+    name,
+    capturedAt: new Date(),
+    capturedBy: args.actor,
+    deletedAt: null,
+    deletedBy: null,
+  };
+  const items: ProjectScheduleBaselineItemRow[] = [
+    ...projectJobs.map((job) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "job",
+      entityId: job.id,
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    })),
+    ...taskRows.map(({ task }) => ({
+      id: crypto.randomUUID(),
+      baselineId: baseline.id,
+      entityType: "task",
+      entityId: task.id,
+      plannedStartAt: task.plannedStartAt,
+      plannedEndAt: task.plannedEndAt,
+      dueAt: task.dueAt,
+    })),
+  ];
+  const headerQuery = db.insert(projectScheduleBaselines).values(baseline);
+  if (items.length > 0) {
+    await db.batch([
+      headerQuery,
+      db.insert(projectScheduleBaselineItems).values(items),
+    ]);
+  } else {
+    await db.batch([headerQuery]);
+  }
+  return { ok: true, baseline, items };
+}
+
+export async function removeProjectScheduleBaseline(args: {
+  projectId: string;
+  baselineId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return removeDemoProjectScheduleBaseline(args);
+  const db = getDb();
+  const rows = await db
+    .update(projectScheduleBaselines)
+    .set({ deletedAt: new Date(), deletedBy: args.actor })
+    .where(
+      and(
+        eq(projectScheduleBaselines.id, args.baselineId),
+        eq(projectScheduleBaselines.projectId, args.projectId),
+        sql`${projectScheduleBaselines.deletedAt} IS NULL`,
+      ),
+    )
+    .returning();
+  return rows[0]
+    ? { ok: true }
+    : { ok: false, error: "That baseline could not be found." };
+}
+
+function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year!, month! - 1, day!));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month! - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+async function ensureDefaultScheduleCalendar(
+  actor = "system@strongfoam.com",
+): Promise<ScheduleCalendarRow> {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(scheduleCalendars)
+    .where(eq(scheduleCalendars.isDefault, true))
+    .orderBy(asc(scheduleCalendars.createdAt))
+    .limit(1);
+  if (existing[0]) return existing[0];
+  const rows = await db
+    .insert(scheduleCalendars)
+    .values({
+      name: "Standard Monday–Friday",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: true,
+      updatedBy: actor,
+    })
+    .returning();
+  return rows[0]!;
+}
+
+export type ResolvedProjectScheduleCalendar = ResolvedWorkingCalendar & {
+  id: string;
+  name: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export async function resolveProjectScheduleCalendar(
+  projectId: string,
+): Promise<ResolvedProjectScheduleCalendar> {
+  if (isDemoOpsStore()) {
+    return resolveDemoProjectScheduleCalendar(projectId);
+  }
+  const project = await getProject(projectId);
+  const db = getDb();
+  let calendar: ScheduleCalendarRow | undefined;
+  if (project?.scheduleCalendarId) {
+    const rows = await db
+      .select()
+      .from(scheduleCalendars)
+      .where(eq(scheduleCalendars.id, project.scheduleCalendarId))
+      .limit(1);
+    calendar = rows[0];
+  }
+  calendar ??= await ensureDefaultScheduleCalendar();
+  const exceptions = await db
+    .select()
+    .from(scheduleCalendarExceptions)
+    .where(eq(scheduleCalendarExceptions.calendarId, calendar.id))
+    .orderBy(asc(scheduleCalendarExceptions.date));
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    timeZone: calendar.timeZone,
+    weekendDays: calendar.weekendDays,
+    updatedAt: calendar.updatedAt.toISOString(),
+    updatedBy: calendar.updatedBy,
+    exceptions: exceptions.map((exception) => ({
+      id: exception.id,
+      date: exception.date,
+      name: exception.name,
+      isWorkingDay: exception.isWorkingDay,
+    })),
+  };
+}
+
+export async function saveProjectScheduleCalendar(args: {
+  projectId: string;
+  name: string;
+  timeZone: string;
+  weekendDays: number[];
+  actor: string;
+}): Promise<
+  { ok: true; calendar: ScheduleCalendarRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return saveDemoProjectScheduleCalendar(args);
+  const project = await getProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  if (!args.name.trim()) {
+    return { ok: false, error: "A calendar name is required." };
+  }
+  if (!isValidTimeZone(args.timeZone)) {
+    return { ok: false, error: "Choose a valid IANA time zone." };
+  }
+  const weekendDays = [...new Set(args.weekendDays)].sort();
+  if (
+    weekendDays.some(
+      (day) => !Number.isInteger(day) || day < 0 || day > 6,
+    )
+  ) {
+    return { ok: false, error: "Weekend days must be between 0 and 6." };
+  }
+  const db = getDb();
+  if (!project.scheduleCalendarId) {
+    const rows = await db
+      .insert(scheduleCalendars)
+      .values({
+        name: args.name.trim(),
+        timeZone: args.timeZone,
+        weekendDays,
+        isDefault: false,
+        updatedBy: args.actor,
+      })
+      .returning();
+    const calendar = rows[0];
+    if (!calendar) return { ok: false, error: "The calendar could not be saved." };
+    await db
+      .update(projects)
+      .set({ scheduleCalendarId: calendar.id, updatedAt: new Date() })
+      .where(eq(projects.id, args.projectId));
+    return { ok: true, calendar };
+  }
+  const rows = await db
+    .update(scheduleCalendars)
+    .set({
+      name: args.name.trim(),
+      timeZone: args.timeZone,
+      weekendDays,
+      updatedAt: new Date(),
+      updatedBy: args.actor,
+    })
+    .where(eq(scheduleCalendars.id, project.scheduleCalendarId))
+    .returning();
+  const calendar = rows[0];
+  return calendar
+    ? { ok: true, calendar }
+    : { ok: false, error: "The calendar could not be saved." };
+}
+
+export async function upsertScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  date: string;
+  name: string;
+  isWorkingDay: boolean;
+  actor: string;
+}): Promise<
+  | { ok: true; exception: ScheduleCalendarExceptionRow }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return upsertDemoScheduleCalendarException(args);
+  if (!isValidIsoDate(args.date)) {
+    return { ok: false, error: "Use a valid calendar date." };
+  }
+  if (!args.name.trim()) {
+    return { ok: false, error: "An exception name is required." };
+  }
+  const project = await getProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar could not be found." };
+  }
+  const db = getDb();
+  const calendar = await db
+    .select()
+    .from(scheduleCalendars)
+    .where(eq(scheduleCalendars.id, args.calendarId))
+    .limit(1);
+  if (!calendar[0]) return { ok: false, error: "That calendar could not be found." };
+  const rows = await db
+    .insert(scheduleCalendarExceptions)
+    .values({
+      calendarId: args.calendarId,
+      date: args.date,
+      name: args.name.trim(),
+      isWorkingDay: args.isWorkingDay,
+      updatedBy: args.actor,
+    })
+    .onConflictDoUpdate({
+      target: [
+        scheduleCalendarExceptions.calendarId,
+        scheduleCalendarExceptions.date,
+      ],
+      set: {
+        name: args.name.trim(),
+        isWorkingDay: args.isWorkingDay,
+        updatedAt: new Date(),
+        updatedBy: args.actor,
+      },
+    })
+    .returning();
+  return { ok: true, exception: rows[0]! };
+}
+
+export async function removeScheduleCalendarException(args: {
+  projectId: string;
+  calendarId: string;
+  exceptionId: string;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return removeDemoScheduleCalendarException(args);
+  const project = await getProject(args.projectId);
+  if (!project || project.scheduleCalendarId !== args.calendarId) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  const db = getDb();
+  const rows = await db
+    .delete(scheduleCalendarExceptions)
+    .where(
+      and(
+        eq(scheduleCalendarExceptions.id, args.exceptionId),
+        eq(scheduleCalendarExceptions.calendarId, args.calendarId),
+      ),
+    )
+    .returning();
+  if (!rows[0]) {
+    return { ok: false, error: "That calendar exception could not be found." };
+  }
+  await db
+    .update(scheduleCalendars)
+    .set({ updatedAt: new Date(), updatedBy: args.actor })
+    .where(eq(scheduleCalendars.id, args.calendarId));
+  return { ok: true };
+}
+
 export async function addJobTask(args: {
   jobId: string;
   actor: string;
@@ -1147,6 +1925,8 @@ export async function addJobTask(args: {
       title: args.input.title,
       assignee: args.input.assignee,
       dueAt: args.input.dueAt,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
       status: "open",
       createdBy: args.actor,
     })
@@ -1158,7 +1938,12 @@ export async function addJobTask(args: {
     actor: args.actor,
     kind: "task_created",
     summary: `task created: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -1173,7 +1958,11 @@ export async function setJobTaskStatus(args: {
   const db = getDb();
   const rows = await db
     .update(jobTasks)
-    .set({ status: args.status, updatedAt: new Date() })
+    .set({
+      status: args.status,
+      completedAt: args.status === "done" ? new Date() : null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
     .returning();
   const task = rows[0];
@@ -1186,7 +1975,11 @@ export async function setJobTaskStatus(args: {
       args.status === "done"
         ? `task completed: ${task.title}`
         : `task reopened: ${task.title}`,
-    payload: { taskId: task.id, status: args.status },
+    payload: {
+      taskId: task.id,
+      status: args.status,
+      completedAt: task.completedAt?.toISOString() ?? null,
+    },
   });
   return task;
 }
@@ -1760,6 +2553,8 @@ export async function updateJobTask(args: {
       title: args.input.title,
       assignee: args.input.assignee,
       dueAt: args.input.dueAt,
+      plannedStartAt: args.input.plannedStartAt,
+      plannedEndAt: args.input.plannedEndAt,
       workAreaId: args.input.workAreaId,
       updatedAt: new Date(),
     })
@@ -1772,7 +2567,12 @@ export async function updateJobTask(args: {
     actor: args.actor,
     kind: "task_updated",
     summary: `task updated: ${task.title}`,
-    payload: { taskId: task.id, workAreaId: task.workAreaId },
+    payload: {
+      taskId: task.id,
+      workAreaId: task.workAreaId,
+      plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    },
   });
   return task;
 }

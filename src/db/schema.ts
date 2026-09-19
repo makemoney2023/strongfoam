@@ -1,5 +1,10 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
+  boolean,
+  date,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -115,6 +120,51 @@ export const opportunities = pgTable("opportunities", {
   projectId: uuid("project_id"),
 });
 
+export const scheduleCalendars = pgTable("schedule_calendars", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedBy: text("updated_by").notNull(),
+  name: text("name").notNull(),
+  timeZone: text("time_zone").notNull(),
+  weekendDays: integer("weekend_days")
+    .array()
+    .notNull()
+    .default(sql`'{0,6}'::integer[]`),
+  isDefault: boolean("is_default").notNull().default(false),
+});
+
+export const scheduleCalendarExceptions = pgTable(
+  "schedule_calendar_exceptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedBy: text("updated_by").notNull(),
+    calendarId: uuid("calendar_id")
+      .notNull()
+      .references(() => scheduleCalendars.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    name: text("name").notNull(),
+    isWorkingDay: boolean("is_working_day").notNull().default(false),
+  },
+  (table) => [
+    unique("schedule_calendar_exceptions_calendar_date_unique").on(
+      table.calendarId,
+      table.date,
+    ),
+    index("schedule_calendar_exceptions_calendar_idx").on(table.calendarId),
+  ],
+);
+
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -130,6 +180,9 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   status: text("status").notNull().default("active"),
   projectManager: text("project_manager"),
+  scheduleCalendarId: uuid("schedule_calendar_id").references(
+    () => scheduleCalendars.id,
+  ),
 });
 
 export const jobs = pgTable("jobs", {
@@ -209,6 +262,9 @@ export const jobTasks = pgTable(
     title: text("title").notNull(),
     assignee: text("assignee"),
     dueAt: timestamp("due_at", { withTimezone: true }),
+    plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
+    plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     status: text("status").notNull().default("open"),
     createdBy: text("created_by").notNull(),
   },
@@ -218,6 +274,101 @@ export const jobTasks = pgTable(
       foreignColumns: [workAreas.id, workAreas.jobId],
       name: "job_tasks_work_area_job_fk",
     }),
+    check(
+      "job_tasks_planned_date_order",
+      sql`${table.plannedStartAt} IS NULL
+        OR ${table.plannedEndAt} IS NULL
+        OR ${table.plannedEndAt} >= ${table.plannedStartAt}`,
+    ),
+    index("job_tasks_job_schedule_idx").on(
+      table.jobId,
+      table.plannedStartAt,
+      table.plannedEndAt,
+    ),
+  ],
+);
+
+export const jobTaskDependencies = pgTable(
+  "job_task_dependencies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    predecessorTaskId: uuid("predecessor_task_id")
+      .notNull()
+      .references(() => jobTasks.id, { onDelete: "cascade" }),
+    successorTaskId: uuid("successor_task_id")
+      .notNull()
+      .references(() => jobTasks.id, { onDelete: "cascade" }),
+    lagDays: integer("lag_days").notNull().default(0),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    unique("job_task_dependencies_unique").on(
+      table.predecessorTaskId,
+      table.successorTaskId,
+    ),
+    check(
+      "job_task_dependencies_no_self",
+      sql`${table.predecessorTaskId} <> ${table.successorTaskId}`,
+    ),
+    check(
+      "job_task_dependencies_lag_nonnegative",
+      sql`${table.lagDays} >= 0`,
+    ),
+    index("job_task_dependencies_project_idx").on(table.projectId),
+    index("job_task_dependencies_successor_idx").on(table.successorTaskId),
+  ],
+);
+
+export const projectScheduleBaselines = pgTable(
+  "project_schedule_baselines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    capturedAt: timestamp("captured_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    capturedBy: text("captured_by").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
+  },
+  (table) => [
+    index("project_schedule_baselines_project_idx").on(table.projectId),
+  ],
+);
+
+export const projectScheduleBaselineItems = pgTable(
+  "project_schedule_baseline_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    baselineId: uuid("baseline_id")
+      .notNull()
+      .references(() => projectScheduleBaselines.id, { onDelete: "cascade" }),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
+    plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "project_schedule_baseline_items_entity_type",
+      sql`${table.entityType} IN ('job', 'task')`,
+    ),
+    unique("project_schedule_baseline_items_entity_unique").on(
+      table.baselineId,
+      table.entityType,
+      table.entityId,
+    ),
+    index("project_schedule_baseline_items_baseline_idx").on(table.baselineId),
   ],
 );
 
