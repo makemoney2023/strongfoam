@@ -78,6 +78,16 @@ Add an **Upcoming schedule events** card listing the next five project starts,
 job starts, task due dates, and project finishes in the next 14 calendar days.
 
 Every card links to `/app/projects/schedule` with the corresponding URL filter.
+Count-parity links use these exact attention modes:
+
+- Overdue tasks:
+  `?projectStatus=active&attention=overdue-tasks`
+- Unscheduled active work:
+  `?projectStatus=active&attention=unscheduled-active-work`
+- Projects behind baseline:
+  `?projectStatus=active&attention=behind-baseline`
+- Potential resource overlaps:
+  `?projectStatus=active&attention=resource-overlap&view=resources`
 
 ## Portfolio Schedule controls
 
@@ -88,7 +98,7 @@ q
 projectStatus
 projectManager
 state = all | remaining | complete | blocked | overdue | unscheduled
-attention = all | behind-baseline | resource-overlap
+attention = all | overdue-tasks | unscheduled-active-work | behind-baseline | resource-overlap
 view = work | resources
 zoom = week | month
 anchor = YYYY-MM-DD
@@ -112,7 +122,8 @@ The page provides:
 - Project/name/manager search.
 - Project-status and schedule-state filters.
 - Project-manager filter.
-- Behind-baseline and resource-overlap attention filters.
+- Overdue-task, unscheduled-active-work, behind-baseline, and resource-overlap
+  attention filters.
 - Optional schedule-date range.
 - Work/Resources switch.
 - Week/Month density.
@@ -220,11 +231,12 @@ export type PortfolioScheduleProject = {
 
 export type PortfolioScheduleData = {
   projects: PortfolioScheduleProject[];
-  truncated: {
+  truncation: {
     projects: boolean;
     jobs: boolean;
     tasks: boolean;
     dependencies: boolean;
+    calendarExceptions: boolean;
     baselineItems: boolean;
   };
 };
@@ -243,7 +255,8 @@ The initial request uses bounded set-based reads:
    5,000.
 4. Fetch at most 10,001 dependency edges for the selected projects; render
    10,000.
-5. Fetch project calendars and exceptions in one query each.
+5. Fetch project calendars in one query and at most 5,001 exceptions; render
+   5,000 and use the extra row only to detect truncation.
 6. Fetch the latest non-deleted baseline header per project in one query.
 7. Fetch at most 5,001 items for those baseline IDs; render 5,000.
 8. Group projects, jobs, tasks, dependencies, calendars, and baselines in
@@ -251,6 +264,12 @@ The initial request uses bounded set-based reads:
 
 No query runs once per project. Any exceeded bound produces a visible warning
 and disables misleading aggregate counts for the truncated entity type.
+
+The schema and migration enforce at most one default calendar with the partial
+unique index `schedule_calendars_single_default_idx` on `is_default WHERE
+is_default`. Migration `0009_schedule_calendar_default.sql` locks the table,
+deterministically retains the oldest default, and clears additional defaults
+before creating the index.
 
 Dashboard widgets call the same store projection with active-project scope and
 summary-only output. They do not issue independent per-widget schedule reads.
@@ -295,12 +314,29 @@ summary-only output. They do not issue independent per-widget schedule reads.
 | Filter has no matches | “No portfolio schedule rows match these filters.” + Reset filters |
 | Query bound reached | Name the truncated entity and explain that totals are partial |
 
+Partial-data semantics are explicit:
+
+- Truncated baseline items make missing row items **Unavailable—partial data**;
+  the behind-baseline filter is unavailable instead of treating missing items
+  as newly added or on time.
+- Truncated tasks or dependencies make critical-path facts **Critical path
+  unavailable—partial data** instead of labelling tasks non-critical.
+- Attention totals append **(partial)** when projects, jobs, or tasks needed by
+  that local metric are truncated.
+- Calendar-exception truncation marks baseline and resource summary counts
+  partial because working-day variance and overlap may change.
+- Dashboard hints use **Partial result — portfolio limit reached** for affected
+  summary values.
+
 ## Performance requirements
 
 - Projection is linear in projects, jobs, tasks, dependencies, baseline items,
   and resource assignments.
 - Collapsed projects do not render job/task rows.
 - Collapsed jobs do not render task rows.
+- Work rows and resource assignments paginate at 200 rows per page.
+- Work and Resources tables mount only while their current-page table toggle
+  is open.
 - Timeline columns remain bounded to 42 days or six months.
 - Resource overlap uses a sorted sweep per normalized person.
 - Initial server render performs no client-side fetching.
@@ -386,6 +422,24 @@ summary-only output. They do not issue independent per-widget schedule reads.
     requirements.
 16. Unit tests, store tests, lint, typecheck, production build, and browser
     checks pass.
+
+## Implementation traceability
+
+Automated source and test evidence is complete. Browser evidence remains
+pending for the separate computer-use acceptance pass.
+
+| Requirement | Implemented source | Automated evidence | Pending browser check |
+|---|---|---|---|
+| SCH-022 | `src/app/app/projects/schedule/page.tsx`; `src/components/ops/portfolio-schedule.tsx`; `src/lib/ops/demo-data.ts` | `src/components/ops/portfolio-schedule.test.tsx` route/hierarchy tests; `src/lib/ops/demo-store.test.ts` deterministic browser-seed test | Default active hierarchy; closed inclusion; no-job and undated rows |
+| SCH-023 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx` | `src/lib/ops/portfolio-schedule-query.test.ts`; `src/components/ops/portfolio-schedule.test.tsx` control-state tests | Shareable search, manager, state, view, zoom, anchor, date, baseline, and completed-row URLs |
+| SCH-024 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx` | `src/lib/ops/portfolio-schedule.test.ts`; `src/components/ops/portfolio-schedule.test.tsx` work-row tests | Project progress, ranges, warning counts, and signed variance labels |
+| SCH-025 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-schedule.tsx` | `src/lib/ops/portfolio-schedule.test.ts` project-isolation and partial-critical tests; `src/lib/ops/demo-store.test.ts` two-project chain fixture | Independent critical labels, row shading, and baseline values in both projects |
+| SCH-026 | `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | `src/components/ops/portfolio-schedule.test.tsx` source-link and route-contract tests | Confirm read-only controls and project Schedule drill-through |
+| SCH-027 | `src/lib/ops/portfolio-schedule.ts`; `src/components/ops/portfolio-resource-schedule.tsx` | `src/lib/ops/portfolio-schedule.test.ts` cross-calendar overlap tests and 9,000-assignment stress test; `src/lib/ops/demo-store.test.ts` normalized-person fixture | One normalized lane; true overlap flagged; weekend-only assignments unflagged; chart/table parity |
+| SCH-028 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/lib/ops/portfolio-schedule.ts` | `src/lib/ops/demo-store.test.ts` deterministic latest-baseline test; `src/lib/ops/portfolio-schedule.test.ts` serialization and variance tests | Independent baseline names/dates and **Not baselined** state |
+| SCH-029 | `src/lib/ops/store.ts`; `src/lib/ops/demo-store.ts`; `src/components/ops/portfolio-schedule.tsx` | `src/lib/ops/demo-store.test.ts` scoping and bound tests; `src/components/ops/portfolio-schedule.test.tsx` truncation/partial rendering tests | Normal demo has no truncation alerts; forced partial labels remain truthful |
+| SCH-030 | `src/app/app/page.tsx`; `src/lib/ops/portfolio-schedule.ts`; `src/lib/ops/demo-data.ts` | `src/lib/ops/portfolio-schedule.test.ts` summary/event tests; `src/lib/ops/demo-store.test.ts` six-event fixture test | Four widget counts and five-row upcoming-event cap |
+| SCH-031 | `src/lib/ops/portfolio-schedule-query.ts`; `src/components/ops/portfolio-schedule.tsx`; `src/components/ops/portfolio-resource-schedule.tsx` | `src/lib/ops/portfolio-schedule-query.test.ts` exact href parity; component pagination, conditional-table, and partial-total tests | Widget drill-through parity; keyboard focus; table parity; contained 375px scrolling and 44px targets |
 
 ## Risks and mitigations
 

@@ -186,6 +186,7 @@ export type PortfolioScheduleData = {
     jobs: boolean;
     tasks: boolean;
     dependencies: boolean;
+    calendarExceptions: boolean;
     baselineItems: boolean;
   };
 };
@@ -210,11 +211,12 @@ export type ProjectedPortfolioProject = PortfolioScheduleProject & {
 
 export type PortfolioProjectionFilter = {
   state: "all" | "remaining" | "complete" | "blocked" | "overdue" | "unscheduled";
-  attention: "all" | "behind-baseline" | "resource-overlap";
+  attention: "all" | "overdue-tasks" | "unscheduled-active-work" | "behind-baseline" | "resource-overlap";
   from: string | null;
   to: string | null;
   hideCompleted: boolean;
   overlapProjectIds: ReadonlySet<string>;
+  baselineItemsComplete: boolean;
 };
 ```
 
@@ -401,9 +403,11 @@ describe("portfolio Schedule query", () => {
     expect(
       portfolioScheduleHref({
         projectStatus: "active",
-        state: "overdue",
+        attention: "overdue-tasks",
       }),
-    ).toBe("/app/projects/schedule?projectStatus=active&state=overdue");
+    ).toBe(
+      "/app/projects/schedule?projectStatus=active&attention=overdue-tasks",
+    );
   });
 });
 ```
@@ -426,7 +430,7 @@ export type PortfolioScheduleQuery = {
   projectStatus: string;
   projectManager: string;
   state: "all" | "remaining" | "complete" | "blocked" | "overdue" | "unscheduled";
-  attention: "all" | "behind-baseline" | "resource-overlap";
+  attention: "all" | "overdue-tasks" | "unscheduled-active-work" | "behind-baseline" | "resource-overlap";
   view: "work" | "resources";
   zoom: "week" | "month";
   anchor: string | null;
@@ -495,6 +499,7 @@ export type PortfolioScheduleTruncation = {
   jobs: boolean;
   tasks: boolean;
   dependencies: boolean;
+  calendarExceptions: boolean;
   baselineItems: boolean;
 };
 
@@ -559,6 +564,7 @@ const PROJECT_LIMIT = 250;
 const JOB_LIMIT = 2_000;
 const TASK_LIMIT = 5_000;
 const DEPENDENCY_LIMIT = 10_000;
+const CALENDAR_EXCEPTION_LIMIT = 5_000;
 const BASELINE_ITEM_LIMIT = 5_000;
 ```
 
@@ -588,7 +594,8 @@ Database flow:
    `inArray(jobTaskDependencies.projectId, projectIds)` and `.limit(10001)`.
 6. Resolve the default calendar once through `ensureDefaultScheduleCalendar`.
 7. Query all selected explicit calendar IDs plus the fallback ID in one read.
-8. Query exceptions for those calendar IDs in one read.
+8. Query exceptions for those calendar IDs with `.limit(5001)`, render 5,000,
+   and set `truncation.calendarExceptions` from the extra-row detection.
 9. Use `selectDistinctOn([projectScheduleBaselines.projectId])`, filtering
    `deletedAt IS NULL`, ordered by `projectId` then `capturedAt DESC`.
 10. Query baseline items for the selected baseline IDs with `.limit(5001)`.
@@ -597,6 +604,11 @@ Run independent dependent-entity queries in one `Promise.all` only after the
 selected project IDs are known. Do not call `listJobs`,
 `listProjectJobTasks`, `resolveProjectScheduleCalendar`, or
 `getProjectScheduleBaseline` in a project loop.
+
+The default-calendar resolver depends on the schema/migration invariant that
+at most one row is default. Keep the Drizzle partial unique index
+`schedule_calendars_single_default_idx` and migration
+`0009_schedule_calendar_default.sql` aligned.
 
 - [ ] **Step 5: Add explicit bound tests**
 
@@ -799,9 +811,12 @@ Create a client component with props:
 ```ts
 {
   projects: ProjectedPortfolioProject[];
+  resourceLanes?: readonly PortfolioResourceLane[];
   window: ScheduleWindow;
   now: string;
   baseline: "latest" | "none";
+  baselineItemsTruncated?: boolean;
+  showOnlyOverlappingAssignments?: boolean;
 }
 ```
 
@@ -814,8 +829,11 @@ Render:
 - Latest-baseline outline when selected.
 - **Potential overlap** badge and accessible conflict text.
 - Explicit unscheduled assignments.
-- `<details>` table with resource, role, project, source item, dates,
-  baseline variance, and overlap state.
+- A 200-assignment page with Previous/Next controls.
+- A button-controlled table for only the current assignment page; mount the
+  table DOM only while the toggle is open.
+- Table columns for resource, role, project, source item, dates, baseline
+  variance, and overlap state.
 
 Do not render hours, percentages, capacity, or “overallocated.”
 
@@ -920,6 +938,13 @@ Above the chart, show:
 
 When task rows are truncated, append **Partial task count**. This visible
 summary is the count target for dashboard drill-through acceptance.
+For overdue-task and unscheduled-active-work attention modes, append
+**(partial)** to the local matching total when projects, jobs, or tasks are
+truncated. Truncated baseline items make behind-baseline filtering unavailable
+and row variance **Unavailable—partial data**. Truncated tasks or dependencies
+make critical-path facts **Critical path unavailable—partial data** rather
+than definitive non-critical labels. Calendar-exception truncation propagates
+partial summary semantics to working-day baseline and resource calculations.
 
 - [ ] **Step 4: Implement project/job/task hierarchy**
 
@@ -967,6 +992,9 @@ Warning
 ```
 
 The table uses the same filtered project/job/task collection as the chart.
+Flattened Work rows paginate at 200 rows. A page may prepend at most two
+labelled project/job context rows. The current-page table mounts only while
+its toggle is open and uses the exact same page rows as the chart.
 
 - [ ] **Step 6: Wire Resources view**
 
@@ -1173,7 +1201,10 @@ Add:
 ```ts
 it("uses portfolio filters that reproduce each widget count", () => {
   expect(PORTFOLIO_SCHEDULE_WIDGETS.overdueTasks.href).toBe(
-    "/app/projects/schedule?projectStatus=active&state=overdue",
+    "/app/projects/schedule?projectStatus=active&attention=overdue-tasks",
+  );
+  expect(PORTFOLIO_SCHEDULE_WIDGETS.unscheduledActiveWork.href).toBe(
+    "/app/projects/schedule?projectStatus=active&attention=unscheduled-active-work",
   );
   expect(PORTFOLIO_SCHEDULE_WIDGETS.projectsBehindBaseline.href).toBe(
     "/app/projects/schedule?projectStatus=active&attention=behind-baseline",
