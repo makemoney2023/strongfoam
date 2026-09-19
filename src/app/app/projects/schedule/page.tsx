@@ -3,8 +3,7 @@ import { PageHeader } from "@/components/ops/page-header";
 import { PortfolioSchedule } from "@/components/ops/portfolio-schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
-import { DEMO_SCHEDULE_NOW } from "@/lib/ops/demo-data";
-import { isDemoOpsStore } from "@/lib/ops/demo-store";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import {
   serializePortfolioSchedule,
 } from "@/lib/ops/portfolio-schedule";
@@ -35,9 +34,7 @@ export default async function PortfolioSchedulePage({
     projectManager: query.projectManager,
   });
   const data = serializePortfolioSchedule(raw);
-  const now = isDemoOpsStore()
-    ? DEMO_SCHEDULE_NOW
-    : new Date().toISOString();
+  const now = getOpsNow().toISOString();
 
   return (
     <div className="min-w-0 space-y-6">

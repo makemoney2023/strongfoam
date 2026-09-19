@@ -39,6 +39,7 @@ import {
   listProjectTaskDependencies,
   resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUSES,
@@ -148,6 +149,7 @@ export default async function ProjectDetailPage({
     projectManager: project.projectManager,
   };
   const returnTo = `/app/projects/${project.id}`;
+  const scheduleNow = getOpsNow().toISOString();
 
   return (
     <div className="space-y-6">
@@ -291,7 +293,7 @@ export default async function ProjectDetailPage({
                 selectedBaselineId={selectedBaseline?.baseline.id ?? null}
                 selectedBaselineItems={selectedBaselineItems}
                 calendar={scheduleCalendar}
-                now={new Date().toISOString()}
+                now={scheduleNow}
                 truncated={projectTaskResult.truncated}
                 dependenciesTruncated={dependencyResult.truncated}
                 returnTo={returnTo}

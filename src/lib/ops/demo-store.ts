@@ -41,6 +41,7 @@ import {
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
+import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -87,6 +88,8 @@ import type {
   ProjectListFilters,
 } from "@/lib/ops/store";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
+
+export { isDemoOpsStore } from "@/lib/ops/demo-mode";
 
 type DemoOpsState = {
   requests: EstimateRequestRow[];
@@ -177,12 +180,6 @@ const {
   jobDocuments,
   jobFieldNotes,
 } = getDemoState();
-
-export function isDemoOpsStore(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return env.OPS_DEMO === "1" || !env.DATABASE_URL;
-}
 
 const PORTFOLIO_PROJECT_LIMIT = 250;
 const PORTFOLIO_JOB_LIMIT = 2_000;

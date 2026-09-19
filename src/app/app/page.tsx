@@ -26,9 +26,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
-import { DEMO_SCHEDULE_NOW } from "@/lib/ops/demo-data";
-import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import {
   buildPortfolioScheduleSummary,
   serializePortfolioSchedule,
@@ -148,13 +147,14 @@ export default async function OpsHomePage() {
     listPortfolioSchedule({ projectStatus: "active" }),
   ]);
 
-  const summary = buildHomeSummary({ requests, opportunities, projects, jobs });
-  const scheduleNow = isDemoOpsStore()
-    ? new Date(DEMO_SCHEDULE_NOW)
-    : new Date();
+  const opsNow = getOpsNow();
+  const summary = buildHomeSummary(
+    { requests, opportunities, projects, jobs },
+    opsNow.getTime(),
+  );
   const portfolioSummary = buildPortfolioScheduleSummary(
     serializePortfolioSchedule(portfolioScheduleResult),
-    scheduleNow,
+    opsNow,
   );
   const partialScheduleCounts = new Set(portfolioSummary.partialCounts);
   const partialHint = "Partial result — portfolio limit reached";

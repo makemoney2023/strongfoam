@@ -1526,7 +1526,7 @@ export function PortfolioSchedule({
           {data.truncation.tasks ? " · Partial task count" : ""}
           {matchingAttentionItems === null
             ? ""
-            : ` · ${matchingAttentionItems} matching attention items${matchingAttentionPartial ? " (partial)" : ""}`}
+            : ` · ${matchingAttentionItems} matching attention ${matchingAttentionItems === 1 ? "item" : "items"}${matchingAttentionPartial ? " (partial)" : ""}`}
         </p>
         {visibleProjects.length > 0 &&
         visibleProjects.every(
