@@ -816,16 +816,25 @@ function freezeAssignmentCalendar(
 export function buildPortfolioScheduleAssignments(
   projects: readonly PortfolioScheduleProject[],
 ): PortfolioScheduleAssignment[] {
-  const calendars = new WeakMap<
+  const calendarsBySource = new WeakMap<
     ResolvedWorkingCalendar,
+    PortfolioScheduleCalendar
+  >();
+  const calendarsBySignature = new Map<
+    string,
     PortfolioScheduleCalendar
   >();
   return projects.flatMap((project) =>
     buildScheduleAssignments(project.jobs).map((assignment) => {
-      let frozenCalendar = calendars.get(project.calendar);
+      let frozenCalendar = calendarsBySource.get(project.calendar);
       if (!frozenCalendar) {
-        frozenCalendar = freezeAssignmentCalendar(project.calendar);
-        calendars.set(project.calendar, frozenCalendar);
+        const signature = portfolioCalendarSignature(project.calendar);
+        frozenCalendar = calendarsBySignature.get(signature);
+        if (!frozenCalendar) {
+          frozenCalendar = freezeAssignmentCalendar(project.calendar);
+          calendarsBySignature.set(signature, frozenCalendar);
+        }
+        calendarsBySource.set(project.calendar, frozenCalendar);
       }
       return {
         ...assignment,

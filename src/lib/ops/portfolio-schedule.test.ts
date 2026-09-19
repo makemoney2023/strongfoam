@@ -1570,15 +1570,19 @@ describe("portfolio resource projection", () => {
       expect(allKeys.size).toBe(220);
 
       const tableToggle = container.querySelector(
-        '[aria-controls="portfolio-resource-table"]',
+        '[aria-label="Toggle current assignment page table"]',
       )!;
       expect(tableToggle.getAttribute("aria-expanded")).toBe("false");
+      expect(tableToggle.getAttribute("aria-controls")).toBeNull();
       await act(async () => {
         tableToggle.dispatchEvent(
           new dom.window.MouseEvent("click", { bubbles: true }),
         );
       });
       expect(tableToggle.getAttribute("aria-expanded")).toBe("true");
+      const tableId = tableToggle.getAttribute("aria-controls");
+      expect(tableId).toBeTruthy();
+      expect(container.ownerDocument.getElementById(tableId!)).not.toBeNull();
       expect(container.querySelectorAll("tbody tr")).toHaveLength(20);
       expect(
         new Set(
@@ -1597,7 +1601,7 @@ describe("portfolio resource projection", () => {
                 id: "job-filtered",
                 projectManager: "Alex",
                 foreman: "Alex",
-                tasks: Array.from({ length: 8 }, (_, index) =>
+                tasks: Array.from({ length: 218 }, (_, index) =>
                   task({
                     id: `filtered-task-${index}`,
                     jobId: "job-filtered",
@@ -1620,8 +1624,11 @@ describe("portfolio resource projection", () => {
           }),
         );
       });
-      expect(chartRows()).toHaveLength(10);
-      expect(container.textContent).toContain("Page 1 of 1");
+      expect(chartRows()).toHaveLength(200);
+      expect(container.textContent).toContain("Page 1 of 2");
+      expect(
+        rowKeys().every((key) => key?.startsWith("project-filtered:")),
+      ).toBe(true);
       expect(
         (
           container.querySelector(
@@ -2782,5 +2789,71 @@ describe("portfolio resource projection", () => {
         }
       ).name = "Output changed";
     }).toThrow();
+  });
+
+  it("canonicalizes 250 equivalent many-exception calendars to one frozen clone", () => {
+    const exceptionDates = Array.from({ length: 120 }, (_, index) => {
+      const date = new Date(Date.UTC(2026, 0, index + 1));
+      return {
+        date: date.toISOString().slice(0, 10),
+        isWorkingDay: index % 3 === 0,
+      };
+    });
+    const sources = Array.from({ length: 250 }, (_, projectIndex) =>
+      project({
+        id: `equivalent-project-${projectIndex}`,
+        calendar: calendar({
+          id: `serialized-calendar-${projectIndex}`,
+          name: `Serialized calendar ${projectIndex}`,
+          weekendDays: projectIndex % 2 === 0 ? [0, 6] : [6, 0],
+          exceptions: (
+            projectIndex % 2 === 0
+              ? exceptionDates
+              : [...exceptionDates].reverse()
+          ).map((exception) => ({
+            ...exception,
+            name: `Source ${projectIndex}`,
+          })),
+        }),
+        jobs: [
+          job({
+            id: `equivalent-job-${projectIndex}`,
+            projectManager: `Person ${projectIndex}`,
+          }),
+        ],
+      }),
+    );
+
+    const assignments = buildPortfolioScheduleAssignments(sources);
+    const calendars = new Set(
+      assignments.map((assignment) => assignment.calendar),
+    );
+    const [sharedCalendar] = calendars;
+
+    expect(assignments).toHaveLength(250);
+    expect(calendars.size).toBe(1);
+    expect(sharedCalendar).toBeDefined();
+    expect(
+      sources.some((source) => source.calendar === sharedCalendar),
+    ).toBe(false);
+    expect(
+      sources.every(
+        (source) => source.calendar.exceptions !== sharedCalendar!.exceptions,
+      ),
+    ).toBe(true);
+    expect(Object.isFrozen(sharedCalendar)).toBe(true);
+    expect(Object.isFrozen(sharedCalendar!.weekendDays)).toBe(true);
+    expect(Object.isFrozen(sharedCalendar!.exceptions)).toBe(true);
+    expect(
+      sharedCalendar!.exceptions.every((exception) =>
+        Object.isFrozen(exception),
+      ),
+    ).toBe(true);
+
+    sources[0]!.calendar.weekendDays.push(4);
+    sources[0]!.calendar.exceptions[0]!.isWorkingDay =
+      !sources[0]!.calendar.exceptions[0]!.isWorkingDay;
+    expect(sharedCalendar!.weekendDays).toEqual([0, 6]);
+    expect(sharedCalendar!.exceptions[0]?.isWorkingDay).toBe(true);
   });
 });

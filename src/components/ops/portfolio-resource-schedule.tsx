@@ -2,7 +2,7 @@
 
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -284,12 +284,10 @@ export function PortfolioResourceSchedule({
     1,
     Math.ceil(entries.length / PORTFOLIO_RESOURCE_PAGE_SIZE),
   );
-  const [pagination, setPagination] = useState({
-    projects,
-    page: 0,
-  });
-  const requestedPage =
-    pagination.projects === projects ? pagination.page : 0;
+  const [requestedPage, setRequestedPage] = useState(0);
+  useEffect(() => {
+    setRequestedPage(0);
+  }, [entries]);
   const page = Math.min(requestedPage, pageCount - 1);
   const pageEntries = useMemo(
     () =>
@@ -312,6 +310,7 @@ export function PortfolioResourceSchedule({
     return [...pageLaneMap.values()];
   }, [pageEntries]);
   const [tableOpen, setTableOpen] = useState(false);
+  const tableId = useId();
   const firstVisible =
     entries.length === 0 ? 0 : page * PORTFOLIO_RESOURCE_PAGE_SIZE + 1;
   const lastVisible = Math.min(
@@ -407,12 +406,7 @@ export function PortfolioResourceSchedule({
             aria-label="Previous resource assignments page"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             disabled={page === 0}
-            onClick={() =>
-              setPagination({
-                projects,
-                page: Math.max(0, page - 1),
-              })
-            }
+            onClick={() => setRequestedPage(Math.max(0, page - 1))}
           >
             Previous
           </button>
@@ -425,10 +419,7 @@ export function PortfolioResourceSchedule({
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             disabled={page >= pageCount - 1}
             onClick={() =>
-              setPagination({
-                projects,
-                page: Math.min(pageCount - 1, page + 1),
-              })
+              setRequestedPage(Math.min(pageCount - 1, page + 1))
             }
           >
             Next
@@ -603,7 +594,8 @@ export function PortfolioResourceSchedule({
         <button
           type="button"
           aria-expanded={tableOpen}
-          aria-controls="portfolio-resource-table"
+          aria-controls={tableOpen ? tableId : undefined}
+          aria-label="Toggle current assignment page table"
           className="flex min-h-11 min-w-11 w-full cursor-pointer items-center px-4 py-3 text-left text-sm font-medium"
           onClick={() => setTableOpen((open) => !open)}
         >
@@ -611,7 +603,7 @@ export function PortfolioResourceSchedule({
         </button>
         {tableOpen ? (
           <div
-            id="portfolio-resource-table"
+            id={tableId}
             className="overflow-x-auto border-t"
           >
           <Table>
