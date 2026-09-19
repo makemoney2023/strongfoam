@@ -11,7 +11,7 @@ import {
   type ProjectScheduleTask,
   type ScheduleState,
 } from "@/lib/ops/project-schedule";
-import { formatJobNumber } from "@/lib/ops/jobs";
+import { formatJobNumber, isJobStatus } from "@/lib/ops/jobs";
 import {
   DEFAULT_WORKING_CALENDAR,
   calendarDate,
@@ -87,6 +87,9 @@ type RawCalendar = PortfolioScheduleStoreResult["calendars"][number];
 type RawCalendarException =
   PortfolioScheduleStoreResult["calendarExceptions"][number];
 
+// `draft` is the schema default and the least committed workflow state.
+const SAFE_JOB_STATUS_FALLBACK: ProjectScheduleJob["status"] = "draft";
+
 function appendToMap<T>(
   map: Map<string, T[]>,
   key: string,
@@ -120,18 +123,12 @@ function serializeCalendar(
     name: calendar.name,
     timeZone: calendar.timeZone,
     weekendDays: [...calendar.weekendDays],
-    exceptions: [...exceptions]
-      .sort(
-        (left, right) =>
-          left.date.localeCompare(right.date) ||
-          left.id.localeCompare(right.id),
-      )
-      .map((exception) => ({
-        id: exception.id,
-        date: exception.date,
-        name: exception.name,
-        isWorkingDay: exception.isWorkingDay,
-      })),
+    exceptions: exceptions.map((exception) => ({
+      id: exception.id,
+      date: exception.date,
+      name: exception.name,
+      isWorkingDay: exception.isWorkingDay,
+    })),
   };
 }
 
@@ -188,6 +185,19 @@ export function serializePortfolioSchedule(
   const defaultCalendar = raw.calendars.find(
     (calendar) => calendar.isDefault,
   );
+  const resolvedCalendarsById = new Map<string, ResolvedWorkingCalendar>();
+  for (const calendar of raw.calendars) {
+    resolvedCalendarsById.set(
+      calendar.id,
+      serializeCalendar(
+        calendar,
+        exceptionsByCalendar.get(calendar.id) ?? [],
+      ),
+    );
+  }
+  const resolvedDefaultCalendar = defaultCalendar
+    ? resolvedCalendarsById.get(defaultCalendar.id)!
+    : cloneFallbackCalendar();
 
   const latestBaselineByProject = new Map<
     string,
@@ -195,15 +205,7 @@ export function serializePortfolioSchedule(
   >();
   for (const baseline of raw.baselines) {
     if (!selectedProjectIds.has(baseline.projectId)) continue;
-    const current = latestBaselineByProject.get(baseline.projectId);
-    if (
-      !current ||
-      baseline.capturedAt > current.capturedAt ||
-      (baseline.capturedAt.getTime() === current.capturedAt.getTime() &&
-        baseline.id > current.id)
-    ) {
-      latestBaselineByProject.set(baseline.projectId, baseline);
-    }
+    latestBaselineByProject.set(baseline.projectId, baseline);
   }
 
   const baselineItemsByBaseline = new Map<
@@ -221,7 +223,9 @@ export function serializePortfolioSchedule(
         updatedAt: job.updatedAt.toISOString(),
         number: formatJobNumber(job.id),
         name: job.name,
-        status: job.status as ProjectScheduleJob["status"],
+        status: isJobStatus(job.status)
+          ? job.status
+          : SAFE_JOB_STATUS_FALLBACK,
         projectManager: job.projectManager,
         foreman: job.foreman,
         plannedStartAt: isoString(job.plannedStartAt),
@@ -253,14 +257,8 @@ export function serializePortfolioSchedule(
       }));
       const selectedCalendar =
         (project.scheduleCalendarId
-          ? calendarsById.get(project.scheduleCalendarId)
-          : undefined) ?? defaultCalendar;
-      const calendar = selectedCalendar
-        ? serializeCalendar(
-            selectedCalendar,
-            exceptionsByCalendar.get(selectedCalendar.id) ?? [],
-          )
-        : cloneFallbackCalendar();
+          ? resolvedCalendarsById.get(project.scheduleCalendarId)
+          : undefined) ?? resolvedDefaultCalendar;
       const baseline = latestBaselineByProject.get(project.id);
       const latestBaseline = baseline
         ? {
@@ -289,7 +287,7 @@ export function serializePortfolioSchedule(
         name: project.name,
         status: project.status,
         projectManager: project.projectManager,
-        calendar,
+        calendar: selectedCalendar,
         latestBaseline,
         jobs,
         dependencies,

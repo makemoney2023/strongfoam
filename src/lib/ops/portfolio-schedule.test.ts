@@ -310,12 +310,6 @@ describe("serializePortfolioSchedule", () => {
         ],
         calendarExceptions: [
           rawCalendarException({
-            id: "exception-2b",
-            calendarId: "calendar-2",
-            date: "2026-12-26",
-            name: "Boxing Day",
-          }),
-          rawCalendarException({
             id: "exception-1",
             calendarId: "calendar-1",
             date: "2026-11-26",
@@ -326,6 +320,12 @@ describe("serializePortfolioSchedule", () => {
             calendarId: "calendar-2",
             date: "2026-12-24",
             name: "Christmas Eve",
+          }),
+          rawCalendarException({
+            id: "exception-2b",
+            calendarId: "calendar-2",
+            date: "2026-12-26",
+            name: "Boxing Day",
           }),
         ],
         baselines: [
@@ -392,6 +392,53 @@ describe("serializePortfolioSchedule", () => {
     });
   });
 
+  it("reuses one deterministically ordered exception group for a shared calendar", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [
+          rawProject({
+            id: "project-1",
+            scheduleCalendarId: "shared-calendar",
+          }),
+          rawProject({
+            id: "project-2",
+            scheduleCalendarId: "shared-calendar",
+          }),
+        ],
+        calendars: [
+          rawCalendar({
+            id: "shared-calendar",
+            isDefault: false,
+          }),
+        ],
+        calendarExceptions: [
+          rawCalendarException({
+            id: "exception-a",
+            calendarId: "shared-calendar",
+            date: "2026-12-24",
+          }),
+          rawCalendarException({
+            id: "exception-b",
+            calendarId: "shared-calendar",
+            date: "2026-12-24",
+          }),
+          rawCalendarException({
+            id: "exception-c",
+            calendarId: "shared-calendar",
+            date: "2026-12-26",
+          }),
+        ],
+      }),
+    );
+
+    expect(
+      result.projects[0]?.calendar.exceptions.map((item) => item.id),
+    ).toEqual(["exception-a", "exception-b", "exception-c"]);
+    expect(result.projects[0]?.calendar.exceptions).toBe(
+      result.projects[1]?.calendar.exceptions,
+    );
+  });
+
   it("keeps a selected project with no jobs in its input position", () => {
     const result = serializePortfolioSchedule(
       rawSchedule({
@@ -408,6 +455,18 @@ describe("serializePortfolioSchedule", () => {
       "without-job",
     ]);
     expect(result.projects[1]?.jobs).toEqual([]);
+  });
+
+  it("keeps a job with an invalid stored status using the safe draft fallback", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [rawProject()],
+        jobs: [rawJob({ status: "legacy_status" })],
+      }),
+    );
+
+    expect(result.projects[0]?.jobs).toHaveLength(1);
+    expect(result.projects[0]?.jobs[0]?.status).toBe("draft");
   });
 
   it("falls back from a missing explicit calendar to the selected default", () => {
@@ -509,7 +568,11 @@ describe("serializePortfolioSchedule", () => {
       calendars: [rawCalendar()],
       calendarExceptions: [rawCalendarException()],
       baselines: [rawBaseline()],
-      baselineItems: [rawBaselineItem()],
+      baselineItems: [
+        rawBaselineItem({
+          dueAt: new Date("2026-09-16T12:00:00.000Z"),
+        }),
+      ],
     });
 
     const result = serializePortfolioSchedule(raw);
@@ -536,6 +599,7 @@ describe("serializePortfolioSchedule", () => {
         {
           plannedStartAt: "2026-09-10T12:00:00.000Z",
           plannedEndAt: "2026-09-15T12:00:00.000Z",
+          dueAt: "2026-09-16T12:00:00.000Z",
         },
       ],
     });
