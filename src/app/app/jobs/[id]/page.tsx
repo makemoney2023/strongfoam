@@ -694,13 +694,14 @@ export default async function JobDetailPage({
                   triggerLabel="Upload file"
                   triggerIcon={<UploadCloudIcon aria-hidden="true" />}
                   triggerVariant="outline"
-                  title="Upload a plan or photo"
-                  description="PDF, JPEG, PNG, or WebP up to 25 MB."
+                  title="Upload plans or photos"
+                  description="Select many files at once. PDF, JPEG, PNG, or WebP up to 25 MB each."
                 >
                   <JobDocumentUploader
                     jobId={job.id}
                     areas={areaOptions}
                     storageMode={documentStorageMode}
+                    returnTo={`/app/jobs/${job.id}`}
                   />
                 </FormDialog>
               </CardAction>

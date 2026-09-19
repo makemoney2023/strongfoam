@@ -17,6 +17,8 @@ import {
 } from "@/lib/ops/jobs";
 import {
   hasAllowedJobDocumentSignature,
+  listJobUploadFiles,
+  MAX_JOB_UPLOAD_FILES,
   parseJobDocumentInput,
   parseJobDocumentMeta,
   parseJobTaskInput,
@@ -265,45 +267,74 @@ export async function uploadJobDocument(formData: FormData): Promise<ActionState
       "Production documents must use the configured Blob upload flow.",
     );
   }
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return fail(`/app/jobs/${jobId}`, "Choose a PDF, JPEG, PNG, or WebP file.");
-  }
-
-  const parsed = parseJobDocumentInput({
-    filename: file.name,
-    contentType: file.type,
-    sizeBytes: file.size,
-    kind: String(formData.get("kind") ?? ""),
-    workAreaId: String(formData.get("workAreaId") ?? ""),
-  });
-  if (!parsed.ok) return invalidFrom(parsed);
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const verified = parseJobDocumentInput({
-    ...parsed.value,
-    sizeBytes: bytes.byteLength,
-  });
-  if (!verified.ok) return invalidFrom(verified);
-  if (!hasAllowedJobDocumentSignature(bytes, verified.value.contentType)) {
-    return fail(
-      `/app/jobs/${jobId}`,
-      "The file contents do not match the selected document type.",
-    );
-  }
-  const document = await addJobDocument({
-    jobId,
-    actor: session.email,
-    input: verified.value,
-    bytes,
-  });
-  if (!document) return fail(`/app/jobs/${jobId}`, "That document could not be saved.");
-  refreshJobs(null, jobId);
+  const files = listJobUploadFiles(formData);
   const returnTo = safeReturnTo(
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
   );
-  return succeed(returnTo);
+  if (files.length === 0) {
+    return fail(returnTo, "Choose at least one PDF, JPEG, PNG, or WebP file.");
+  }
+  if (files.length > MAX_JOB_UPLOAD_FILES) {
+    return fail(returnTo, `Upload up to ${MAX_JOB_UPLOAD_FILES} files at a time.`);
+  }
+
+  const uploaded: string[] = [];
+  const failed: string[] = [];
+
+  for (const file of files) {
+    const parsed = parseJobDocumentInput({
+      filename: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+      kind: String(formData.get("kind") ?? ""),
+      workAreaId: String(formData.get("workAreaId") ?? ""),
+    });
+    if (!parsed.ok) {
+      failed.push(`${file.name}: ${parsed.error}`);
+      continue;
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const verified = parseJobDocumentInput({
+      ...parsed.value,
+      sizeBytes: bytes.byteLength,
+    });
+    if (!verified.ok) {
+      failed.push(`${file.name}: ${verified.error}`);
+      continue;
+    }
+    if (!hasAllowedJobDocumentSignature(bytes, verified.value.contentType)) {
+      failed.push(`${file.name}: the file contents do not match the selected type.`);
+      continue;
+    }
+    const document = await addJobDocument({
+      jobId,
+      actor: session.email,
+      input: verified.value,
+      bytes,
+    });
+    if (!document) {
+      failed.push(`${file.name}: could not be saved.`);
+      continue;
+    }
+    uploaded.push(file.name);
+  }
+
+  refreshJobs(null, jobId);
+  if (uploaded.length === 0) {
+    return fail(returnTo, failed[0] ?? "Those files could not be uploaded.");
+  }
+  if (failed.length > 0) {
+    return succeed(
+      returnTo,
+      `${uploaded.length} uploaded. ${failed[0]}`,
+    );
+  }
+  return succeed(
+    returnTo,
+    uploaded.length === 1 ? "File uploaded." : `${uploaded.length} files uploaded.`,
+  );
 }
 
 export async function saveJobDetails(formData: FormData): Promise<ActionState> {

@@ -454,7 +454,9 @@ export default async function FieldJobPage({
             </span>
             <div>
               <CardTitle>Photos and evidence</CardTitle>
-              <CardDescription>Attach a photo or plan to this job or a work area.</CardDescription>
+              <CardDescription>
+                Attach many photos or a plan to this job or a work area in one upload.
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -464,6 +466,7 @@ export default async function FieldJobPage({
             areas={areaOptions}
             storageMode={documentStorageMode}
             defaultKind="photo"
+            returnTo={returnTo}
           />
           <div className="space-y-3 border-t pt-5">
             <h3 className="text-sm font-semibold">Files on this job</h3>

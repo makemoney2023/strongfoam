@@ -79,6 +79,14 @@ export function isJobDocumentKind(value: string): value is JobDocumentKind {
   return JOB_DOCUMENT_KINDS.includes(value as JobDocumentKind);
 }
 
+export const MAX_JOB_UPLOAD_FILES = 30;
+
+export function listJobUploadFiles(formData: FormData): File[] {
+  return formData
+    .getAll("file")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+}
+
 export function parseWorkAreaInput(input: {
   name?: string;
   kind?: string;

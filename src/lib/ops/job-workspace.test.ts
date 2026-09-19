@@ -4,6 +4,8 @@ import {
   hasAllowedJobDocumentSignature,
   isOwnedJobUploadPath,
   jobDocumentHref,
+  listJobUploadFiles,
+  MAX_JOB_UPLOAD_FILES,
   parseJobDocumentInput,
   parseJobDocumentMeta,
   parseJobTaskInput,
@@ -46,6 +48,15 @@ describe("job workspace parsers", () => {
       "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     );
     expect(parsed.value.assignee).toBe("Morgan Cole");
+  });
+
+  it("collects every non-empty file from a multi-file upload", () => {
+    const formData = new FormData();
+    formData.append("file", new File([new Uint8Array([1, 2, 3])], "a.jpg", { type: "image/jpeg" }));
+    formData.append("file", new File([], "empty.jpg", { type: "image/jpeg" }));
+    formData.append("file", new File([new Uint8Array([4, 5])], "b.png", { type: "image/png" }));
+    expect(listJobUploadFiles(formData).map((file) => file.name)).toEqual(["a.jpg", "b.png"]);
+    expect(MAX_JOB_UPLOAD_FILES).toBe(30);
   });
 
   it("accepts only allowed plan and photo uploads", () => {
