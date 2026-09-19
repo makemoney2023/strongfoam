@@ -788,6 +788,34 @@ describe("PortfolioSchedule", () => {
     expect(unscheduled).not.toContain("Task future");
   });
 
+  it("labels matching attention totals as partial when source rows are truncated", () => {
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data(
+          [
+            project("partial-attention-count", {
+              jobs: [
+                job("partial-attention-parent", {
+                  tasks: [
+                    task("partial-overdue", {
+                      jobId: "partial-attention-parent",
+                      dueAt: "2026-09-18",
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+          { tasks: true },
+        ),
+        query: query({ attention: "overdue-tasks" }),
+        now: NOW,
+      }),
+    );
+
+    expect(html).toContain("1 matching attention items (partial)");
+  });
+
   it("renders a dedicated Resources empty state without a table toggle", () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioSchedule, {
