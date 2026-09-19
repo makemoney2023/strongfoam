@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 0.5
+**Version:** 0.7
 **Created:** 2026-09-18
 **Last updated:** 2026-09-18
 
@@ -56,9 +56,10 @@ survey. It currently provides:
 
 The survey creates **estimate requests**, not priced estimates. Staff can now
 sign in to a session-gated review workspace, search and update requests, add
-tasks and comments, and convert a request into company, contact, site, and
-opportunity records. The application does not yet provide full organization
-RBAC, projects, jobs, crews, document markup, transcription, scheduling, or
+tasks and comments, convert a request into company, contact, site, and
+opportunity records, and convert won work into a project plus one or more
+jobs. The staff workspace uses shadcn/ui. The application does not yet provide
+full organization RBAC, crews, document markup, transcription, scheduling, or
 financial workflows.
 
 ## 4. Product vision
@@ -615,14 +616,13 @@ Data-model rules:
 
 ### 22.1 Design direction
 
-The operations product will use a design language called **Industrial
-Precision**: trustworthy, durable, legible, and efficient without looking like
-generic enterprise software.
+The authenticated operations product uses **shadcn/ui** (base-nova) as its
+design system: sidebar navigation, cards, tables, badges, alerts, and form
+controls from the shared component registry.
 
-The public marketing site may retain its cinematic, dark, motion-led
-presentation. The authenticated product must prioritize fast scanning, clear
-status, accessible data entry, and field use. Both surfaces share the Strong
-Foam brand, typography, and core color primitives.
+The public marketing site retains its cinematic, dark, motion-led presentation
+and Strong Foam brand tokens. The two surfaces are intentionally separate so
+staff tools stay dense and standard while the website stays branded.
 
 Design dials for the authenticated product:
 
@@ -634,7 +634,11 @@ Design dials for the authenticated product:
 
 ### 22.2 Token architecture
 
-The implementation must use three token layers:
+The operations product uses shadcn semantic CSS variables (`background`,
+`foreground`, `card`, `muted`, `primary`, `destructive`, `sidebar`, and
+related tokens). Marketing pages keep the existing Strong Foam brand primitives.
+
+The implementation uses three token layers:
 
 ```text
 Primitive values → Semantic purpose → Component tokens
@@ -664,9 +668,9 @@ Existing brand primitives are retained:
 | Mist | `#E9EDEF` | Light neutral sections |
 | White | `#FFFFFF` | High-contrast content and light surfaces |
 
-The authenticated office product is light-first for long data-review sessions,
-with dark navigation and an optional complete dark theme. The field experience
-may follow device theme but must preserve outdoor contrast.
+The authenticated office product is a light shadcn dashboard for long
+data-review sessions. The field experience may follow device theme but must
+preserve outdoor contrast. Marketing remains dark.
 
 Semantic status colors must include success, warning, danger, information, and
 neutral states. Brand red must not represent routine selection. Annotation
@@ -707,7 +711,8 @@ accessible. Body text must never be smaller than 12px.
 
 ### 22.6 Core component language
 
-The component system extends the existing shadcn primitives and must define:
+The component system is shadcn/ui plus product-specific compositions and must
+define:
 
 - Application shell, sidebar, breadcrumbs, command palette, and mobile
   navigation.
@@ -1268,11 +1273,15 @@ These decisions are required before their respective implementation stage:
 | 2026-09-18 | Require approval for proactive, bulk, external, and high-impact AI actions | It keeps humans responsible for consequential business decisions |
 | 2026-09-18 | Ship a session-gated staff review workspace before the full auth provider | It makes current leads reviewable immediately without waiting on Supabase Auth |
 | 2026-09-18 | Convert requests into separate company, contact, site, and opportunity records | Survey fields become reusable CRM entities without re-entry, while duplicate matches stay visible and linkable |
+| 2026-09-18 | Convert only won work into one project per opportunity, then add extra jobs on the project | Prevents premature field work, keeps the commercial record attached, and lets a site grow extra phases without duplicating the opportunity |
+| 2026-09-18 | Use shadcn/ui for the authenticated operations product | Replaces the custom Industrial Precision staff chrome with a standard dashboard system while keeping the marketing site branded |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 0.7 | 2026-09-18 | Adopted shadcn/ui as the operations design system and rebuilt the staff workspace |
+| 0.6 | 2026-09-18 | Added won-work conversion into a project and jobs, plus job status and activity |
 | 0.5 | 2026-09-18 | Added company, contact, site, and opportunity conversion from estimate requests |
 | 0.4 | 2026-09-18 | Added request tasks, comments, mentions, and collaboration migration |
 | 0.3 | 2026-09-18 | Shipped the first staff estimate-request review workspace, session auth, and versioned workflow schema |

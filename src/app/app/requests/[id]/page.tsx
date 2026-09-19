@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Flash } from "@/components/ops/flash";
+import { PageHeader } from "@/components/ops/page-header";
+import { StatusBadge } from "@/components/ops/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getOpsSession } from "@/lib/ops/auth";
 import { extractMentions } from "@/lib/ops/collaboration";
+import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
 import {
   draftCrmFromRequest,
   findCompanyMatches,
@@ -14,13 +18,21 @@ import {
   OPPORTUNITY_STAGES,
 } from "@/lib/ops/crm";
 import {
+  canConvertWonWork,
+  draftJobFromOpportunity,
+  formatJobNumber,
+  JOB_STATUS_LABELS,
+} from "@/lib/ops/jobs";
+import {
   getEstimateRequest,
+  getProject,
   getRequestCrmRecords,
   listCompanies,
   listContacts,
   listEstimateRequestComments,
   listEstimateRequestEvents,
   listEstimateRequestTasks,
+  listJobs,
   staffFileHref,
 } from "@/lib/ops/store";
 import {
@@ -87,6 +99,20 @@ export default async function EstimateRequestDetailPage({
       listCompanies(),
       listContacts(),
     ]);
+  const project = crm.opportunity?.projectId
+    ? await getProject(crm.opportunity.projectId)
+    : null;
+  const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
+  const canConvert =
+    Boolean(crm.opportunity) &&
+    !crm.opportunity?.projectId &&
+    canConvertWonWork({
+      workflowStatus: request.workflowStatus,
+      opportunityStage: crm.opportunity?.stage,
+    });
+  const jobDraft = crm.opportunity
+    ? draftJobFromOpportunity(crm.opportunity)
+    : null;
   const draft = draftCrmFromRequest(request);
   const companyMatches = findCompanyMatches(draft.companyName, allCompanies);
   const contactMatches = findContactMatches(
@@ -104,54 +130,33 @@ export default async function EstimateRequestDetailPage({
   );
 
   return (
-    <main className="page-rail py-8">
-      <Link
-        href="/app/requests"
-        className="text-sm font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
-      >
-        Back to requests
-      </Link>
-      <p className="section-kicker mt-6 mb-2">Estimate request</p>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            {company}
-          </h1>
-          <p className="mt-2 text-sm text-[color:var(--sf-ink)]/65">
-            {formatRequestNumber(request.id)} · submitted{" "}
-            {request.createdAt.toLocaleString("en-CA")}
-          </p>
-        </div>
-        <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold ring-1 ring-[color:var(--sf-ink)]/10">
-          {WORKFLOW_LABELS[request.workflowStatus as keyof typeof WORKFLOW_LABELS] ??
-            request.workflowStatus}
-        </p>
-      </div>
-
-      {query.saved ? (
-        <p
-          role="status"
-          className="mt-4 rounded-md bg-[color:var(--sf-cyan)]/10 px-3 py-2 text-sm text-[color:var(--sf-ink)]"
-        >
-          Review saved.
-        </p>
-      ) : null}
-      {query.error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md bg-[color:var(--sf-red)]/10 px-3 py-2 text-sm text-[color:var(--sf-red)]"
-        >
-          {query.error}
-        </p>
-      ) : null}
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[
+          { href: "/app/requests", label: "Requests" },
+          { label: formatRequestNumber(request.id) },
+        ]}
+        title={company}
+        description={`${formatRequestNumber(request.id)} · submitted ${request.createdAt.toLocaleString("en-CA")}`}
+        actions={
+          <StatusBadge
+            status={request.workflowStatus}
+            label={
+              WORKFLOW_LABELS[request.workflowStatus as keyof typeof WORKFLOW_LABELS] ??
+              request.workflowStatus
+            }
+          />
+        }
+      />
+      <Flash saved={query.saved} error={query.error} savedMessage="Review saved." />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(22rem,0.8fr)]">
         <section className="space-y-6">
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">Submission</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Submission</h2>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   Contact
                 </dt>
                 <dd className="mt-1">
@@ -159,21 +164,21 @@ export default async function EstimateRequestDetailPage({
                   <br />
                   <a
                     href={`mailto:${request.email}`}
-                    className="text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                    className="hover:underline"
                   >
                     {request.email}
                   </a>
                   <br />
                   <a
                     href={`tel:${request.phone}`}
-                    className="text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                    className="hover:underline"
                   >
                     {request.phone}
                   </a>
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   Project
                 </dt>
                 <dd className="mt-1 space-y-1">
@@ -189,7 +194,7 @@ export default async function EstimateRequestDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   Qualification
                 </dt>
                 <dd className="mt-1 space-y-1">
@@ -205,7 +210,7 @@ export default async function EstimateRequestDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   Role / timeline
                 </dt>
                 <dd className="mt-1 space-y-1">
@@ -215,25 +220,25 @@ export default async function EstimateRequestDetailPage({
               </div>
             </dl>
             {typeof answers.notes === "string" && answers.notes.trim() ? (
-              <p className="mt-4 whitespace-pre-wrap text-sm text-[color:var(--sf-ink)]/80">
+              <p className="mt-4 whitespace-pre-wrap text-sm text-foreground">
                 {answers.notes}
               </p>
             ) : null}
           </div>
 
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">CRM records</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">CRM records</h2>
             {crm.opportunity ? (
               <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     Company
                   </dt>
                   <dd className="mt-1">
                     {crm.company ? (
                       <Link
                         href={`/app/companies/${crm.company.id}`}
-                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                        className="font-medium hover:underline"
                       >
                         {crm.company.name}
                       </Link>
@@ -243,7 +248,7 @@ export default async function EstimateRequestDetailPage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     Contact
                   </dt>
                   <dd className="mt-1">
@@ -253,7 +258,7 @@ export default async function EstimateRequestDetailPage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     Site
                   </dt>
                   <dd className="mt-1">
@@ -263,14 +268,14 @@ export default async function EstimateRequestDetailPage({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-[0.14em] text-[color:var(--sf-ink)]/50">
+                  <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     Opportunity
                   </dt>
                   <dd className="mt-1">
                     {crm.opportunity ? (
                       <Link
                         href={`/app/opportunities/${crm.opportunity.id}`}
-                        className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                        className="font-medium hover:underline"
                       >
                         {crm.opportunity.name}
                       </Link>
@@ -278,7 +283,7 @@ export default async function EstimateRequestDetailPage({
                       "—"
                     )}
                     {crm.opportunity ? (
-                      <p className="text-xs text-[color:var(--sf-ink)]/55">
+                      <p className="text-xs text-muted-foreground">
                         {OPPORTUNITY_LABELS[
                           crm.opportunity.stage as keyof typeof OPPORTUNITY_LABELS
                         ] ?? crm.opportunity.stage}
@@ -290,12 +295,12 @@ export default async function EstimateRequestDetailPage({
             ) : (
               <form action={convertRequestToCrmRecords} className="mt-4 space-y-4">
                 <input type="hidden" name="id" value={request.id} />
-                <p className="text-sm text-[color:var(--sf-ink)]/70">
+                <p className="text-sm text-muted-foreground">
                   Create or link a company, contact, site, and opportunity from
                   this submission without retyping the captured details.
                 </p>
                 {companyMatches.length > 0 || contactMatches.length > 0 ? (
-                  <div className="rounded-md bg-[color:var(--sf-cyan)]/10 px-3 py-3 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-3 text-sm">
                     <p className="font-semibold">Likely duplicates</p>
                     {companyMatches.map((match) => (
                       <p key={match.id} className="mt-1">
@@ -308,7 +313,7 @@ export default async function EstimateRequestDetailPage({
                         {match.reason}.
                       </p>
                     ))}
-                    <p className="mt-2 text-[color:var(--sf-ink)]/65">
+                    <p className="mt-2 text-muted-foreground">
                       Link the existing records or confirm creating new ones.
                     </p>
                   </div>
@@ -320,7 +325,7 @@ export default async function EstimateRequestDetailPage({
                       id="companyName"
                       name="companyName"
                       defaultValue={draft.companyName}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -330,7 +335,7 @@ export default async function EstimateRequestDetailPage({
                       id="linkCompanyId"
                       name="linkCompanyId"
                       defaultValue={companyMatches[0]?.id ?? ""}
-                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                     >
                       <option value="">Create new company</option>
                       {allCompanies.map((company) => (
@@ -346,7 +351,7 @@ export default async function EstimateRequestDetailPage({
                       id="firstName"
                       name="firstName"
                       defaultValue={draft.firstName}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -356,7 +361,7 @@ export default async function EstimateRequestDetailPage({
                       id="lastName"
                       name="lastName"
                       defaultValue={draft.lastName}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -367,7 +372,7 @@ export default async function EstimateRequestDetailPage({
                       name="email"
                       type="email"
                       defaultValue={draft.email}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -377,7 +382,7 @@ export default async function EstimateRequestDetailPage({
                       id="phone"
                       name="phone"
                       defaultValue={draft.phone}
-                      className="h-11"
+                      className="h-8"
                     />
                   </div>
                   <div className="space-y-2">
@@ -386,7 +391,7 @@ export default async function EstimateRequestDetailPage({
                       id="role"
                       name="role"
                       defaultValue={draft.role ?? ""}
-                      className="h-11"
+                      className="h-8"
                     />
                   </div>
                   <div className="space-y-2">
@@ -395,7 +400,7 @@ export default async function EstimateRequestDetailPage({
                       id="linkContactId"
                       name="linkContactId"
                       defaultValue={contactMatches[0]?.id ?? ""}
-                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                     >
                       <option value="">Create new contact</option>
                       {allContacts.map((contact) => (
@@ -412,7 +417,7 @@ export default async function EstimateRequestDetailPage({
                       id="siteName"
                       name="siteName"
                       defaultValue={draft.siteName}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -422,7 +427,7 @@ export default async function EstimateRequestDetailPage({
                       id="city"
                       name="city"
                       defaultValue={draft.city}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -432,7 +437,7 @@ export default async function EstimateRequestDetailPage({
                       id="province"
                       name="province"
                       defaultValue={draft.province}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -442,7 +447,7 @@ export default async function EstimateRequestDetailPage({
                       id="opportunityName"
                       name="opportunityName"
                       defaultValue={draft.opportunityName}
-                      className="h-11"
+                      className="h-8"
                       required
                     />
                   </div>
@@ -452,7 +457,7 @@ export default async function EstimateRequestDetailPage({
                       id="stage"
                       name="stage"
                       defaultValue={draft.stage}
-                      className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                      className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                     >
                       {OPPORTUNITY_STAGES.map((stage) => (
                         <option key={stage} value={stage}>
@@ -467,7 +472,7 @@ export default async function EstimateRequestDetailPage({
                       id="owner"
                       name="owner"
                       defaultValue={draft.owner ?? ""}
-                      className="h-11"
+                      className="h-8"
                     />
                   </div>
                 </div>
@@ -477,17 +482,70 @@ export default async function EstimateRequestDetailPage({
                     Create new records even if matches exist
                   </label>
                 ) : null}
-                <Button type="submit" variant="outline" className="h-11">
+                <Button type="submit" variant="outline" className="h-8">
                   Create CRM records
                 </Button>
               </form>
             )}
           </div>
 
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">Files</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Project and jobs</h2>
+            {project && crm.opportunity ? (
+              <div className="mt-4 space-y-3">
+                <p>
+                  <Link
+                    href={`/app/projects/${project.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {project.name}
+                  </Link>
+                </p>
+                <ul className="space-y-2">
+                  {projectJobs.map((job) => (
+                    <li key={job.id}>
+                      <Link
+                        href={`/app/jobs/${job.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {formatJobNumber(job.id)} · {job.name}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {JOB_STATUS_LABELS[
+                          job.status as keyof typeof JOB_STATUS_LABELS
+                        ] ?? job.status}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : canConvert && crm.opportunity && jobDraft ? (
+              <ConvertWonWorkForm
+                opportunityId={crm.opportunity.id}
+                returnTo={`/app/requests/${request.id}`}
+                defaults={{
+                  projectName: jobDraft.projectName,
+                  jobName: jobDraft.jobName,
+                  scope: jobDraft.scope,
+                  projectManager: crm.opportunity.owner,
+                }}
+              />
+            ) : crm.opportunity ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Mark this request won to create a project and the first field
+                job.
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Create CRM records first, then convert won work into a project.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Files</h2>
             {files.length === 0 ? (
-              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+              <p className="mt-3 text-sm text-muted-foreground">
                 No drawings were uploaded with this request.
               </p>
             ) : (
@@ -500,7 +558,7 @@ export default async function EstimateRequestDetailPage({
                       {href ? (
                         <a
                           href={href}
-                          className="font-semibold text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"
+                          className="font-medium hover:underline"
                         >
                           {label}
                         </a>
@@ -514,10 +572,10 @@ export default async function EstimateRequestDetailPage({
             )}
           </div>
 
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">Tasks</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Tasks</h2>
             {tasks.length === 0 ? (
-              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+              <p className="mt-3 text-sm text-muted-foreground">
                 No tasks have been created yet.
               </p>
             ) : (
@@ -525,22 +583,22 @@ export default async function EstimateRequestDetailPage({
                 {tasks.map((task) => (
                   <li
                     key={task.id}
-                    className="flex flex-wrap items-start justify-between gap-3 border-b border-[color:var(--sf-ink)]/8 pb-3 last:border-b-0 last:pb-0"
+                    className="flex flex-wrap items-start justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
                   >
                     <div>
                       <p className="font-medium">
                         {task.status === "done" ? (
-                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-[color:var(--sf-ink)]/45">
+                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                             Done
                           </span>
                         ) : (
-                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-[color:var(--sf-cyan)]">
+                          <span className="mr-2 text-xs uppercase tracking-[0.12em] text-primary">
                             Open
                           </span>
                         )}{" "}
                         {task.title}
                       </p>
-                      <p className="text-xs text-[color:var(--sf-ink)]/55">
+                      <p className="text-xs text-muted-foreground">
                         {task.assignee ?? "Unassigned"}
                         {task.dueAt
                           ? ` · due ${task.dueAt.toLocaleString("en-CA")}`
@@ -557,7 +615,7 @@ export default async function EstimateRequestDetailPage({
                       />
                       <button
                         type="submit"
-                        className="h-8 rounded-md border border-[color:var(--sf-ink)]/15 px-3 text-sm font-medium hover:bg-[color:var(--sf-mist,#e9edef)]"
+                        className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
                       >
                         {task.status === "done" ? "Reopen" : "Complete"}
                       </button>
@@ -570,12 +628,12 @@ export default async function EstimateRequestDetailPage({
               <input type="hidden" name="id" value={request.id} />
               <div className="space-y-2">
                 <Label htmlFor="taskTitle">New task</Label>
-                <Input id="taskTitle" name="title" className="h-11" required />
+                <Input id="taskTitle" name="title" className="h-8" required />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="taskAssignee">Assignee</Label>
-                  <Input id="taskAssignee" name="assignee" className="h-11" />
+                  <Input id="taskAssignee" name="assignee" className="h-8" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taskDueAt">Due</Label>
@@ -583,28 +641,28 @@ export default async function EstimateRequestDetailPage({
                     id="taskDueAt"
                     name="dueAt"
                     type="datetime-local"
-                    className="h-11"
+                    className="h-8"
                   />
                 </div>
               </div>
-              <Button type="submit" variant="outline" className="h-11">
+              <Button type="submit" variant="outline" className="h-8">
                 Add task
               </Button>
             </form>
           </div>
 
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">Comments</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Comments</h2>
             {comments.length === 0 ? (
-              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+              <p className="mt-3 text-sm text-muted-foreground">
                 No comments yet. Use @name to mention a teammate.
               </p>
             ) : (
               <ol className="mt-4 space-y-4">
                 {comments.map((comment) => (
-                  <li key={comment.id} className="border-l-2 border-[color:var(--sf-ink)]/20 pl-3">
+                  <li key={comment.id} className="border-l-2 border-border pl-3">
                     <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
-                    <p className="text-xs text-[color:var(--sf-ink)]/55">
+                    <p className="text-xs text-muted-foreground">
                       {comment.actor} · {comment.createdAt.toLocaleString("en-CA")}
                       {extractMentions(comment.body).length > 0
                         ? ` · mentioned ${extractMentions(comment.body).join(", ")}`
@@ -620,24 +678,24 @@ export default async function EstimateRequestDetailPage({
                 <Label htmlFor="commentBody">Add a comment</Label>
                 <Textarea id="commentBody" name="body" rows={3} required />
               </div>
-              <Button type="submit" variant="outline" className="h-11">
+              <Button type="submit" variant="outline" className="h-8">
                 Post comment
               </Button>
             </form>
           </div>
 
-          <div className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-            <h2 className="font-heading text-lg font-semibold">Activity</h2>
+          <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">Activity</h2>
             {events.length === 0 ? (
-              <p className="mt-3 text-sm text-[color:var(--sf-ink)]/60">
+              <p className="mt-3 text-sm text-muted-foreground">
                 No review activity has been recorded yet.
               </p>
             ) : (
               <ol className="mt-4 space-y-4">
                 {events.map((event) => (
-                  <li key={event.id} className="border-l-2 border-[color:var(--sf-cyan)] pl-3">
+                  <li key={event.id} className="border-l-2 border-primary/30 pl-3">
                     <p className="text-sm font-medium">{event.summary}</p>
-                    <p className="text-xs text-[color:var(--sf-ink)]/55">
+                    <p className="text-xs text-muted-foreground">
                       {event.actor} · {event.createdAt.toLocaleString("en-CA")}
                     </p>
                   </li>
@@ -647,8 +705,8 @@ export default async function EstimateRequestDetailPage({
           </div>
         </section>
 
-        <aside className="rounded-[0.35rem] border border-[color:var(--sf-ink)]/10 bg-white p-5">
-          <h2 className="font-heading text-lg font-semibold">Review</h2>
+        <aside className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="text-base font-semibold">Review</h2>
           <form action={saveEstimateRequestReview} className="mt-4 space-y-4">
             <input type="hidden" name="id" value={request.id} />
             <div className="space-y-2">
@@ -657,7 +715,7 @@ export default async function EstimateRequestDetailPage({
                 id="workflowStatus"
                 name="workflowStatus"
                 defaultValue={request.workflowStatus}
-                className="h-11 w-full rounded-lg border border-input bg-white px-2.5 text-sm"
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
               >
                 {WORKFLOW_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -672,7 +730,7 @@ export default async function EstimateRequestDetailPage({
                 id="assignedTo"
                 name="assignedTo"
                 defaultValue={request.assignedTo ?? ""}
-                className="h-11"
+                className="h-8"
               />
             </div>
             <div className="space-y-2">
@@ -681,7 +739,7 @@ export default async function EstimateRequestDetailPage({
                 id="nextAction"
                 name="nextAction"
                 defaultValue={request.nextAction ?? ""}
-                className="h-11"
+                className="h-8"
               />
             </div>
             <div className="space-y-2">
@@ -691,7 +749,7 @@ export default async function EstimateRequestDetailPage({
                 name="nextActionDueAt"
                 type="datetime-local"
                 defaultValue={datetimeLocalValue(request.nextActionDueAt)}
-                className="h-11"
+                className="h-8"
               />
             </div>
             <div className="space-y-2">
@@ -700,19 +758,19 @@ export default async function EstimateRequestDetailPage({
                 id="lostReason"
                 name="lostReason"
                 defaultValue={request.lostReason ?? ""}
-                className="h-11"
+                className="h-8"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="note">Internal note</Label>
               <Textarea id="note" name="note" rows={4} />
             </div>
-            <Button type="submit" className="h-11 w-full">
+            <Button type="submit" className="w-full">
               Save review
             </Button>
           </form>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }

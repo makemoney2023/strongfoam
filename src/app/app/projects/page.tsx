@@ -12,30 +12,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getOpsSession } from "@/lib/ops/auth";
-import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
-import { listCompanies, listOpportunities } from "@/lib/ops/store";
-import { formatServices } from "@/lib/ops/workflow";
+import { listCompanies, listJobs, listProjects } from "@/lib/ops/store";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpportunitiesPage() {
+export default async function ProjectsPage() {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
-  const [opportunities, companies] = await Promise.all([
-    listOpportunities(),
+  const [projects, companies, jobs] = await Promise.all([
+    listProjects(),
     listCompanies(),
+    listJobs(),
   ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Opportunities"
-        description="Opportunities created from estimate requests keep the source survey and the company record connected."
+        title="Projects"
+        description="One project is created from each won opportunity. Add more jobs from the project when the site needs extra crews or phases."
         actions={
           <p className="text-sm text-muted-foreground">
-            {opportunities.length} opportunit{opportunities.length === 1 ? "y" : "ies"}
+            {projects.length} project{projects.length === 1 ? "" : "s"}
           </p>
         }
       />
@@ -44,31 +43,29 @@ export default async function OpportunitiesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Opportunity</TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Company</TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>Services</TableHead>
-              <TableHead>Owner</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Jobs</TableHead>
+              <TableHead>Manager</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {opportunities.length === 0 ? (
+            {projects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No opportunities yet. Convert a request to create the first one.
+                  No projects yet. Mark an opportunity won and convert it.
                 </TableCell>
               </TableRow>
             ) : (
-              opportunities.map((opportunity) => {
-                const company = companies.find((item) => item.id === opportunity.companyId);
+              projects.map((project) => {
+                const company = companies.find((item) => item.id === project.companyId);
+                const jobCount = jobs.filter((job) => job.projectId === project.id).length;
                 return (
-                  <TableRow key={opportunity.id}>
+                  <TableRow key={project.id}>
                     <TableCell>
-                      <Link
-                        href={`/app/opportunities/${opportunity.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {opportunity.name}
+                      <Link href={`/app/projects/${project.id}`} className="font-medium hover:underline">
+                        {project.name}
                       </Link>
                     </TableCell>
                     <TableCell>
@@ -81,16 +78,10 @@ export default async function OpportunitiesPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge
-                        status={opportunity.stage}
-                        label={
-                          OPPORTUNITY_LABELS[opportunity.stage as keyof typeof OPPORTUNITY_LABELS] ??
-                          opportunity.stage
-                        }
-                      />
+                      <StatusBadge status={project.status} label={project.status} />
                     </TableCell>
-                    <TableCell>{formatServices(opportunity.services)}</TableCell>
-                    <TableCell>{opportunity.owner ?? "Unassigned"}</TableCell>
+                    <TableCell>{jobCount}</TableCell>
+                    <TableCell>{project.projectManager ?? "Unassigned"}</TableCell>
                   </TableRow>
                 );
               })

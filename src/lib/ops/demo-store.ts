@@ -5,7 +5,10 @@ import {
   demoEstimateEvents,
   demoEstimateRequests,
   demoEstimateTasks,
+  demoJobEvents,
+  demoJobs,
   demoOpportunities,
+  demoProjects,
   demoSites,
   type CompanyRow,
   type ContactRow,
@@ -13,10 +16,18 @@ import {
   type EstimateRequestEvent,
   type EstimateRequestRow,
   type EstimateRequestTask,
+  type JobEventRow,
+  type JobRow,
   type OpportunityRow,
+  type ProjectRow,
   type SiteRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
+import {
+  canConvertWonWork,
+  type JobConversionInput,
+  type JobStatus,
+} from "@/lib/ops/jobs";
 import type {
   EstimateRequestFilters,
   EstimateRequestUpdate,
@@ -31,6 +42,9 @@ const companies = demoCompanies();
 const contacts = demoContacts();
 const sites = demoSites();
 const opportunities = demoOpportunities();
+const projects = demoProjects();
+const jobsList = demoJobs();
+const jobEvents = demoJobEvents();
 
 export function useDemoOpsStore(
   env: Record<string, string | undefined> = process.env,
@@ -128,6 +142,13 @@ export function updateDemoEstimateRequest(args: {
       note: args.update.note ?? null,
     },
   });
+  if (existing.opportunityId && existing.workflowStatus === "won") {
+    const opportunity = getDemoOpportunity(existing.opportunityId);
+    if (opportunity) {
+      opportunity.stage = "won";
+      opportunity.updatedAt = now;
+    }
+  }
   return existing;
 }
 
@@ -395,6 +416,7 @@ export function convertDemoRequestToCrm(args: {
     source: args.input.source,
     services: args.input.services,
     projectType: args.input.projectType,
+    projectId: null,
   };
   opportunities.unshift(opportunity);
 
@@ -428,4 +450,206 @@ export function convertDemoRequestToCrm(args: {
     opportunityId: opportunity.id,
     created,
   };
+}
+
+export function listDemoProjects(companyId?: string): ProjectRow[] {
+  return projects
+    .filter((project) => !companyId || project.companyId === companyId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function getDemoProject(id: string): ProjectRow | null {
+  return projects.find((project) => project.id === id) ?? null;
+}
+
+export function listDemoJobs(filters: {
+  projectId?: string;
+  companyId?: string;
+  status?: string;
+} = {}): JobRow[] {
+  return jobsList
+    .filter((job) => {
+      if (filters.projectId && job.projectId !== filters.projectId) return false;
+      if (filters.companyId && job.companyId !== filters.companyId) return false;
+      if (filters.status && job.status !== filters.status) return false;
+      return true;
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function getDemoJob(id: string): JobRow | null {
+  return jobsList.find((job) => job.id === id) ?? null;
+}
+
+export function listDemoJobEvents(jobId: string): JobEventRow[] {
+  return jobEvents
+    .filter((event) => event.jobId === jobId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+function recordJobEvent(args: {
+  jobId: string;
+  actor: string;
+  kind: string;
+  summary: string;
+  payload: Record<string, unknown>;
+}) {
+  jobEvents.unshift({
+    id: crypto.randomUUID(),
+    jobId: args.jobId,
+    createdAt: new Date(),
+    actor: args.actor,
+    kind: args.kind,
+    summary: args.summary,
+    payload: args.payload,
+  });
+}
+
+export function convertDemoOpportunityToProject(args: {
+  opportunityId: string;
+  actor: string;
+  input: JobConversionInput;
+}):
+  | { ok: true; projectId: string; jobId: string }
+  | { ok: false; error: string } {
+  const opportunity = getDemoOpportunity(args.opportunityId);
+  if (!opportunity) {
+    return { ok: false, error: "That opportunity could not be found." };
+  }
+  if (opportunity.projectId) {
+    return { ok: false, error: "This opportunity already has a project." };
+  }
+
+  const request = opportunity.sourceLeadId
+    ? getDemoEstimateRequest(opportunity.sourceLeadId)
+    : null;
+  if (
+    !canConvertWonWork({
+      workflowStatus: request?.workflowStatus,
+      opportunityStage: opportunity.stage,
+    })
+  ) {
+    return {
+      ok: false,
+      error: "Mark this work won before creating a project and job.",
+    };
+  }
+
+  const now = new Date();
+  const project: ProjectRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    companyId: opportunity.companyId,
+    siteId: opportunity.siteId,
+    opportunityId: opportunity.id,
+    sourceLeadId: opportunity.sourceLeadId,
+    name: args.input.projectName,
+    status: "active",
+    projectManager: args.input.projectManager,
+  };
+  projects.unshift(project);
+  opportunity.projectId = project.id;
+  opportunity.stage = "won";
+  opportunity.updatedAt = now;
+
+  const job: JobRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    projectId: project.id,
+    companyId: opportunity.companyId,
+    siteId: opportunity.siteId,
+    opportunityId: opportunity.id,
+    name: args.input.jobName,
+    status: "draft",
+    scope: args.input.scope || null,
+    services: opportunity.services,
+    projectManager: args.input.projectManager,
+    foreman: args.input.foreman,
+    plannedStartAt: args.input.plannedStartAt,
+    plannedEndAt: args.input.plannedEndAt,
+    blockerNote: null,
+  };
+  jobsList.unshift(job);
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_created",
+    summary: `job created from won work: ${job.name}`,
+    payload: { projectId: project.id, opportunityId: opportunity.id },
+  });
+
+  if (request) {
+    request.workflowStatus = "won";
+    request.updatedAt = now;
+    recordEvent({
+      leadId: request.id,
+      actor: args.actor,
+      kind: "project_created",
+      summary: `project created: ${project.name}`,
+      payload: { projectId: project.id, jobId: job.id },
+    });
+  }
+
+  return { ok: true, projectId: project.id, jobId: job.id };
+}
+
+export function addDemoJobToProject(args: {
+  projectId: string;
+  actor: string;
+  input: JobConversionInput;
+}): { ok: true; jobId: string } | { ok: false; error: string } {
+  const project = getDemoProject(args.projectId);
+  if (!project) return { ok: false, error: "That project could not be found." };
+  const now = new Date();
+  const job: JobRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    projectId: project.id,
+    companyId: project.companyId,
+    siteId: project.siteId,
+    opportunityId: project.opportunityId,
+    name: args.input.jobName,
+    status: "draft",
+    scope: args.input.scope || null,
+    services: [],
+    projectManager: args.input.projectManager ?? project.projectManager,
+    foreman: args.input.foreman,
+    plannedStartAt: args.input.plannedStartAt,
+    plannedEndAt: args.input.plannedEndAt,
+    blockerNote: null,
+  };
+  jobsList.unshift(job);
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_created",
+    summary: `job added to project: ${job.name}`,
+    payload: { projectId: project.id },
+  });
+  return { ok: true, jobId: job.id };
+}
+
+export function setDemoJobStatus(args: {
+  jobId: string;
+  actor: string;
+  status: JobStatus;
+  blockerNote: string | null;
+}): JobRow | null {
+  const job = getDemoJob(args.jobId);
+  if (!job) return null;
+  const before = job.status;
+  job.status = args.status;
+  job.blockerNote = args.blockerNote;
+  job.updatedAt = new Date();
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_status",
+    summary: `status ${before} → ${args.status}`,
+    payload: { before, after: args.status, blockerNote: args.blockerNote },
+  });
+  return job;
 }

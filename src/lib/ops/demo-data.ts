@@ -4,8 +4,11 @@ import {
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
+  jobEvents,
+  jobs,
   leads,
   opportunities,
+  projects,
   sites,
 } from "@/db/schema";
 
@@ -17,6 +20,9 @@ export type CompanyRow = typeof companies.$inferSelect;
 export type ContactRow = typeof contacts.$inferSelect;
 export type SiteRow = typeof sites.$inferSelect;
 export type OpportunityRow = typeof opportunities.$inferSelect;
+export type ProjectRow = typeof projects.$inferSelect;
+export type JobRow = typeof jobs.$inferSelect;
+export type JobEventRow = typeof jobEvents.$inferSelect;
 
 const now = Date.now();
 
@@ -149,6 +155,18 @@ export function demoSites(): SiteRow[] {
 }
 
 export function demoOpportunities(): OpportunityRow[] {
+  return [];
+}
+
+export function demoProjects(): ProjectRow[] {
+  return [];
+}
+
+export function demoJobs(): JobRow[] {
+  return [];
+}
+
+export function demoJobEvents(): JobEventRow[] {
   return [];
 }
 
