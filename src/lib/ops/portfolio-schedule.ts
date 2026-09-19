@@ -54,6 +54,37 @@ export type PortfolioScheduleData = {
   };
 };
 
+export type PortfolioScheduleEvent = {
+  id: string;
+  projectId: string;
+  projectName: string;
+  entityType: "project" | "job" | "task";
+  label: string;
+  kind: "start" | "finish" | "due";
+  date: string;
+  href: string;
+};
+
+/**
+ * A stable summary field marker. `upcomingEvents` marks the event list as
+ * partial even though it is not a numeric count.
+ */
+export type PortfolioSchedulePartialCount =
+  | "overdueTasks"
+  | "unscheduledActiveWork"
+  | "projectsBehindBaseline"
+  | "peopleWithPotentialOverlap"
+  | "upcomingEvents";
+
+export type PortfolioScheduleSummary = {
+  overdueTasks: number;
+  unscheduledActiveWork: number;
+  projectsBehindBaseline: number;
+  peopleWithPotentialOverlap: number;
+  upcomingEvents: PortfolioScheduleEvent[];
+  partialCounts: PortfolioSchedulePartialCount[];
+};
+
 export type PortfolioProjectRange = {
   start: string | null;
   finish: string | null;
@@ -821,6 +852,181 @@ export function buildPortfolioProjects(
           : null,
     };
   });
+}
+
+function isCompletePortfolioJob(job: ProjectScheduleJob): boolean {
+  return job.status === "complete" || job.status === "closed";
+}
+
+function comparePortfolioScheduleEvents(
+  left: PortfolioScheduleEvent,
+  right: PortfolioScheduleEvent,
+): number {
+  return (
+    compareLexical(left.date, right.date) ||
+    compareLexical(left.projectName, right.projectName) ||
+    compareLexical(left.label, right.label) ||
+    compareLexical(left.kind, right.kind) ||
+    compareLexical(left.id, right.id)
+  );
+}
+
+export function buildPortfolioScheduleSummary(
+  data: PortfolioScheduleData,
+  now = new Date(),
+): PortfolioScheduleSummary {
+  const projectedProjects = buildPortfolioProjects(data.projects, now);
+  let overdueTasks = 0;
+  let unscheduledActiveWork = 0;
+  const events: PortfolioScheduleEvent[] = [];
+
+  for (const project of projectedProjects) {
+    const today = nowCalendarDate(now, project.calendar);
+    const eventWindowEnd = today
+      ? dateFromOrdinal(dateOrdinal(today) + 14)
+      : null;
+    const addEvent = (
+      entityType: PortfolioScheduleEvent["entityType"],
+      entityId: string,
+      label: string,
+      kind: PortfolioScheduleEvent["kind"],
+      value: string | null,
+      href: string,
+    ) => {
+      if (!today || !eventWindowEnd || !value) return;
+      const date = portfolioCalendarDate(value, project.calendar);
+      if (!date || date < today || date > eventWindowEnd) return;
+      events.push({
+        id: `${project.id}:${entityType}:${entityId}:${kind}`,
+        projectId: project.id,
+        projectName: project.name,
+        entityType,
+        label,
+        kind,
+        date,
+        href,
+      });
+    };
+
+    addEvent(
+      "project",
+      project.id,
+      project.name,
+      "start",
+      project.range.start,
+      `/app/projects/${project.id}`,
+    );
+    addEvent(
+      "project",
+      project.id,
+      project.name,
+      "finish",
+      project.range.finish,
+      `/app/projects/${project.id}`,
+    );
+
+    for (const job of project.jobs) {
+      const jobComplete = isCompletePortfolioJob(job);
+      const jobDates = normalizePortfolioScheduleDates(job);
+      if (
+        !jobComplete &&
+        !jobDates.plannedStartAt &&
+        !jobDates.plannedEndAt
+      ) {
+        unscheduledActiveWork += 1;
+      }
+      if (!jobComplete) {
+        addEvent(
+          "job",
+          job.id,
+          `${job.number} · ${job.name}`,
+          "start",
+          jobDates.plannedStartAt,
+          `/app/jobs/${job.id}`,
+        );
+      }
+
+      for (const task of job.tasks) {
+        if (task.status === "done") continue;
+        const taskDates = normalizePortfolioScheduleDates(task);
+        if (
+          !taskDates.plannedStartAt &&
+          !taskDates.plannedEndAt &&
+          !taskDates.dueAt
+        ) {
+          unscheduledActiveWork += 1;
+        }
+        if (today) {
+          const completionDate = taskDates.plannedEndAt
+            ? portfolioCalendarDate(
+                taskDates.plannedEndAt,
+                project.calendar,
+              )
+            : null;
+          const dueDate = taskDates.dueAt
+            ? portfolioCalendarDate(taskDates.dueAt, project.calendar)
+            : null;
+          if (
+            (completionDate !== null && completionDate < today) ||
+            (dueDate !== null && dueDate < today)
+          ) {
+            overdueTasks += 1;
+          }
+        }
+        addEvent(
+          "task",
+          task.id,
+          task.title,
+          "due",
+          taskDates.dueAt,
+          `/app/jobs/${job.id}#task-${task.id}`,
+        );
+      }
+    }
+  }
+
+  const projectsBehindBaseline = projectedProjects.filter(
+    (project) => (project.baselineFinishVarianceDays ?? 0) > 0,
+  ).length;
+  const peopleWithPotentialOverlap = buildPortfolioResourceLanes(
+    buildPortfolioScheduleAssignments(projectedProjects),
+  ).filter((lane) => lane.potentialOverlapCount > 0).length;
+  const partialCounts: PortfolioSchedulePartialCount[] = [];
+  const { truncation } = data;
+
+  if (truncation.tasks || truncation.calendarExceptions) {
+    partialCounts.push("overdueTasks");
+  }
+  if (truncation.jobs || truncation.tasks) {
+    partialCounts.push("unscheduledActiveWork");
+  }
+  if (
+    truncation.jobs ||
+    truncation.tasks ||
+    truncation.baselineItems ||
+    truncation.calendarExceptions
+  ) {
+    partialCounts.push("projectsBehindBaseline");
+  }
+  if (
+    truncation.jobs ||
+    truncation.tasks ||
+    truncation.calendarExceptions
+  ) {
+    partialCounts.push("peopleWithPotentialOverlap");
+  }
+  if (truncation.projects || truncation.jobs || truncation.tasks) {
+    partialCounts.push("upcomingEvents");
+  }
+
+  return {
+    overdueTasks,
+    unscheduledActiveWork,
+    projectsBehindBaseline,
+    peopleWithPotentialOverlap,
+    upcomingEvents: events.sort(comparePortfolioScheduleEvents).slice(0, 5),
+    partialCounts,
+  };
 }
 
 function freezeAssignmentCalendar(

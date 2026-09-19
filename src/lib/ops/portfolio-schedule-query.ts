@@ -146,3 +146,35 @@ export function portfolioScheduleHref(
   const query = params.toString();
   return query ? `${SCHEDULE_PATH}?${query}` : SCHEDULE_PATH;
 }
+
+export const PORTFOLIO_SCHEDULE_WIDGETS = {
+  overdueTasks: {
+    label: "Overdue tasks",
+    href: portfolioScheduleHref({
+      projectStatus: "active",
+      state: "overdue",
+    }),
+  },
+  unscheduledActiveWork: {
+    label: "Unscheduled active work",
+    href: portfolioScheduleHref({
+      projectStatus: "active",
+      state: "unscheduled",
+    }),
+  },
+  projectsBehindBaseline: {
+    label: "Projects behind baseline",
+    href: portfolioScheduleHref({
+      projectStatus: "active",
+      attention: "behind-baseline",
+    }),
+  },
+  peopleWithPotentialOverlap: {
+    label: "Potential resource overlaps",
+    href: portfolioScheduleHref({
+      projectStatus: "active",
+      attention: "resource-overlap",
+      view: "resources",
+    }),
+  },
+} as const;

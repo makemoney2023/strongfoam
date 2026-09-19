@@ -3,11 +3,15 @@ import {
   ArrowRightIcon,
   BriefcaseBusinessIcon,
   Building2Icon,
+  CalendarClockIcon,
+  CalendarXIcon,
+  ChartNoAxesCombinedIcon,
   ClipboardListIcon,
   FolderKanbanIcon,
   HammerIcon,
   HardHatIcon,
   InboxIcon,
+  UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -24,10 +28,20 @@ import {
 import { getOpsSession } from "@/lib/ops/auth";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
 import {
+  buildPortfolioScheduleSummary,
+  serializePortfolioSchedule,
+  type PortfolioScheduleEvent,
+} from "@/lib/ops/portfolio-schedule";
+import {
+  PORTFOLIO_SCHEDULE_WIDGETS,
+  portfolioScheduleHref,
+} from "@/lib/ops/portfolio-schedule-query";
+import {
   listCompanies,
   listEstimateRequests,
   listJobs,
   listOpportunities,
+  listPortfolioSchedule,
   listProjects,
 } from "@/lib/ops/store";
 import {
@@ -89,19 +103,54 @@ function StatCard({
   );
 }
 
+const SCHEDULE_EVENT_KIND_LABELS: Record<
+  PortfolioScheduleEvent["kind"],
+  string
+> = {
+  start: "Starts",
+  finish: "Finishes",
+  due: "Due",
+};
+
+function formatScheduleEventDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-CA", {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year!, month! - 1, day!)));
+}
+
 export default async function OpsHomePage() {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
 
-  const [requests, opportunities, projects, jobs, companies] = await Promise.all([
+  const now = new Date();
+  const [
+    requests,
+    opportunities,
+    projects,
+    jobs,
+    companies,
+    portfolioScheduleResult,
+  ] = await Promise.all([
     listEstimateRequests(),
     listOpportunities(),
     listProjects(),
     listJobs(),
     listCompanies(),
+    listPortfolioSchedule({ projectStatus: "active" }),
   ]);
 
-  const summary = buildHomeSummary({ requests, opportunities, projects, jobs });
+  const summary = buildHomeSummary(
+    { requests, opportunities, projects, jobs },
+    now.getTime(),
+  );
+  const portfolioSummary = buildPortfolioScheduleSummary(
+    serializePortfolioSchedule(portfolioScheduleResult),
+    now,
+  );
+  const partialScheduleCounts = new Set(portfolioSummary.partialCounts);
+  const partialHint = "Partial result — portfolio limit reached";
   const projectOptions = projects
     .filter((project) => project.status !== "closed")
     .map((project) => ({
@@ -174,6 +223,129 @@ export default async function OpsHomePage() {
           hint="Scheduled, in progress, or ready for inspection"
         />
       </section>
+
+      <section aria-labelledby="schedule-attention-heading" className="space-y-3">
+        <div>
+          <h2 id="schedule-attention-heading" className="text-lg font-semibold">
+            Schedule attention
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Portfolio-level schedule risks across active projects.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            href={PORTFOLIO_SCHEDULE_WIDGETS.overdueTasks.href}
+            icon={<CalendarClockIcon aria-hidden="true" />}
+            label={PORTFOLIO_SCHEDULE_WIDGETS.overdueTasks.label}
+            value={portfolioSummary.overdueTasks}
+            hint={
+              partialScheduleCounts.has("overdueTasks")
+                ? partialHint
+                : "Open tasks past planned completion or due date"
+            }
+            tone="alert"
+          />
+          <StatCard
+            href={PORTFOLIO_SCHEDULE_WIDGETS.unscheduledActiveWork.href}
+            icon={<CalendarXIcon aria-hidden="true" />}
+            label={PORTFOLIO_SCHEDULE_WIDGETS.unscheduledActiveWork.label}
+            value={portfolioSummary.unscheduledActiveWork}
+            hint={
+              partialScheduleCounts.has("unscheduledActiveWork")
+                ? partialHint
+                : "Active jobs and tasks without usable schedule dates"
+            }
+            tone="alert"
+          />
+          <StatCard
+            href={PORTFOLIO_SCHEDULE_WIDGETS.projectsBehindBaseline.href}
+            icon={<ChartNoAxesCombinedIcon aria-hidden="true" />}
+            label={PORTFOLIO_SCHEDULE_WIDGETS.projectsBehindBaseline.label}
+            value={portfolioSummary.projectsBehindBaseline}
+            hint={
+              partialScheduleCounts.has("projectsBehindBaseline")
+                ? partialHint
+                : "Projected finishes later than the latest baseline"
+            }
+            tone="alert"
+          />
+          <StatCard
+            href={PORTFOLIO_SCHEDULE_WIDGETS.peopleWithPotentialOverlap.href}
+            icon={<UsersIcon aria-hidden="true" />}
+            label={PORTFOLIO_SCHEDULE_WIDGETS.peopleWithPotentialOverlap.label}
+            value={portfolioSummary.peopleWithPotentialOverlap}
+            hint={
+              partialScheduleCounts.has("peopleWithPotentialOverlap")
+                ? partialHint
+                : "People assigned to overlapping scheduled work"
+            }
+            tone="alert"
+          />
+        </div>
+      </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming schedule events</CardTitle>
+          <CardDescription>
+            Starts, finishes, and due dates in the next 14 days.
+          </CardDescription>
+          {partialScheduleCounts.has("upcomingEvents") ? (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              {partialHint}
+            </p>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          {portfolioSummary.upcomingEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No scheduled starts, finishes, or due dates in the next 14 days.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {portfolioSummary.upcomingEvents.map((event) => (
+                <li
+                  key={event.id}
+                  className="grid gap-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[8rem_5rem_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-3"
+                >
+                  <time
+                    dateTime={event.date}
+                    className="text-sm font-medium tabular-nums"
+                  >
+                    {formatScheduleEventDate(event.date)}
+                  </time>
+                  <span className="text-sm text-muted-foreground">
+                    {SCHEDULE_EVENT_KIND_LABELS[event.kind]}
+                  </span>
+                  <span className="truncate text-sm text-muted-foreground">
+                    {event.projectName}
+                  </span>
+                  <Link
+                    href={event.href}
+                    className="inline-flex min-h-11 min-w-11 items-center font-medium hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {event.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button
+            variant="ghost"
+            className="mt-4 min-h-11 md:min-h-8"
+            nativeButton={false}
+            render={
+              <Link
+                href={portfolioScheduleHref({ projectStatus: "active" })}
+              />
+            }
+          >
+            Open Portfolio Schedule
+            <ArrowRightIcon aria-hidden="true" />
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
         <Card>
