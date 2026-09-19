@@ -150,6 +150,23 @@ describe("portfolio schedule", () => {
     ).toBe("unscheduled");
   });
 
+  it("rejects impossible calendar dates throughout range and state", () => {
+    const impossible = project({
+      jobs: [
+        job({
+          plannedStartAt: "2026-02-30",
+          tasks: [task({ dueAt: "2026-02-30T12:00:00.000Z" })],
+        }),
+      ],
+    });
+
+    expect(getPortfolioProjectRange(impossible)).toEqual({
+      start: null,
+      finish: null,
+    });
+    expect(getPortfolioProjectState(impossible, now)).toBe("unscheduled");
+  });
+
   it("calculates latest-baseline finish variance in project working days", () => {
     const [result] = buildPortfolioProjects(
       [
@@ -182,6 +199,35 @@ describe("portfolio schedule", () => {
     );
 
     expect(result?.baselineFinishVarianceDays).toBe(2);
+  });
+
+  it("does not calculate variance from an impossible baseline date", () => {
+    const [result] = buildPortfolioProjects(
+      [
+        project({
+          jobs: [job({ plannedEndAt: "2026-09-22" })],
+          latestBaseline: {
+            id: "baseline-1",
+            name: "Approved",
+            capturedAt: "2026-09-01",
+            items: [
+              {
+                id: "baseline-item-1",
+                baselineId: "baseline-1",
+                entityType: "job",
+                entityId: "job-1",
+                plannedStartAt: null,
+                plannedEndAt: "2026-02-30",
+                dueAt: null,
+              },
+            ],
+          },
+        }),
+      ],
+      now,
+    );
+
+    expect(result?.baselineFinishVarianceDays).toBeNull();
   });
 
   it("counts critical tasks independently inside each project", () => {
@@ -224,6 +270,86 @@ describe("portfolio schedule", () => {
     );
 
     expect(results.map((item) => item.warningCounts.critical)).toEqual([2, 2]);
+  });
+
+  it("ignores foreign dependency edges even when task IDs coincide", () => {
+    const [result] = buildPortfolioProjects(
+      [
+        project({
+          id: "project-a",
+          jobs: [
+            job({
+              tasks: [
+                task({
+                  id: "a",
+                  plannedStartAt: "2026-09-14",
+                  plannedEndAt: "2026-09-14",
+                }),
+                task({
+                  id: "b",
+                  plannedStartAt: "2026-09-14",
+                  plannedEndAt: "2026-09-16",
+                }),
+              ],
+            }),
+          ],
+          dependencies: [
+            {
+              id: "foreign-dependency",
+              projectId: "project-b",
+              predecessorTaskId: "a",
+              successorTaskId: "b",
+              lagDays: 0,
+            },
+          ],
+        }),
+      ],
+      now,
+    );
+
+    expect(result?.warningCounts.critical).toBe(1);
+  });
+
+  it("excludes malformed scheduled tasks from critical-path inputs", () => {
+    const [result] = buildPortfolioProjects(
+      [
+        project({
+          jobs: [
+            job({
+              tasks: [
+                task({
+                  id: "a",
+                  plannedStartAt: "2026-09-14",
+                  plannedEndAt: "2026-09-14",
+                }),
+                task({
+                  id: "b",
+                  plannedStartAt: "2026-09-15",
+                  plannedEndAt: "2026-09-15",
+                }),
+                task({
+                  id: "malformed",
+                  plannedStartAt: "2026-02-30",
+                  plannedEndAt: "2026-03-10",
+                }),
+              ],
+            }),
+          ],
+          dependencies: [
+            {
+              id: "valid-dependency",
+              projectId: "project-1",
+              predecessorTaskId: "a",
+              successorTaskId: "b",
+              lagDays: 0,
+            },
+          ],
+        }),
+      ],
+      now,
+    );
+
+    expect(result?.warningCounts.critical).toBe(2);
   });
 
   it("preserves project and job parents when only an overdue task matches", () => {
@@ -289,6 +415,80 @@ describe("portfolio schedule", () => {
         now,
       ).map((item) => item.id),
     ).toEqual(["intersects"]);
+  });
+
+  it("uses the project calendar date when filtering timezone boundaries", () => {
+    const projected = buildPortfolioProjects(
+      [
+        project({
+          id: "previous-local-day",
+          jobs: [
+            job({
+              plannedStartAt: "2026-09-20T02:00:00.000Z",
+            }),
+          ],
+        }),
+        project({
+          id: "matching-local-day",
+          jobs: [
+            job({
+              plannedStartAt: "2026-09-20T14:00:00.000Z",
+            }),
+          ],
+        }),
+      ],
+      now,
+    );
+
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({ from: "2026-09-20" }),
+        now,
+      ).map((item) => item.id),
+    ).toEqual(["matching-local-day"]);
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({ from: "2026-09-20", to: "2026-09-20" }),
+        now,
+      ).map((item) => item.id),
+    ).toEqual(["matching-local-day"]);
+  });
+
+  it("uses strict dates consistently for warnings and state filters", () => {
+    const projected = buildPortfolioProjects(
+      [
+        project({
+          jobs: [
+            job({
+              plannedEndAt: "2026-02-30",
+              tasks: [task({ dueAt: "2026-02-30" })],
+            }),
+          ],
+        }),
+      ],
+      now,
+    );
+
+    expect(projected[0]).toMatchObject({
+      state: "unscheduled",
+      warningCounts: { overdue: 0, unscheduled: 2 },
+    });
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({ state: "overdue" }),
+        now,
+      ),
+    ).toEqual([]);
+    expect(
+      filterPortfolioProjects(
+        projected,
+        filter({ state: "unscheduled" }),
+        now,
+      ),
+    ).toHaveLength(1);
   });
 
   it("hides completed rows without changing source project progress", () => {
@@ -453,5 +653,26 @@ describe("portfolio schedule", () => {
 
     expect(missingCurrent?.baselineFinishVarianceDays).toBeNull();
     expect(missingBaseline?.baselineFinishVarianceDays).toBeNull();
+  });
+
+  it("does not retain mutable aliases from source projects", () => {
+    const source = project({
+      jobs: [job({ tasks: [task()] })],
+      dependencies: [
+        {
+          id: "dependency-1",
+          projectId: "project-1",
+          predecessorTaskId: "a",
+          successorTaskId: "b",
+          lagDays: 0,
+        },
+      ],
+    });
+    const [result] = buildPortfolioProjects([source], now);
+
+    expect(result?.jobs).not.toBe(source.jobs);
+    expect(result?.jobs[0]).not.toBe(source.jobs[0]);
+    expect(result?.jobs[0]?.tasks).not.toBe(source.jobs[0]?.tasks);
+    expect(result?.dependencies).not.toBe(source.dependencies);
   });
 });

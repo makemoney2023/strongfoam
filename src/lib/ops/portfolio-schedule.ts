@@ -1,6 +1,5 @@
 import { calculateCriticalPath } from "@/lib/ops/project-schedule-graph";
 import {
-  filterScheduleJobs,
   getJobScheduleState,
   getTaskProgress,
   getTaskScheduleState,
@@ -9,9 +8,11 @@ import {
   type ProjectScheduleBaselineItem,
   type ProjectScheduleDependency,
   type ProjectScheduleJob,
+  type ProjectScheduleTask,
   type ScheduleState,
 } from "@/lib/ops/project-schedule";
 import {
+  calendarDate,
   workingDayDifference,
   type ResolvedWorkingCalendar,
 } from "@/lib/ops/project-schedule-planning";
@@ -83,10 +84,58 @@ type DatedValue = {
   timestamp: number;
 };
 
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+function isValidCalendarDate(
+  year: number,
+  month: number,
+  day: number,
+): boolean {
+  if (month < 1 || month > 12) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  return day >= 1 && day <= daysInMonth[month - 1]!;
+}
+
 function validDate(value: string | null | undefined): DatedValue | null {
   if (!value) return null;
+  const dateOnly = ISO_DATE.exec(value);
+  const dateTime = ISO_DATE_TIME.exec(value);
+  const match = dateOnly ?? dateTime;
+  if (!match) return null;
+  const [, year, month, day] = match;
+  if (
+    !isValidCalendarDate(Number(year), Number(month), Number(day)) ||
+    (dateTime &&
+      (Number(dateTime[4]) > 23 ||
+        Number(dateTime[5]) > 59 ||
+        Number(dateTime[6]) > 59 ||
+        Number(dateTime[7] ?? 0) > 23 ||
+        Number(dateTime[8] ?? 0) > 59))
+  ) {
+    return null;
+  }
   const timestamp = new Date(value).getTime();
   return Number.isNaN(timestamp) ? null : { value, timestamp };
+}
+
+function validScheduleDate(value: string | null): string | null {
+  return validDate(value)?.value ?? null;
 }
 
 function earliest(values: readonly DatedValue[]): string | null {
@@ -146,7 +195,7 @@ export function getPortfolioProjectState(
 
   if (
     project.jobs.some(
-      (job) => getJobScheduleState(job, now) === "blocked",
+      (job) => portfolioJobState(job, now) === "blocked",
     )
   ) {
     return "blocked";
@@ -155,9 +204,9 @@ export function getPortfolioProjectState(
   if (
     project.jobs.some(
       (job) =>
-        getJobScheduleState(job, now) === "overdue" ||
+        portfolioJobState(job, now) === "overdue" ||
         job.tasks.some(
-          (task) => getTaskScheduleState(task, now) === "overdue",
+          (task) => portfolioTaskState(task, now) === "overdue",
         ),
     )
   ) {
@@ -185,6 +234,70 @@ function latestBaselineFinish(
   return latest(finishes);
 }
 
+function portfolioJobState(
+  job: ProjectScheduleJob,
+  now: Date,
+): ScheduleState {
+  return getJobScheduleState(
+    {
+      ...job,
+      plannedStartAt: validScheduleDate(job.plannedStartAt),
+      plannedEndAt: validScheduleDate(job.plannedEndAt),
+    },
+    now,
+  );
+}
+
+function portfolioTaskState(
+  task: ProjectScheduleTask,
+  now: Date,
+): ScheduleState {
+  return getTaskScheduleState(
+    {
+      ...task,
+      dueAt: validScheduleDate(task.dueAt),
+      plannedStartAt: validScheduleDate(task.plannedStartAt),
+      plannedEndAt: validScheduleDate(task.plannedEndAt),
+    },
+    now,
+  );
+}
+
+function cloneJob(
+  job: ProjectScheduleJob,
+  tasks: readonly ProjectScheduleTask[] = job.tasks,
+): ProjectScheduleJob {
+  return {
+    ...job,
+    tasks: tasks.map((task) => ({ ...task })),
+  };
+}
+
+function cloneProject(
+  project: PortfolioScheduleProject,
+): PortfolioScheduleProject {
+  return {
+    ...project,
+    calendar: {
+      ...project.calendar,
+      weekendDays: [...project.calendar.weekendDays],
+      exceptions: project.calendar.exceptions.map((exception) => ({
+        ...exception,
+      })),
+    },
+    latestBaseline: project.latestBaseline
+      ? {
+          ...project.latestBaseline,
+          items: project.latestBaseline.items.map((item) => ({ ...item })),
+        }
+      : null,
+    jobs: project.jobs.map((job) => cloneJob(job)),
+    dependencies: project.dependencies.map((dependency) => ({
+      ...dependency,
+    })),
+  };
+}
+
 function warningCounts(
   project: PortfolioScheduleProject,
   now: Date,
@@ -195,21 +308,27 @@ function warningCounts(
   const tasks = project.jobs.flatMap((job) => job.tasks);
 
   for (const job of project.jobs) {
-    const state = getJobScheduleState(job, now);
+    const state = portfolioJobState(job, now);
     if (state === "blocked") blocked += 1;
     if (state === "overdue") overdue += 1;
     if (state === "unscheduled") unscheduled += 1;
 
     for (const task of job.tasks) {
-      const taskState = getTaskScheduleState(task, now);
+      const taskState = portfolioTaskState(task, now);
       if (taskState === "overdue") overdue += 1;
       if (taskState === "unscheduled") unscheduled += 1;
     }
   }
 
   const criticalPath = calculateCriticalPath(
-    tasks,
-    project.dependencies,
+    tasks.map((task) => ({
+      ...task,
+      plannedStartAt: validScheduleDate(task.plannedStartAt),
+      plannedEndAt: validScheduleDate(task.plannedEndAt),
+    })),
+    project.dependencies.filter(
+      (dependency) => dependency.projectId === project.id,
+    ),
     project.calendar,
   );
   return {
@@ -224,7 +343,8 @@ export function buildPortfolioProjects(
   projects: readonly PortfolioScheduleProject[],
   now = new Date(),
 ): ProjectedPortfolioProject[] {
-  return projects.map((project) => {
+  return projects.map((sourceProject) => {
+    const project = cloneProject(sourceProject);
     const tasks = project.jobs.flatMap((job) => job.tasks);
     const range = getPortfolioProjectRange(project);
     const baselineFinish = latestBaselineFinish(project.latestBaseline);
@@ -246,20 +366,31 @@ export function buildPortfolioProjects(
   });
 }
 
+function calendarDayOrdinal(
+  value: string | null,
+  calendar: ResolvedWorkingCalendar,
+): number | null {
+  const validated = validDate(value);
+  if (!validated) return null;
+  const localDate = calendarDate(validated.value, calendar);
+  const local = validDate(localDate);
+  return local ? Math.floor(local.timestamp / 86_400_000) : null;
+}
+
 function intersectsDateRange(
   project: ProjectedPortfolioProject,
   from: string | null,
   to: string | null,
 ): boolean {
-  if (!from && !to) return true;
-  const start = validDate(project.range.start);
-  const finish = validDate(project.range.finish);
-  if (!start || !finish) return false;
-  const fromDate = validDate(from);
-  const toDate = validDate(to);
+  const fromDay = calendarDayOrdinal(from, project.calendar);
+  const toDay = calendarDayOrdinal(to, project.calendar);
+  if (fromDay === null && toDay === null) return true;
+  const startDay = calendarDayOrdinal(project.range.start, project.calendar);
+  const finishDay = calendarDayOrdinal(project.range.finish, project.calendar);
+  if (startDay === null || finishDay === null) return false;
   return (
-    (!fromDate || finish.timestamp >= fromDate.timestamp) &&
-    (!toDate || start.timestamp <= toDate.timestamp)
+    (fromDay === null || finishDay >= fromDay) &&
+    (toDay === null || startDay <= toDay)
   );
 }
 
@@ -276,6 +407,26 @@ function matchesAttention(
   return true;
 }
 
+function filterPortfolioJobs(
+  jobs: readonly ProjectScheduleJob[],
+  state: PortfolioProjectionFilter["state"],
+  now: Date,
+): ProjectScheduleJob[] {
+  if (state === "all") return jobs.map((job) => cloneJob(job));
+
+  return jobs.flatMap((job) => {
+    const jobState = portfolioJobState(job, now);
+    const jobMatches = matchesScheduleFilter(jobState, state);
+    const tasks =
+      state === "blocked" && jobState === "blocked"
+        ? job.tasks
+        : job.tasks.filter((task) =>
+            matchesScheduleFilter(portfolioTaskState(task, now), state),
+          );
+    return jobMatches || tasks.length > 0 ? [cloneJob(job, tasks)] : [];
+  });
+}
+
 export function filterPortfolioProjects(
   projects: readonly ProjectedPortfolioProject[],
   filter: PortfolioProjectionFilter,
@@ -287,10 +438,7 @@ export function filterPortfolioProjects(
     if (filter.hideCompleted && project.state === "complete") return [];
 
     const projectMatches = matchesScheduleFilter(project.state, filter.state);
-    let jobs =
-      filter.state === "all"
-        ? project.jobs
-        : filterScheduleJobs(project.jobs, filter.state, now);
+    let jobs = filterPortfolioJobs(project.jobs, filter.state, now);
     if (!projectMatches && jobs.length === 0) return [];
 
     if (filter.hideCompleted) {
