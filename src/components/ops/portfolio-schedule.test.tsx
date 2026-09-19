@@ -167,6 +167,17 @@ describe("portfolio schedule route contract", () => {
     expect(source).toContain('aria-labelledby="schedule-heading"');
     expect(source).toContain('<CardTitle id="schedule-heading">Schedule</CardTitle>');
   });
+
+  it("links the Projects list to the exact Portfolio Schedule route", () => {
+    const source = readFileSync(
+      new URL("../../app/app/projects/page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      'render={<Link href="/app/projects/schedule" />}',
+    );
+  });
 });
 
 describe("portfolio work model", () => {
@@ -788,6 +799,37 @@ describe("PortfolioSchedule", () => {
     expect(unscheduled).not.toContain("Task future");
   });
 
+  it("uses exact project, project Schedule, job, and task hrefs", () => {
+    const html = renderToStaticMarkup(
+      createElement(PortfolioSchedule, {
+        data: data([
+          project("link-project", {
+            name: "Linked project",
+            jobs: [
+              job("link-job", {
+                tasks: [
+                  task("link-task", {
+                    jobId: "link-job",
+                    dueAt: "2026-09-21",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ]),
+        query: query(),
+        now: NOW,
+      }),
+    );
+
+    expect(html).toContain('href="/app/projects/link-project"');
+    expect(html).toContain('href="/app/projects/link-project#schedule"');
+    expect(html).toContain('href="/app/jobs/link-job"');
+    expect(html).toContain(
+      'href="/app/jobs/link-job#task-link-task"',
+    );
+  });
+
   it("labels matching attention totals as partial when source rows are truncated", () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioSchedule, {
@@ -813,7 +855,7 @@ describe("PortfolioSchedule", () => {
       }),
     );
 
-    expect(html).toContain("1 matching attention items (partial)");
+    expect(html).toContain("1 matching attention item (partial)");
   });
 
   it("renders a dedicated Resources empty state without a table toggle", () => {

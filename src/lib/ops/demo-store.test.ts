@@ -65,7 +65,10 @@ import {
   listDemoPortfolioSchedule,
 } from "@/lib/ops/demo-store";
 import { DEMO_JOB_ID, DEMO_PROJECT_ID } from "@/lib/ops/demo-data";
-import { listPortfolioSchedule } from "@/lib/ops/store";
+import {
+  listPortfolioSchedule,
+  type PortfolioScheduleTruncation,
+} from "@/lib/ops/store";
 
 type DemoPortfolioState = {
   projects: ProjectRow[];
@@ -351,6 +354,48 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
       dueAt: null,
     });
   }
+}
+
+const BOUND_CREATED_AT = new Date("2026-09-19T12:00:00.000Z");
+
+function boundUuid(namespace: number, index: number): string {
+  return `${namespace.toString(16).padStart(8, "0")}-0000-4000-8000-${index
+    .toString(16)
+    .padStart(12, "0")}`;
+}
+
+function boundProject(
+  id: string,
+  name: string,
+  scheduleCalendarId: string | null = null,
+): ProjectRow {
+  return {
+    id,
+    createdAt: BOUND_CREATED_AT,
+    updatedAt: BOUND_CREATED_AT,
+    companyId: null,
+    siteId: null,
+    opportunityId: null,
+    sourceLeadId: null,
+    name,
+    status: "active",
+    projectManager: "Bounds Manager",
+    scheduleCalendarId,
+  };
+}
+
+function expectOnlyTruncated(
+  truncation: PortfolioScheduleTruncation,
+  flag: keyof PortfolioScheduleTruncation,
+): void {
+  expect(truncation).toEqual({
+    projects: flag === "projects",
+    jobs: flag === "jobs",
+    tasks: flag === "tasks",
+    dependencies: flag === "dependencies",
+    calendarExceptions: flag === "calendarExceptions",
+    baselineItems: flag === "baselineItems",
+  });
 }
 
 describe("demo ops store", () => {
@@ -1166,6 +1211,271 @@ describe("portfolio Schedule store", () => {
     for (const key of Object.keys(snapshot) as Array<keyof DemoPortfolioState>) {
       state[key].splice(0, state[key].length, ...snapshot[key] as never[]);
     }
+  });
+
+  it("enforces the 250-project cap and suppresses unselected dependents", () => {
+    state.projects.push(
+      ...Array.from({ length: 251 }, (_, index) =>
+        boundProject(
+          boundUuid(0x91, index + 1),
+          `Project bound ${index + 1}`,
+        ),
+      ),
+    );
+    state.jobsList.push({
+      id: boundUuid(0x92, 1),
+      createdAt: BOUND_CREATED_AT,
+      updatedAt: BOUND_CREATED_AT,
+      projectId: boundUuid(0x91, 251),
+      companyId: null,
+      siteId: null,
+      opportunityId: null,
+      name: "Dependent outside selected projects",
+      status: "in_progress",
+      scope: null,
+      services: [],
+      projectManager: null,
+      foreman: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      blockerNote: null,
+    });
+
+    const result = listDemoPortfolioSchedule({ q: "Project bound" });
+
+    expect(result.projects).toHaveLength(250);
+    expect(result.jobs).toEqual([]);
+    expect(result.tasks).toEqual([]);
+    expect(result.dependencies).toEqual([]);
+    expect(result.baselines).toEqual([]);
+    expect(result.baselineItems).toEqual([]);
+    expectOnlyTruncated(result.truncation, "projects");
+  });
+
+  it("enforces the 2,000-job cap without unrelated truncation", () => {
+    const projectId = boundUuid(0x93, 1);
+    state.projects.push(boundProject(projectId, "Job bound project"));
+    state.jobsList.push(
+      ...Array.from({ length: 2_001 }, (_, index): JobRow => ({
+        id: boundUuid(0x94, index + 1),
+        createdAt: new Date(BOUND_CREATED_AT.getTime() + index),
+        updatedAt: BOUND_CREATED_AT,
+        projectId,
+        companyId: null,
+        siteId: null,
+        opportunityId: null,
+        name: `Bound job ${index + 1}`,
+        status: "in_progress",
+        scope: null,
+        services: [],
+        projectManager: null,
+        foreman: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
+        blockerNote: null,
+      })),
+    );
+
+    const result = listDemoPortfolioSchedule({ q: "Job bound project" });
+
+    expect(result.jobs).toHaveLength(2_000);
+    expectOnlyTruncated(result.truncation, "jobs");
+  });
+
+  it("enforces the 5,000-task cap without unrelated truncation", () => {
+    const projectId = boundUuid(0x95, 1);
+    const jobId = boundUuid(0x96, 1);
+    state.projects.push(boundProject(projectId, "Task bound project"));
+    state.jobsList.push({
+      id: jobId,
+      createdAt: BOUND_CREATED_AT,
+      updatedAt: BOUND_CREATED_AT,
+      projectId,
+      companyId: null,
+      siteId: null,
+      opportunityId: null,
+      name: "Task bound job",
+      status: "in_progress",
+      scope: null,
+      services: [],
+      projectManager: null,
+      foreman: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      blockerNote: null,
+    });
+    state.jobTasks.push(
+      ...Array.from({ length: 5_001 }, (_, index): JobTaskRow => ({
+        id: boundUuid(0x97, index + 1),
+        createdAt: new Date(BOUND_CREATED_AT.getTime() + index),
+        updatedAt: BOUND_CREATED_AT,
+        jobId,
+        workAreaId: null,
+        title: `Bound task ${index + 1}`,
+        assignee: null,
+        dueAt: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
+        completedAt: null,
+        status: "open",
+        createdBy: "bounds@strongfoam.com",
+      })),
+    );
+
+    const result = listDemoPortfolioSchedule({ q: "Task bound project" });
+
+    expect(result.tasks).toHaveLength(5_000);
+    expectOnlyTruncated(result.truncation, "tasks");
+  });
+
+  it("enforces the 10,000-dependency cap without unrelated truncation", () => {
+    const projectId = boundUuid(0x98, 1);
+    const jobId = boundUuid(0x99, 1);
+    const tasks = Array.from({ length: 143 }, (_, index): JobTaskRow => ({
+      id: boundUuid(0x9a, index + 1),
+      createdAt: new Date(BOUND_CREATED_AT.getTime() + index),
+      updatedAt: BOUND_CREATED_AT,
+      jobId,
+      workAreaId: null,
+      title: `Dependency task ${index + 1}`,
+      assignee: null,
+      dueAt: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+      status: "open",
+      createdBy: "bounds@strongfoam.com",
+    }));
+    const dependencies: JobTaskDependencyRow[] = [];
+    for (
+      let predecessor = 0;
+      predecessor < tasks.length && dependencies.length < 10_001;
+      predecessor += 1
+    ) {
+      for (
+        let successor = predecessor + 1;
+        successor < tasks.length && dependencies.length < 10_001;
+        successor += 1
+      ) {
+        dependencies.push({
+          id: boundUuid(0x9b, dependencies.length + 1),
+          createdAt: new Date(
+            BOUND_CREATED_AT.getTime() + dependencies.length,
+          ),
+          projectId,
+          predecessorTaskId: tasks[predecessor]!.id,
+          successorTaskId: tasks[successor]!.id,
+          lagDays: 0,
+          createdBy: "bounds@strongfoam.com",
+        });
+      }
+    }
+    state.projects.push(boundProject(projectId, "Dependency bound project"));
+    state.jobsList.push({
+      id: jobId,
+      createdAt: BOUND_CREATED_AT,
+      updatedAt: BOUND_CREATED_AT,
+      projectId,
+      companyId: null,
+      siteId: null,
+      opportunityId: null,
+      name: "Dependency bound job",
+      status: "in_progress",
+      scope: null,
+      services: [],
+      projectManager: null,
+      foreman: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      blockerNote: null,
+    });
+    state.jobTasks.push(...tasks);
+    state.jobTaskDependencies.push(...dependencies);
+
+    const result = listDemoPortfolioSchedule({
+      q: "Dependency bound project",
+    });
+
+    expect(result.dependencies).toHaveLength(10_000);
+    expectOnlyTruncated(result.truncation, "dependencies");
+  });
+
+  it("enforces the 5,000-calendar-exception cap without unrelated truncation", () => {
+    const projectId = boundUuid(0x9c, 1);
+    const calendarId = boundUuid(0x9d, 1);
+    state.projects.push(
+      boundProject(projectId, "Calendar exception bound project", calendarId),
+    );
+    state.scheduleCalendars.push({
+      id: calendarId,
+      createdAt: BOUND_CREATED_AT,
+      updatedAt: BOUND_CREATED_AT,
+      updatedBy: "bounds@strongfoam.com",
+      name: "Exception bound calendar",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      isDefault: false,
+    });
+    state.scheduleCalendarExceptions.push(
+      ...Array.from(
+        { length: 5_001 },
+        (_, index): ScheduleCalendarExceptionRow => ({
+          id: boundUuid(0x9e, index + 1),
+          createdAt: BOUND_CREATED_AT,
+          updatedAt: BOUND_CREATED_AT,
+          updatedBy: "bounds@strongfoam.com",
+          calendarId,
+          date: new Date(Date.UTC(2030, 0, index + 1))
+            .toISOString()
+            .slice(0, 10),
+          name: `Exception ${index + 1}`,
+          isWorkingDay: index % 2 === 0,
+        }),
+      ),
+    );
+
+    const result = listDemoPortfolioSchedule({
+      q: "Calendar exception bound project",
+    });
+
+    expect(result.calendarExceptions).toHaveLength(5_000);
+    expectOnlyTruncated(result.truncation, "calendarExceptions");
+  });
+
+  it("enforces the 5,000-baseline-item cap without unrelated truncation", () => {
+    const projectId = boundUuid(0x9f, 1);
+    const baselineId = boundUuid(0xa0, 1);
+    state.projects.push(boundProject(projectId, "Baseline item bound project"));
+    state.projectScheduleBaselines.push({
+      id: baselineId,
+      projectId,
+      name: "Bound baseline",
+      capturedAt: BOUND_CREATED_AT,
+      capturedBy: "bounds@strongfoam.com",
+      deletedAt: null,
+      deletedBy: null,
+    });
+    state.projectScheduleBaselineItems.push(
+      ...Array.from(
+        { length: 5_001 },
+        (_, index): ProjectScheduleBaselineItemRow => ({
+          id: boundUuid(0xa1, index + 1),
+          baselineId,
+          entityType: "task",
+          entityId: boundUuid(0xa2, index + 1),
+          plannedStartAt: null,
+          plannedEndAt: null,
+          dueAt: null,
+        }),
+      ),
+    );
+
+    const result = listDemoPortfolioSchedule({
+      q: "Baseline item bound project",
+    });
+
+    expect(result.baselineItems).toHaveLength(5_000);
+    expectOnlyTruncated(result.truncation, "baselineItems");
   });
 
   it("filters by status and exact trimmed project manager", () => {

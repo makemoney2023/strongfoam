@@ -1627,18 +1627,21 @@ describe("portfolio Schedule dashboard summary", () => {
         entityType: "task",
         kind: "due",
         date: "2026-09-20",
+        href: "/app/jobs/toronto-job#task-toronto-task",
       },
       {
         projectId: "toronto",
         entityType: "project",
         kind: "finish",
         date: "2026-09-20",
+        href: "/app/projects/toronto",
       },
       {
         projectId: "toronto",
         entityType: "project",
         kind: "start",
         date: "2026-09-20",
+        href: "/app/projects/toronto",
       },
     ]);
   });

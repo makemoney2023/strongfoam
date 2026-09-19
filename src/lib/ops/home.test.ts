@@ -90,11 +90,10 @@ describe("Home Schedule integration", () => {
 
   it("preserves Home timing while capturing Schedule time after reads", () => {
     expect(source).toMatch(
-      /buildHomeSummary\(\s*\{ requests, opportunities, projects, jobs \}\s*\)/,
+      /buildHomeSummary\(\s*\{ requests, opportunities, projects, jobs \},\s*opsNow\.getTime\(\),?\s*\)/,
     );
-    expect(source).toContain("const scheduleNow = isDemoOpsStore()");
-    expect(source).toContain("new Date(DEMO_SCHEDULE_NOW)");
-    expect(source.indexOf("const scheduleNow = isDemoOpsStore()")).toBeGreaterThan(
+    expect(source).toContain("const opsNow = getOpsNow();");
+    expect(source.indexOf("const opsNow = getOpsNow();")).toBeGreaterThan(
       source.indexOf("await Promise.all"),
     );
   });
@@ -116,5 +115,19 @@ describe("Home Schedule integration", () => {
     expect(nextUp).toBeGreaterThan(-1);
     expect(upcoming).toBeGreaterThan(nextUp);
     expect(workflow).toBeGreaterThan(upcoming);
+  });
+
+  it("renders every canonical widget and upcoming-event href", () => {
+    for (const key of [
+      "overdueTasks",
+      "unscheduledActiveWork",
+      "projectsBehindBaseline",
+      "peopleWithPotentialOverlap",
+    ]) {
+      expect(source).toContain(
+        `href={PORTFOLIO_SCHEDULE_WIDGETS.${key}.href}`,
+      );
+    }
+    expect(source).toContain("href={event.href}");
   });
 });
