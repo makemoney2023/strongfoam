@@ -16,10 +16,12 @@ import { NoticeToaster } from "./notice-toaster";
 export function AppShell({
   email,
   demo,
+  canManageUsers,
   children,
 }: {
   email: string;
   demo: boolean;
+  canManageUsers: boolean;
   children: ReactNode;
 }) {
   return (
@@ -31,7 +33,7 @@ export function AppShell({
         >
           Skip to main content
         </a>
-        <AppSidebar email={email} />
+        <AppSidebar email={email} canManageUsers={canManageUsers} />
         <SidebarInset id="ops-main-content" tabIndex={-1}>
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger className="size-11 md:size-8" />
