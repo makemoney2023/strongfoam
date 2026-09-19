@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,7 @@ import {
   EMPTY_ACTION_STATE,
   type ActionState,
 } from "@/lib/ops/action-result";
+import { applyActionResult } from "@/lib/ops/apply-action-result";
 import { ActionStateContext, FormError } from "@/components/ops/action-form";
 
 /**
@@ -40,10 +42,12 @@ export function ConfirmForm({
   const formRef = useRef<HTMLFormElement>(null);
   const confirmed = useRef(false);
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const [state, formAction] = useActionState(
     async (_prev: ActionState, formData: FormData) => {
-      const result = await action(formData);
-      return result ?? EMPTY_ACTION_STATE;
+      const result = (await action(formData)) ?? EMPTY_ACTION_STATE;
+      applyActionResult(result, router);
+      return result;
     },
     EMPTY_ACTION_STATE,
   );

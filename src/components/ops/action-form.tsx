@@ -7,10 +7,12 @@ import {
   type ReactNode,
 } from "react";
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import {
   EMPTY_ACTION_STATE,
   type ActionState,
 } from "@/lib/ops/action-result";
+import { applyActionResult } from "@/lib/ops/apply-action-result";
 import { cn } from "@/lib/utils";
 
 export const ActionStateContext = createContext<ActionState>(EMPTY_ACTION_STATE);
@@ -50,10 +52,12 @@ export function ActionForm({
   action: (formData: FormData) => Promise<ActionState | void>;
   children: ReactNode;
 }) {
+  const router = useRouter();
   const [state, formAction] = useActionState(
     async (_prev: ActionState, formData: FormData) => {
-      const result = await action(formData);
-      return result ?? EMPTY_ACTION_STATE;
+      const result = (await action(formData)) ?? EMPTY_ACTION_STATE;
+      applyActionResult(result, router);
+      return result;
     },
     EMPTY_ACTION_STATE,
   );

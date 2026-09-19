@@ -1,7 +1,10 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/ops/submit-button";
+import type { ActionState } from "@/lib/ops/action-result";
+import { applyActionResult } from "@/lib/ops/apply-action-result";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 
 export function TaskStatusButton({
@@ -15,7 +18,7 @@ export function TaskStatusButton({
   reopenLabel = "Reopen",
   className,
 }: {
-  action: (formData: FormData) => void | Promise<void | unknown>;
+  action: (formData: FormData) => Promise<ActionState | void>;
   jobId?: string;
   requestId?: string;
   taskId: string;
@@ -25,16 +28,18 @@ export function TaskStatusButton({
   reopenLabel?: string;
   className?: string;
 }) {
+  const router = useRouter();
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
   const [, startTransition] = useTransition();
   const next = optimisticStatus === "done" ? "open" : "done";
 
   return (
     <form
-      action={action as (formData: FormData) => Promise<void>}
-      onSubmit={() => {
-        startTransition(() => {
+      action={(formData) => {
+        startTransition(async () => {
           setOptimisticStatus(next);
+          const result = await action(formData);
+          applyActionResult(result, router);
         });
       }}
     >

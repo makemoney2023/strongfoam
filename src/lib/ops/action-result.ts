@@ -1,6 +1,11 @@
 export type ActionState = {
   error?: string;
   fields?: Record<string, string>;
+  href?: string;
+  notice?: {
+    kind: "success" | "error";
+    message: string;
+  };
 };
 
 export const EMPTY_ACTION_STATE: ActionState = {};

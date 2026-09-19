@@ -12,19 +12,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./app-sidebar";
 import { CommandPalette } from "./command-palette";
 import { NoticeToaster } from "./notice-toaster";
-import type { OpsNotice } from "@/lib/ops/notice";
 
 export function AppShell({
   email,
   demo,
-  notice,
-  noticeKey,
   children,
 }: {
   email: string;
   demo: boolean;
-  notice?: OpsNotice | null;
-  noticeKey?: string | null;
   children: ReactNode;
 }) {
   return (
@@ -46,7 +41,7 @@ export function AppShell({
               <CommandPalette />
             </div>
           </header>
-          <NoticeToaster notice={notice} noticeKey={noticeKey} />
+          <NoticeToaster />
           {demo ? (
             <Alert className="rounded-none border-x-0 border-t-0">
               <AlertDescription>
