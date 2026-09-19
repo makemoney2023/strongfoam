@@ -1,6 +1,82 @@
 import { describe, expect, it } from "vitest";
 import { signLeadId } from "@/lib/leads/hmac";
-import { parseEstimateRequestUpdate, staffFileHref } from "@/lib/ops/store";
+import {
+  getOrCreateDefaultScheduleCalendar,
+  isDefaultScheduleCalendarConflict,
+  parseEstimateRequestUpdate,
+  staffFileHref,
+} from "@/lib/ops/store";
+
+describe("default schedule calendar conflicts", () => {
+  it("recognizes only the partial unique-index violation", () => {
+    const violation = {
+      code: "23505",
+      constraint: "schedule_calendars_single_default_idx",
+    };
+
+    expect(isDefaultScheduleCalendarConflict(violation)).toBe(true);
+    expect(
+      isDefaultScheduleCalendarConflict({
+        cause: violation,
+      }),
+    ).toBe(true);
+    expect(
+      isDefaultScheduleCalendarConflict({
+        code: "23505",
+        constraint: "another_unique_constraint",
+      }),
+    ).toBe(false);
+    expect(
+      isDefaultScheduleCalendarConflict({
+        code: "23503",
+        constraint: "schedule_calendars_single_default_idx",
+      }),
+    ).toBe(false);
+    expect(isDefaultScheduleCalendarConflict(new Error("insert failed"))).toBe(
+      false,
+    );
+  });
+
+  it("reselects the winning default after a concurrent insert", async () => {
+    const winner = { id: "winner" };
+    let selections = 0;
+    const result = await getOrCreateDefaultScheduleCalendar(
+      async () => (++selections === 1 ? undefined : winner),
+      async () => {
+        throw {
+          cause: {
+            code: "23505",
+            constraint: "schedule_calendars_single_default_idx",
+          },
+        };
+      },
+    );
+
+    expect(result).toBe(winner);
+    expect(selections).toBe(2);
+  });
+
+  it("does not hide unrelated default-calendar insert failures", async () => {
+    const failure = {
+      code: "23505",
+      constraint: "another_unique_constraint",
+    };
+    let selections = 0;
+
+    await expect(
+      getOrCreateDefaultScheduleCalendar(
+        async () => {
+          selections += 1;
+          return undefined;
+        },
+        async () => {
+          throw failure;
+        },
+      ),
+    ).rejects.toBe(failure);
+    expect(selections).toBe(1);
+  });
+});
 
 describe("parseEstimateRequestUpdate", () => {
   it("accepts a complete reviewing update", () => {

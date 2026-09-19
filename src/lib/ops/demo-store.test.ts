@@ -240,9 +240,10 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
     id: string,
     name: string,
     isDefault: boolean,
+    calendarCreatedAt: Date = createdAt,
   ): ScheduleCalendarRow => ({
     id,
-    createdAt,
+    createdAt: calendarCreatedAt,
     updatedAt,
     updatedBy: "fixture@strongfoam.com",
     name,
@@ -251,7 +252,12 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
     isDefault,
   });
   state.scheduleCalendars.push(
-    calendar(PORTFOLIO_IDS.calendarDefault, "Default", true),
+    calendar(
+      PORTFOLIO_IDS.calendarDefault,
+      "Default",
+      true,
+      new Date("1990-01-01T00:00:00.000Z"),
+    ),
     calendar(PORTFOLIO_IDS.calendarExplicit, "North Tower", false),
     calendar(PORTFOLIO_IDS.calendarUnrelated, "Archive", false),
   );
@@ -1126,6 +1132,7 @@ describe("portfolio Schedule store", () => {
         PORTFOLIO_IDS.calendarExplicit,
       ].sort(),
     );
+    expect(result.truncation.calendarExceptions).toBe(false);
   });
 
   it("does not persist a fallback calendar during a portfolio read", () => {
@@ -1135,6 +1142,7 @@ describe("portfolio Schedule store", () => {
     const exceptionsBefore = structuredClone(state.scheduleCalendarExceptions);
 
     const result = listDemoPortfolioSchedule({ q: "South Yard" });
+    const repeated = listDemoPortfolioSchedule({ q: "South Yard" });
 
     expect(result.calendars).toHaveLength(1);
     expect(result.calendars[0]).toMatchObject({
@@ -1143,6 +1151,7 @@ describe("portfolio Schedule store", () => {
       weekendDays: [0, 6],
       isDefault: true,
     });
+    expect(repeated.calendars).toEqual(result.calendars);
     expect(state.scheduleCalendars).toHaveLength(calendarsBefore.length);
     expect(state.scheduleCalendars).toEqual(calendarsBefore);
     expect(state.scheduleCalendarExceptions).toHaveLength(
@@ -1160,6 +1169,12 @@ describe("portfolio Schedule store", () => {
       rows: ["a", "b"],
       truncated: true,
     });
+    const boundedExceptions = boundedRows(
+      Array.from({ length: 5_001 }, (_, index) => index),
+      5_000,
+    );
+    expect(boundedExceptions.rows).toHaveLength(5_000);
+    expect(boundedExceptions.truncated).toBe(true);
   });
 
   it("returns fresh arrays without mutating demo state", () => {
@@ -1186,6 +1201,64 @@ describe("portfolio Schedule store", () => {
     expect(second.projects).toHaveLength(1);
     expect(second.jobs).toHaveLength(1);
     expect(state.projects.map((project) => project.id)).toEqual(projectOrder);
+  });
+
+  it("deep-clones portfolio rows and nested values on every read", () => {
+    type ProjectWithNestedJson = ProjectRow & {
+      nestedJson: { labels: string[]; audit: { source: string } };
+    };
+    const sourceProject = state.projects.find(
+      (project) => project.id === PORTFOLIO_IDS.projectExplicit,
+    ) as ProjectWithNestedJson;
+    sourceProject.nestedJson = {
+      labels: ["original"],
+      audit: { source: "demo" },
+    };
+    const sourceJob = state.jobsList.find(
+      (job) => job.id === PORTFOLIO_IDS.jobExplicit,
+    )!;
+    const sourceCalendar = state.scheduleCalendars.find(
+      (calendar) => calendar.id === PORTFOLIO_IDS.calendarExplicit,
+    )!;
+    const sourceJobCreatedAt = sourceJob.createdAt.getTime();
+    const sourceCalendarCreatedAt = sourceCalendar.createdAt.getTime();
+
+    const first = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+    const firstProject = first.projects[0] as ProjectWithNestedJson;
+    firstProject.name = "Mutated";
+    firstProject.nestedJson.labels.push("mutated");
+    firstProject.nestedJson.audit.source = "mutated";
+    first.jobs[0]!.services.push("mutated");
+    first.jobs[0]!.createdAt.setTime(0);
+    first.calendars
+      .find((calendar) => calendar.id === PORTFOLIO_IDS.calendarExplicit)!
+      .weekendDays.push(5);
+    first.calendars
+      .find((calendar) => calendar.id === PORTFOLIO_IDS.calendarExplicit)!
+      .createdAt.setTime(0);
+
+    const second = listDemoPortfolioSchedule({
+      projectStatus: "active",
+      projectManager: "Portfolio Alex Rivera",
+    });
+    const secondProject = second.projects[0] as ProjectWithNestedJson;
+    expect(secondProject.name).toBe("North Tower");
+    expect(secondProject.nestedJson).toEqual({
+      labels: ["original"],
+      audit: { source: "demo" },
+    });
+    expect(second.jobs[0]?.services).toEqual([]);
+    expect(second.jobs[0]?.createdAt.getTime()).toBe(sourceJobCreatedAt);
+    const secondCalendar = second.calendars.find(
+      (calendar) => calendar.id === PORTFOLIO_IDS.calendarExplicit,
+    );
+    expect(secondCalendar?.weekendDays).toEqual([0, 6]);
+    expect(secondCalendar?.createdAt.getTime()).toBe(sourceCalendarCreatedAt);
+    expect(sourceProject.name).toBe("North Tower");
+    expect(sourceProject.nestedJson.labels).toEqual(["original"]);
   });
 
   it("delegates the public store read to the demo adapter", async () => {
@@ -1219,6 +1292,7 @@ describe("portfolio Schedule store", () => {
         jobs: false,
         tasks: false,
         dependencies: false,
+        calendarExceptions: false,
         baselineItems: false,
       },
     });

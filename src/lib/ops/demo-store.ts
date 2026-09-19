@@ -183,7 +183,10 @@ const PORTFOLIO_PROJECT_LIMIT = 250;
 const PORTFOLIO_JOB_LIMIT = 2_000;
 const PORTFOLIO_TASK_LIMIT = 5_000;
 const PORTFOLIO_DEPENDENCY_LIMIT = 10_000;
+const PORTFOLIO_CALENDAR_EXCEPTION_LIMIT = 5_000;
 const PORTFOLIO_BASELINE_ITEM_LIMIT = 5_000;
+const DEMO_DEFAULT_CALENDAR_ID = "00000000-0000-4000-8000-000000000001";
+const DEMO_DEFAULT_CALENDAR_TIMESTAMP = "2000-01-01T00:00:00.000Z";
 
 export function boundedRows<T>(
   rows: readonly T[],
@@ -684,6 +687,7 @@ export function listDemoPortfolioSchedule(
         jobs: false,
         tasks: false,
         dependencies: false,
+        calendarExceptions: false,
         baselineItems: false,
       },
     };
@@ -745,12 +749,16 @@ export function listDemoPortfolioSchedule(
         a.createdAt.getTime() - b.createdAt.getTime() ||
         a.id.localeCompare(b.id),
     );
-  const selectedCalendarExceptions = scheduleCalendarExceptions
-    .filter((exception) => calendarIds.has(exception.calendarId))
-    .sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
-    );
+  const calendarExceptionResult = boundedRows(
+    scheduleCalendarExceptions
+      .filter((exception) => calendarIds.has(exception.calendarId))
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+      )
+      .slice(0, PORTFOLIO_CALENDAR_EXCEPTION_LIMIT + 1),
+    PORTFOLIO_CALENDAR_EXCEPTION_LIMIT,
+  );
 
   const latestBaselines = projectScheduleBaselines
     .filter(
@@ -782,13 +790,13 @@ export function listDemoPortfolioSchedule(
     PORTFOLIO_BASELINE_ITEM_LIMIT,
   );
 
-  return {
+  return structuredClone({
     projects: selectedProjects,
     jobs: jobResult.rows,
     tasks: taskResult.rows,
     dependencies: dependencyResult.rows,
     calendars: selectedCalendars,
-    calendarExceptions: selectedCalendarExceptions,
+    calendarExceptions: calendarExceptionResult.rows,
     baselines: latestBaselines,
     baselineItems: baselineItemResult.rows,
     truncation: {
@@ -796,9 +804,10 @@ export function listDemoPortfolioSchedule(
       jobs: jobResult.truncated,
       tasks: taskResult.truncated,
       dependencies: dependencyResult.truncated,
+      calendarExceptions: calendarExceptionResult.truncated,
       baselineItems: baselineItemResult.truncated,
     },
-  };
+  });
 }
 
 export function getDemoProject(id: string): ProjectRow | null {
@@ -1463,11 +1472,10 @@ function findDemoDefaultScheduleCalendar(): ScheduleCalendarRow | undefined {
 function createDemoDefaultScheduleCalendar(
   actor = "system@strongfoam.com",
 ): ScheduleCalendarRow {
-  const now = new Date();
   return {
-    id: crypto.randomUUID(),
-    createdAt: now,
-    updatedAt: now,
+    id: DEMO_DEFAULT_CALENDAR_ID,
+    createdAt: new Date(DEMO_DEFAULT_CALENDAR_TIMESTAMP),
+    updatedAt: new Date(DEMO_DEFAULT_CALENDAR_TIMESTAMP),
     updatedBy: actor,
     name: "Standard Monday–Friday",
     timeZone: "America/Toronto",

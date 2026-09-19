@@ -188,6 +188,7 @@ export type PortfolioScheduleTruncation = {
   jobs: boolean;
   tasks: boolean;
   dependencies: boolean;
+  calendarExceptions: boolean;
   baselineItems: boolean;
 };
 
@@ -918,6 +919,7 @@ const PORTFOLIO_PROJECT_LIMIT = 250;
 const PORTFOLIO_JOB_LIMIT = 2_000;
 const PORTFOLIO_TASK_LIMIT = 5_000;
 const PORTFOLIO_DEPENDENCY_LIMIT = 10_000;
+const PORTFOLIO_CALENDAR_EXCEPTION_LIMIT = 5_000;
 const PORTFOLIO_BASELINE_ITEM_LIMIT = 5_000;
 
 export async function listPortfolioSchedule(
@@ -965,6 +967,7 @@ export async function listPortfolioSchedule(
         jobs: false,
         tasks: false,
         dependencies: false,
+        calendarExceptions: false,
         baselineItems: false,
       },
     };
@@ -1038,7 +1041,8 @@ export async function listPortfolioSchedule(
         .orderBy(
           asc(scheduleCalendarExceptions.date),
           asc(scheduleCalendarExceptions.id),
-        ),
+        )
+        .limit(PORTFOLIO_CALENDAR_EXCEPTION_LIMIT + 1),
       baselineIds.length > 0
         ? db
             .select()
@@ -1062,7 +1066,10 @@ export async function listPortfolioSchedule(
     tasks: taskRows.slice(0, PORTFOLIO_TASK_LIMIT),
     dependencies: dependencyRows.slice(0, PORTFOLIO_DEPENDENCY_LIMIT),
     calendars: selectedCalendars,
-    calendarExceptions,
+    calendarExceptions: calendarExceptions.slice(
+      0,
+      PORTFOLIO_CALENDAR_EXCEPTION_LIMIT,
+    ),
     baselines: latestBaselines,
     baselineItems: baselineItemRows.slice(0, PORTFOLIO_BASELINE_ITEM_LIMIT),
     truncation: {
@@ -1071,6 +1078,8 @@ export async function listPortfolioSchedule(
       tasks: taskRows.length > PORTFOLIO_TASK_LIMIT,
       dependencies:
         dependencyRows.length > PORTFOLIO_DEPENDENCY_LIMIT,
+      calendarExceptions:
+        calendarExceptions.length > PORTFOLIO_CALENDAR_EXCEPTION_LIMIT,
       baselineItems:
         baselineItemRows.length > PORTFOLIO_BASELINE_ITEM_LIMIT,
     },
@@ -1877,28 +1886,73 @@ function isValidIsoDate(value: string): boolean {
   );
 }
 
+const DEFAULT_SCHEDULE_CALENDAR_UNIQUE_INDEX =
+  "schedule_calendars_single_default_idx";
+
+export function isDefaultScheduleCalendarConflict(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let candidate = error;
+  while (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    !seen.has(candidate)
+  ) {
+    seen.add(candidate);
+    const details = candidate as Record<string, unknown>;
+    if (
+      details.code === "23505" &&
+      details.constraint === DEFAULT_SCHEDULE_CALENDAR_UNIQUE_INDEX
+    ) {
+      return true;
+    }
+    candidate = details.cause ?? details.sourceError;
+  }
+  return false;
+}
+
+export async function getOrCreateDefaultScheduleCalendar<T>(
+  selectDefault: () => Promise<T | undefined>,
+  insertDefault: () => Promise<T>,
+): Promise<T> {
+  const existing = await selectDefault();
+  if (existing !== undefined) return existing;
+  try {
+    return await insertDefault();
+  } catch (error) {
+    if (!isDefaultScheduleCalendarConflict(error)) throw error;
+    const winner = await selectDefault();
+    if (winner !== undefined) return winner;
+    throw error;
+  }
+}
+
 async function ensureDefaultScheduleCalendar(
   actor = "system@strongfoam.com",
 ): Promise<ScheduleCalendarRow> {
   const db = getDb();
-  const existing = await db
-    .select()
-    .from(scheduleCalendars)
-    .where(eq(scheduleCalendars.isDefault, true))
-    .orderBy(asc(scheduleCalendars.createdAt), asc(scheduleCalendars.id))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  const rows = await db
-    .insert(scheduleCalendars)
-    .values({
-      name: "Standard Monday–Friday",
-      timeZone: "America/Toronto",
-      weekendDays: [0, 6],
-      isDefault: true,
-      updatedBy: actor,
-    })
-    .returning();
-  return rows[0]!;
+  const selectDefault = () =>
+    db
+      .select()
+      .from(scheduleCalendars)
+      .where(eq(scheduleCalendars.isDefault, true))
+      .orderBy(asc(scheduleCalendars.createdAt), asc(scheduleCalendars.id))
+      .limit(1);
+  return getOrCreateDefaultScheduleCalendar(
+    async () => (await selectDefault())[0],
+    async () => {
+      const rows = await db
+        .insert(scheduleCalendars)
+        .values({
+          name: "Standard Monday–Friday",
+          timeZone: "America/Toronto",
+          weekendDays: [0, 6],
+          isDefault: true,
+          updatedBy: actor,
+        })
+        .returning();
+      return rows[0]!;
+    },
+  );
 }
 
 export type ResolvedProjectScheduleCalendar = ResolvedWorkingCalendar & {

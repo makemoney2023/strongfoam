@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -120,23 +121,31 @@ export const opportunities = pgTable("opportunities", {
   projectId: uuid("project_id"),
 });
 
-export const scheduleCalendars = pgTable("schedule_calendars", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedBy: text("updated_by").notNull(),
-  name: text("name").notNull(),
-  timeZone: text("time_zone").notNull(),
-  weekendDays: integer("weekend_days")
-    .array()
-    .notNull()
-    .default(sql`'{0,6}'::integer[]`),
-  isDefault: boolean("is_default").notNull().default(false),
-});
+export const scheduleCalendars = pgTable(
+  "schedule_calendars",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedBy: text("updated_by").notNull(),
+    name: text("name").notNull(),
+    timeZone: text("time_zone").notNull(),
+    weekendDays: integer("weekend_days")
+      .array()
+      .notNull()
+      .default(sql`'{0,6}'::integer[]`),
+    isDefault: boolean("is_default").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("schedule_calendars_single_default_idx")
+      .on(table.isDefault)
+      .where(sql`${table.isDefault}`),
+  ],
+);
 
 export const scheduleCalendarExceptions = pgTable(
   "schedule_calendar_exceptions",

@@ -64,6 +64,13 @@
       "when": 1758240000000,
       "tag": "0008_schedule_planning",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758240900000,
+      "tag": "0009_schedule_calendar_default",
+      "breakpoints": true
     }
   ]
 }

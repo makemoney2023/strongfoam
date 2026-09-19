@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   calendlyUnmatchedEvents,
   estimateRequestComments,
@@ -45,5 +46,15 @@ describe("db schema exports", () => {
     expect(jobTaskDependencies.lagDays).toBeDefined();
     expect(jobDocuments).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
+  });
+
+  it("allows at most one default schedule calendar", () => {
+    const index = getTableConfig(scheduleCalendars).indexes.find(
+      (candidate) =>
+        candidate.config.name === "schedule_calendars_single_default_idx",
+    );
+
+    expect(index?.config.unique).toBe(true);
+    expect(index?.config.where).toBeDefined();
   });
 });
