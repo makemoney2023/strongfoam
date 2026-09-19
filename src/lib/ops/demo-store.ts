@@ -183,7 +183,6 @@ const {
   events,
   tasks,
   comments,
-  organizations,
   users,
   memberships,
   companies,
@@ -323,21 +322,22 @@ export function setDemoUserActive(
 export function listDemoJobAssignments(jobId: string): JobAssignmentView[] {
   return jobAssignments
     .filter((assignment) => assignment.jobId === jobId)
-    .map((assignment) => {
+    .flatMap((assignment): JobAssignmentView[] => {
       const user = users.find((item) => item.id === assignment.userId);
-      return user
-        ? {
-            ...assignment,
-            role: assignment.role as JobAssignmentRole,
-            displayName: user.displayName,
-            email: user.email,
-            active: user.active,
-          }
-        : null;
+      if (!user) return [];
+      return [
+        {
+          id: assignment.id,
+          jobId: assignment.jobId,
+          userId: assignment.userId,
+          role: assignment.role as JobAssignmentRole,
+          displayName: user.displayName,
+          email: user.email,
+          active: user.active,
+          createdAt: assignment.createdAt,
+        },
+      ];
     })
-    .filter((assignment): assignment is JobAssignmentView =>
-      Boolean(assignment),
-    )
     .sort((left, right) => left.displayName.localeCompare(right.displayName));
 }
 
