@@ -147,6 +147,7 @@ type PortfolioWorkRow = {
   dates: Required<ScheduleDates>;
   progress: ReturnType<typeof getTaskProgress>;
   critical: boolean;
+  criticalCount: number;
   baselineState: PortfolioBaselineState;
   baselineVariance: ReturnType<typeof calculateBaselineVariance> | null;
   warning: string;
@@ -240,15 +241,7 @@ export function buildPortfolioWorkRows(
     const projectBaselineState: PortfolioBaselineState =
       baseline === "none"
         ? { kind: "none" }
-        : project.latestBaseline
-          ? {
-              kind: "scheduled",
-              dates: normalizedDates({
-                plannedStartAt: project.range.start,
-                plannedEndAt: project.range.finish,
-              }),
-            }
-          : { kind: "not-baselined" };
+        : { kind: "not-baselined" };
     const warnings = [
       project.warningCounts.blocked
         ? `${project.warningCounts.blocked} blocked`
@@ -258,6 +251,9 @@ export function buildPortfolioWorkRows(
         : "",
       project.warningCounts.unscheduled
         ? `${project.warningCounts.unscheduled} unscheduled`
+        : "",
+      project.warningCounts.critical
+        ? `${project.warningCounts.critical} critical`
         : "",
     ].filter(Boolean);
     const rows: PortfolioWorkRow[] = [
@@ -276,6 +272,7 @@ export function buildPortfolioWorkRows(
         }),
         progress: project.progress,
         critical: false,
+        criticalCount: project.warningCounts.critical,
         baselineState: projectBaselineState,
         baselineVariance: null,
         warning: warnings.join(" · ") || "—",
@@ -297,6 +294,9 @@ export function buildPortfolioWorkRows(
         project.latestBaseline,
         item,
       );
+      const criticalCount = job.tasks.filter((task) =>
+        criticalIds.has(task.id),
+      ).length;
       rows.push({
         key: `${project.id}:job:${job.id}`,
         kind: "job",
@@ -308,7 +308,8 @@ export function buildPortfolioWorkRows(
         state,
         dates,
         progress: getTaskProgress(job.tasks),
-        critical: false,
+        critical: criticalCount > 0,
+        criticalCount,
         baselineState: stateAtBaseline,
         baselineVariance: baselineVariance(
           dates,
@@ -349,6 +350,7 @@ export function buildPortfolioWorkRows(
           dates,
           progress: getTaskProgress([task]),
           critical: criticalIds.has(task.id),
+          criticalCount: criticalIds.has(task.id) ? 1 : 0,
           baselineState: stateAtBaseline,
           baselineVariance: baselineVariance(
             dates,
@@ -415,7 +417,12 @@ function baselineLabel(row: PortfolioWorkRow): string {
   if (row.baselineState.kind === "not-baselined") return "Not baselined";
   if (row.baselineState.kind === "added") return "Added since baseline";
   if (row.baselineState.kind === "invalid") return "Invalid baseline date";
-  return "Latest baseline";
+  return row.project.latestBaseline
+    ? `${row.project.latestBaseline.name} · ${formatDate(
+        row.project.latestBaseline.capturedAt,
+        row.project.calendar,
+      )}`
+    : "Not baselined";
 }
 
 function rowVarianceLabel(row: PortfolioWorkRow): string {
@@ -624,6 +631,12 @@ function RowLabel({
           <p className="text-xs text-muted-foreground">
             {baselineLabel(row)} · {rowVarianceLabel(row)}
           </p>
+          {row.criticalCount > 0 ? (
+            <p className="text-xs font-medium text-destructive">
+              {row.criticalCount} critical{" "}
+              {row.criticalCount === 1 ? "task" : "tasks"}
+            </p>
+          ) : null}
           {row.warning !== "—" ? (
             <p className="text-xs font-medium text-destructive">
               {row.warning}
@@ -730,6 +743,8 @@ function WorkTableRow({ row }: { row: PortfolioWorkRow }) {
   const managerOrAssignee =
     row.kind === "task"
       ? row.task?.assignee ?? "Unassigned"
+      : row.kind === "job"
+        ? row.job?.projectManager ?? "Unassigned"
       : row.project.projectManager ?? "Unassigned";
   const progress =
     row.progress.percent === null
@@ -774,9 +789,9 @@ function WorkTableRow({ row }: { row: PortfolioWorkRow }) {
       <TableCell>{progress}</TableCell>
       <TableCell>
         {row.kind === "project"
-          ? `${row.project.warningCounts.critical} critical tasks`
+          ? `${row.criticalCount} critical tasks`
           : row.kind === "job"
-            ? `${row.job?.tasks.filter((task) => task.status !== "done").length ?? 0} open tasks`
+            ? `${row.criticalCount} critical tasks`
             : row.critical
               ? "Critical"
               : row.dates.plannedStartAt && row.dates.plannedEndAt
