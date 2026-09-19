@@ -11,6 +11,7 @@ import {
   isTaskOutsideJobRange,
   moveScheduleAnchor,
   positionInWindow,
+  shiftScheduleDates,
 } from "@/lib/ops/project-schedule";
 
 const today = new Date("2026-09-19T12:00:00-04:00");
@@ -257,5 +258,35 @@ describe("project schedule", () => {
 
     expect(week.getDate()).toBe(31);
     expect(month.getMonth()).toBe(2);
+  });
+
+  it("shifts a task range while preserving duration", () => {
+    expect(
+      shiftScheduleDates(
+        {
+          plannedStartAt: "2026-09-10T12:00:00.000Z",
+          plannedEndAt: "2026-09-12T12:00:00.000Z",
+          dueAt: null,
+        },
+        3,
+      ),
+    ).toEqual({
+      plannedStartAt: "2026-09-13T12:00:00.000Z",
+      plannedEndAt: "2026-09-15T12:00:00.000Z",
+      dueAt: null,
+    });
+  });
+
+  it("moves only dueAt for a due-only milestone", () => {
+    expect(
+      shiftScheduleDates(
+        {
+          plannedStartAt: null,
+          plannedEndAt: null,
+          dueAt: "2026-09-10T12:00:00.000Z",
+        },
+        -2,
+      ).dueAt,
+    ).toBe("2026-09-08T12:00:00.000Z");
   });
 });

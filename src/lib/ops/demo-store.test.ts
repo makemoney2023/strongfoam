@@ -28,6 +28,7 @@ import {
   listDemoOpportunities,
   listDemoWorkAreas,
   matchesEstimateRequestFilters,
+  rescheduleDemoJobTask,
   setDemoJobTaskStatus,
   updateDemoEstimateRequest,
   updateDemoJobFieldNote,
@@ -312,6 +313,102 @@ describe("job workspace", () => {
 });
 
 describe("workspace CRUD and filters", () => {
+  it("reschedules tasks with stale-write and dependency protection", () => {
+    const predecessor = addDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      actor: "pm@strongfoam.com",
+      input: {
+        title: `Predecessor ${crypto.randomUUID()}`,
+        assignee: null,
+        dueAt: null,
+        plannedStartAt: new Date("2026-09-19T12:00:00.000Z"),
+        plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
+        workAreaId: null,
+      },
+    });
+    const successor = addDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      actor: "pm@strongfoam.com",
+      input: {
+        title: `Successor ${crypto.randomUUID()}`,
+        assignee: null,
+        dueAt: null,
+        plannedStartAt: new Date("2026-09-22T12:00:00.000Z"),
+        plannedEndAt: new Date("2026-09-23T12:00:00.000Z"),
+        workAreaId: null,
+      },
+    });
+    expect(predecessor).not.toBeNull();
+    expect(successor).not.toBeNull();
+    if (!predecessor || !successor) return;
+
+    const accepted = rescheduleDemoJobTask({
+      projectId: DEMO_PROJECT_ID,
+      jobId: DEMO_JOB_ID,
+      taskId: successor.id,
+      plannedStartAt: new Date("2026-09-23T12:00:00.000Z"),
+      plannedEndAt: new Date("2026-09-24T12:00:00.000Z"),
+      dueAt: null,
+      expectedUpdatedAt: successor.updatedAt,
+      actor: "pm@strongfoam.com",
+    });
+    expect(accepted.ok).toBe(true);
+    expect(
+      listDemoJobEvents(DEMO_JOB_ID).some(
+        (event) => event.kind === "task_rescheduled",
+      ),
+    ).toBe(true);
+    const stale = rescheduleDemoJobTask({
+      projectId: DEMO_PROJECT_ID,
+      jobId: DEMO_JOB_ID,
+      taskId: successor.id,
+      plannedStartAt: new Date("2026-09-24T12:00:00.000Z"),
+      plannedEndAt: new Date("2026-09-25T12:00:00.000Z"),
+      dueAt: null,
+      expectedUpdatedAt: new Date("2000-01-01T00:00:00.000Z"),
+      actor: "pm@strongfoam.com",
+    });
+    expect(stale).toEqual({
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    });
+
+    const dependency = addDemoJobTaskDependency({
+      projectId: DEMO_PROJECT_ID,
+      predecessorTaskId: predecessor.id,
+      successorTaskId: successor.id,
+      lagDays: 1,
+      actor: "pm@strongfoam.com",
+    });
+    expect(dependency.ok).toBe(true);
+    const current = listDemoJobTasks(DEMO_JOB_ID).find(
+      (task) => task.id === successor.id,
+    );
+    const rejected = rescheduleDemoJobTask({
+      projectId: DEMO_PROJECT_ID,
+      jobId: DEMO_JOB_ID,
+      taskId: successor.id,
+      plannedStartAt: new Date("2026-09-20T12:00:00.000Z"),
+      plannedEndAt: new Date("2026-09-21T12:00:00.000Z"),
+      dueAt: null,
+      expectedUpdatedAt: current?.updatedAt ?? new Date(0),
+      actor: "pm@strongfoam.com",
+    });
+    expect(rejected.ok).toBe(false);
+    expect(
+      listDemoJobTasks(DEMO_JOB_ID).find(
+        (task) => task.id === successor.id,
+      )?.plannedStartAt,
+    ).toEqual(current?.plannedStartAt);
+    if (dependency.ok) {
+      deleteDemoJobTaskDependency({
+        projectId: DEMO_PROJECT_ID,
+        dependencyId: dependency.dependency.id,
+        actor: "pm@strongfoam.com",
+      });
+    }
+  });
+
   it("validates, creates, and removes project task dependencies", () => {
     const makeTask = (title: string) =>
       addDemoJobTask({

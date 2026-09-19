@@ -83,6 +83,8 @@ import {
   listDemoProjects,
   listDemoSites,
   listDemoWorkAreas,
+  rescheduleDemoJob,
+  rescheduleDemoJobTask,
   setDemoEstimateRequestTaskStatus,
   setDemoJobStatus,
   setDemoJobTaskStatus,
@@ -113,7 +115,10 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
-import { validateDependencyAddition } from "@/lib/ops/project-schedule-graph";
+import {
+  validateDependencyAddition,
+  validateDependencyDates,
+} from "@/lib/ops/project-schedule-graph";
 import {
   canConvertWonWork,
   type JobConversionInput,
@@ -1311,6 +1316,198 @@ export async function deleteJobTaskDependency(args: {
     });
   }
   return { ok: true };
+}
+
+export async function rescheduleJob(args: {
+  projectId: string;
+  jobId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): Promise<
+  { ok: true; job: JobRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return rescheduleDemoJob(args);
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const db = getDb();
+  const currentRows = await db
+    .select()
+    .from(jobs)
+    .where(
+      and(eq(jobs.id, args.jobId), eq(jobs.projectId, args.projectId)),
+    )
+    .limit(1);
+  const current = currentRows[0];
+  if (!current) return { ok: false, error: "That job could not be found." };
+  if (current.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  const acceptedUpdatedAt = new Date();
+  const rows = await db
+    .update(jobs)
+    .set({
+      plannedStartAt: args.plannedStartAt,
+      plannedEndAt: args.plannedEndAt,
+      updatedAt: acceptedUpdatedAt,
+    })
+    .where(
+      and(
+        eq(jobs.id, args.jobId),
+        eq(jobs.projectId, args.projectId),
+        eq(jobs.updatedAt, args.expectedUpdatedAt),
+      ),
+    )
+    .returning();
+  const job = rows[0];
+  if (!job) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  await db.insert(jobEvents).values({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_rescheduled",
+    summary: `job rescheduled: ${job.name}`,
+    payload: {
+      before: {
+        plannedStartAt: current.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: current.plannedEndAt?.toISOString() ?? null,
+      },
+      after: {
+        plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: job.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, job };
+}
+
+export async function rescheduleJobTask(args: {
+  projectId: string;
+  jobId: string;
+  taskId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  dueAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): Promise<
+  { ok: true; task: JobTaskRow } | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return rescheduleDemoJobTask(args);
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const db = getDb();
+  const currentRows = await db
+    .select({ task: jobTasks, projectId: jobs.projectId })
+    .from(jobTasks)
+    .innerJoin(jobs, eq(jobTasks.jobId, jobs.id))
+    .where(
+      and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)),
+    )
+    .limit(1);
+  const current = currentRows[0]?.task;
+  if (!current || currentRows[0]?.projectId !== args.projectId) {
+    return { ok: false, error: "That task could not be found." };
+  }
+  if (current.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+
+  const [taskResult, dependencyResult] = await Promise.all([
+    listProjectJobTasks(args.projectId),
+    listProjectTaskDependencies(args.projectId),
+  ]);
+  const validation = validateDependencyDates(
+    taskResult.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      plannedStartAt:
+        task.id === args.taskId
+          ? args.plannedStartAt?.toISOString() ?? null
+          : task.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt:
+        task.id === args.taskId
+          ? args.plannedEndAt?.toISOString() ?? null
+          : task.plannedEndAt?.toISOString() ?? null,
+    })),
+    dependencyResult.edges,
+  );
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  const acceptedUpdatedAt = new Date();
+  const rows = await db
+    .update(jobTasks)
+    .set({
+      plannedStartAt: args.plannedStartAt,
+      plannedEndAt: args.plannedEndAt,
+      dueAt: args.dueAt,
+      updatedAt: acceptedUpdatedAt,
+    })
+    .where(
+      and(
+        eq(jobTasks.id, args.taskId),
+        eq(jobTasks.jobId, args.jobId),
+        eq(jobTasks.updatedAt, args.expectedUpdatedAt),
+      ),
+    )
+    .returning();
+  const task = rows[0];
+  if (!task) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  await db.insert(jobEvents).values({
+    jobId: task.jobId,
+    actor: args.actor,
+    kind: "task_rescheduled",
+    summary: `task rescheduled: ${task.title}`,
+    payload: {
+      before: {
+        plannedStartAt: current.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: current.plannedEndAt?.toISOString() ?? null,
+        dueAt: current.dueAt?.toISOString() ?? null,
+      },
+      after: {
+        plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+        dueAt: task.dueAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: task.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, task };
 }
 
 export async function addJobTask(args: {

@@ -336,3 +336,40 @@ export function moveScheduleAnchor(
   }
   return next;
 }
+
+function shiftIsoDate(value: string | null, deltaDays: number): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + deltaDays);
+  return date.toISOString();
+}
+
+export function shiftScheduleDates(
+  dates: {
+    plannedStartAt: string | null;
+    plannedEndAt: string | null;
+    dueAt: string | null;
+  },
+  deltaDays: number,
+): {
+  plannedStartAt: string | null;
+  plannedEndAt: string | null;
+  dueAt: string | null;
+} {
+  if (!Number.isInteger(deltaDays)) {
+    throw new RangeError("Schedule date shifts require a whole number of days.");
+  }
+  if (dates.plannedStartAt || dates.plannedEndAt) {
+    return {
+      plannedStartAt: shiftIsoDate(dates.plannedStartAt, deltaDays),
+      plannedEndAt: shiftIsoDate(dates.plannedEndAt, deltaDays),
+      dueAt: dates.dueAt,
+    };
+  }
+  return {
+    plannedStartAt: null,
+    plannedEndAt: null,
+    dueAt: shiftIsoDate(dates.dueAt, deltaDays),
+  };
+}

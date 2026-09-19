@@ -14,8 +14,25 @@ import {
   addJobTaskDependency,
   deleteJobTaskDependency,
   deleteProject,
+  rescheduleJob,
+  rescheduleJobTask,
   updateProject,
 } from "@/lib/ops/store";
+
+function parseOptionalDate(
+  formData: FormData,
+  name: string,
+  label: string,
+): { ok: true; value: Date | null } | { ok: false; state: ActionState } {
+  const raw = String(formData.get(name) ?? "");
+  if (!raw) return { ok: true, value: null };
+  const value = new Date(raw);
+  if (Number.isNaN(value.getTime())) {
+    const error = `${label} is invalid.`;
+    return { ok: false, state: { error, fields: { [name]: error } } };
+  }
+  return { ok: true, value };
+}
 
 export async function saveProject(formData: FormData): Promise<ActionState> {
   const session = await getOpsSession();
@@ -92,4 +109,76 @@ export async function removeProjectTaskDependency(
   if (!result.ok) return fail(returnTo, result.error);
   revalidatePath(`/app/projects/${projectId}`);
   return succeed(returnTo, "Dependency removed.");
+}
+
+export async function rescheduleProjectScheduleItem(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const projectId = String(formData.get("projectId") ?? "");
+  const jobId = String(formData.get("jobId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const entityType = String(formData.get("entityType") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/projects/${projectId}`,
+  );
+  if (
+    !projectId ||
+    !jobId ||
+    (entityType !== "job" && entityType !== "task")
+  ) {
+    return fail(returnTo, "That schedule item could not be rescheduled.");
+  }
+
+  const plannedStartAt = parseOptionalDate(
+    formData,
+    "plannedStartAt",
+    "Planned start",
+  );
+  if (!plannedStartAt.ok) return plannedStartAt.state;
+  const plannedEndAt = parseOptionalDate(
+    formData,
+    "plannedEndAt",
+    "Planned completion",
+  );
+  if (!plannedEndAt.ok) return plannedEndAt.state;
+  const dueAt = parseOptionalDate(formData, "dueAt", "Due date");
+  if (!dueAt.ok) return dueAt.state;
+  const expectedUpdatedAt = new Date(
+    String(formData.get("expectedUpdatedAt") ?? ""),
+  );
+  if (Number.isNaN(expectedUpdatedAt.getTime())) {
+    return fail(returnTo, "Refresh the project before rescheduling this item.");
+  }
+
+  const result =
+    entityType === "job"
+      ? await rescheduleJob({
+          projectId,
+          jobId,
+          plannedStartAt: plannedStartAt.value,
+          plannedEndAt: plannedEndAt.value,
+          expectedUpdatedAt,
+          actor: session.email,
+        })
+      : await rescheduleJobTask({
+          projectId,
+          jobId,
+          taskId,
+          plannedStartAt: plannedStartAt.value,
+          plannedEndAt: plannedEndAt.value,
+          dueAt: dueAt.value,
+          expectedUpdatedAt,
+          actor: session.email,
+        });
+  if (!result.ok) return fail(returnTo, result.error);
+
+  revalidatePath(`/app/projects/${projectId}`);
+  revalidatePath(`/app/jobs/${jobId}`);
+  return succeed(
+    returnTo,
+    entityType === "job" ? "Job rescheduled." : "Task rescheduled.",
+  );
 }

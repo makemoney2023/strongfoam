@@ -2,14 +2,16 @@
 
 import {
   AlertTriangleIcon,
+  CalendarClockIcon,
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleIcon,
+  GripVerticalIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NativeSelect } from "@/components/ops/native-select";
+import {
+  ScheduleRescheduleDialog,
+  type ReschedulePreview,
+} from "@/components/ops/schedule-reschedule-dialog";
 import { TaskDependencyEditor } from "@/components/ops/task-dependency-editor";
 import {
   SCHEDULE_FILTERS,
@@ -40,6 +46,7 @@ import {
   isTaskOutsideJobRange,
   moveScheduleAnchor,
   positionInWindow,
+  shiftScheduleDates,
   type ProjectScheduleJob,
   type ProjectScheduleDependency,
   type ProjectScheduleTask,
@@ -48,6 +55,10 @@ import {
   type ScheduleWindow,
   type ScheduleZoom,
 } from "@/lib/ops/project-schedule";
+import {
+  calculateCriticalPath,
+  validateDependencyDates,
+} from "@/lib/ops/project-schedule-graph";
 import { JOB_STATUS_LABELS } from "@/lib/ops/jobs";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +137,8 @@ function RangeMark({
   end,
   window,
   state,
+  critical = false,
+  highlightCritical = false,
 }: {
   href: string;
   label: string;
@@ -133,6 +146,8 @@ function RangeMark({
   end: string | null;
   window: ScheduleWindow;
   state: ScheduleState;
+  critical?: boolean;
+  highlightCritical?: boolean;
 }) {
   if (!start && !end) {
     return (
@@ -152,6 +167,7 @@ function RangeMark({
         aria-label={`${label}: ${dateRangeLabel(start, end)}`}
         className={cn(
           "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          critical && highlightCritical && "ring-2 ring-destructive ring-offset-2",
           state === "complete"
             ? "border-primary bg-primary"
             : state === "blocked" || state === "overdue"
@@ -159,6 +175,7 @@ function RangeMark({
               : "border-primary bg-card",
         )}
         style={{ left: `${position}%` }}
+        data-critical={critical ? "true" : undefined}
       />
     );
   }
@@ -183,6 +200,7 @@ function RangeMark({
       aria-label={`${label}: ${dateRangeLabel(start, end)}`}
       className={cn(
         "absolute top-2 bottom-2 overflow-hidden rounded-sm border px-2 text-xs leading-7 font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        critical && highlightCritical && "ring-2 ring-destructive ring-offset-1",
         state === "complete"
           ? "border-primary bg-primary text-primary-foreground"
           : state === "blocked" || state === "overdue"
@@ -191,6 +209,7 @@ function RangeMark({
       )}
       style={{ left: `${left}%`, width: `${width}%` }}
       title={dateRangeLabel(start, end)}
+      data-critical={critical ? "true" : undefined}
     >
       {STATE_LABELS[state]}
     </Link>
@@ -201,10 +220,14 @@ function TaskMark({
   task,
   window,
   state,
+  critical,
+  highlightCritical,
 }: {
   task: ProjectScheduleTask;
   window: ScheduleWindow;
   state: ScheduleState;
+  critical: boolean;
+  highlightCritical: boolean;
 }) {
   const href = `/app/jobs/${task.jobId}#task-${task.id}`;
   const geometry = getTaskGeometry(task);
@@ -217,6 +240,8 @@ function TaskMark({
         end={geometry.end}
         window={window}
         state={state}
+        critical={critical}
+        highlightCritical={highlightCritical}
       />
     );
   }
@@ -236,6 +261,7 @@ function TaskMark({
       aria-label={`${task.title}: ${sourceLabel.toLowerCase()} ${formatDate(geometry.date)}`}
       className={cn(
         "absolute top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs font-medium focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        critical && highlightCritical && "rounded-sm ring-2 ring-destructive",
         state === "complete"
           ? "text-primary"
           : state === "overdue"
@@ -244,6 +270,7 @@ function TaskMark({
       )}
       style={{ left: `${position}%` }}
       title={`${sourceLabel} ${formatDate(geometry.date)}`}
+      data-critical={critical ? "true" : undefined}
     >
       <span
         className={cn(
@@ -296,6 +323,63 @@ function TimelineBackdrop({
   );
 }
 
+function ScheduleDragGrip({
+  position,
+  window,
+  label,
+  onShift,
+}: {
+  position: number | null;
+  window: ScheduleWindow;
+  label: string;
+  onShift: (deltaDays: number) => void;
+}) {
+  const drag = useRef<{ x: number; width: number } | null>(null);
+  if (position === null) return null;
+  const daySpan = Math.max(
+    1,
+    Math.round(
+      (window.end.getTime() - window.start.getTime()) / 86_400_000,
+    ),
+  );
+  return (
+    <button
+      type="button"
+      className="absolute top-1/2 z-20 flex size-7 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-md border bg-card text-muted-foreground shadow-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      style={{ left: `${position}%` }}
+      aria-label={`Drag to reschedule ${label}`}
+      aria-describedby="schedule-drag-instructions"
+      onPointerDown={(event) => {
+        const row = event.currentTarget.closest<HTMLElement>(
+          "[data-timeline-row]",
+        );
+        drag.current = {
+          x: event.clientX,
+          width: row?.clientWidth ?? 1,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerUp={(event) => {
+        if (!drag.current) return;
+        const deltaPixels = event.clientX - drag.current.x;
+        const deltaDays = Math.round(
+          (deltaPixels / drag.current.width) * daySpan,
+        );
+        drag.current = null;
+        if (deltaDays !== 0) onShift(deltaDays);
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") drag.current = null;
+      }}
+    >
+      <GripVerticalIcon aria-hidden="true" />
+    </button>
+  );
+}
+
 function ChartRow({
   label,
   children,
@@ -319,7 +403,10 @@ function ChartRow({
       <div className="sticky left-0 z-20 flex min-w-0 items-center border-r bg-card px-3 py-2">
         {label}
       </div>
-      <div className="relative flex min-h-11 items-center px-2">
+      <div
+        className="relative flex min-h-11 items-center px-2"
+        data-timeline-row
+      >
         <TimelineBackdrop window={window} today={today} />
         <div className="relative z-10 min-w-0 flex-1">{children}</div>
       </div>
@@ -347,6 +434,9 @@ export function ProjectSchedule({
   const [zoom, setZoom] = useState<ScheduleZoom>("week");
   const [filter, setFilter] = useState<ScheduleFilter>("all");
   const [hideCompleted, setHideCompleted] = useState(false);
+  const [highlightCritical, setHighlightCritical] = useState(true);
+  const [reschedulePreview, setReschedulePreview] =
+    useState<ReschedulePreview | null>(null);
   const [anchor, setAnchor] = useState(() => new Date(now));
   const [expanded, setExpanded] = useState(
     () => new Set(jobs.length <= 10 ? jobs.map((job) => job.id) : []),
@@ -359,6 +449,8 @@ export function ProjectSchedule({
     ? hideCompletedScheduleRows(filteredJobs)
     : filteredJobs;
   const projectProgress = getTaskProgress(jobs.flatMap((job) => job.tasks));
+  const allTasks = jobs.flatMap((job) => job.tasks);
+  const criticalPath = calculateCriticalPath(allTasks, dependencies);
   const taskOptions = jobs.flatMap((job) =>
     job.tasks.map((task) => ({
       id: task.id,
@@ -385,6 +477,72 @@ export function ProjectSchedule({
     });
   }
 
+  function proposeJobReschedule(
+    job: ProjectScheduleJob,
+    deltaDays = 0,
+  ) {
+    const before = {
+      plannedStartAt: job.plannedStartAt,
+      plannedEndAt: job.plannedEndAt,
+      dueAt: null,
+    };
+    setReschedulePreview({
+      entityType: "job",
+      entityId: job.id,
+      jobId: job.id,
+      label: `${job.number} · ${job.name}`,
+      expectedUpdatedAt: job.updatedAt ?? now,
+      before,
+      after: shiftScheduleDates(before, deltaDays),
+      warnings: [
+        "Attached task dates do not move automatically with the job.",
+      ],
+    });
+  }
+
+  function proposeTaskReschedule(
+    task: ProjectScheduleTask,
+    job: ProjectScheduleJob,
+    deltaDays = 0,
+  ) {
+    const before = {
+      plannedStartAt: task.plannedStartAt,
+      plannedEndAt: task.plannedEndAt,
+      dueAt: task.dueAt,
+    };
+    const after = shiftScheduleDates(before, deltaDays);
+    const warnings: string[] = [];
+    if (isTaskOutsideJobRange(after, job)) {
+      warnings.push("The proposed task dates fall outside the parent job dates.");
+    }
+    const dependencyValidation = validateDependencyDates(
+      allTasks.map((candidate) => ({
+        id: candidate.id,
+        title: candidate.title,
+        plannedStartAt:
+          candidate.id === task.id
+            ? after.plannedStartAt
+            : candidate.plannedStartAt,
+        plannedEndAt:
+          candidate.id === task.id
+            ? after.plannedEndAt
+            : candidate.plannedEndAt,
+      })),
+      dependencies,
+    );
+    if (!dependencyValidation.ok) warnings.push(dependencyValidation.error);
+    setReschedulePreview({
+      entityType: "task",
+      entityId: task.id,
+      jobId: job.id,
+      label: task.title,
+      expectedUpdatedAt: task.updatedAt ?? now,
+      before,
+      after,
+      warnings,
+    });
+  }
+
   return (
     <div className="space-y-4">
       {truncated ? (
@@ -407,6 +565,16 @@ export function ProjectSchedule({
           </AlertDescription>
         </Alert>
       ) : null}
+      {!criticalPath.ok ? (
+        <Alert variant="destructive">
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>Critical path is unavailable</AlertTitle>
+          <AlertDescription>{criticalPath.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <p id="schedule-drag-instructions" className="sr-only">
+        Drag to propose new dates. Saving requires confirmation.
+      </p>
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-56 space-y-2">
@@ -456,6 +624,16 @@ export function ProjectSchedule({
               className="size-4 accent-primary"
             />
             Hide completed
+          </label>
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm">
+            <input
+              type="checkbox"
+              checked={highlightCritical}
+              onChange={(event) => setHighlightCritical(event.target.checked)}
+              className="size-4 accent-primary"
+              disabled={!criticalPath.ok}
+            />
+            Highlight critical path
           </label>
           <div className="flex min-h-11 items-center rounded-lg border p-1">
             {(["week", "month"] as const).map((option) => (
@@ -547,6 +725,10 @@ export function ProjectSchedule({
               const jobState = getJobScheduleState(job, today);
               const jobProgress = getTaskProgress(job.tasks);
               const isExpanded = expanded.has(job.id);
+              const jobGripPosition = positionInWindow(
+                job.plannedStartAt ?? job.plannedEndAt,
+                window,
+              );
               return (
                 <div key={job.id}>
                   <ChartRow
@@ -589,6 +771,15 @@ export function ProjectSchedule({
                         <Badge variant={statusVariant(jobState)}>
                           {STATE_LABELS[jobState]}
                         </Badge>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-lg"
+                          aria-label={`Reschedule ${job.number} ${job.name}`}
+                          onClick={() => proposeJobReschedule(job)}
+                        >
+                          <CalendarClockIcon aria-hidden="true" />
+                        </Button>
                       </div>
                     }
                   >
@@ -600,6 +791,14 @@ export function ProjectSchedule({
                       window={window}
                       state={jobState}
                     />
+                    <ScheduleDragGrip
+                      position={jobGripPosition}
+                      window={window}
+                      label={`${job.number} ${job.name}`}
+                      onShift={(deltaDays) =>
+                        proposeJobReschedule(job, deltaDays)
+                      }
+                    />
                   </ChartRow>
 
                   {isExpanded
@@ -610,6 +809,16 @@ export function ProjectSchedule({
                           job,
                         );
                         const incoming = incomingByTask.get(task.id) ?? [];
+                        const taskGeometry = getTaskGeometry(task);
+                        const taskGripPosition =
+                          taskGeometry.kind === "bar"
+                            ? positionInWindow(taskGeometry.start, window)
+                            : taskGeometry.kind === "milestone"
+                              ? positionInWindow(taskGeometry.date, window)
+                              : null;
+                        const isCritical =
+                          criticalPath.ok &&
+                          criticalPath.criticalTaskIds.has(task.id);
                         return (
                           <ChartRow
                             key={task.id}
@@ -652,6 +861,9 @@ export function ProjectSchedule({
                                     </p>
                                   ) : null}
                                 </div>
+                                {isCritical ? (
+                                  <Badge variant="destructive">Critical</Badge>
+                                ) : null}
                                 <TaskDependencyEditor
                                   projectId={projectId}
                                   task={{
@@ -663,6 +875,17 @@ export function ProjectSchedule({
                                   incoming={incoming}
                                   returnTo={returnTo}
                                 />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-lg"
+                                  aria-label={`Reschedule ${task.title}`}
+                                  onClick={() =>
+                                    proposeTaskReschedule(task, job)
+                                  }
+                                >
+                                  <CalendarClockIcon aria-hidden="true" />
+                                </Button>
                               </div>
                             }
                           >
@@ -670,6 +893,16 @@ export function ProjectSchedule({
                               task={task}
                               window={window}
                               state={taskState}
+                              critical={isCritical}
+                              highlightCritical={highlightCritical}
+                            />
+                            <ScheduleDragGrip
+                              position={taskGripPosition}
+                              window={window}
+                              label={task.title}
+                              onShift={(deltaDays) =>
+                                proposeTaskReschedule(task, job, deltaDays)
+                              }
                             />
                           </ChartRow>
                         );
@@ -700,6 +933,7 @@ export function ProjectSchedule({
                 <TableHead>Actual completion</TableHead>
                 <TableHead>Progress</TableHead>
                 <TableHead>Dependencies</TableHead>
+                <TableHead>Critical path</TableHead>
                 <TableHead>Warning</TableHead>
               </TableRow>
             </TableHeader>
@@ -730,6 +964,7 @@ export function ProjectSchedule({
                         : `${progress.completed} / ${progress.total} (${progress.percent}%)`}
                     </TableCell>
                     <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>
                       {!job.plannedStartAt && !job.plannedEndAt
                         ? "Unscheduled"
@@ -742,6 +977,9 @@ export function ProjectSchedule({
                     const taskState = getTaskScheduleState(task, today);
                     const outsideJobDates = isTaskOutsideJobRange(task, job);
                     const incoming = incomingByTask.get(task.id) ?? [];
+                    const isCritical =
+                      criticalPath.ok &&
+                      criticalPath.criticalTaskIds.has(task.id);
                     return (
                       <TableRow key={`task-${task.id}`}>
                         <TableCell>Task</TableCell>
@@ -777,6 +1015,13 @@ export function ProjectSchedule({
                                 .join("; ")}
                         </TableCell>
                         <TableCell>
+                          {isCritical
+                            ? "Critical"
+                            : task.plannedStartAt && task.plannedEndAt
+                              ? "Not critical"
+                              : "Not calculated — add planned dates"}
+                        </TableCell>
+                        <TableCell>
                           {outsideJobDates
                             ? "Outside job dates"
                             : !task.plannedStartAt &&
@@ -800,6 +1045,14 @@ export function ProjectSchedule({
           </Table>
         </div>
       </details>
+      <ScheduleRescheduleDialog
+        projectId={projectId}
+        returnTo={returnTo}
+        preview={reschedulePreview}
+        onOpenChange={(open) => {
+          if (!open) setReschedulePreview(null);
+        }}
+      />
     </div>
   );
 }

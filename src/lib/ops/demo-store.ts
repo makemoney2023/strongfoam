@@ -52,7 +52,10 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
-import { validateDependencyAddition } from "@/lib/ops/project-schedule-graph";
+import {
+  validateDependencyAddition,
+  validateDependencyDates,
+} from "@/lib/ops/project-schedule-graph";
 import type {
   CompanyInput,
   ContactInput,
@@ -989,6 +992,140 @@ export function deleteDemoJobTaskDependency(args: {
     });
   }
   return { ok: true };
+}
+
+export function rescheduleDemoJob(args: {
+  projectId: string;
+  jobId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): { ok: true; job: JobRow } | { ok: false; error: string } {
+  const job = jobsList.find(
+    (item) => item.id === args.jobId && item.projectId === args.projectId,
+  );
+  if (!job) return { ok: false, error: "That job could not be found." };
+  if (job.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const before = {
+    plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+  };
+  job.plannedStartAt = args.plannedStartAt;
+  job.plannedEndAt = args.plannedEndAt;
+  job.updatedAt = new Date();
+  recordJobEvent({
+    jobId: job.id,
+    actor: args.actor,
+    kind: "job_rescheduled",
+    summary: `job rescheduled: ${job.name}`,
+    payload: {
+      before,
+      after: {
+        plannedStartAt: job.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: job.plannedEndAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: job.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, job };
+}
+
+export function rescheduleDemoJobTask(args: {
+  projectId: string;
+  jobId: string;
+  taskId: string;
+  plannedStartAt: Date | null;
+  plannedEndAt: Date | null;
+  dueAt: Date | null;
+  expectedUpdatedAt: Date;
+  actor: string;
+}): { ok: true; task: JobTaskRow } | { ok: false; error: string } {
+  const job = jobsList.find(
+    (item) => item.id === args.jobId && item.projectId === args.projectId,
+  );
+  const task = jobTasks.find(
+    (item) => item.id === args.taskId && item.jobId === args.jobId,
+  );
+  if (!job || !task) {
+    return { ok: false, error: "That task could not be found." };
+  }
+  if (task.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()) {
+    return {
+      ok: false,
+      error: "This schedule changed. Refresh and try again.",
+    };
+  }
+  if (
+    args.plannedStartAt &&
+    args.plannedEndAt &&
+    args.plannedEndAt < args.plannedStartAt
+  ) {
+    return {
+      ok: false,
+      error: "Planned completion must be on or after planned start.",
+    };
+  }
+  const projectTasks = listDemoProjectJobTasks(args.projectId).tasks;
+  const validation = validateDependencyDates(
+    projectTasks.map((item) => ({
+      id: item.id,
+      title: item.title,
+      plannedStartAt:
+        item.id === task.id
+          ? args.plannedStartAt?.toISOString() ?? null
+          : item.plannedStartAt?.toISOString() ?? null,
+      plannedEndAt:
+        item.id === task.id
+          ? args.plannedEndAt?.toISOString() ?? null
+          : item.plannedEndAt?.toISOString() ?? null,
+    })),
+    listDemoProjectTaskDependencies(args.projectId).edges,
+  );
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  const before = {
+    plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+    dueAt: task.dueAt?.toISOString() ?? null,
+  };
+  task.plannedStartAt = args.plannedStartAt;
+  task.plannedEndAt = args.plannedEndAt;
+  task.dueAt = args.dueAt;
+  task.updatedAt = new Date();
+  recordJobEvent({
+    jobId: task.jobId,
+    actor: args.actor,
+    kind: "task_rescheduled",
+    summary: `task rescheduled: ${task.title}`,
+    payload: {
+      before,
+      after: {
+        plannedStartAt: task.plannedStartAt?.toISOString() ?? null,
+        plannedEndAt: task.plannedEndAt?.toISOString() ?? null,
+        dueAt: task.dueAt?.toISOString() ?? null,
+      },
+      expectedUpdatedAt: args.expectedUpdatedAt.toISOString(),
+      acceptedUpdatedAt: task.updatedAt.toISOString(),
+    },
+  });
+  return { ok: true, task };
 }
 
 export function addDemoJobTask(args: {
