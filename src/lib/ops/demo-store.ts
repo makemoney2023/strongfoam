@@ -41,7 +41,6 @@ import {
   type WorkAreaRow,
 } from "@/lib/ops/demo-data";
 import type { CrmConversionInput } from "@/lib/ops/crm";
-import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import {
   canConvertWonWork,
   type JobConversionInput,

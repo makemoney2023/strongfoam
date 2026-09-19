@@ -318,6 +318,12 @@ describe("portfolio work model", () => {
       expansion.jobs,
       NOW,
       "none",
+      new Map(),
+      {
+        baselineItemsComplete: true,
+        criticalPathComplete: true,
+      },
+      projected,
     );
 
     expect(filtered[0]?.jobs[0]?.tasks.map((item) => item.id)).toEqual([
@@ -328,6 +334,19 @@ describe("portfolio work model", () => {
     const projectRow = rows.find((row) => row.kind === "project");
     expect(projectRow?.criticalCount).toBe(1);
     expect(projectRow?.warning).toContain("1 critical");
+    expect(projectRow?.progress).toEqual({
+      completed: 1,
+      total: 2,
+      percent: 50,
+    });
+    expect(
+      rows.find((row) => row.key === "filtered-critical:job:critical-job")
+        ?.progress,
+    ).toEqual({
+      completed: 1,
+      total: 2,
+      percent: 50,
+    });
     expect(
       rows.find((row) => row.key === "filtered-critical:task:visible-noncritical"),
     ).toMatchObject({ critical: false, criticalCount: 0 });

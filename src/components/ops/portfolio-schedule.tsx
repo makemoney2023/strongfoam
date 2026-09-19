@@ -296,9 +296,17 @@ export function buildPortfolioWorkRows(
     baselineItemsComplete: true,
     criticalPathComplete: true,
   },
+  sourceProjects: readonly ProjectedPortfolioProject[] = projects,
 ): PortfolioWorkRow[] {
+  const sourceById = new Map(
+    sourceProjects.map((project) => [project.id, project]),
+  );
   return projects.flatMap((project) => {
-    const criticalIds = project.criticalTaskIds;
+    const sourceProject = sourceById.get(project.id) ?? project;
+    const sourceJobs = new Map(
+      sourceProject.jobs.map((job) => [job.id, job]),
+    );
+    const criticalIds = sourceProject.criticalTaskIds;
     const baselineItems = new Map(
       (project.latestBaseline?.items ?? []).map((item) => [
         `${item.entityType}:${item.entityId}`,
@@ -375,8 +383,9 @@ export function buildPortfolioWorkRows(
           baselineItemsComplete: completeness.baselineItemsComplete,
         },
       );
+      const sourceJob = sourceJobs.get(job.id) ?? job;
       const criticalCount = completeness.criticalPathComplete
-        ? job.tasks.filter((task) => criticalIds.has(task.id)).length
+        ? sourceJob.tasks.filter((task) => criticalIds.has(task.id)).length
         : null;
       rows.push({
         key: `${project.id}:job:${job.id}`,
@@ -388,7 +397,7 @@ export function buildPortfolioWorkRows(
         href: `/app/jobs/${job.id}`,
         state,
         dates,
-        progress: getTaskProgress(job.tasks),
+        progress: getTaskProgress(sourceJob.tasks),
         critical: criticalCount !== null && criticalCount > 0,
         criticalCount,
         criticalUnavailable: !completeness.criticalPathComplete,
@@ -403,7 +412,7 @@ export function buildPortfolioWorkRows(
           Boolean(project.latestBaseline) &&
           !completeness.baselineItemsComplete,
         warning:
-          job.tasks.length === 0
+          sourceJob.tasks.length === 0
             ? "No tasks"
             : !job.plannedStartAt && !job.plannedEndAt
               ? "Unscheduled"
@@ -1359,9 +1368,11 @@ export function PortfolioSchedule({
           criticalPathComplete:
             !data.truncation.tasks && !data.truncation.dependencies,
         },
+        projected,
       ),
     [
       visibleProjects,
+      projected,
       expandedProjects,
       expandedJobs,
       now,
