@@ -9,6 +9,7 @@ import {
   NotebookPenIcon,
   PhoneIcon,
 } from "lucide-react";
+import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
 import { Flash } from "@/components/ops/flash";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { NativeSelect } from "@/components/ops/native-select";
@@ -38,6 +39,7 @@ import {
 } from "@/lib/ops/field-workspace";
 import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
 import {
+  JOB_DOCUMENT_KINDS,
   JOB_DOCUMENT_LABELS,
   formatFileSize,
   jobDocumentHref,
@@ -57,6 +59,11 @@ import {
 import { formatServices } from "@/lib/ops/workflow";
 import {
   addJobFieldEntry,
+  removeJobDocument,
+  removeJobFieldEntry,
+  removeJobWorkspaceTask,
+  saveJobDocumentMeta,
+  saveJobFieldEntry,
   setJobWorkspaceTaskStatus,
 } from "../../../jobs/actions";
 
@@ -67,7 +74,15 @@ export default async function FieldJobPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    taskStatus?: string;
+    kind?: string;
+    docKind?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
@@ -84,9 +99,9 @@ export default async function FieldJobPage({
       job.siteId ? getSite(job.siteId) : null,
       job.opportunityId ? getOpportunity(job.opportunityId) : null,
       listWorkAreas(job.id),
-      listJobTasks(job.id),
-      listJobDocuments(job.id),
-      listJobFieldNotes(job.id),
+      listJobTasks(job.id, { status: query.taskStatus, from: query.from, to: query.to }),
+      listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
+      listJobFieldNotes(job.id, { kind: query.kind, from: query.from, to: query.to }),
     ]);
   const contacts = company
     ? await listContacts(company.id)
@@ -122,6 +137,46 @@ export default async function FieldJobPage({
         }
       />
       <Flash saved={query.saved} error={query.error} savedMessage="Field update saved." />
+
+      <ListFilters>
+        <div className="space-y-2">
+          <Label htmlFor="taskStatus">Tasks</Label>
+          <NativeSelect
+            id="taskStatus"
+            name="taskStatus"
+            defaultValue={query.taskStatus ?? ""}
+            className="h-11"
+          >
+            <option value="">All tasks</option>
+            <option value="open">Open</option>
+            <option value="done">Done</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="kind">Field entries</Label>
+          <NativeSelect id="kind" name="kind" defaultValue={query.kind ?? ""} className="h-11">
+            <option value="">All entries</option>
+            {FIELD_NOTE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {FIELD_NOTE_LABELS[kind]}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="docKind">Files</Label>
+          <NativeSelect id="docKind" name="docKind" defaultValue={query.docKind ?? ""} className="h-11">
+            <option value="">All files</option>
+            {JOB_DOCUMENT_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {JOB_DOCUMENT_LABELS[kind]}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <DateRangeFields from={query.from} to={query.to} />
+        <FilterSubmit />
+      </ListFilters>
 
       <Card>
         <CardHeader>
@@ -257,6 +312,14 @@ export default async function FieldJobPage({
                       {task.status === "done" ? "Reopen task" : "Complete task"}
                     </SubmitButton>
                   </form>
+                  <form action={removeJobWorkspaceTask}>
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="taskId" value={task.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <SubmitButton variant="ghost" className="min-h-11 w-full" pendingLabel="Deleting…">
+                      Delete task
+                    </SubmitButton>
+                  </form>
                 </li>
               ))}
             </ul>
@@ -284,7 +347,7 @@ export default async function FieldJobPage({
           ) : (
             <ul className="space-y-2">
               {notes.map((note) => (
-                <li key={note.id} className="rounded-lg border bg-muted/20 p-3">
+                <li key={note.id} className="space-y-3 rounded-lg border bg-muted/20 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={note.kind === "blocker" ? "destructive" : "outline"}>
                       {FIELD_NOTE_LABELS[note.kind as keyof typeof FIELD_NOTE_LABELS] ?? note.kind}
@@ -295,13 +358,67 @@ export default async function FieldJobPage({
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-sm">{note.body}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {note.createdBy}
                     {areaName(note.workAreaId) ? ` · ${areaName(note.workAreaId)}` : ""}
                     {taskTitle(note.taskId) ? ` · ${taskTitle(note.taskId)}` : ""}
                     {` · ${note.createdAt.toLocaleString("en-CA")}`}
                   </p>
+                  <form action={saveJobFieldEntry} className="space-y-3">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="noteId" value={note.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <NativeSelect name="kind" defaultValue={note.kind} className="h-11">
+                      {FIELD_NOTE_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {FIELD_NOTE_LABELS[kind]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        name="quantity"
+                        className="h-11"
+                        defaultValue={note.quantity?.toString() ?? ""}
+                        placeholder="Quantity"
+                      />
+                      <NativeSelect name="unit" defaultValue={note.unit ?? "board_feet"} className="h-11">
+                        {FIELD_QUANTITY_UNITS.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {FIELD_QUANTITY_LABELS[unit]}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <NativeSelect name="workAreaId" defaultValue={note.workAreaId ?? ""} className="h-11">
+                        <option value="">Whole job</option>
+                        {areas.map((area) => (
+                          <option key={area.id} value={area.id}>
+                            {area.name}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                      <NativeSelect name="taskId" defaultValue={note.taskId ?? ""} className="h-11">
+                        <option value="">No task</option>
+                        {tasks.map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {task.title}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <Textarea name="body" rows={3} defaultValue={note.body} required />
+                    <SubmitButton className="min-h-11 w-full">Save field entry</SubmitButton>
+                  </form>
+                  <form action={removeJobFieldEntry}>
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="noteId" value={note.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <SubmitButton variant="ghost" className="min-h-11 w-full" pendingLabel="Deleting…">
+                      Delete entry
+                    </SubmitButton>
+                  </form>
                 </li>
               ))}
             </ul>
@@ -413,20 +530,46 @@ export default async function FieldJobPage({
           ) : (
             <ul className="space-y-2">
               {documents.map((document) => (
-                <li key={document.id} className="rounded-lg border bg-muted/20 p-3">
+                <li key={document.id} className="space-y-3 rounded-lg border bg-muted/20 p-3">
                   <p className="break-all font-medium">{document.filename}</p>
                   <p className="text-sm text-muted-foreground">
-                    {JOB_DOCUMENT_LABELS[document.kind as keyof typeof JOB_DOCUMENT_LABELS] ??
-                      document.kind}
-                    {areaName(document.workAreaId) ? ` · ${areaName(document.workAreaId)}` : ""}
                     {` · ${formatFileSize(document.sizeBytes)}`}
                   </p>
+                  <form action={saveJobDocumentMeta} className="space-y-3">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="documentId" value={document.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <NativeSelect name="kind" defaultValue={document.kind} className="h-11">
+                      {JOB_DOCUMENT_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          {JOB_DOCUMENT_LABELS[kind]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    <NativeSelect name="workAreaId" defaultValue={document.workAreaId ?? ""} className="h-11">
+                      <option value="">Whole job</option>
+                      {areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    <SubmitButton className="min-h-11 w-full">Save file</SubmitButton>
+                  </form>
                   <a
                     href={jobDocumentHref(job.id, document.id)}
-                    className="mt-2 inline-flex min-h-11 items-center text-sm font-medium"
+                    className="inline-flex min-h-11 items-center text-sm font-medium"
                   >
                     Open file
                   </a>
+                  <form action={removeJobDocument}>
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <input type="hidden" name="documentId" value={document.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <SubmitButton variant="ghost" className="min-h-11 w-full" pendingLabel="Deleting…">
+                      Delete file
+                    </SubmitButton>
+                  </form>
                 </li>
               ))}
             </ul>

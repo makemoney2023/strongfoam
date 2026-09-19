@@ -17,3 +17,7 @@ export function setJobDocumentBytes(id: string, bytes: Uint8Array): void {
 export function getStoredJobDocumentBytes(id: string): Uint8Array | null {
   return getByteStore().get(id) ?? null;
 }
+
+export function clearJobDocumentBytes(id: string): void {
+  getByteStore().delete(id);
+}

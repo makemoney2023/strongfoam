@@ -1,25 +1,39 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HardHatIcon, MapPinIcon } from "lucide-react";
+import { DateRangeFields, FilterSubmit, ListFilters } from "@/components/ops/list-filters";
+import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
 import { isFieldActiveJobStatus } from "@/lib/ops/field-workspace";
-import { JOB_STATUS_LABELS, formatJobNumber } from "@/lib/ops/jobs";
+import { JOB_STATUS_LABELS, JOB_STATUSES, formatJobNumber } from "@/lib/ops/jobs";
 import { getCompany, getSite, listJobs, listJobTasks } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 
 export const dynamic = "force-dynamic";
 
-export default async function FieldLandingPage() {
+export default async function FieldLandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; from?: string; to?: string }>;
+}) {
   if (!(await getOpsSession())) {
     redirect("/app/login");
   }
 
-  const jobs = await listJobs();
-  const activeJobs = jobs.filter((job) => isFieldActiveJobStatus(job.status));
+  const params = await searchParams;
+  const jobs = await listJobs({
+    status: params.status,
+    from: params.from,
+    to: params.to,
+  });
+  const activeJobs = params.status
+    ? jobs
+    : jobs.filter((job) => isFieldActiveJobStatus(job.status));
   const cards = await Promise.all(
     activeJobs.map(async (job) => {
       const [company, site, tasks] = await Promise.all([
@@ -38,6 +52,32 @@ export default async function FieldLandingPage() {
         title="Field"
         description="Today's assignments, site details, and the work still open on active jobs."
       />
+
+      <ListFilters>
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <NativeSelect
+            id="status"
+            name="status"
+            defaultValue={params.status ?? ""}
+            className="h-11 w-56"
+          >
+            <option value="">Active field jobs</option>
+            {JOB_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {JOB_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <DateRangeFields
+          from={params.from}
+          to={params.to}
+          fromLabel="Planned from"
+          toLabel="Planned to"
+        />
+        <FilterSubmit />
+      </ListFilters>
 
       {cards.length === 0 ? (
         <Card>

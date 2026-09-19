@@ -5,6 +5,7 @@ import {
   formatJobNumber,
   isJobStatus,
   parseJobConversion,
+  parseJobDetails,
   parseJobStatusUpdate,
 } from "@/lib/ops/jobs";
 
@@ -36,6 +37,21 @@ describe("job conversion rules", () => {
         plannedEndAt: "2026-09-22T08:00",
       }).ok,
     ).toBe(false);
+  });
+
+  it("updates job details without requiring a project name", () => {
+    expect(parseJobDetails({ name: "" }).ok).toBe(false);
+    const parsed = parseJobDetails({
+      name: "North elevation spray foam",
+      scope: "Closed-cell",
+      projectManager: "Alex Rivera",
+      plannedStartAt: "2026-09-22T08:00",
+      plannedEndAt: "2026-09-26T17:00",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.name).toBe("North elevation spray foam");
+    expect(parsed.value.scope).toBe("Closed-cell");
   });
 
   it("requires a blocker note when a job is blocked", () => {

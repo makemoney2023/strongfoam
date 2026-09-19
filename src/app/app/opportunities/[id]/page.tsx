@@ -2,16 +2,20 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
 import { Flash } from "@/components/ops/flash";
+import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
 import { StatusBadge } from "@/components/ops/status-badge";
+import { SubmitButton } from "@/components/ops/submit-button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
-import { OPPORTUNITY_LABELS } from "@/lib/ops/crm";
+import { OPPORTUNITY_LABELS, OPPORTUNITY_STAGES } from "@/lib/ops/crm";
 import {
   canConvertWonWork,
   draftJobFromOpportunity,
@@ -33,6 +37,7 @@ import {
   formatServices,
   PROJECT_TYPE_LABELS,
 } from "@/lib/ops/workflow";
+import { removeOpportunity, saveOpportunity } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +93,44 @@ export default async function OpportunityDetailPage({
         }
       />
       <Flash saved={query.saved} error={query.error} savedMessage="Opportunity saved." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Opportunity details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form action={saveOpportunity} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="id" value={opportunity.id} />
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" className="h-11" defaultValue={opportunity.name} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stage">Stage</Label>
+              <NativeSelect id="stage" name="stage" defaultValue={opportunity.stage} className="h-11">
+                {OPPORTUNITY_STAGES.map((stage) => (
+                  <option key={stage} value={stage}>
+                    {OPPORTUNITY_LABELS[stage]}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="owner">Owner</Label>
+              <Input id="owner" name="owner" className="h-11" defaultValue={opportunity.owner ?? ""} />
+            </div>
+            <div className="sm:col-span-2">
+              <SubmitButton className="min-h-11">Save opportunity</SubmitButton>
+            </div>
+          </form>
+          <form action={removeOpportunity}>
+            <input type="hidden" name="id" value={opportunity.id} />
+            <SubmitButton variant="destructive" className="min-h-11" pendingLabel="Deleting…">
+              Delete opportunity
+            </SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="grid gap-4 sm:grid-cols-2">

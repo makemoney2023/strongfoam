@@ -46,11 +46,15 @@ import {
   formatRequestNumber,
   formatServices,
 } from "@/lib/ops/workflow";
+import { datetimeLocalValue } from "@/lib/ops/filters";
 import {
   addRequestComment,
   addRequestTask,
   convertRequestToCrmRecords,
+  removeRequestComment,
+  removeRequestTask,
   saveEstimateRequestReview,
+  saveRequestTask,
   setRequestTaskStatus,
 } from "./actions";
 
@@ -65,13 +69,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 function field(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value;
   return "—";
-}
-
-function datetimeLocalValue(value: Date | null): string {
-  if (!value) return "";
-  const offset = value.getTimezoneOffset();
-  const local = new Date(value.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
 }
 
 export default async function EstimateRequestDetailPage({
@@ -605,19 +602,49 @@ export default async function EstimateRequestDetailPage({
                           : ""}
                       </p>
                     </div>
-                    <form action={setRequestTaskStatus}>
+                    <div className="flex flex-wrap gap-2">
+                      <form action={setRequestTaskStatus}>
+                        <input type="hidden" name="id" value={request.id} />
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <input
+                          type="hidden"
+                          name="status"
+                          value={task.status === "done" ? "open" : "done"}
+                        />
+                        <button
+                          type="submit"
+                          className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        >
+                          {task.status === "done" ? "Reopen" : "Complete"}
+                        </button>
+                      </form>
+                      <form action={removeRequestTask}>
+                        <input type="hidden" name="id" value={request.id} />
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <button
+                          type="submit"
+                          className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </div>
+                    <form action={saveRequestTask} className="mt-3 grid w-full gap-2 sm:grid-cols-3">
                       <input type="hidden" name="id" value={request.id} />
                       <input type="hidden" name="taskId" value={task.id} />
-                      <input
-                        type="hidden"
-                        name="status"
-                        value={task.status === "done" ? "open" : "done"}
+                      <Input name="title" className="h-8" defaultValue={task.title} required />
+                      <Input name="assignee" className="h-8" defaultValue={task.assignee ?? ""} />
+                      <Input
+                        name="dueAt"
+                        type="datetime-local"
+                        className="h-8"
+                        defaultValue={datetimeLocalValue(task.dueAt)}
                       />
                       <button
                         type="submit"
                         className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
                       >
-                        {task.status === "done" ? "Reopen" : "Complete"}
+                        Save task
                       </button>
                     </form>
                   </li>
@@ -668,6 +695,16 @@ export default async function EstimateRequestDetailPage({
                         ? ` · mentioned ${extractMentions(comment.body).join(", ")}`
                         : ""}
                     </p>
+                    <form action={removeRequestComment} className="mt-2">
+                      <input type="hidden" name="id" value={request.id} />
+                      <input type="hidden" name="commentId" value={comment.id} />
+                      <button
+                        type="submit"
+                        className="h-8 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                      >
+                        Delete comment
+                      </button>
+                    </form>
                   </li>
                 ))}
               </ol>
