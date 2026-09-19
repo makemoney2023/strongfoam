@@ -820,12 +820,22 @@ export function ProjectSchedule({
                   gridTemplateColumns: `repeat(${window.columns.length}, minmax(0, 1fr))`,
                 }}
               >
-                {window.columns.map((column) => (
+                {(window.columns.length === 42
+                  ? window.columns.filter((_, index) => index % 7 === 0)
+                  : window.columns
+                ).map((column) => (
                   <div
                     key={column.key}
                     className="flex items-end border-l px-1 py-2 text-xs font-medium first:border-l-0"
+                    style={
+                      window.columns.length === 42
+                        ? { gridColumn: "span 7" }
+                        : undefined
+                    }
                   >
-                    {column.label}
+                    {window.columns.length === 42
+                      ? `Week of ${column.label}`
+                      : column.label}
                   </div>
                 ))}
               </div>
