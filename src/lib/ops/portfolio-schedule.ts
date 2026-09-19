@@ -104,11 +104,13 @@ function isoString(value: Date | null): string | null {
   return value?.toISOString() ?? null;
 }
 
-function cloneFallbackCalendar(): ResolvedWorkingCalendar {
+function cloneResolvedCalendar(
+  calendar: ResolvedWorkingCalendar,
+): ResolvedWorkingCalendar {
   return {
-    ...DEFAULT_WORKING_CALENDAR,
-    weekendDays: [...DEFAULT_WORKING_CALENDAR.weekendDays],
-    exceptions: DEFAULT_WORKING_CALENDAR.exceptions.map((exception) => ({
+    ...calendar,
+    weekendDays: [...calendar.weekendDays],
+    exceptions: calendar.exceptions.map((exception) => ({
       ...exception,
     })),
   };
@@ -197,7 +199,7 @@ export function serializePortfolioSchedule(
   }
   const resolvedDefaultCalendar = defaultCalendar
     ? resolvedCalendarsById.get(defaultCalendar.id)!
-    : cloneFallbackCalendar();
+    : cloneResolvedCalendar(DEFAULT_WORKING_CALENDAR);
 
   const latestBaselineByProject = new Map<
     string,
@@ -287,7 +289,7 @@ export function serializePortfolioSchedule(
         name: project.name,
         status: project.status,
         projectManager: project.projectManager,
-        calendar: selectedCalendar,
+        calendar: cloneResolvedCalendar(selectedCalendar),
         latestBaseline,
         jobs,
         dependencies,
