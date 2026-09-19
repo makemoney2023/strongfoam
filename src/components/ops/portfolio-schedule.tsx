@@ -569,6 +569,12 @@ function baselineLabel(row: PortfolioWorkRow): string {
     : "Not baselined";
 }
 
+function baselineCaption(row: PortfolioWorkRow): string {
+  const baseline = baselineLabel(row);
+  const variance = rowVarianceLabel(row);
+  return baseline === variance ? baseline : `${baseline} · ${variance}`;
+}
+
 function rowVarianceLabel(row: PortfolioWorkRow): string {
   if (row.baselinePartial && row.baselineState.kind !== "none") {
     return "Unavailable—partial data";
@@ -776,7 +782,7 @@ function RowLabel({
             {project.jobs.length} {project.jobs.length === 1 ? "job" : "jobs"}
           </p>
           <p className="text-xs text-muted-foreground">
-            {baselineLabel(row)} · {rowVarianceLabel(row)}
+            {baselineCaption(row)}
           </p>
           {row.criticalCount !== null && row.criticalCount > 0 ? (
             <p className="text-xs font-medium text-destructive">
@@ -847,7 +853,7 @@ function RowLabel({
               : `${row.progress.completed}/${row.progress.total} tasks · ${row.progress.percent}%`}
           </p>
           <p className="text-xs text-muted-foreground">
-            {baselineLabel(row)} · {rowVarianceLabel(row)}
+            {baselineCaption(row)}
           </p>
           {row.job.tasks.length === 0 ? (
             <p className="text-xs font-medium">No tasks</p>
@@ -874,7 +880,7 @@ function RowLabel({
           {dateRangeLabel(row.dates, row.project.calendar)}
         </p>
         <p className="text-xs text-muted-foreground">
-          {baselineLabel(row)} · {rowVarianceLabel(row)}
+          {baselineCaption(row)}
         </p>
         {row.warning !== "—" ? (
           <p className="text-xs font-medium text-destructive">{row.warning}</p>
@@ -1637,7 +1643,7 @@ export function PortfolioSchedule({
           </div>
 
           <div
-            className="overflow-x-auto rounded-lg border"
+            className="min-w-0 max-w-full overflow-x-auto rounded-lg border"
             data-portfolio-chart-scroller="true"
           >
             <div className="min-w-[72rem]">

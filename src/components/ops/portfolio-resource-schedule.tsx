@@ -514,7 +514,7 @@ export function PortfolioResourceSchedule({
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border">
         <div className="min-w-[64rem]">
           <div className="grid min-h-14 grid-cols-[minmax(18rem,24rem)_minmax(48rem,1fr)]">
             <div className="sticky left-0 z-30 flex items-end border-r bg-muted/60 px-3 py-2 text-sm font-medium">
