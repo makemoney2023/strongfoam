@@ -8,10 +8,12 @@ import {
   filterPortfolioProjects,
   getPortfolioProjectRange,
   getPortfolioProjectState,
+  serializePortfolioSchedule,
   type PortfolioProjectionFilter,
   type PortfolioScheduleProject,
 } from "@/lib/ops/portfolio-schedule";
 import { DEFAULT_WORKING_CALENDAR } from "@/lib/ops/project-schedule-planning";
+import type { PortfolioScheduleStoreResult } from "@/lib/ops/store";
 
 const now = new Date("2026-09-19T12:00:00.000Z");
 
@@ -76,6 +78,505 @@ function filter(
     ...overrides,
   };
 }
+
+const rowDate = new Date("2026-09-01T10:00:00.000Z");
+
+function rawProject(
+  overrides: Partial<PortfolioScheduleStoreResult["projects"][number]> = {},
+): PortfolioScheduleStoreResult["projects"][number] {
+  return {
+    id: "project-1",
+    createdAt: rowDate,
+    updatedAt: rowDate,
+    companyId: null,
+    siteId: null,
+    opportunityId: null,
+    sourceLeadId: null,
+    name: "Project one",
+    status: "active",
+    projectManager: "Alex Rivera",
+    scheduleCalendarId: null,
+    ...overrides,
+  };
+}
+
+function rawJob(
+  overrides: Partial<PortfolioScheduleStoreResult["jobs"][number]> = {},
+): PortfolioScheduleStoreResult["jobs"][number] {
+  return {
+    id: "job-1",
+    createdAt: rowDate,
+    updatedAt: rowDate,
+    projectId: "project-1",
+    companyId: null,
+    siteId: null,
+    opportunityId: null,
+    name: "Job one",
+    status: "in_progress",
+    scope: null,
+    services: ["Formwork"],
+    projectManager: "Alex Rivera",
+    foreman: null,
+    plannedStartAt: new Date("2026-09-10T12:00:00.000Z"),
+    plannedEndAt: new Date("2026-09-15T12:00:00.000Z"),
+    blockerNote: null,
+    ...overrides,
+  };
+}
+
+function rawTask(
+  overrides: Partial<PortfolioScheduleStoreResult["tasks"][number]> = {},
+): PortfolioScheduleStoreResult["tasks"][number] {
+  return {
+    id: "task-1",
+    createdAt: rowDate,
+    updatedAt: rowDate,
+    jobId: "job-1",
+    workAreaId: null,
+    title: "Task one",
+    assignee: null,
+    dueAt: new Date("2026-09-15T12:00:00.000Z"),
+    plannedStartAt: new Date("2026-09-10T12:00:00.000Z"),
+    plannedEndAt: new Date("2026-09-14T12:00:00.000Z"),
+    completedAt: null,
+    status: "open",
+    createdBy: "scheduler@example.com",
+    ...overrides,
+  };
+}
+
+function rawDependency(
+  overrides: Partial<
+    PortfolioScheduleStoreResult["dependencies"][number]
+  > = {},
+): PortfolioScheduleStoreResult["dependencies"][number] {
+  return {
+    id: "dependency-1",
+    createdAt: rowDate,
+    projectId: "project-1",
+    predecessorTaskId: "task-1",
+    successorTaskId: "task-2",
+    lagDays: 0,
+    createdBy: "scheduler@example.com",
+    ...overrides,
+  };
+}
+
+function rawCalendar(
+  overrides: Partial<PortfolioScheduleStoreResult["calendars"][number]> = {},
+): PortfolioScheduleStoreResult["calendars"][number] {
+  return {
+    id: "calendar-default",
+    createdAt: rowDate,
+    updatedAt: rowDate,
+    updatedBy: "scheduler@example.com",
+    name: "Default calendar",
+    timeZone: "America/Toronto",
+    weekendDays: [0, 6],
+    isDefault: true,
+    ...overrides,
+  };
+}
+
+function rawCalendarException(
+  overrides: Partial<
+    PortfolioScheduleStoreResult["calendarExceptions"][number]
+  > = {},
+): PortfolioScheduleStoreResult["calendarExceptions"][number] {
+  return {
+    id: "exception-1",
+    createdAt: rowDate,
+    updatedAt: rowDate,
+    updatedBy: "scheduler@example.com",
+    calendarId: "calendar-default",
+    date: "2026-12-25",
+    name: "Christmas",
+    isWorkingDay: false,
+    ...overrides,
+  };
+}
+
+function rawBaseline(
+  overrides: Partial<PortfolioScheduleStoreResult["baselines"][number]> = {},
+): PortfolioScheduleStoreResult["baselines"][number] {
+  return {
+    id: "baseline-1",
+    projectId: "project-1",
+    name: "Approved",
+    capturedAt: new Date("2026-09-05T12:00:00.000Z"),
+    capturedBy: "scheduler@example.com",
+    deletedAt: null,
+    deletedBy: null,
+    ...overrides,
+  };
+}
+
+function rawBaselineItem(
+  overrides: Partial<
+    PortfolioScheduleStoreResult["baselineItems"][number]
+  > = {},
+): PortfolioScheduleStoreResult["baselineItems"][number] {
+  return {
+    id: "baseline-item-1",
+    baselineId: "baseline-1",
+    entityType: "job",
+    entityId: "job-1",
+    plannedStartAt: new Date("2026-09-10T12:00:00.000Z"),
+    plannedEndAt: new Date("2026-09-15T12:00:00.000Z"),
+    dueAt: null,
+    ...overrides,
+  };
+}
+
+function rawSchedule(
+  overrides: Partial<PortfolioScheduleStoreResult> = {},
+): PortfolioScheduleStoreResult {
+  return {
+    projects: [],
+    jobs: [],
+    tasks: [],
+    dependencies: [],
+    calendars: [],
+    calendarExceptions: [],
+    baselines: [],
+    baselineItems: [],
+    truncation: {
+      projects: false,
+      jobs: false,
+      tasks: false,
+      dependencies: false,
+      calendarExceptions: false,
+      baselineItems: false,
+    },
+    ...overrides,
+  };
+}
+
+function containsDate(value: unknown): boolean {
+  if (value instanceof Date) return true;
+  if (Array.isArray(value)) return value.some(containsDate);
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(containsDate);
+  }
+  return false;
+}
+
+describe("serializePortfolioSchedule", () => {
+  it("assembles projects with independent calendars, dependencies, and baselines", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [
+          rawProject({
+            id: "project-2",
+            name: "Second",
+            scheduleCalendarId: "calendar-2",
+          }),
+          rawProject({
+            id: "project-1",
+            name: "First",
+            scheduleCalendarId: "calendar-1",
+          }),
+        ],
+        jobs: [
+          rawJob({ id: "job-1a", projectId: "project-1" }),
+          rawJob({ id: "job-2a", projectId: "project-2" }),
+          rawJob({ id: "job-1b", projectId: "project-1" }),
+        ],
+        tasks: [
+          rawTask({ id: "task-2", jobId: "job-2a" }),
+          rawTask({ id: "task-1b", jobId: "job-1b" }),
+          rawTask({ id: "task-1a", jobId: "job-1a" }),
+        ],
+        dependencies: [
+          rawDependency({ id: "dependency-2", projectId: "project-2" }),
+          rawDependency({ id: "dependency-1", projectId: "project-1" }),
+        ],
+        calendars: [
+          rawCalendar(),
+          rawCalendar({
+            id: "calendar-1",
+            name: "Eastern",
+            timeZone: "America/New_York",
+            weekendDays: [0, 6],
+            isDefault: false,
+          }),
+          rawCalendar({
+            id: "calendar-2",
+            name: "Western",
+            timeZone: "America/Vancouver",
+            weekendDays: [5, 6],
+            isDefault: false,
+          }),
+        ],
+        calendarExceptions: [
+          rawCalendarException({
+            id: "exception-2b",
+            calendarId: "calendar-2",
+            date: "2026-12-26",
+            name: "Boxing Day",
+          }),
+          rawCalendarException({
+            id: "exception-1",
+            calendarId: "calendar-1",
+            date: "2026-11-26",
+            name: "Thanksgiving",
+          }),
+          rawCalendarException({
+            id: "exception-2a",
+            calendarId: "calendar-2",
+            date: "2026-12-24",
+            name: "Christmas Eve",
+          }),
+        ],
+        baselines: [
+          rawBaseline({
+            id: "baseline-2",
+            projectId: "project-2",
+            name: "Second baseline",
+          }),
+          rawBaseline({
+            id: "baseline-1",
+            projectId: "project-1",
+            name: "First baseline",
+          }),
+        ],
+        baselineItems: [
+          rawBaselineItem({
+            id: "item-1",
+            baselineId: "baseline-1",
+          }),
+          rawBaselineItem({
+            id: "item-2",
+            baselineId: "baseline-2",
+          }),
+        ],
+      }),
+    );
+
+    expect(result.projects.map((item) => item.id)).toEqual([
+      "project-2",
+      "project-1",
+    ]);
+    expect(result.projects[0]).toMatchObject({
+      calendar: {
+        id: "calendar-2",
+        timeZone: "America/Vancouver",
+        weekendDays: [5, 6],
+        exceptions: [
+          { id: "exception-2a", date: "2026-12-24" },
+          { id: "exception-2b", date: "2026-12-26" },
+        ],
+      },
+      latestBaseline: {
+        id: "baseline-2",
+        items: [{ id: "item-2" }],
+      },
+      dependencies: [{ id: "dependency-2", projectId: "project-2" }],
+      jobs: [{ id: "job-2a", tasks: [{ id: "task-2" }] }],
+    });
+    expect(result.projects[1]).toMatchObject({
+      calendar: {
+        id: "calendar-1",
+        timeZone: "America/New_York",
+        exceptions: [{ id: "exception-1" }],
+      },
+      latestBaseline: {
+        id: "baseline-1",
+        items: [{ id: "item-1" }],
+      },
+      dependencies: [{ id: "dependency-1", projectId: "project-1" }],
+      jobs: [
+        { id: "job-1a", tasks: [{ id: "task-1a" }] },
+        { id: "job-1b", tasks: [{ id: "task-1b" }] },
+      ],
+    });
+  });
+
+  it("keeps a selected project with no jobs in its input position", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [
+          rawProject({ id: "with-job" }),
+          rawProject({ id: "without-job" }),
+        ],
+        jobs: [rawJob({ projectId: "with-job" })],
+      }),
+    );
+
+    expect(result.projects.map((item) => item.id)).toEqual([
+      "with-job",
+      "without-job",
+    ]);
+    expect(result.projects[1]?.jobs).toEqual([]);
+  });
+
+  it("falls back from a missing explicit calendar to the selected default", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [
+          rawProject({ scheduleCalendarId: "missing-calendar" }),
+        ],
+        calendars: [rawCalendar()],
+        calendarExceptions: [rawCalendarException()],
+      }),
+    );
+
+    expect(result.projects[0]?.calendar).toEqual({
+      id: "calendar-default",
+      name: "Default calendar",
+      timeZone: "America/Toronto",
+      weekendDays: [0, 6],
+      exceptions: [
+        {
+          id: "exception-1",
+          date: "2026-12-25",
+          name: "Christmas",
+          isWorkingDay: false,
+        },
+      ],
+    });
+  });
+
+  it("uses a cloned deterministic fallback when no raw default exists", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({ projects: [rawProject()] }),
+    );
+
+    expect(result.projects[0]?.calendar).toEqual(DEFAULT_WORKING_CALENDAR);
+    expect(result.projects[0]?.calendar).not.toBe(DEFAULT_WORKING_CALENDAR);
+    expect(result.projects[0]?.calendar.weekendDays).not.toBe(
+      DEFAULT_WORKING_CALENDAR.weekendDays,
+    );
+  });
+
+  it("ignores orphan and unselected related rows", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        projects: [rawProject()],
+        jobs: [
+          rawJob(),
+          rawJob({ id: "orphan-job", projectId: "unselected-project" }),
+        ],
+        tasks: [
+          rawTask(),
+          rawTask({ id: "orphan-task", jobId: "orphan-job" }),
+        ],
+        dependencies: [
+          rawDependency(),
+          rawDependency({
+            id: "orphan-dependency",
+            projectId: "unselected-project",
+          }),
+        ],
+        baselines: [
+          rawBaseline(),
+          rawBaseline({
+            id: "orphan-baseline",
+            projectId: "unselected-project",
+          }),
+        ],
+        baselineItems: [
+          rawBaselineItem(),
+          rawBaselineItem({
+            id: "orphan-item",
+            baselineId: "orphan-baseline",
+          }),
+        ],
+      }),
+    );
+
+    expect(result.projects[0]?.jobs.map((item) => item.id)).toEqual(["job-1"]);
+    expect(result.projects[0]?.jobs[0]?.tasks.map((item) => item.id)).toEqual([
+      "task-1",
+    ]);
+    expect(result.projects[0]?.dependencies.map((item) => item.id)).toEqual([
+      "dependency-1",
+    ]);
+    expect(result.projects[0]?.latestBaseline?.items.map((item) => item.id)).toEqual([
+      "baseline-item-1",
+    ]);
+  });
+
+  it("serializes every client date and does not retain mutable raw aliases", () => {
+    const raw = rawSchedule({
+      projects: [rawProject()],
+      jobs: [rawJob()],
+      tasks: [
+        rawTask({
+          completedAt: new Date("2026-09-14T16:00:00.000Z"),
+        }),
+      ],
+      calendars: [rawCalendar()],
+      calendarExceptions: [rawCalendarException()],
+      baselines: [rawBaseline()],
+      baselineItems: [rawBaselineItem()],
+    });
+
+    const result = serializePortfolioSchedule(raw);
+
+    expect(() => JSON.stringify(result)).not.toThrow();
+    expect(containsDate(result)).toBe(false);
+    expect(result.projects[0]?.jobs[0]).toMatchObject({
+      updatedAt: "2026-09-01T10:00:00.000Z",
+      plannedStartAt: "2026-09-10T12:00:00.000Z",
+      plannedEndAt: "2026-09-15T12:00:00.000Z",
+      tasks: [
+        {
+          updatedAt: "2026-09-01T10:00:00.000Z",
+          dueAt: "2026-09-15T12:00:00.000Z",
+          plannedStartAt: "2026-09-10T12:00:00.000Z",
+          plannedEndAt: "2026-09-14T12:00:00.000Z",
+          completedAt: "2026-09-14T16:00:00.000Z",
+        },
+      ],
+    });
+    expect(result.projects[0]?.latestBaseline).toMatchObject({
+      capturedAt: "2026-09-05T12:00:00.000Z",
+      items: [
+        {
+          plannedStartAt: "2026-09-10T12:00:00.000Z",
+          plannedEndAt: "2026-09-15T12:00:00.000Z",
+        },
+      ],
+    });
+
+    result.projects[0]!.calendar.weekendDays.push(4);
+    result.projects[0]!.calendar.exceptions[0]!.name = "Changed";
+    result.projects[0]!.jobs[0]!.tasks[0]!.title = "Changed";
+    result.projects[0]!.latestBaseline!.items[0]!.plannedStartAt = null;
+
+    expect(raw.calendars[0]?.weekendDays).toEqual([0, 6]);
+    expect(raw.calendarExceptions[0]?.name).toBe("Christmas");
+    expect(raw.tasks[0]?.title).toBe("Task one");
+    expect(raw.baselineItems[0]?.plannedStartAt).toEqual(
+      new Date("2026-09-10T12:00:00.000Z"),
+    );
+  });
+
+  it("preserves every truncation flag", () => {
+    const result = serializePortfolioSchedule(
+      rawSchedule({
+        truncation: {
+          projects: true,
+          jobs: true,
+          tasks: true,
+          dependencies: true,
+          calendarExceptions: true,
+          baselineItems: true,
+        },
+      }),
+    );
+
+    expect(result.truncation).toEqual({
+      projects: true,
+      jobs: true,
+      tasks: true,
+      dependencies: true,
+      calendarExceptions: true,
+      baselineItems: true,
+    });
+  });
+});
 
 describe("portfolio schedule", () => {
   it("keeps projects with no jobs without inventing dates or progress", () => {

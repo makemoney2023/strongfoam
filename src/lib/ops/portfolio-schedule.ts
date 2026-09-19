@@ -11,11 +11,14 @@ import {
   type ProjectScheduleTask,
   type ScheduleState,
 } from "@/lib/ops/project-schedule";
+import { formatJobNumber } from "@/lib/ops/jobs";
 import {
+  DEFAULT_WORKING_CALENDAR,
   calendarDate,
   workingDayDifference,
   type ResolvedWorkingCalendar,
 } from "@/lib/ops/project-schedule-planning";
+import type { PortfolioScheduleStoreResult } from "@/lib/ops/store";
 
 export type PortfolioScheduleBaseline = {
   id: string;
@@ -42,6 +45,7 @@ export type PortfolioScheduleData = {
     jobs: boolean;
     tasks: boolean;
     dependencies: boolean;
+    calendarExceptions: boolean;
     baselineItems: boolean;
   };
 };
@@ -78,6 +82,219 @@ export type PortfolioProjectionFilter = {
   hideCompleted: boolean;
   overlapProjectIds: ReadonlySet<string>;
 };
+
+type RawCalendar = PortfolioScheduleStoreResult["calendars"][number];
+type RawCalendarException =
+  PortfolioScheduleStoreResult["calendarExceptions"][number];
+
+function appendToMap<T>(
+  map: Map<string, T[]>,
+  key: string,
+  value: T,
+): void {
+  const values = map.get(key);
+  if (values) values.push(value);
+  else map.set(key, [value]);
+}
+
+function isoString(value: Date | null): string | null {
+  return value?.toISOString() ?? null;
+}
+
+function cloneFallbackCalendar(): ResolvedWorkingCalendar {
+  return {
+    ...DEFAULT_WORKING_CALENDAR,
+    weekendDays: [...DEFAULT_WORKING_CALENDAR.weekendDays],
+    exceptions: DEFAULT_WORKING_CALENDAR.exceptions.map((exception) => ({
+      ...exception,
+    })),
+  };
+}
+
+function serializeCalendar(
+  calendar: RawCalendar,
+  exceptions: readonly RawCalendarException[],
+): ResolvedWorkingCalendar {
+  return {
+    id: calendar.id,
+    name: calendar.name,
+    timeZone: calendar.timeZone,
+    weekendDays: [...calendar.weekendDays],
+    exceptions: [...exceptions]
+      .sort(
+        (left, right) =>
+          left.date.localeCompare(right.date) ||
+          left.id.localeCompare(right.id),
+      )
+      .map((exception) => ({
+        id: exception.id,
+        date: exception.date,
+        name: exception.name,
+        isWorkingDay: exception.isWorkingDay,
+      })),
+  };
+}
+
+export function serializePortfolioSchedule(
+  raw: PortfolioScheduleStoreResult,
+): PortfolioScheduleData {
+  const selectedProjectIds = new Set(
+    raw.projects.map((project) => project.id),
+  );
+  const jobsByProject = new Map<
+    string,
+    PortfolioScheduleStoreResult["jobs"]
+  >();
+  const renderedJobIds = new Set<string>();
+  for (const job of raw.jobs) {
+    if (!job.projectId || !selectedProjectIds.has(job.projectId)) continue;
+    appendToMap(jobsByProject, job.projectId, job);
+    renderedJobIds.add(job.id);
+  }
+
+  const tasksByJob = new Map<
+    string,
+    PortfolioScheduleStoreResult["tasks"]
+  >();
+  for (const task of raw.tasks) {
+    if (!renderedJobIds.has(task.jobId)) continue;
+    appendToMap(tasksByJob, task.jobId, task);
+  }
+
+  const dependenciesByProject = new Map<
+    string,
+    PortfolioScheduleStoreResult["dependencies"]
+  >();
+  for (const dependency of raw.dependencies) {
+    if (!selectedProjectIds.has(dependency.projectId)) continue;
+    appendToMap(
+      dependenciesByProject,
+      dependency.projectId,
+      dependency,
+    );
+  }
+
+  const calendarsById = new Map(
+    raw.calendars.map((calendar) => [calendar.id, calendar]),
+  );
+  const exceptionsByCalendar = new Map<
+    string,
+    PortfolioScheduleStoreResult["calendarExceptions"]
+  >();
+  for (const exception of raw.calendarExceptions) {
+    if (!calendarsById.has(exception.calendarId)) continue;
+    appendToMap(exceptionsByCalendar, exception.calendarId, exception);
+  }
+  const defaultCalendar = raw.calendars.find(
+    (calendar) => calendar.isDefault,
+  );
+
+  const latestBaselineByProject = new Map<
+    string,
+    PortfolioScheduleStoreResult["baselines"][number]
+  >();
+  for (const baseline of raw.baselines) {
+    if (!selectedProjectIds.has(baseline.projectId)) continue;
+    const current = latestBaselineByProject.get(baseline.projectId);
+    if (
+      !current ||
+      baseline.capturedAt > current.capturedAt ||
+      (baseline.capturedAt.getTime() === current.capturedAt.getTime() &&
+        baseline.id > current.id)
+    ) {
+      latestBaselineByProject.set(baseline.projectId, baseline);
+    }
+  }
+
+  const baselineItemsByBaseline = new Map<
+    string,
+    PortfolioScheduleStoreResult["baselineItems"]
+  >();
+  for (const item of raw.baselineItems) {
+    appendToMap(baselineItemsByBaseline, item.baselineId, item);
+  }
+
+  return {
+    projects: raw.projects.map((project) => {
+      const jobs = (jobsByProject.get(project.id) ?? []).map((job) => ({
+        id: job.id,
+        updatedAt: job.updatedAt.toISOString(),
+        number: formatJobNumber(job.id),
+        name: job.name,
+        status: job.status as ProjectScheduleJob["status"],
+        projectManager: job.projectManager,
+        foreman: job.foreman,
+        plannedStartAt: isoString(job.plannedStartAt),
+        plannedEndAt: isoString(job.plannedEndAt),
+        tasks: (tasksByJob.get(job.id) ?? []).map((task) => ({
+          id: task.id,
+          jobId: task.jobId,
+          updatedAt: task.updatedAt.toISOString(),
+          title: task.title,
+          assignee: task.assignee,
+          status: task.status === "done" ? "done" : "open",
+          dueAt: isoString(task.dueAt),
+          plannedStartAt: isoString(task.plannedStartAt),
+          plannedEndAt: isoString(task.plannedEndAt),
+          completedAt: isoString(task.completedAt),
+        })),
+      }));
+      const dependencies = (
+        dependenciesByProject.get(project.id) ?? []
+      ).map((dependency) => ({
+        id: dependency.id,
+        projectId: dependency.projectId,
+        predecessorTaskId: dependency.predecessorTaskId,
+        successorTaskId: dependency.successorTaskId,
+        lagDays: dependency.lagDays,
+      }));
+      const selectedCalendar =
+        (project.scheduleCalendarId
+          ? calendarsById.get(project.scheduleCalendarId)
+          : undefined) ?? defaultCalendar;
+      const calendar = selectedCalendar
+        ? serializeCalendar(
+            selectedCalendar,
+            exceptionsByCalendar.get(selectedCalendar.id) ?? [],
+          )
+        : cloneFallbackCalendar();
+      const baseline = latestBaselineByProject.get(project.id);
+      const latestBaseline = baseline
+        ? {
+            id: baseline.id,
+            name: baseline.name,
+            capturedAt: baseline.capturedAt.toISOString(),
+            items: (baselineItemsByBaseline.get(baseline.id) ?? []).map(
+              (item) => ({
+                id: item.id,
+                baselineId: item.baselineId,
+                entityType:
+                  item.entityType === "job"
+                    ? ("job" as const)
+                    : ("task" as const),
+                entityId: item.entityId,
+                plannedStartAt: isoString(item.plannedStartAt),
+                plannedEndAt: isoString(item.plannedEndAt),
+                dueAt: isoString(item.dueAt),
+              }),
+            ),
+          }
+        : null;
+
+      return {
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        projectManager: project.projectManager,
+        calendar,
+        latestBaseline,
+        jobs,
+        dependencies,
+      };
+    }),
+    truncation: { ...raw.truncation },
+  };
+}
 
 type DatedValue = {
   value: string;
