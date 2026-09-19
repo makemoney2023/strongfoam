@@ -26,6 +26,9 @@ describe("db schema exports", () => {
     expect(jobEvents).toBeDefined();
     expect(workAreas).toBeDefined();
     expect(jobTasks).toBeDefined();
+    expect(jobTasks.plannedStartAt).toBeDefined();
+    expect(jobTasks.plannedEndAt).toBeDefined();
+    expect(jobTasks.completedAt).toBeDefined();
     expect(jobDocuments).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
   });

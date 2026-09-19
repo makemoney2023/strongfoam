@@ -43,6 +43,13 @@
       "when": 1758237300000,
       "tag": "0005_job_field_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758238200000,
+      "tag": "0006_job_task_schedule",
+      "breakpoints": true
     }
   ]
 }

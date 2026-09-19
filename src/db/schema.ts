@@ -1,5 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -209,6 +212,9 @@ export const jobTasks = pgTable(
     title: text("title").notNull(),
     assignee: text("assignee"),
     dueAt: timestamp("due_at", { withTimezone: true }),
+    plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
+    plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     status: text("status").notNull().default("open"),
     createdBy: text("created_by").notNull(),
   },
@@ -218,6 +224,17 @@ export const jobTasks = pgTable(
       foreignColumns: [workAreas.id, workAreas.jobId],
       name: "job_tasks_work_area_job_fk",
     }),
+    check(
+      "job_tasks_planned_date_order",
+      sql`${table.plannedStartAt} IS NULL
+        OR ${table.plannedEndAt} IS NULL
+        OR ${table.plannedEndAt} >= ${table.plannedStartAt}`,
+    ),
+    index("job_tasks_job_schedule_idx").on(
+      table.jobId,
+      table.plannedStartAt,
+      table.plannedEndAt,
+    ),
   ],
 );
 
