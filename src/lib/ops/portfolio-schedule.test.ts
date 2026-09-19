@@ -2027,7 +2027,7 @@ describe("portfolio Schedule dashboard summary", () => {
     ).toEqual(["blocked-unscheduled-job"]);
   });
 
-  it("does not mutate input and remains practical at dense store bounds", () => {
+  it("does not mutate input while summarizing 500 jobs", () => {
     const source = scheduleData([
       project({
         id: "dense",

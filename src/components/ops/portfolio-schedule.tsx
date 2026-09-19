@@ -1445,6 +1445,11 @@ export function PortfolioSchedule({
           new Date(now),
         )
       : null;
+  const matchingAttentionPartial =
+    matchingAttentionItems !== null &&
+    (data.truncation.projects ||
+      data.truncation.jobs ||
+      data.truncation.tasks);
   const unscheduled = visibleProjects
     .flatMap((project) => {
       const entries: string[] = [];
@@ -1521,7 +1526,7 @@ export function PortfolioSchedule({
           {data.truncation.tasks ? " · Partial task count" : ""}
           {matchingAttentionItems === null
             ? ""
-            : ` · ${matchingAttentionItems} matching attention items`}
+            : ` · ${matchingAttentionItems} matching attention items${matchingAttentionPartial ? " (partial)" : ""}`}
         </p>
         {visibleProjects.length > 0 &&
         visibleProjects.every(
