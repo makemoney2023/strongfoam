@@ -15,7 +15,7 @@ export function TaskStatusButton({
   reopenLabel = "Reopen",
   className,
 }: {
-  action: (formData: FormData) => Promise<unknown>;
+  action: (formData: FormData) => void | Promise<void | unknown>;
   jobId?: string;
   requestId?: string;
   taskId: string;
@@ -31,10 +31,10 @@ export function TaskStatusButton({
 
   return (
     <form
-      action={(formData) => {
-        startTransition(async () => {
+      action={action as (formData: FormData) => Promise<void>}
+      onSubmit={() => {
+        startTransition(() => {
           setOptimisticStatus(next);
-          await action(formData);
         });
       }}
     >

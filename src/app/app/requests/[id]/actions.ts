@@ -101,7 +101,10 @@ export async function setRequestTaskStatus(formData: FormData): Promise<ActionSt
     status,
   });
   revalidatePath(`/app/requests/${id}`);
-  return succeed(`/app/requests/${id}`);
+  return succeed(
+    `/app/requests/${id}`,
+    status === "done" ? "Task completed." : "Task reopened.",
+  );
 }
 
 export async function saveRequestTask(formData: FormData): Promise<ActionState> {

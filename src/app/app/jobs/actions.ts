@@ -211,7 +211,7 @@ export async function setJobWorkspaceTaskStatus(formData: FormData): Promise<Act
   if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be updated.");
   refreshJobs(null, jobId);
   const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${jobId}`);
-  return succeed(returnTo);
+  return succeed(returnTo, status === "done" ? "Task completed." : "Task reopened.");
 }
 
 export async function addJobFieldEntry(formData: FormData): Promise<ActionState> {

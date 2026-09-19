@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { clearOpsNotice } from "@/app/app/clear-notice-action";
 import { OPS_NOTICE_COOKIE, parseOpsNotice, type OpsNotice } from "@/lib/ops/notice";
 
 function readCookie(name: string): string | null {
@@ -25,25 +25,30 @@ function showNotice(notice: OpsNotice) {
   toast.success(notice.message);
 }
 
-export function NoticeToaster() {
-  const pathname = usePathname();
-  const lastRaw = useRef<string | null>(null);
+const shownNoticeKeys = new Set<string>();
+
+export function NoticeToaster({
+  notice,
+  noticeKey,
+}: {
+  notice?: OpsNotice | null;
+  noticeKey?: string | null;
+}) {
+  const lastKey = useRef<string | null>(null);
 
   useEffect(() => {
-    function consume() {
-      const raw = readCookie(OPS_NOTICE_COOKIE);
-      if (!raw || raw === lastRaw.current) return;
-      const notice = parseOpsNotice(raw);
-      lastRaw.current = raw;
+    function consume(next: OpsNotice | null, key: string | null) {
+      if (!next || !key || lastKey.current === key || shownNoticeKeys.has(key)) return;
+      lastKey.current = key;
+      shownNoticeKeys.add(key);
       clearCookie(OPS_NOTICE_COOKIE);
-      if (!notice) return;
-      showNotice(notice);
+      showNotice(next);
+      void clearOpsNotice();
     }
 
-    consume();
-    const id = window.setInterval(consume, 250);
-    return () => window.clearInterval(id);
-  }, [pathname]);
+    const raw = readCookie(OPS_NOTICE_COOKIE);
+    consume(parseOpsNotice(raw) ?? notice ?? null, raw ?? noticeKey ?? null);
+  }, [notice, noticeKey]);
 
   return <Toaster position="top-right" />;
 }
