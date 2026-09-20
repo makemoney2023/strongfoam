@@ -4,6 +4,7 @@ export const FIELD_NOTE_KINDS = [
   "note",
   "quantity",
   "blocker",
+  "deficiency",
   "material_request",
   "daily_report",
 ] as const;
@@ -14,6 +15,7 @@ export const FIELD_NOTE_LABELS: Record<FieldNoteKind, string> = {
   note: "Field note",
   quantity: "Quantity",
   blocker: "Blocker",
+  deficiency: "Deficiency",
   material_request: "Material request",
   daily_report: "Daily report",
 };
@@ -88,6 +90,8 @@ export function parseFieldNoteInput(input: {
             ? "Describe the completed quantity."
             : kind === "blocker"
               ? "Describe the blocker."
+              : kind === "deficiency"
+                ? "Describe the deficiency."
               : kind === "material_request"
                 ? "Describe the material or clarification needed."
                 : "A field note is required.",

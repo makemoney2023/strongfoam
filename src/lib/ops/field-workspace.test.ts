@@ -56,5 +56,11 @@ describe("field workspace parsing", () => {
       },
     });
     expect(formatFieldQuantity(240, "board_feet")).toBe("240 board feet");
+    expect(
+      parseFieldNoteInput({
+        kind: "deficiency",
+        body: "",
+      }),
+    ).toMatchObject({ ok: false, field: "body" });
   });
 });

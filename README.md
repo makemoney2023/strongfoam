@@ -69,11 +69,13 @@ Production operations requirements:
   uploads fail closed when private Blob storage is unavailable; they never use
   ephemeral process memory.
 - Run `npm run db:migrate` as a release step before deploying application code.
-  Migration `0013_plan_revision_integrity.sql` is required before revision
-  writes. Migration `0014_plan_annotation_geometry.sql` is required for
-  circle, polygon, arrow, and text marks. The current Vercel Hobby deploy
-  still uses the in-memory demo store (`OPS_DEMO` or no `DATABASE_URL`), so
-  those SQL files apply when Postgres is attached.
+  Migration `0010_user_administration.sql` is required for revocable sessions
+  and user lifecycle audit events. Apply `0013_plan_revision_integrity.sql`
+  before revision writes, `0014_job_voice_notes.sql` before serving voice-note
+  code, and `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
+  and text marks. The current Vercel Hobby deploy still uses the in-memory
+  demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
+  Postgres is attached.
 
 ```bash
 npm test
@@ -100,7 +102,15 @@ OPS_STAFF_EMAILS
 OPS_ADMIN_EMAILS
 OPS_STAFF_PASSWORD
 OPS_DEMO
+OPENAI_API_KEY
+VOICE_RETENTION_DAYS
+VOICE_CONSENT_NOTICE
 ```
+
+Voice notes store audio privately (demo memory, production Blob). Transcription
+runs after save: a demo stub in `OPS_DEMO`, OpenAI Whisper when
+`OPENAI_API_KEY` is set, otherwise an empty machine transcript so the user can
+type from the audio.
 
 In demo mode, Office and Field display their seeded logins on their respective
 login pages. Production must set a distinct `FIELD_SESSION_SECRET`. Field access
