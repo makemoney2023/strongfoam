@@ -557,7 +557,12 @@ export const jobPlanAnnotations = pgTable(
     x: doublePrecision("x").notNull(),
     y: doublePrecision("y").notNull(),
     kind: text("kind").notNull().default("pin"),
+    geometry: jsonb("geometry")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{"type":"pin"}'::jsonb`),
     status: text("status").notNull().default("planned"),
+    trade: text("trade"),
     title: text("title").notNull(),
     body: text("body"),
     workAreaId: uuid("work_area_id"),
@@ -583,7 +588,14 @@ export const jobPlanAnnotations = pgTable(
       "job_plan_annotations_y_normalized",
       sql`${table.y} >= 0 AND ${table.y} <= 1`,
     ),
-    check("job_plan_annotations_kind_valid", sql`${table.kind} IN ('pin')`),
+    check(
+      "job_plan_annotations_kind_valid",
+      sql`${table.kind} IN ('pin', 'circle', 'ellipse', 'polygon', 'arrow', 'text')`,
+    ),
+    check(
+      "job_plan_annotations_trade_valid",
+      sql`${table.trade} IS NULL OR ${table.trade} IN ('spray_foam', 'fireproofing', 'intumescent', 'avb', 'drywall', 'flooring', 'general')`,
+    ),
     check(
       "job_plan_annotations_status_valid",
       sql`${table.status} IN ('planned', 'in_progress', 'completed', 'blocked', 'deficiency')`,

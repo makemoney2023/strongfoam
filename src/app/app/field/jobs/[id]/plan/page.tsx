@@ -12,6 +12,7 @@ import {
   canMarkupPlanDocument,
   fieldPlanHref,
   isCurrentPlanDocument,
+  toPlanMarkView,
 } from "@/lib/ops/plan-markup";
 import {
   canFieldUserAccessJob,
@@ -135,6 +136,10 @@ export default async function FieldJobPlanPage({
           jobId={job.id}
           documentId={selected.id}
           imageUrl={imageUrl}
+          contentType={selected.contentType}
+          sheetName={selected.filename}
+          revision={selected.versionNumber}
+          jobLabel={formatJobNumber(job.id)}
           mode="field"
           returnTo={returnTo}
           highlightedTaskIds={tasks
@@ -142,26 +147,18 @@ export default async function FieldJobPlanPage({
             .map((task) => task.id)}
           editableTaskIds={tasks.map((task) => task.id)}
           areas={areas.map(({ id: areaId, name }) => ({ id: areaId, name }))}
-          tasks={tasks.map(({ id: taskId, title }) => ({
-            id: taskId,
-            name: title,
+          tasks={tasks.map((task) => ({
+            id: task.id,
+            name: task.title,
+            assigneeUserId: task.assigneeUserId,
+            assignee: task.assignee,
           }))}
-          pins={annotations.map((annotation) => ({
-            id: annotation.id,
-            x: annotation.x,
-            y: annotation.y,
-            title: annotation.title,
-            body: annotation.body,
-            status: annotation.status as
-              | "planned"
-              | "in_progress"
-              | "completed"
-              | "blocked"
-              | "deficiency",
-            taskId: annotation.taskId,
-            workAreaId: annotation.workAreaId,
-            createdBy: annotation.createdBy,
-          }))}
+          pins={annotations.map((annotation) =>
+            toPlanMarkView(
+              annotation,
+              allTasks.find((task) => task.id === annotation.taskId),
+            ),
+          )}
           statusAction={
             selectedIsCurrent ? setFieldPlanAnnotationStatus : undefined
           }
@@ -169,8 +166,8 @@ export default async function FieldJobPlanPage({
       ) : selected && imageUrl ? (
         <div className="space-y-3 rounded-xl border p-4">
           <p className="text-sm text-muted-foreground">
-            This file is a PDF. Open it to view, then ask the office for an
-            image sheet if you need to tap completed work.
+            This file type cannot be marked up. Ask the office for a JPEG, PNG,
+            WebP, or PDF sheet.
           </p>
           <Button
             variant="outline"

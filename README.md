@@ -70,8 +70,12 @@ Production operations requirements:
   ephemeral process memory.
 - Run `npm run db:migrate` as a release step before deploying application code.
   Migration `0010_user_administration.sql` is required for revocable sessions
-  and user lifecycle audit events. Apply `0014_job_voice_notes.sql` before
-  serving voice-note code against Postgres.
+  and user lifecycle audit events. Apply `0013_plan_revision_integrity.sql`
+  before revision writes, `0014_job_voice_notes.sql` before serving voice-note
+  code, and `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
+  and text marks. The current Vercel Hobby deploy still uses the in-memory
+  demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
+  Postgres is attached.
 
 ```bash
 npm test

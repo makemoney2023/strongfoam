@@ -924,7 +924,9 @@ describe("job workspace", () => {
           x: 0.2,
           y: 0.2,
           kind: "pin",
+          geometry: { type: "pin" },
           status: "planned",
+          trade: null,
           title: "Should stay off superseded sheet",
           body: null,
           workAreaId: null,
@@ -1412,7 +1414,9 @@ describe("workspace CRUD and filters", () => {
             x: 0.4,
             y: 0.4,
             kind: "pin",
+            geometry: { type: "pin" },
             status: "planned",
+            trade: null,
             title: "Stair 2 west",
             body: null,
             workAreaId: area?.id ?? null,
@@ -1431,6 +1435,63 @@ describe("workspace CRUD and filters", () => {
         (item) => item.id === annotation?.id,
       )?.workAreaId,
     ).toBeNull();
+  });
+
+  it("stores circle and polygon marks on the current plan", () => {
+    const currentPlan = listDemoJobDocuments(DEMO_JOB_ID).find(
+      (document) => document.kind === "plan" && !document.supersededAt,
+    );
+    expect(currentPlan).toBeTruthy();
+    const circle = addDemoJobPlanAnnotation({
+      jobId: DEMO_JOB_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      input: {
+        documentId: currentPlan?.id ?? "",
+        pageNumber: 1,
+        x: 0.33,
+        y: 0.44,
+        kind: "circle",
+        geometry: { type: "circle", rx: 0.08, ry: 0.07 },
+        status: "planned",
+        trade: "spray_foam",
+        title: "Riser chase",
+        body: null,
+        workAreaId: null,
+        taskId: null,
+      },
+    });
+    expect(circle).toMatchObject({
+      kind: "circle",
+      geometry: { type: "circle", rx: 0.08, ry: 0.07 },
+      trade: "spray_foam",
+    });
+    const polygon = addDemoJobPlanAnnotation({
+      jobId: DEMO_JOB_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      input: {
+        documentId: currentPlan?.id ?? "",
+        pageNumber: 1,
+        x: 0.1,
+        y: 0.1,
+        kind: "polygon",
+        geometry: {
+          type: "polygon",
+          points: [
+            { x: 0.1, y: 0.1 },
+            { x: 0.2, y: 0.1 },
+            { x: 0.15, y: 0.2 },
+          ],
+        },
+        status: "blocked",
+        trade: "fireproofing",
+        title: "Unit 204",
+        body: null,
+        workAreaId: null,
+        taskId: null,
+      },
+    });
+    expect(polygon?.kind).toBe("polygon");
+    expect(polygon?.status).toBe("blocked");
   });
 
   it("filters jobs by status and planned date", () => {
