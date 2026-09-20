@@ -9,10 +9,11 @@ import {
   signFieldSession,
 } from "@/lib/ops/field-auth";
 import { isFieldMembershipRole } from "@/lib/ops/identity";
+import { requestOrigin } from "@/lib/ops/request-origin";
 import { getFieldIdentityByEmail } from "@/lib/ops/store";
 
 export async function POST(request: Request): Promise<Response> {
-  const origin = new URL(request.url).origin;
+  const origin = requestOrigin(request);
   const secret = fieldSessionSecret();
   const form = await request.formData();
   const email = normalizeEmail(String(form.get("email") ?? ""));

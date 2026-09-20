@@ -7,13 +7,14 @@ import {
   createUserOpsSession,
   signOpsSession,
 } from "@/lib/ops/auth";
+import { requestOrigin } from "@/lib/ops/request-origin";
 
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.OPS_SESSION_SECRET;
   const form = await request.formData();
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");
-  const origin = new URL(request.url).origin;
+  const origin = requestOrigin(request);
 
   const authentication = secret
     ? await authenticateOpsCredentials(email, password)

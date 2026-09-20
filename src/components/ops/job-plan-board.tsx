@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { NativeSelect } from "@/components/ops/native-select";
@@ -68,6 +68,22 @@ export function JobPlanBoard({
   const [placing, setPlacing] = useState(false);
   const [draft, setDraft] = useState<{ x: number; y: number } | null>(null);
   const [mineOnly, setMineOnly] = useState(mode === "field");
+  const pinIds = pins.map((pin) => pin.id).join(",");
+
+  useEffect(() => {
+    setPlacing(false);
+    setDraft(null);
+    setSelectedId((current) => {
+      if (current && pins.some((pin) => pin.id === current)) return current;
+      return (
+        pins.find((pin) => highlightedTaskIds.includes(pin.taskId ?? ""))?.id ??
+        pins.at(-1)?.id ??
+        null
+      );
+    });
+    // Pin identity is the trigger. A realtime refresh must not cancel placement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pinIds
+  }, [pinIds]);
 
   const visiblePins = useMemo(() => {
     if (!mineOnly || highlightedTaskIds.length === 0) return pins;
