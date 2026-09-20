@@ -35,13 +35,16 @@ import {
   addJobFieldNote,
   addJobTask,
   addJobToProject,
+  addJobVoiceNote,
   addWorkArea,
   convertOpportunityToProject,
   deleteJob,
   deleteJobDocument,
   deleteJobFieldNote,
   deleteJobTask,
+  deleteJobVoiceNote,
   deleteWorkArea,
+  extractJobVoiceNote,
   getJob,
   removeJobAssignment,
   setJobTaskStatus,
@@ -50,9 +53,17 @@ import {
   updateJobFieldNote,
   updateJobStatus,
   updateJobTask,
+  updateJobVoiceTranscript,
   updateWorkArea,
   voidJobPlanAnnotation,
 } from "@/lib/ops/store";
+import {
+  inferVoiceContentType,
+  parseVoiceExtractInput,
+  parseVoiceNoteInput,
+  parseVoiceTranscriptEdit,
+} from "@/lib/ops/voice-notes";
+import { scheduleVoiceTranscription } from "@/lib/ops/voice-transcribe";
 
 
 function refreshJobs(projectId?: string | null, jobId?: string | null) {
@@ -705,4 +716,150 @@ export async function voidPlanPin(formData: FormData): Promise<ActionState> {
   const job = await getJob(jobId);
   refreshJobs(job?.projectId, jobId);
   return succeed(returnTo, `${annotation.title} was voided.`);
+}
+
+function voiceFileFromForm(formData: FormData): File | null {
+  const file = formData.get("file");
+  return file instanceof File && file.size > 0 ? file : null;
+}
+
+export async function addJobVoiceEntry(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}`,
+  );
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  const file = voiceFileFromForm(formData);
+  if (!file) return fail(returnTo, "Record or upload an audio file.");
+  const parsed = parseVoiceNoteInput({
+    source: String(formData.get("source") ?? ""),
+    workAreaId: String(formData.get("workAreaId") ?? ""),
+    taskId: String(formData.get("taskId") ?? ""),
+    annotationId: String(formData.get("annotationId") ?? ""),
+    documentId: String(formData.get("documentId") ?? ""),
+    filename: file.name,
+    contentType: inferVoiceContentType(file),
+    sizeBytes: file.size,
+    durationSeconds: String(formData.get("durationSeconds") ?? ""),
+    consent: String(formData.get("consent") ?? ""),
+  });
+  if (!parsed.ok) return invalidFrom(parsed);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const note = await addJobVoiceNote({
+    jobId,
+    actor: session.email,
+    input: { ...parsed.value, sizeBytes: bytes.byteLength },
+    bytes,
+  });
+  if (!note) {
+    return fail(
+      returnTo,
+      isDemoOpsStore()
+        ? "That voice note could not be saved."
+        : "Voice notes require private Blob storage.",
+    );
+  }
+  scheduleVoiceTranscription({ jobId, voiceNoteId: note.id });
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, "Voice note saved. Transcription is queued.");
+}
+
+export async function saveJobVoiceTranscript(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const voiceNoteId = String(formData.get("voiceNoteId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}`,
+  );
+  const parsed = parseVoiceTranscriptEdit({
+    transcript: String(formData.get("transcript") ?? ""),
+  });
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
+  const note = await updateJobVoiceTranscript({
+    jobId,
+    voiceNoteId,
+    actor: session.email,
+    transcript: parsed.value.transcript,
+  });
+  if (!note) return fail(returnTo, "That transcript could not be updated.");
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, "Transcript updated.");
+}
+
+export async function extractJobVoiceEntry(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const voiceNoteId = String(formData.get("voiceNoteId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}`,
+  );
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  const parsed = parseVoiceExtractInput({
+    kind: String(formData.get("kind") ?? ""),
+    selectedText: String(formData.get("selectedText") ?? ""),
+  });
+  if (!parsed.ok) return invalidFrom(parsed);
+  const result = await extractJobVoiceNote({
+    jobId,
+    voiceNoteId,
+    actor: session.email,
+    kind: parsed.value.kind,
+    selectedText: parsed.value.selectedText,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  if (parsed.value.kind === "blocker") {
+    await updateJobStatus({
+      jobId,
+      actor: session.email,
+      status: "blocked",
+      blockerNote: parsed.value.selectedText,
+    });
+  }
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(
+    returnTo,
+    result.created === "task"
+      ? "Task created from the transcript."
+      : "Field entry created from the transcript.",
+  );
+}
+
+export async function removeJobVoiceEntry(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const voiceNoteId = String(formData.get("voiceNoteId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}`,
+  );
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  const note = await deleteJobVoiceNote({
+    jobId,
+    voiceNoteId,
+    actor: session.email,
+  });
+  if (!note) return fail(returnTo, "That voice note could not be removed.");
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, "Voice note deleted.");
 }

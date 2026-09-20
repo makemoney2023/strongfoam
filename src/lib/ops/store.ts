@@ -23,6 +23,7 @@ import {
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
+  jobVoiceNotes,
   jobTaskDependencies,
   jobTasks,
   jobs,
@@ -57,6 +58,7 @@ import {
   addDemoJobToProject,
   addDemoSite,
   addDemoUser,
+  addDemoJobVoiceNote,
   addDemoWorkArea,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
@@ -67,7 +69,9 @@ import {
   deleteDemoJob,
   deleteDemoJobDocument,
   deleteDemoJobFieldNote,
+  deleteDemoJobVoiceNote,
   deleteDemoJobTaskDependency,
+  extractDemoVoiceNote,
   getDemoProjectScheduleBaseline,
   deleteDemoJobTask,
   deleteDemoOpportunity,
@@ -82,6 +86,8 @@ import {
   getDemoJob,
   getDemoJobDocumentDownload,
   getDemoJobPlanAnnotation,
+  getDemoJobVoiceNote,
+  getDemoJobVoiceNoteDownload,
   getDemoOpportunity,
   getDemoProject,
   getDemoSite,
@@ -94,6 +100,9 @@ import {
   listDemoJobAssignments,
   listDemoJobDocuments,
   listDemoJobPlanAnnotations,
+  listDemoJobVoiceNotes,
+  processDemoVoiceTranscription,
+  updateDemoVoiceTranscript,
   listDemoJobEvents,
   listDemoJobEventsSince,
   listDemoJobFieldNotes,
@@ -157,6 +166,12 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
+import {
+  clearVoiceNoteBytes,
+  getStoredVoiceNoteBytes,
+} from "@/lib/ops/voice-bytes";
+import type { VoiceExtractKind, VoiceNoteInput } from "@/lib/ops/voice-notes";
+import { transcribeVoiceAudio } from "@/lib/ops/voice-transcribe";
 import {
   isCurrentPlanDocument,
   planSheetKey,
@@ -227,6 +242,7 @@ export type ProjectScheduleBaselineItemRow =
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
+export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
 
 export type PortfolioScheduleStoreFilters = {
   q?: string;
@@ -3420,6 +3436,7 @@ export async function addJobFieldNote(args: {
     note: "field note added",
     quantity: "quantity recorded",
     blocker: "blocker reported",
+    deficiency: "deficiency recorded",
     material_request: "material request added",
     daily_report: "daily report submitted",
   };
@@ -3438,6 +3455,404 @@ export async function addJobFieldNote(args: {
     },
   });
   return note;
+}
+
+export async function listJobVoiceNotes(jobId: string): Promise<JobVoiceNoteRow[]> {
+  if (isDemoOpsStore()) return listDemoJobVoiceNotes(jobId);
+  const db = getDb();
+  return db
+    .select()
+    .from(jobVoiceNotes)
+    .where(eq(jobVoiceNotes.jobId, jobId))
+    .orderBy(desc(jobVoiceNotes.createdAt));
+}
+
+export async function getJobVoiceNote(
+  jobId: string,
+  voiceNoteId: string,
+): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return getDemoJobVoiceNote(jobId, voiceNoteId);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(jobVoiceNotes)
+    .where(
+      and(eq(jobVoiceNotes.id, voiceNoteId), eq(jobVoiceNotes.jobId, jobId)),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function addJobVoiceNote(args: {
+  jobId: string;
+  actor: string;
+  input: VoiceNoteInput;
+  bytes: Uint8Array;
+}): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return addDemoJobVoiceNote(args);
+  if (!(await getJob(args.jobId))) return null;
+  if (args.input.workAreaId) {
+    const areas = await listWorkAreas(args.jobId);
+    if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
+  }
+  if (args.input.taskId) {
+    const tasks = await listJobTasks(args.jobId);
+    if (!tasks.some((task) => task.id === args.input.taskId)) return null;
+  }
+  if (args.input.annotationId) {
+    const annotation = await getJobPlanAnnotation(
+      args.jobId,
+      args.input.annotationId,
+    );
+    if (!annotation) return null;
+  }
+  if (args.input.documentId) {
+    const documents = await listJobDocuments(args.jobId);
+    if (!documents.some((document) => document.id === args.input.documentId)) {
+      return null;
+    }
+  }
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+
+  const id = crypto.randomUUID();
+  const pathname = `jobs/${args.jobId}/voice/${id}/${args.input.filename}`;
+  const { put } = await import("@vercel/blob");
+  await put(pathname, Buffer.from(args.bytes), {
+    access: "private",
+    contentType: args.input.contentType,
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+  });
+
+  const db = getDb();
+  const rows = await db
+    .insert(jobVoiceNotes)
+    .values({
+      id,
+      jobId: args.jobId,
+      workAreaId: args.input.workAreaId,
+      taskId: args.input.taskId,
+      annotationId: args.input.annotationId,
+      documentId: args.input.documentId,
+      source: args.input.source,
+      filename: args.input.filename,
+      contentType: args.input.contentType,
+      sizeBytes: args.input.sizeBytes,
+      pathname,
+      storage: "blob",
+      durationSeconds: args.input.durationSeconds,
+      language: args.input.language,
+      status: "queued",
+      consentAt: args.input.consentAt,
+      createdBy: args.actor,
+    })
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+  try {
+    await db.insert(jobEvents).values({
+      jobId: args.jobId,
+      actor: args.actor,
+      kind: "voice_note_added",
+      summary: `voice note queued: ${note.filename}`,
+      payload: {
+        voiceNoteId: note.id,
+        source: note.source,
+        status: note.status,
+      },
+    });
+  } catch (error) {
+    console.error("Could not record the voice note event.", error);
+  }
+  return note;
+}
+
+export async function processJobVoiceTranscription(
+  voiceNoteId: string,
+): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return processDemoVoiceTranscription(voiceNoteId);
+  const db = getDb();
+  const existing = (
+    await db
+      .select()
+      .from(jobVoiceNotes)
+      .where(eq(jobVoiceNotes.id, voiceNoteId))
+      .limit(1)
+  )[0];
+  if (!existing) return null;
+  if (existing.status !== "queued" && existing.status !== "processing") {
+    return existing;
+  }
+
+  const claimed = (
+    await db
+      .update(jobVoiceNotes)
+      .set({
+        status: "processing",
+        processingStartedAt: existing.processingStartedAt ?? new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(jobVoiceNotes.id, voiceNoteId),
+          eq(jobVoiceNotes.status, existing.status),
+        ),
+      )
+      .returning()
+  )[0];
+  if (!claimed) {
+    return (
+      (
+        await db
+          .select()
+          .from(jobVoiceNotes)
+          .where(eq(jobVoiceNotes.id, voiceNoteId))
+          .limit(1)
+      )[0] ?? null
+    );
+  }
+
+  try {
+    let bytes: Uint8Array | null = null;
+    if (claimed.storage === "blob") {
+      const { resolveFileUrl } = await import("@/lib/leads/adapters");
+      const signedUrl = await resolveFileUrl(claimed.pathname, 5 * 60 * 1000);
+      const response = await fetch(signedUrl);
+      if (!response.ok) {
+        throw new Error("The recording could not be downloaded for transcription.");
+      }
+      bytes = new Uint8Array(await response.arrayBuffer());
+    } else {
+      bytes = getStoredVoiceNoteBytes(claimed.id);
+    }
+    if (!bytes) {
+      throw new Error("The recording bytes are no longer available.");
+    }
+    const result = await transcribeVoiceAudio({
+      bytes,
+      filename: claimed.filename,
+      contentType: claimed.contentType,
+      language: claimed.language,
+    });
+    const now = new Date();
+    const completed = (
+      await db
+        .update(jobVoiceNotes)
+        .set({
+          status: "completed",
+          provider: result.provider,
+          model: result.model,
+          confidence: result.confidence,
+          machineTranscript: result.transcript || null,
+          transcript: claimed.transcript || result.transcript || null,
+          completedAt: now,
+          failedAt: null,
+          error: null,
+          updatedAt: now,
+        })
+        .where(eq(jobVoiceNotes.id, voiceNoteId))
+        .returning()
+    )[0];
+    if (completed) {
+      await db.insert(jobEvents).values({
+        jobId: completed.jobId,
+        actor: "system",
+        kind: "voice_note_transcribed",
+        summary: `voice note transcribed: ${completed.filename}`,
+        payload: { voiceNoteId: completed.id, status: completed.status },
+      });
+    }
+    return completed ?? claimed;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Transcription could not be completed.";
+    const failed = (
+      await db
+        .update(jobVoiceNotes)
+        .set({
+          status: "failed",
+          error: message.slice(0, 500),
+          failedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(jobVoiceNotes.id, voiceNoteId))
+        .returning()
+    )[0];
+    return failed ?? claimed;
+  }
+}
+
+export async function updateJobVoiceTranscript(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+  transcript: string;
+}): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return updateDemoVoiceTranscript(args);
+  const db = getDb();
+  const rows = await db
+    .update(jobVoiceNotes)
+    .set({
+      transcript: args.transcript,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(jobVoiceNotes.id, args.voiceNoteId),
+        eq(jobVoiceNotes.jobId, args.jobId),
+        eq(jobVoiceNotes.status, "completed"),
+      ),
+    )
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_updated",
+    summary: `voice transcript edited: ${note.filename}`,
+    payload: { voiceNoteId: note.id },
+  });
+  return note;
+}
+
+export async function extractJobVoiceNote(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+  kind: VoiceExtractKind;
+  selectedText: string;
+}): Promise<{ ok: true; created: "task" | "field_note" } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return extractDemoVoiceNote(args);
+  const note = await getJobVoiceNote(args.jobId, args.voiceNoteId);
+  if (!note) return { ok: false, error: "That voice note could not be found." };
+  if (args.kind === "task") {
+    const task = await addJobTask({
+      jobId: args.jobId,
+      actor: args.actor,
+      input: {
+        title: args.selectedText.slice(0, 160),
+        assignee: null,
+        assigneeUserId: null,
+        dueAt: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
+        workAreaId: note.workAreaId,
+      },
+    });
+    if (!task) return { ok: false, error: "That task could not be created." };
+    return { ok: true, created: "task" };
+  }
+  const fieldNote = await addJobFieldNote({
+    jobId: args.jobId,
+    actor: args.actor,
+    input: {
+      kind:
+        args.kind === "blocker"
+          ? "blocker"
+          : args.kind === "deficiency"
+            ? "deficiency"
+            : args.kind === "material_request"
+              ? "material_request"
+              : "daily_report",
+      body: args.selectedText,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      annotationId: note.annotationId,
+      quantity: null,
+      unit: null,
+    },
+  });
+  if (!fieldNote) return { ok: false, error: "That field entry could not be created." };
+  return { ok: true, created: "field_note" };
+}
+
+export async function deleteJobVoiceNote(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+}): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return deleteDemoJobVoiceNote(args);
+  const db = getDb();
+  const existing = (
+    await db
+      .select()
+      .from(jobVoiceNotes)
+      .where(
+        and(
+          eq(jobVoiceNotes.id, args.voiceNoteId),
+          eq(jobVoiceNotes.jobId, args.jobId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!existing) return null;
+  await db
+    .delete(jobVoiceNotes)
+    .where(
+      and(
+        eq(jobVoiceNotes.id, args.voiceNoteId),
+        eq(jobVoiceNotes.jobId, args.jobId),
+      ),
+    );
+  if (existing.storage === "blob") {
+    try {
+      const { del } = await import("@vercel/blob");
+      await del(existing.pathname, {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+    } catch (error) {
+      console.error("Could not delete a voice note blob.", error);
+    }
+  } else {
+    clearVoiceNoteBytes(existing.id);
+  }
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_deleted",
+    summary: `voice note deleted: ${existing.filename}`,
+    payload: { voiceNoteId: existing.id },
+  });
+  return existing;
+}
+
+export async function getJobVoiceNoteDownload(
+  jobId: string,
+  voiceNoteId: string,
+): Promise<JobDocumentDownload | null> {
+  if (isDemoOpsStore()) {
+    const result = getDemoJobVoiceNoteDownload(jobId, voiceNoteId);
+    if (!result) return null;
+    return {
+      filename: result.note.filename,
+      contentType: result.note.contentType,
+      kind: "bytes",
+      bytes: result.bytes,
+    };
+  }
+
+  const note = await getJobVoiceNote(jobId, voiceNoteId);
+  if (!note) return null;
+  if (note.storage === "blob") {
+    const { resolveFileUrl } = await import("@/lib/leads/adapters");
+    const signedUrl = await resolveFileUrl(note.pathname, 5 * 60 * 1000);
+    return {
+      filename: note.filename,
+      contentType: note.contentType,
+      kind: "redirect",
+      url: signedUrl,
+    };
+  }
+  const bytes = getStoredVoiceNoteBytes(note.id);
+  if (!bytes) return null;
+  return {
+    filename: note.filename,
+    contentType: note.contentType,
+    kind: "bytes",
+    bytes,
+  };
 }
 
 export async function addCompany(input: CompanyInput): Promise<CompanyRow> {
@@ -3676,6 +4091,23 @@ export async function deleteJob(
     return { ok: false, error: "That job could not be found." };
   }
   const db = getDb();
+  const voiceNotes = await db
+    .select()
+    .from(jobVoiceNotes)
+    .where(eq(jobVoiceNotes.jobId, jobId));
+  for (const note of voiceNotes) {
+    if (note.storage === "blob") {
+      try {
+        const { del } = await import("@vercel/blob");
+        await del(note.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      } catch (error) {
+        console.error("Could not delete a voice note blob.", error);
+      }
+    } else {
+      clearVoiceNoteBytes(note.id);
+    }
+  }
+  await db.delete(jobVoiceNotes).where(eq(jobVoiceNotes.jobId, jobId));
   await db.delete(jobFieldNotes).where(eq(jobFieldNotes.jobId, jobId));
   await db.delete(jobPlanAnnotations).where(eq(jobPlanAnnotations.jobId, jobId));
   const documents = await db
@@ -3865,6 +4297,15 @@ export async function deleteJobTask(args: {
       and(
         eq(jobPlanAnnotations.jobId, args.jobId),
         eq(jobPlanAnnotations.taskId, args.taskId),
+      ),
+    );
+  await db
+    .update(jobVoiceNotes)
+    .set({ taskId: null })
+    .where(
+      and(
+        eq(jobVoiceNotes.jobId, args.jobId),
+        eq(jobVoiceNotes.taskId, args.taskId),
       ),
     );
   await db

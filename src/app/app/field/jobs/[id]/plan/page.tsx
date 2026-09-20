@@ -19,9 +19,18 @@ import {
   listJobAssignments,
   listJobDocuments,
   listJobPlanAnnotations,
+  listJobVoiceNotes,
   listJobTasks,
   listWorkAreas,
 } from "@/lib/ops/store";
+import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
+import { voiceConsentCopy } from "@/lib/ops/voice-notes";
+import {
+  addFieldVoiceNote,
+  extractFieldVoiceNote,
+  removeFieldVoiceNote,
+  saveFieldVoiceTranscript,
+} from "@/app/field/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -42,11 +51,12 @@ export default async function FieldJobPlanPage({
     redirect("/field");
   }
 
-  const [documents, areas, allTasks, assignments] = await Promise.all([
+  const [documents, areas, allTasks, assignments, voiceNotes] = await Promise.all([
     listJobDocuments(job.id, { kind: "plan" }),
     listWorkAreas(job.id),
     listJobTasks(job.id),
     listJobAssignments(job.id),
+    listJobVoiceNotes(job.id),
   ]);
   const hasJobAssignment = assignments.some(
     (assignment) => assignment.userId === session.userId,
@@ -182,6 +192,45 @@ export default async function FieldJobPlanPage({
           This is a previous revision. Open the current sheet to update work.
         </p>
       ) : null}
+
+      <VoiceNotesPanel
+        jobId={job.id}
+        notes={voiceNotes.filter(
+          (note) =>
+            note.source === "annotation" ||
+            (note.annotationId &&
+              annotations.some((annotation) => annotation.id === note.annotationId)),
+        )}
+        scope="field"
+        returnTo={returnTo}
+        sessionEmail={session.email}
+        canDeleteAll={false}
+        consentCopy={voiceConsentCopy()}
+        recordAction={addFieldVoiceNote}
+        updateAction={saveFieldVoiceTranscript}
+        extractAction={extractFieldVoiceNote}
+        deleteAction={removeFieldVoiceNote}
+        areas={areas.map(({ id: areaId, name }) => ({ id: areaId, name }))}
+        tasks={tasks.map(({ id: taskId, title }) => ({
+          id: taskId,
+          name: title,
+        }))}
+        annotations={annotations.map((annotation) => ({
+          id: annotation.id,
+          name: annotation.title,
+        }))}
+        documents={documents.map((document) => ({
+          id: document.id,
+          name: document.filename,
+        }))}
+        areaName={(workAreaId) =>
+          areas.find((area) => area.id === workAreaId)?.name
+        }
+        taskTitle={(taskId) => tasks.find((task) => task.id === taskId)?.title}
+        defaultSource={annotations[0] ? "annotation" : "job"}
+        defaultAnnotationId={annotations[0]?.id ?? ""}
+        defaultDocumentId={selected?.id ?? ""}
+      />
     </div>
   );
 }

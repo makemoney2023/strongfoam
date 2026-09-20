@@ -56,17 +56,24 @@ import {
   listJobDocuments,
   listJobAssignments,
   listJobFieldNotes,
+  listJobVoiceNotes,
   listJobTasks,
   listWorkAreas,
 } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 import {
   addFieldEntry,
+  addFieldVoiceNote,
+  extractFieldVoiceNote,
   removeFieldEntry,
+  removeFieldVoiceNote,
   saveFieldEntry,
+  saveFieldVoiceTranscript,
   setFieldTaskStatus,
   uploadFieldDocument,
 } from "@/app/field/actions";
+import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
+import { voiceConsentCopy } from "@/lib/ops/voice-notes";
 import { FieldEntryFields } from "../../../jobs/workspace-fields";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +110,7 @@ export default async function FieldJobPage({
     allTasks,
     documents,
     notes,
+    voiceNotes,
     assignments,
   ] =
     await Promise.all([
@@ -113,6 +121,7 @@ export default async function FieldJobPage({
       listJobTasks(job.id, { status: query.taskStatus, from: query.from, to: query.to }),
       listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
       listJobFieldNotes(job.id, { kind: query.kind, from: query.from, to: query.to }),
+      listJobVoiceNotes(job.id),
       listJobAssignments(job.id),
     ]);
   const hasJobAssignment = assignments.some(
@@ -454,6 +463,31 @@ export default async function FieldJobPage({
           </div>
         </CardContent>
       </Card>
+
+      <VoiceNotesPanel
+        jobId={job.id}
+        notes={voiceNotes}
+        scope="field"
+        returnTo={returnTo}
+        sessionEmail={session.email}
+        canDeleteAll={false}
+        consentCopy={voiceConsentCopy()}
+        recordAction={addFieldVoiceNote}
+        updateAction={saveFieldVoiceTranscript}
+        extractAction={extractFieldVoiceNote}
+        deleteAction={removeFieldVoiceNote}
+        areas={areaOptions}
+        tasks={taskOptions.map(({ id: taskId, title }) => ({
+          id: taskId,
+          name: title,
+        }))}
+        documents={documents.map((document) => ({
+          id: document.id,
+          name: document.filename,
+        }))}
+        areaName={areaName}
+        taskTitle={taskTitle}
+      />
 
       <Card>
         <CardHeader>

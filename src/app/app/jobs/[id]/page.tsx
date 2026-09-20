@@ -81,6 +81,7 @@ import {
   listJobDocuments,
   listJobEvents,
   listJobFieldNotes,
+  listJobVoiceNotes,
   listJobAssignments,
   listJobTasks,
   listActiveFieldUsers,
@@ -89,23 +90,29 @@ import {
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import {
   addJobFieldEntry,
+  addJobVoiceEntry,
   assignFieldUserToJob,
   addJobWorkArea,
   addJobWorkspaceTask,
   removeJob,
   removeJobDocument,
+  extractJobVoiceEntry,
   removeJobFieldEntry,
+  removeJobVoiceEntry,
   removeJobWorkArea,
   removeJobWorkspaceTask,
   saveJobDetails,
   saveJobDocumentMeta,
   saveJobFieldEntry,
+  saveJobVoiceTranscript,
   saveJobStatus,
   saveJobWorkArea,
   saveJobWorkspaceTask,
   setJobWorkspaceTaskStatus,
   unassignFieldUserFromJob,
 } from "../actions";
+import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
+import { voiceConsentCopy } from "@/lib/ops/voice-notes";
 import { JobFormFields } from "../job-form-fields";
 import {
   DocumentMetaFields,
@@ -154,7 +161,8 @@ export default async function JobDetailPage({
     to?: string;
   }>;
 }) {
-  if (!(await getOpsSession())) {
+  const session = await getOpsSession();
+  if (!session) {
     redirect("/app/login");
   }
 
@@ -173,6 +181,7 @@ export default async function JobDetailPage({
     tasks,
     documents,
     notes,
+    voiceNotes,
     assignments,
     fieldUsers,
   ] =
@@ -186,6 +195,7 @@ export default async function JobDetailPage({
       listJobTasks(job.id, { status: query.taskStatus, from: query.from, to: query.to }),
       listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
       listJobFieldNotes(job.id, { kind: query.noteKind, from: query.from, to: query.to }),
+      listJobVoiceNotes(job.id),
       listJobAssignments(job.id),
       listActiveFieldUsers(),
     ]);
@@ -1115,6 +1125,31 @@ export default async function JobDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <VoiceNotesPanel
+            jobId={job.id}
+            notes={voiceNotes}
+            scope="office"
+            returnTo={returnTo}
+            sessionEmail={session.email}
+            canDeleteAll
+            consentCopy={voiceConsentCopy()}
+            recordAction={addJobVoiceEntry}
+            updateAction={saveJobVoiceTranscript}
+            extractAction={extractJobVoiceEntry}
+            deleteAction={removeJobVoiceEntry}
+            areas={areaOptions}
+            tasks={taskOptions.map(({ id: taskId, title }) => ({
+              id: taskId,
+              name: title,
+            }))}
+            documents={documents.map((document) => ({
+              id: document.id,
+              name: document.filename,
+            }))}
+            areaName={areaName}
+            taskTitle={taskTitle}
+          />
 
           <Card>
             <CardHeader>

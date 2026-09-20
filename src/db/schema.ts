@@ -626,6 +626,72 @@ export const jobFieldNotes = pgTable(
   ],
 );
 
+export const jobVoiceNotes = pgTable(
+  "job_voice_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    workAreaId: uuid("work_area_id"),
+    taskId: uuid("task_id").references(() => jobTasks.id),
+    annotationId: uuid("annotation_id").references(() => jobPlanAnnotations.id, {
+      onDelete: "set null",
+    }),
+    documentId: uuid("document_id").references(() => jobDocuments.id, {
+      onDelete: "set null",
+    }),
+    source: text("source").notNull().default("job"),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    pathname: text("pathname").notNull().unique(),
+    storage: text("storage").notNull().default("blob"),
+    durationSeconds: integer("duration_seconds"),
+    language: text("language").notNull().default("en"),
+    provider: text("provider"),
+    model: text("model"),
+    status: text("status").notNull().default("queued"),
+    machineTranscript: text("machine_transcript"),
+    transcript: text("transcript"),
+    confidence: doublePrecision("confidence"),
+    queuedAt: timestamp("queued_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    processingStartedAt: timestamp("processing_started_at", {
+      withTimezone: true,
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    error: text("error"),
+    consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workAreaId, table.jobId],
+      foreignColumns: [workAreas.id, workAreas.jobId],
+      name: "job_voice_notes_work_area_job_fk",
+    }),
+    check(
+      "job_voice_notes_source_valid",
+      sql`${table.source} IN ('job', 'task', 'annotation', 'document', 'daily_report')`,
+    ),
+    check(
+      "job_voice_notes_status_valid",
+      sql`${table.status} IN ('uploading', 'queued', 'processing', 'completed', 'failed')`,
+    ),
+    check("job_voice_notes_size_positive", sql`${table.sizeBytes} > 0`),
+    index("job_voice_notes_job_created_idx").on(table.jobId, table.createdAt),
+  ],
+);
+
 export const estimateRequestTasks = pgTable("estimate_request_tasks", {
   id: uuid("id").defaultRandom().primaryKey(),
   leadId: uuid("lead_id")

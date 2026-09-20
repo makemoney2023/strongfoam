@@ -24,6 +24,7 @@ import {
   addDemoCompany,
   addDemoJobDocument,
   addDemoJobFieldNote,
+  addDemoJobVoiceNote,
   addDemoJobPlanAnnotation,
   addDemoJobTaskDependency,
   addDemoJobTask,
@@ -33,6 +34,8 @@ import {
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   deleteDemoJobFieldNote,
+  deleteDemoJobVoiceNote,
+  extractDemoVoiceNote,
   deleteDemoJobDocument,
   deleteDemoJobTaskDependency,
   deleteDemoWorkArea,
@@ -50,6 +53,7 @@ import {
   listDemoJobAssignments,
   listDemoJobEvents,
   listDemoJobFieldNotes,
+  listDemoJobVoiceNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
   listDemoProjectScheduleBaselines,
@@ -73,6 +77,7 @@ import {
   updateDemoEstimateRequest,
   updateDemoJobDocument,
   updateDemoJobFieldNote,
+  updateDemoVoiceTranscript,
   updateDemoUser,
   updateDemoWorkArea,
   upsertDemoScheduleCalendarException,
@@ -88,6 +93,7 @@ import {
   DEMO_FIELD_USER_ID,
   DEMO_JOB_ID,
   DEMO_JOB_TASK_ID,
+  DEMO_VOICE_NOTE_ID,
   DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
   DEMO_PLAN_DOCUMENT_ID,
   DEMO_PROJECT_ID,
@@ -1447,6 +1453,70 @@ describe("workspace CRUD and filters", () => {
       province: "ON",
     });
     expect(getDemoCompany(company.id)?.city).toBe("Waterloo");
+  });
+
+  it("queues, transcribes, edits, extracts, and deletes voice notes", () => {
+    const seeded = listDemoJobVoiceNotes(DEMO_JOB_ID).find(
+      (note) => note.id === DEMO_VOICE_NOTE_ID,
+    );
+    expect(seeded?.status).toBe("completed");
+    expect(seeded?.transcript).toContain("south elevation");
+
+    const created = addDemoJobVoiceNote({
+      jobId: DEMO_JOB_ID,
+      actor: DEMO_FIELD_EMAIL,
+      input: {
+        source: "job",
+        workAreaId: null,
+        taskId: null,
+        annotationId: null,
+        documentId: null,
+        filename: "site.webm",
+        contentType: "audio/webm",
+        sizeBytes: 2048,
+        durationSeconds: 8,
+        language: "en",
+        consentAt: new Date(),
+      },
+      bytes: new Uint8Array(2048),
+    });
+    expect(created?.status).toBe("queued");
+    const listed = listDemoJobVoiceNotes(DEMO_JOB_ID).find(
+      (note) => note.id === created?.id,
+    );
+    expect(listed?.status).toBe("completed");
+    expect(listed?.transcript).toContain("south elevation");
+    expect(
+      updateDemoVoiceTranscript({
+        jobId: DEMO_JOB_ID,
+        voiceNoteId: created?.id ?? "",
+        actor: DEMO_FIELD_EMAIL,
+        transcript: "Hold the south elevation for inspection.",
+      })?.transcript,
+    ).toBe("Hold the south elevation for inspection.");
+    expect(
+      extractDemoVoiceNote({
+        jobId: DEMO_JOB_ID,
+        voiceNoteId: created?.id ?? "",
+        actor: DEMO_FIELD_EMAIL,
+        kind: "deficiency",
+        selectedText: "Hold the south elevation for inspection.",
+      }),
+    ).toEqual({ ok: true, created: "field_note" });
+    expect(
+      listDemoJobFieldNotes(DEMO_JOB_ID).some(
+        (note) =>
+          note.kind === "deficiency" &&
+          note.body === "Hold the south elevation for inspection.",
+      ),
+    ).toBe(true);
+    expect(
+      deleteDemoJobVoiceNote({
+        jobId: DEMO_JOB_ID,
+        voiceNoteId: created?.id ?? "",
+        actor: DEMO_FIELD_EMAIL,
+      })?.id,
+    ).toBe(created?.id);
   });
 });
 

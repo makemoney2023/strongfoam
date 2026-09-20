@@ -11,6 +11,7 @@ import {
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
+  jobVoiceNotes,
   jobTaskDependencies,
   jobTasks,
   jobs,
@@ -64,6 +65,9 @@ describe("db schema exports", () => {
     expect(jobPlanAnnotations).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
     expect(jobFieldNotes.annotationId).toBeDefined();
+    expect(jobVoiceNotes).toBeDefined();
+    expect(jobVoiceNotes.machineTranscript).toBeDefined();
+    expect(jobVoiceNotes.consentAt).toBeDefined();
   });
 
   it("allows at most one default schedule calendar", () => {

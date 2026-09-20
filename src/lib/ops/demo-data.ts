@@ -9,6 +9,7 @@ import {
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
+  jobVoiceNotes,
   jobTaskDependencies,
   jobTasks,
   jobs,
@@ -56,12 +57,14 @@ export type ProjectScheduleBaselineItemRow =
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
+export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+export const DEMO_VOICE_NOTE_ID = "abababab-abab-4aba-8aba-abababababab";
 export const DEMO_PLAN_DOCUMENT_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 export const DEMO_PLAN_ANNOTATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb1";
 export const DEMO_PLAN_ASSIGNED_ANNOTATION_ID =
@@ -852,6 +855,45 @@ export function demoJobPlanAnnotations(): JobPlanAnnotationRow[] {
       completedBy: null,
       voidedAt: null,
       voidedBy: null,
+    },
+  ];
+}
+
+export function demoJobVoiceNotes(): JobVoiceNoteRow[] {
+  const createdAt = new Date(now - 5 * 60 * 60 * 1000);
+  return [
+    {
+      id: DEMO_VOICE_NOTE_ID,
+      createdAt,
+      updatedAt: createdAt,
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      annotationId: DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+      documentId: DEMO_PLAN_DOCUMENT_ID,
+      source: "task",
+      filename: "podium-deck.wav",
+      contentType: "audio/wav",
+      sizeBytes: 1_024,
+      pathname: `jobs/${DEMO_JOB_ID}/voice/${DEMO_VOICE_NOTE_ID}/podium-deck.wav`,
+      storage: "memory",
+      durationSeconds: 18,
+      language: "en",
+      provider: "demo",
+      model: "strongfoam-demo-stt",
+      status: "completed",
+      machineTranscript:
+        "Voice note on Acme podium insulation. Install closed-cell at podium deck is in progress. Hold the south elevation for inspection and request more closed-cell if the next lift starts today.",
+      transcript:
+        "Voice note on Acme podium insulation. Install closed-cell at podium deck is in progress. Hold the south elevation for inspection and request more closed-cell if the next lift starts today.",
+      confidence: 0.86,
+      queuedAt: createdAt,
+      processingStartedAt: createdAt,
+      completedAt: createdAt,
+      failedAt: null,
+      error: null,
+      consentAt: createdAt,
+      createdBy: DEMO_FIELD_EMAIL,
     },
   ];
 }
