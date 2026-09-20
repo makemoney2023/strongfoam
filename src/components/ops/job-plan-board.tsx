@@ -43,6 +43,7 @@ export function JobPlanBoard({
   mode,
   returnTo,
   highlightedTaskIds = [],
+  editableTaskIds = highlightedTaskIds,
   placeAction,
   statusAction,
   voidAction,
@@ -56,6 +57,7 @@ export function JobPlanBoard({
   mode: "office" | "field";
   returnTo: string;
   highlightedTaskIds?: string[];
+  editableTaskIds?: string[];
   placeAction?: (formData: FormData) => Promise<ActionState>;
   statusAction?: (formData: FormData) => Promise<ActionState>;
   voidAction?: (formData: FormData) => Promise<ActionState>;
@@ -88,6 +90,8 @@ export function JobPlanBoard({
   const selected =
     visiblePins.find((pin) => pin.id === selectedId) ??
     (draft ? null : (visiblePins.at(-1) ?? null));
+  const canEditSelected =
+    !selected?.taskId || editableTaskIds.includes(selected.taskId);
 
   function handleSheetClick(event: React.MouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -268,8 +272,12 @@ export function JobPlanBoard({
                 </p>
               ) : null}
             </div>
-            {mode === "field" && statusAction ? (
-              <ActionForm action={statusAction} className="space-y-3">
+            {mode === "field" && statusAction && canEditSelected ? (
+              <ActionForm
+                key={selected.id}
+                action={statusAction}
+                className="space-y-3"
+              >
                 <input type="hidden" name="jobId" value={jobId} />
                 <input type="hidden" name="annotationId" value={selected.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
@@ -300,6 +308,10 @@ export function JobPlanBoard({
                   Update mark
                 </SubmitButton>
               </ActionForm>
+            ) : mode === "field" && statusAction ? (
+              <p className="text-sm text-muted-foreground">
+                This mark is assigned to another crew member and is read-only.
+              </p>
             ) : null}
             {mode === "office" && voidAction ? (
               <ConfirmForm

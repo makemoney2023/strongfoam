@@ -130,6 +130,7 @@ export default async function FieldJobPlanPage({
           highlightedTaskIds={tasks
             .filter((task) => task.assigneeUserId === session.userId)
             .map((task) => task.id)}
+          editableTaskIds={tasks.map((task) => task.id)}
           areas={areas.map(({ id: areaId, name }) => ({ id: areaId, name }))}
           tasks={tasks.map(({ id: taskId, title }) => ({
             id: taskId,

@@ -35,9 +35,11 @@ type StorageMode = "demo" | "blob" | "unavailable";
 function UploadFields({
   areas,
   defaultKind,
+  singleFile = false,
 }: {
   areas: AreaOption[];
   defaultKind: "plan" | "photo" | "other";
+  singleFile?: boolean;
 }) {
   const photoFirst = defaultKind === "photo";
   return (
@@ -51,12 +53,14 @@ function UploadFields({
           name="file"
           type="file"
           accept="application/pdf,image/jpeg,image/png,image/webp"
-          multiple
+          multiple={!singleFile}
           className="h-11 cursor-pointer"
           required
         />
         <p className="text-xs text-muted-foreground">
-          {photoFirst
+          {singleFile
+            ? "PDF, JPEG, PNG, or WebP. One file, up to 25 MB."
+            : photoFirst
             ? `Select many photos at once. JPEG, PNG, WebP, or PDF. Up to ${MAX_JOB_UPLOAD_FILES} files, 25 MB each.`
             : `PDF, JPEG, PNG, or WebP. Up to ${MAX_JOB_UPLOAD_FILES} files, 25 MB each.`}
         </p>
@@ -146,7 +150,11 @@ export function JobDocumentUploader({
             value={replacesDocumentId}
           />
         ) : null}
-        <UploadFields areas={areas} defaultKind={defaultKind} />
+        <UploadFields
+          areas={areas}
+          defaultKind={defaultKind}
+          singleFile={Boolean(replacesDocumentId)}
+        />
         <SubmitButton className="min-h-11" pendingLabel="Uploading…">
           <UploadCloudIcon aria-hidden="true" />
           {submitLabel}
@@ -170,6 +178,13 @@ export function JobDocumentUploader({
       setMessage({
         tone: "error",
         text: `Upload up to ${MAX_JOB_UPLOAD_FILES} files at a time.`,
+      });
+      return;
+    }
+    if (replacesDocumentId && files.length !== 1) {
+      setMessage({
+        tone: "error",
+        text: "Upload one file per plan revision.",
       });
       return;
     }
@@ -233,6 +248,7 @@ export function JobDocumentUploader({
               : `${uploaded.length} files uploaded.`,
         });
       }
+      if (returnTo) router.replace(returnTo);
       router.refresh();
     } catch {
       setMessage({
@@ -246,7 +262,20 @@ export function JobDocumentUploader({
 
   return (
     <form onSubmit={submitDirectUpload} className="space-y-4">
-      <UploadFields areas={areas} defaultKind={defaultKind} />
+      <input type="hidden" name="jobId" value={jobId} />
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+      {replacesDocumentId ? (
+        <input
+          type="hidden"
+          name="replacesDocumentId"
+          value={replacesDocumentId}
+        />
+      ) : null}
+      <UploadFields
+        areas={areas}
+        defaultKind={defaultKind}
+        singleFile={Boolean(replacesDocumentId)}
+      />
       {uploading ? (
         <Progress value={progress} aria-label="Document upload progress">
           <ProgressLabel>

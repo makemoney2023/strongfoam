@@ -27,4 +27,16 @@ describe("requestOrigin", () => {
       ),
     ).toBe("http://0.0.0.0:3000");
   });
+
+  it("does not trust a public or invalid loopback Host header", () => {
+    for (const host of ["attacker.example", "localhost:99999"]) {
+      expect(
+        requestOrigin(
+          new Request("http://0.0.0.0:3000/api/ops/login", {
+            headers: { host },
+          }),
+        ),
+      ).toBe("http://0.0.0.0:3000");
+    }
+  });
 });

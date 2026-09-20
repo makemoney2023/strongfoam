@@ -7,6 +7,9 @@ export function RealtimeRefresh({ url }: { url: string }) {
   const router = useRouter();
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connected, setConnected] = useState(false);
+  const loginPath = url.startsWith("/api/field")
+    ? "/field/login"
+    : "/app/login";
 
   useEffect(() => {
     const source = new EventSource(url);
@@ -18,15 +21,17 @@ export function RealtimeRefresh({ url }: { url: string }) {
     source.addEventListener("job", refresh);
     source.addEventListener("assignments", refresh);
     source.addEventListener("unauthorized", () => {
+      source.close();
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
       setConnected(false);
-      refresh();
+      router.replace(loginPath);
     });
     source.onerror = () => setConnected(false);
     return () => {
       source.close();
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
     };
-  }, [router, url]);
+  }, [loginPath, router, url]);
 
   return (
     <span className="sr-only" aria-live="polite">

@@ -1,7 +1,8 @@
 /**
  * Redirect origin for login/logout when the process is bound to 0.0.0.0.
  * Next.js then reports that bind address as request.url, which drops cookies
- * set on localhost or 127.0.0.1. Only rewrite that unspecified host.
+ * set on localhost or 127.0.0.1. Only rewrite that unspecified host to a
+ * loopback Host value so a forged Host cannot become a redirect target.
  */
 export function requestOrigin(request: Request): string {
   const url = new URL(request.url);
@@ -22,8 +23,10 @@ function isUnspecifiedAddress(hostname: string): boolean {
 }
 
 function isSafeHost(host: string): boolean {
-  return (
-    /^[a-zA-Z0-9.-]+(?::\d{1,5})?$/.test(host) ||
-    /^\[::1\](?::\d{1,5})?$/.test(host)
+  const match = host.match(
+    /^(localhost|127\.0\.0\.1|\[::1\])(?::(\d{1,5}))?$/i,
   );
+  if (!match) return false;
+  const port = match[2];
+  return !port || Number(port) <= 65_535;
 }

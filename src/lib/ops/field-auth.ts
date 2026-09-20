@@ -113,6 +113,7 @@ export function resolveFieldSession(
     !identity.active ||
     !identity.membershipActive ||
     !isFieldMembershipRole(identity.role) ||
+    identity.role !== session.role ||
     identity.email !== session.email ||
     identity.organizationId !== session.organizationId ||
     identity.sessionVersion !== session.sessionVersion
@@ -124,6 +125,7 @@ export function resolveFieldSession(
     ...session,
     displayName: identity.displayName,
     organizationId: identity.organizationId,
+    role: identity.role,
   };
 }
 
