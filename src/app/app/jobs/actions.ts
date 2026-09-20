@@ -63,7 +63,7 @@ import {
   parseVoiceNoteInput,
   parseVoiceTranscriptEdit,
 } from "@/lib/ops/voice-notes";
-import { scheduleVoiceTranscription } from "@/lib/ops/voice-transcribe";
+import { scheduleVoiceTranscription } from "@/lib/ops/voice-schedule";
 
 
 function refreshJobs(projectId?: string | null, jobId?: string | null) {
