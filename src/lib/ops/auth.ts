@@ -202,23 +202,10 @@ export function canManageUsers(
   );
 }
 
-export async function getOpsSession(): Promise<OpsSession | null> {
-  const secret = process.env.OPS_SESSION_SECRET;
-  if (!secret) return null;
-  const store = await cookies();
-  const token = store.get(OPS_SESSION_COOKIE)?.value;
-  if (!token) return null;
-  const session = verifyOpsSession(token, secret);
-  if (!session) return null;
-  if (session.role === "estimator") {
-    if (!isConfiguredStaffEmail(session.email)) return null;
-    return {
-      ...session,
-      displayName: session.email,
-      legacy: true,
-    };
-  }
-  const identity = await getUserIdentityById(session.userId);
+export function resolveUserOpsSession(
+  session: UserOpsSessionToken,
+  identity: UserIdentity | null,
+): OpsSession | null {
   if (
     !identity ||
     !identity.active ||
@@ -237,4 +224,28 @@ export async function getOpsSession(): Promise<OpsSession | null> {
     displayName: identity.displayName,
     legacy: false,
   };
+}
+
+export async function clearOpsSessionCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(OPS_SESSION_COOKIE);
+}
+
+export async function getOpsSession(): Promise<OpsSession | null> {
+  const secret = process.env.OPS_SESSION_SECRET;
+  if (!secret) return null;
+  const store = await cookies();
+  const token = store.get(OPS_SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = verifyOpsSession(token, secret);
+  if (!session) return null;
+  if (session.role === "estimator") {
+    if (!isConfiguredStaffEmail(session.email)) return null;
+    return {
+      ...session,
+      displayName: session.email,
+      legacy: true,
+    };
+  }
+  return resolveUserOpsSession(session, await getUserIdentityById(session.userId));
 }

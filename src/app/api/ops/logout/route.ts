@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { OPS_SESSION_COOKIE } from "@/lib/ops/auth";
+import { requestOrigin } from "@/lib/ops/request-origin";
 
 export async function POST(request: Request): Promise<Response> {
-  const origin = new URL(request.url).origin;
+  const origin = requestOrigin(request);
   const response = NextResponse.redirect(new URL("/app/login", origin), 303);
   response.cookies.set({
     name: OPS_SESSION_COOKIE,

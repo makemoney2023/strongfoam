@@ -44,6 +44,7 @@ import {
   JOB_DOCUMENT_LABELS,
   fieldJobDocumentHref,
 } from "@/lib/ops/job-workspace";
+import { fieldPlanHref } from "@/lib/ops/plan-markup";
 import {
   getCompany,
   canFieldUserAccessJob,
@@ -125,7 +126,12 @@ export default async function FieldJobPage({
     : opportunity?.contactId
       ? [await getContact(opportunity.contactId)].filter(Boolean)
       : [];
-  const latestPlan = documents.find((document) => document.kind === "plan") ?? documents[0];
+  const latestPlan =
+    documents.find(
+      (document) => document.kind === "plan" && !document.supersededAt,
+    ) ??
+    documents.find((document) => document.kind === "plan") ??
+    documents[0];
   const documentStorageMode = isDemoOpsStore()
     ? "demo"
     : process.env.BLOB_READ_WRITE_TOKEN
@@ -261,15 +267,24 @@ export default async function FieldJobPage({
             </p>
           ) : null}
           {latestPlan ? (
-            <Button
-              variant="outline"
-              className="min-h-11 w-full"
-              nativeButton={false}
-              render={<a href={fieldJobDocumentHref(job.id, latestPlan.id)} />}
-            >
-              <FileTextIcon aria-hidden="true" />
-              Open latest plan · {latestPlan.filename}
-            </Button>
+            <div className="grid gap-2">
+              <Button
+                className="min-h-11 w-full"
+                nativeButton={false}
+                render={<a href={fieldPlanHref(job.id, latestPlan.id)} />}
+              >
+                <FileTextIcon aria-hidden="true" />
+                Mark completed work on the plan
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-11 w-full"
+                nativeButton={false}
+                render={<a href={fieldJobDocumentHref(job.id, latestPlan.id)} />}
+              >
+                Open file · {latestPlan.filename}
+              </Button>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">No plan set has been uploaded yet.</p>
           )}

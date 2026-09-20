@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fail, succeed } from "@/lib/ops/action-redirect";
 import { invalidFrom, type ActionState } from "@/lib/ops/action-result";
-import { canManageUsers, getOpsSession } from "@/lib/ops/auth";
+import {
+  canManageUsers,
+  clearOpsSessionCookie,
+  getOpsSession,
+} from "@/lib/ops/auth";
 import { hashPassword } from "@/lib/ops/credentials";
 import {
   isFieldMembershipRole,
@@ -34,6 +38,19 @@ async function getAdministrator() {
   const session = await getOpsSession();
   if (!session) redirect("/app/login");
   return canManageUsers(session) ? session : null;
+}
+
+async function finishUserLifecycle(
+  session: Awaited<ReturnType<typeof getAdministrator>>,
+  userId: string,
+  message: string,
+) {
+  refreshUsers();
+  if (session && "userId" in session && session.userId === userId) {
+    await clearOpsSessionCookie();
+    return succeed("/app/login", message);
+  }
+  return succeed("/app/users", message);
 }
 
 export async function createUser(formData: FormData): Promise<ActionState> {
@@ -89,9 +106,9 @@ export async function changeUserActive(
     actor: session.email,
   });
   if (!user) return fail("/app/users", "That user could not be updated.");
-  refreshUsers();
-  return succeed(
-    "/app/users",
+  return finishUserLifecycle(
+    session,
+    userId,
     active ? `${user.displayName} activated.` : `${user.displayName} deactivated.`,
   );
 }
@@ -144,8 +161,7 @@ export async function updateUser(
   if (!user) {
     return fail("/app/users", "That email is already used or the user changed.");
   }
-  refreshUsers();
-  return succeed("/app/users", `${user.displayName} updated.`);
+  return finishUserLifecycle(session, userId, `${user.displayName} updated.`);
 }
 
 export async function resetUserPassword(
@@ -165,9 +181,9 @@ export async function resetUserPassword(
     passwordHash: await hashPassword(parsed.value.temporaryPassword),
   });
   if (!user) return fail("/app/users", "That user could not be updated.");
-  refreshUsers();
-  return succeed(
-    "/app/users",
+  return finishUserLifecycle(
+    session,
+    userId,
     `${user.displayName}'s password and sessions were reset.`,
   );
 }
@@ -184,6 +200,9 @@ export async function revokeUserSessions(
     actor: session.email,
   });
   if (!user) return fail("/app/users", "That user could not be updated.");
-  refreshUsers();
-  return succeed("/app/users", `${user.displayName}'s sessions were revoked.`);
+  return finishUserLifecycle(
+    session,
+    userId,
+    `${user.displayName}'s sessions were revoked.`,
+  );
 }

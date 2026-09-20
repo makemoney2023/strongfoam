@@ -8,6 +8,7 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobPlanAnnotations,
   jobTaskDependencies,
   jobTasks,
   jobs,
@@ -53,6 +54,7 @@ export type ProjectScheduleBaselineRow =
 export type ProjectScheduleBaselineItemRow =
   typeof projectScheduleBaselineItems.$inferSelect;
 export type JobDocumentRow = typeof jobDocuments.$inferSelect;
+export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -60,6 +62,10 @@ export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const DEMO_WORK_AREA_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const DEMO_JOB_TASK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const DEMO_FIELD_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+export const DEMO_PLAN_DOCUMENT_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+export const DEMO_PLAN_ANNOTATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb1";
+export const DEMO_PLAN_ASSIGNED_ANNOTATION_ID =
+  "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb2";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
 export const DEMO_SCHEDULE_NOW = "2026-09-19T12:00:00.000Z";
 export const DEMO_ADMIN_USER_ID = "10101010-1010-4010-8010-101010101010";
@@ -782,7 +788,72 @@ export function demoPortfolioScheduleSeed() {
 }
 
 export function demoJobDocuments(): JobDocumentRow[] {
-  return [];
+  return [
+    {
+      id: DEMO_PLAN_DOCUMENT_ID,
+      createdAt: new Date(now - 4 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      filename: "level-2-podium.png",
+      contentType: "image/png",
+      sizeBytes: 18_432,
+      pathname: `jobs/${DEMO_JOB_ID}/${DEMO_PLAN_DOCUMENT_ID}/level-2-podium.png`,
+      storage: "memory",
+      kind: "plan",
+      uploadedBy: DEMO_ADMIN_EMAIL,
+      sheetKey: DEMO_PLAN_DOCUMENT_ID,
+      versionNumber: 1,
+      replacesDocumentId: null,
+      supersededAt: null,
+    },
+  ];
+}
+
+export function demoJobPlanAnnotations(): JobPlanAnnotationRow[] {
+  return [
+    {
+      id: DEMO_PLAN_ANNOTATION_ID,
+      createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      documentId: DEMO_PLAN_DOCUMENT_ID,
+      pageNumber: 1,
+      x: 0.28,
+      y: 0.32,
+      kind: "pin",
+      status: "planned",
+      title: "Prepare podium deck",
+      body: null,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: DEMO_JOB_TASK_ID,
+      createdBy: DEMO_ADMIN_EMAIL,
+      completedAt: null,
+      completedBy: null,
+      voidedAt: null,
+      voidedBy: null,
+    },
+    {
+      id: DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+      createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      documentId: DEMO_PLAN_DOCUMENT_ID,
+      pageNumber: 1,
+      x: 0.68,
+      y: 0.34,
+      kind: "pin",
+      status: "in_progress",
+      title: "Install closed-cell at podium deck",
+      body: "Start at the north elevation after the safety talk.",
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      createdBy: DEMO_ADMIN_EMAIL,
+      completedAt: null,
+      completedBy: null,
+      voidedAt: null,
+      voidedBy: null,
+    },
+  ];
 }
 
 export function demoJobFieldNotes(): JobFieldNoteRow[] {
@@ -793,6 +864,7 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
       taskId: DEMO_JOB_TASK_ID,
+      annotationId: null,
       kind: "note",
       body: "Staging is complete. Start closed-cell at the podium deck after the morning safety talk.",
       quantity: null,

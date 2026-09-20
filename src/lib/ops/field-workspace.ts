@@ -50,6 +50,7 @@ export type FieldNoteInput = {
   body: string;
   workAreaId: string | null;
   taskId: string | null;
+  annotationId?: string | null;
   quantity: number | null;
   unit: FieldQuantityUnit | null;
 };
@@ -67,6 +68,7 @@ export function parseFieldNoteInput(input: {
   body?: string;
   workAreaId?: string | null;
   taskId?: string | null;
+  annotationId?: string | null;
   quantity?: string | number | null;
   unit?: string | null;
 }): { ok: true; value: FieldNoteInput } | { ok: false; error: string; field?: string } {
@@ -108,6 +110,10 @@ export function parseFieldNoteInput(input: {
   if (taskId && !isUuid(taskId)) {
     return { ok: false, error: "Choose a valid task.", field: "taskId" };
   }
+  const annotationId = input.annotationId?.trim() || null;
+  if (annotationId && !isUuid(annotationId)) {
+    return { ok: false, error: "Choose a valid plan mark.", field: "annotationId" };
+  }
 
   let quantity: number | null = null;
   let unit: FieldQuantityUnit | null = null;
@@ -137,6 +143,7 @@ export function parseFieldNoteInput(input: {
       body,
       workAreaId,
       taskId,
+      annotationId,
       quantity,
       unit,
     },

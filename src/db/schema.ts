@@ -5,6 +5,7 @@ import {
   date,
   foreignKey,
   index,
+  doublePrecision,
   integer,
   jsonb,
   pgTable,
@@ -507,6 +508,10 @@ export const jobDocuments = pgTable(
     storage: text("storage").notNull().default("blob"),
     kind: text("kind").notNull().default("plan"),
     uploadedBy: text("uploaded_by").notNull(),
+    sheetKey: text("sheet_key").notNull().default(""),
+    versionNumber: integer("version_number").notNull().default(1),
+    replacesDocumentId: uuid("replaces_document_id"),
+    supersededAt: timestamp("superseded_at", { withTimezone: true }),
   },
   (table) => [
     foreignKey({
@@ -514,6 +519,69 @@ export const jobDocuments = pgTable(
       foreignColumns: [workAreas.id, workAreas.jobId],
       name: "job_documents_work_area_job_fk",
     }),
+    foreignKey({
+      columns: [table.replacesDocumentId],
+      foreignColumns: [table.id],
+      name: "job_documents_replaces_document_fk",
+    }),
+    index("job_documents_job_current_plan_idx").on(
+      table.jobId,
+      table.kind,
+      table.supersededAt,
+    ),
+  ],
+);
+
+export const jobPlanAnnotations = pgTable(
+  "job_plan_annotations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => jobDocuments.id),
+    pageNumber: integer("page_number").notNull().default(1),
+    x: doublePrecision("x").notNull(),
+    y: doublePrecision("y").notNull(),
+    kind: text("kind").notNull().default("pin"),
+    status: text("status").notNull().default("planned"),
+    title: text("title").notNull(),
+    body: text("body"),
+    workAreaId: uuid("work_area_id"),
+    taskId: uuid("task_id").references(() => jobTasks.id),
+    createdBy: text("created_by").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: text("completed_by"),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedBy: text("voided_by"),
+  },
+  (table) => [
+    check("job_plan_annotations_page_positive", sql`${table.pageNumber} >= 1`),
+    check(
+      "job_plan_annotations_x_normalized",
+      sql`${table.x} >= 0 AND ${table.x} <= 1`,
+    ),
+    check(
+      "job_plan_annotations_y_normalized",
+      sql`${table.y} >= 0 AND ${table.y} <= 1`,
+    ),
+    check("job_plan_annotations_kind_valid", sql`${table.kind} IN ('pin')`),
+    check(
+      "job_plan_annotations_status_valid",
+      sql`${table.status} IN ('planned', 'in_progress', 'completed', 'blocked', 'deficiency')`,
+    ),
+    index("job_plan_annotations_job_document_idx").on(
+      table.jobId,
+      table.documentId,
+    ),
   ],
 );
 
@@ -529,6 +597,7 @@ export const jobFieldNotes = pgTable(
       .references(() => jobs.id),
     workAreaId: uuid("work_area_id"),
     taskId: uuid("task_id").references(() => jobTasks.id),
+    annotationId: uuid("annotation_id").references(() => jobPlanAnnotations.id),
     kind: text("kind").notNull().default("note"),
     body: text("body").notNull(),
     quantity: integer("quantity"),

@@ -313,6 +313,7 @@ export default async function UsersPage() {
 
                         <ConfirmForm
                           action={revokeUserSessions}
+                          confirmLabel="Revoke"
                           message={`Revoke every active session for ${user.displayName}?`}
                         >
                           <input
@@ -333,6 +334,7 @@ export default async function UsersPage() {
                         ) : user.active && user.membershipActive ? (
                           <ConfirmForm
                             action={changeUserActive}
+                            confirmLabel="Deactivate"
                             message={`Deactivate ${user.displayName}? They will immediately lose Office and Field access.`}
                           >
                             <input

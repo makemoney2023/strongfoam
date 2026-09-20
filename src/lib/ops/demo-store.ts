@@ -6,9 +6,11 @@ import {
   demoEstimateRequests,
   demoEstimateTasks,
   demoJobAssignments,
+  DEMO_PLAN_DOCUMENT_ID,
   demoJobDocuments,
   demoJobEvents,
   demoJobFieldNotes,
+  demoJobPlanAnnotations,
   demoJobTaskDependencies,
   demoJobTasks,
   demoJobs,
@@ -34,6 +36,7 @@ import {
   type JobDocumentRow,
   type JobEventRow,
   type JobFieldNoteRow,
+  type JobPlanAnnotationRow,
   type JobRow,
   type JobTaskDependencyRow,
   type JobTaskRow,
@@ -62,7 +65,14 @@ import {
   setJobDocumentBytes,
   getStoredJobDocumentBytes,
 } from "@/lib/ops/job-document-bytes";
+import { createDemoFloorPlanPng } from "@/lib/ops/demo-floor-plan";
 import { isInDateRange, matchesQuery } from "@/lib/ops/filters";
+import {
+  isCurrentPlanDocument,
+  planSheetKey,
+  type PlanAnnotationInput,
+  type PlanAnnotationStatus,
+} from "@/lib/ops/plan-markup";
 import {
   sortJobTaskRows,
   type JobDocumentInput,
@@ -134,6 +144,7 @@ type DemoOpsState = {
   projectScheduleBaselines: ProjectScheduleBaselineRow[];
   projectScheduleBaselineItems: ProjectScheduleBaselineItemRow[];
   jobDocuments: JobDocumentRow[];
+  jobPlanAnnotations: JobPlanAnnotationRow[];
   jobFieldNotes: JobFieldNoteRow[];
 };
 
@@ -169,8 +180,10 @@ function getDemoState(): DemoOpsState {
       projectScheduleBaselines: demoProjectScheduleBaselines(),
       projectScheduleBaselineItems: demoProjectScheduleBaselineItems(),
       jobDocuments: demoJobDocuments(),
+      jobPlanAnnotations: demoJobPlanAnnotations(),
       jobFieldNotes: demoJobFieldNotes(),
     };
+    seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
     globalForDemo.__strongfoamDemoOps.jobFieldNotes = demoJobFieldNotes();
   }
@@ -193,7 +206,33 @@ function getDemoState(): DemoOpsState {
     globalForDemo.__strongfoamDemoOps.projectScheduleBaselines = [];
     globalForDemo.__strongfoamDemoOps.projectScheduleBaselineItems = [];
   }
+  if (!globalForDemo.__strongfoamDemoOps.jobPlanAnnotations) {
+    globalForDemo.__strongfoamDemoOps.jobPlanAnnotations = demoJobPlanAnnotations();
+  }
+  for (const document of globalForDemo.__strongfoamDemoOps.jobDocuments) {
+    document.sheetKey ??= "";
+    document.versionNumber ??= 1;
+    document.replacesDocumentId ??= null;
+    document.supersededAt ??= null;
+  }
+  for (const note of globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
+    note.annotationId ??= null;
+  }
+  seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   return globalForDemo.__strongfoamDemoOps;
+}
+
+function seedDemoPlanBytes(state: DemoOpsState) {
+  for (const document of state.jobDocuments) {
+    if (
+      document.id === DEMO_PLAN_DOCUMENT_ID &&
+      !getStoredJobDocumentBytes(document.id)
+    ) {
+      const bytes = createDemoFloorPlanPng();
+      document.sizeBytes = bytes.byteLength;
+      setJobDocumentBytes(document.id, bytes);
+    }
+  }
 }
 
 const {
@@ -220,6 +259,7 @@ const {
   projectScheduleBaselines,
   projectScheduleBaselineItems,
   jobDocuments,
+  jobPlanAnnotations,
   jobFieldNotes,
 } = getDemoState();
 
@@ -2239,6 +2279,19 @@ export function addDemoJobDocument(args: {
   const id = crypto.randomUUID();
   const now = new Date();
   const pathname = `jobs/${args.jobId}/${id}/${args.input.filename}`;
+  let sheetKey = id;
+  let versionNumber = 1;
+  let replacesDocumentId: string | null = null;
+  const previousId = args.input.replacesDocumentId ?? null;
+  if (previousId) {
+    const previous = getDemoJobDocument(args.jobId, previousId);
+    if (!previous || previous.kind !== "plan") return null;
+    sheetKey = planSheetKey(previous);
+    previous.sheetKey = sheetKey;
+    previous.supersededAt = now;
+    versionNumber = previous.versionNumber + 1;
+    replacesDocumentId = previous.id;
+  }
   const document: JobDocumentRow = {
     id,
     createdAt: now,
@@ -2251,6 +2304,10 @@ export function addDemoJobDocument(args: {
     storage: "memory",
     kind: args.input.kind,
     uploadedBy: args.actor,
+    sheetKey,
+    versionNumber,
+    replacesDocumentId,
+    supersededAt: null,
   };
   setJobDocumentBytes(id, args.bytes);
   jobDocuments.unshift(document);
@@ -2319,6 +2376,7 @@ export function addDemoJobFieldNote(args: {
     jobId: args.jobId,
     workAreaId: args.input.workAreaId,
     taskId: args.input.taskId,
+    annotationId: args.input.annotationId ?? null,
     kind: args.input.kind,
     body: args.input.body,
     quantity: args.input.quantity,
@@ -2552,6 +2610,9 @@ export function deleteDemoJob(
   for (let i = jobFieldNotes.length - 1; i >= 0; i -= 1) {
     if (jobFieldNotes[i]?.jobId === jobId) jobFieldNotes.splice(i, 1);
   }
+  for (let i = jobPlanAnnotations.length - 1; i >= 0; i -= 1) {
+    if (jobPlanAnnotations[i]?.jobId === jobId) jobPlanAnnotations.splice(i, 1);
+  }
   for (let i = jobDocuments.length - 1; i >= 0; i -= 1) {
     const document = jobDocuments[i];
     if (document?.jobId === jobId) {
@@ -2681,6 +2742,11 @@ export function deleteDemoJobTask(args: {
       note.taskId = null;
     }
   }
+  for (const annotation of jobPlanAnnotations) {
+    if (annotation.jobId === args.jobId && annotation.taskId === args.taskId) {
+      annotation.taskId = null;
+    }
+  }
   removeById(jobTasks, args.taskId);
   recordJobEvent({
     jobId: args.jobId,
@@ -2722,6 +2788,11 @@ export function deleteDemoJobDocument(args: {
 }): JobDocumentRow | null {
   const document = getDemoJobDocument(args.jobId, args.documentId);
   if (!document) return null;
+  for (let i = jobPlanAnnotations.length - 1; i >= 0; i -= 1) {
+    if (jobPlanAnnotations[i]?.documentId === args.documentId) {
+      jobPlanAnnotations.splice(i, 1);
+    }
+  }
   clearJobDocumentBytes(document.id);
   removeById(jobDocuments, args.documentId);
   recordJobEvent({
@@ -2757,6 +2828,7 @@ export function updateDemoJobFieldNote(args: {
   note.body = args.input.body;
   note.workAreaId = args.input.workAreaId;
   note.taskId = args.input.taskId;
+  note.annotationId = args.input.annotationId ?? note.annotationId;
   note.quantity = args.input.quantity;
   note.unit = args.input.unit;
   recordJobEvent({
@@ -2853,4 +2925,147 @@ export function deleteDemoEstimateRequestComment(args: {
     payload: { commentId: comment.id },
   });
   return comment;
+}
+
+export function listDemoJobPlanAnnotations(
+  jobId: string,
+  documentId?: string,
+): JobPlanAnnotationRow[] {
+  return jobPlanAnnotations
+    .filter((annotation) => {
+      if (annotation.jobId !== jobId || annotation.voidedAt) return false;
+      if (documentId && annotation.documentId !== documentId) return false;
+      return true;
+    })
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export function getDemoJobPlanAnnotation(
+  jobId: string,
+  annotationId: string,
+): JobPlanAnnotationRow | null {
+  return (
+    jobPlanAnnotations.find(
+      (annotation) =>
+        annotation.id === annotationId && annotation.jobId === jobId,
+    ) ?? null
+  );
+}
+
+export function addDemoJobPlanAnnotation(args: {
+  jobId: string;
+  actor: string;
+  input: PlanAnnotationInput;
+}): JobPlanAnnotationRow | null {
+  const document = getDemoJobDocument(args.jobId, args.input.documentId);
+  if (!document || !isCurrentPlanDocument(document)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  if (
+    args.input.taskId &&
+    !jobTasks.some(
+      (task) => task.id === args.input.taskId && task.jobId === args.jobId,
+    )
+  ) {
+    return null;
+  }
+  const now = new Date();
+  const annotation: JobPlanAnnotationRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    jobId: args.jobId,
+    documentId: args.input.documentId,
+    pageNumber: args.input.pageNumber,
+    x: args.input.x,
+    y: args.input.y,
+    kind: args.input.kind,
+    status: args.input.status,
+    title: args.input.title,
+    body: args.input.body,
+    workAreaId: args.input.workAreaId,
+    taskId: args.input.taskId,
+    createdBy: args.actor,
+    completedAt: args.input.status === "completed" ? now : null,
+    completedBy: args.input.status === "completed" ? args.actor : null,
+    voidedAt: null,
+    voidedBy: null,
+  };
+  jobPlanAnnotations.push(annotation);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "plan_annotation_added",
+    summary: `plan mark added: ${annotation.title}`,
+    payload: {
+      annotationId: annotation.id,
+      documentId: annotation.documentId,
+      status: annotation.status,
+      taskId: annotation.taskId,
+    },
+  });
+  return annotation;
+}
+
+export function setDemoJobPlanAnnotationStatus(args: {
+  jobId: string;
+  annotationId: string;
+  actor: string;
+  status: PlanAnnotationStatus;
+  body?: string | null;
+}): JobPlanAnnotationRow | null {
+  const annotation = getDemoJobPlanAnnotation(args.jobId, args.annotationId);
+  if (!annotation || annotation.voidedAt) return null;
+  const now = new Date();
+  annotation.status = args.status;
+  annotation.updatedAt = now;
+  if (args.body !== undefined) annotation.body = args.body;
+  if (args.status === "completed") {
+    annotation.completedAt = now;
+    annotation.completedBy = args.actor;
+  } else {
+    annotation.completedAt = null;
+    annotation.completedBy = null;
+  }
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind:
+      args.status === "completed"
+        ? "plan_annotation_completed"
+        : "plan_annotation_updated",
+    summary: `plan mark ${args.status.replace("_", " ")}: ${annotation.title}`,
+    payload: {
+      annotationId: annotation.id,
+      documentId: annotation.documentId,
+      status: annotation.status,
+      taskId: annotation.taskId,
+    },
+  });
+  return annotation;
+}
+
+export function voidDemoJobPlanAnnotation(args: {
+  jobId: string;
+  annotationId: string;
+  actor: string;
+}): JobPlanAnnotationRow | null {
+  const annotation = getDemoJobPlanAnnotation(args.jobId, args.annotationId);
+  if (!annotation || annotation.voidedAt) return null;
+  const now = new Date();
+  annotation.voidedAt = now;
+  annotation.voidedBy = args.actor;
+  annotation.updatedAt = now;
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "plan_annotation_voided",
+    summary: `plan mark voided: ${annotation.title}`,
+    payload: {
+      annotationId: annotation.id,
+      documentId: annotation.documentId,
+    },
+  });
+  return annotation;
 }

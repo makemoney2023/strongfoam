@@ -17,6 +17,10 @@ export function RealtimeRefresh({ url }: { url: string }) {
     source.addEventListener("ready", () => setConnected(true));
     source.addEventListener("job", refresh);
     source.addEventListener("assignments", refresh);
+    source.addEventListener("unauthorized", () => {
+      setConnected(false);
+      refresh();
+    });
     source.onerror = () => setConnected(false);
     return () => {
       source.close();

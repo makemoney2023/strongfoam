@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createFieldSessionToken,
+  resolveFieldSession,
   signFieldSession,
   verifyFieldSessionToken,
 } from "@/lib/ops/field-auth";
@@ -51,5 +52,28 @@ describe("field session", () => {
       "secret",
     );
     expect(verifyFieldSessionToken(office, "secret", 3)).toBeNull();
+  });
+
+  it("rejects a field session after revocation or deactivation", () => {
+    const identity = {
+      userId: "12121212-1212-4121-8121-121212121212",
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      email: "field@example.com",
+      displayName: "Jordan Field",
+      role: "field_worker" as const,
+      active: true,
+      membershipActive: true,
+      sessionVersion: 3,
+    };
+    const session = createFieldSessionToken(identity, Date.UTC(2026, 8, 19));
+    expect(resolveFieldSession(session, identity)?.displayName).toBe(
+      "Jordan Field",
+    );
+    expect(
+      resolveFieldSession(session, { ...identity, sessionVersion: 4 }),
+    ).toBeNull();
+    expect(
+      resolveFieldSession(session, { ...identity, membershipActive: false }),
+    ).toBeNull();
   });
 });

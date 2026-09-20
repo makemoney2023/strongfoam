@@ -139,6 +139,7 @@ describe("POST /api/ops/job-uploads", () => {
         sizeBytes: 2048,
         kind: "plan",
         workAreaId: AREA_ID,
+        replacesDocumentId: null,
       },
       pathname: `jobs/${JOB_ID}/north-elevation-abc.pdf`,
     });

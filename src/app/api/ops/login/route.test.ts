@@ -69,4 +69,21 @@ describe("POST /api/ops/login", () => {
       sessionVersion: 1,
     });
   });
+
+  it("redirects to the Host header when the process is bound to 0.0.0.0", async () => {
+    process.env.OPS_SESSION_SECRET = "ops-secret-for-route-tests";
+    process.env.OPS_STAFF_EMAILS = "";
+    process.env.OPS_STAFF_PASSWORD = "";
+    const response = await POST(
+      new Request("http://0.0.0.0:3000/api/ops/login", {
+        method: "POST",
+        headers: { host: "127.0.0.1:3000" },
+        body: new URLSearchParams({
+          email: DEMO_ADMIN_EMAIL,
+          password: DEMO_ADMIN_PASSWORD,
+        }),
+      }),
+    );
+    expect(response.headers.get("location")).toBe("http://127.0.0.1:3000/app");
+  });
 });

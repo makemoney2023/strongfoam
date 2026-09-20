@@ -55,6 +55,7 @@ export type JobDocumentInput = {
   sizeBytes: number;
   kind: JobDocumentKind;
   workAreaId: string | null;
+  replacesDocumentId?: string | null;
 };
 
 const UUID_PATTERN =
@@ -269,6 +270,7 @@ export function parseJobDocumentInput(input: {
   sizeBytes?: number;
   kind?: string;
   workAreaId?: string | null;
+  replacesDocumentId?: string | null;
 }): { ok: true; value: JobDocumentInput } | { ok: false; error: string; field?: string } {
   const filename = sanitizeJobDocumentFilename(input.filename ?? "");
   if (!filename) {
@@ -306,6 +308,14 @@ export function parseJobDocumentInput(input: {
   if (workAreaId && !isUuid(workAreaId)) {
     return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
+  const replacesDocumentId = input.replacesDocumentId?.trim() || null;
+  if (replacesDocumentId && !isUuid(replacesDocumentId)) {
+    return {
+      ok: false,
+      error: "Choose a valid plan revision to replace.",
+      field: "replacesDocumentId",
+    };
+  }
   return {
     ok: true,
     value: {
@@ -314,6 +324,7 @@ export function parseJobDocumentInput(input: {
       sizeBytes,
       kind,
       workAreaId,
+      replacesDocumentId,
     },
   };
 }
