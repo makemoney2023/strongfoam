@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.8
+**Version:** 1.10
 **Created:** 2026-09-18
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-20
 
 ## 1. Purpose
 
@@ -72,10 +72,14 @@ lanes, and working calendars. Office staff can create individual application
 users and assign active field identities to jobs and tasks. Field has a
 separate login and application shell, and server authorization limits its job
 list and mutations to those assignments. Job events drive automatic two-way
-screen refreshes for online office and field sessions. The target
-Supabase/Render deployment split, full permission matrix, crews, durable
-offline sync, document markup, transcription, and financial workflows remain
-to be completed.
+screen refreshes for online office and field sessions. Field and office
+users can record private voice notes on a job, task, plan mark, document, or
+daily report; transcription runs after save (demo stub, Whisper when
+`OPENAI_API_KEY` is set, otherwise an empty transcript the user can type from
+audio). Selected transcript text can become a task, blocker, deficiency,
+material request, or daily-log entry. The target Supabase/Render deployment
+split, full permission matrix, crews, durable offline sync, multi-tool plan
+markup, AI operations, and financial workflows remain to be completed.
 
 ## 4. Product vision
 
@@ -1724,11 +1728,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Use the shared users and memberships model for individual Office and Field authentication, with administrator-only lifecycle controls and revocable sessions | A user record that cannot authenticate consistently or be revoked immediately is not an authoritative identity; a temporary environment login remains only for bootstrap migration |
 | 2026-09-19 | Add a read-only portfolio Schedule with project-specific planning rules and dashboard exception widgets | Operations managers need cross-project visibility, while mutations must remain project-scoped so calendars, dependencies, baselines, and optimistic versions stay unambiguous |
 | 2026-09-20 | Finish individual Office identity session revocation, then ship a pin-based plan completion MVP | Production field records need revocable Office sessions first; technicians should tap office-placed pins instead of drawing CAD geometry |
+| 2026-09-20 | Store voice notes in a dedicated `job_voice_notes` table with async transcription after save | Field save must not wait on a provider; audio stays private (demo memory / production Blob); extract selected text into existing task and field-note records |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.10 | 2026-09-20 | Shipped Release 4 voice notes: private recording, queued/processing/completed/failed transcription, editable transcripts, and extract-to-task/blocker/deficiency/material/daily-log |
 | 1.9 | 2026-09-20 | Hardened Office session revocation and shipped the first plan-based field completion loop: immutable plan revisions, image-sheet pin markup, and tap-to-complete field updates |
 | 1.8 | 2026-09-19 | Added SCH-023 to SCH-032 for a bounded all-project Schedule, cross-project resource overlaps, latest-baseline roll-up, and dashboard schedule-attention widgets. Field assignment remains SCH-022. |
 | 1.7 | 2026-09-19 | Expanded user administration requirements for individual Office authentication, administrator RBAC, lifecycle editing, credential reset, session revocation, lockout safeguards, and audit history |

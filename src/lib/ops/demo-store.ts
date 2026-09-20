@@ -7,10 +7,12 @@ import {
   demoEstimateTasks,
   demoJobAssignments,
   DEMO_PLAN_DOCUMENT_ID,
+  DEMO_VOICE_NOTE_ID,
   demoJobDocuments,
   demoJobEvents,
   demoJobFieldNotes,
   demoJobPlanAnnotations,
+  demoJobVoiceNotes,
   demoJobTaskDependencies,
   demoJobTasks,
   demoJobs,
@@ -37,6 +39,7 @@ import {
   type JobEventRow,
   type JobFieldNoteRow,
   type JobPlanAnnotationRow,
+  type JobVoiceNoteRow,
   type JobRow,
   type JobTaskDependencyRow,
   type JobTaskRow,
@@ -66,6 +69,18 @@ import {
   getStoredJobDocumentBytes,
 } from "@/lib/ops/job-document-bytes";
 import { createDemoFloorPlanPng } from "@/lib/ops/demo-floor-plan";
+import {
+  createSilentWav,
+  getStoredVoiceNoteBytes,
+  setVoiceNoteBytes,
+  clearVoiceNoteBytes,
+} from "@/lib/ops/voice-bytes";
+import {
+  demoVoiceTranscript,
+  type VoiceExtractKind,
+  type VoiceNoteInput,
+  type VoiceTranscriptStatus,
+} from "@/lib/ops/voice-notes";
 import { isInDateRange, matchesQuery } from "@/lib/ops/filters";
 import {
   isCurrentPlanDocument,
@@ -146,6 +161,7 @@ type DemoOpsState = {
   jobDocuments: JobDocumentRow[];
   jobPlanAnnotations: JobPlanAnnotationRow[];
   jobFieldNotes: JobFieldNoteRow[];
+  jobVoiceNotes: JobVoiceNoteRow[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -182,6 +198,7 @@ function getDemoState(): DemoOpsState {
       jobDocuments: demoJobDocuments(),
       jobPlanAnnotations: demoJobPlanAnnotations(),
       jobFieldNotes: demoJobFieldNotes(),
+      jobVoiceNotes: demoJobVoiceNotes(),
     };
     seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
@@ -209,6 +226,9 @@ function getDemoState(): DemoOpsState {
   if (!globalForDemo.__strongfoamDemoOps.jobPlanAnnotations) {
     globalForDemo.__strongfoamDemoOps.jobPlanAnnotations = demoJobPlanAnnotations();
   }
+  if (!globalForDemo.__strongfoamDemoOps.jobVoiceNotes) {
+    globalForDemo.__strongfoamDemoOps.jobVoiceNotes = demoJobVoiceNotes();
+  }
   for (const document of globalForDemo.__strongfoamDemoOps.jobDocuments) {
     document.sheetKey ??= "";
     document.versionNumber ??= 1;
@@ -219,7 +239,18 @@ function getDemoState(): DemoOpsState {
     note.annotationId ??= null;
   }
   seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
+  seedDemoVoiceBytes(globalForDemo.__strongfoamDemoOps);
   return globalForDemo.__strongfoamDemoOps;
+}
+
+function seedDemoVoiceBytes(state: DemoOpsState) {
+  for (const note of state.jobVoiceNotes) {
+    if (note.id === DEMO_VOICE_NOTE_ID && !getStoredVoiceNoteBytes(note.id)) {
+      const bytes = createSilentWav(360);
+      note.sizeBytes = bytes.byteLength;
+      setVoiceNoteBytes(note.id, bytes);
+    }
+  }
 }
 
 function seedDemoPlanBytes(state: DemoOpsState) {
@@ -261,6 +292,7 @@ const {
   jobDocuments,
   jobPlanAnnotations,
   jobFieldNotes,
+  jobVoiceNotes,
 } = getDemoState();
 
 const PORTFOLIO_PROJECT_LIMIT = 250;
@@ -2395,6 +2427,7 @@ export function addDemoJobFieldNote(args: {
     note: "field note added",
     quantity: "quantity recorded",
     blocker: "blocker reported",
+    deficiency: "deficiency recorded",
     material_request: "material request added",
     daily_report: "daily report submitted",
   };
@@ -2613,6 +2646,13 @@ export function deleteDemoJob(
   if (!getDemoJob(jobId)) {
     return { ok: false, error: "That job could not be found." };
   }
+  for (let i = jobVoiceNotes.length - 1; i >= 0; i -= 1) {
+    const note = jobVoiceNotes[i];
+    if (note?.jobId === jobId) {
+      clearVoiceNoteBytes(note.id);
+      jobVoiceNotes.splice(i, 1);
+    }
+  }
   for (let i = jobFieldNotes.length - 1; i >= 0; i -= 1) {
     if (jobFieldNotes[i]?.jobId === jobId) jobFieldNotes.splice(i, 1);
   }
@@ -2691,6 +2731,11 @@ export function deleteDemoWorkArea(args: {
       annotation.workAreaId = null;
     }
   }
+  for (const note of jobVoiceNotes) {
+    if (note.jobId === args.jobId && note.workAreaId === args.workAreaId) {
+      note.workAreaId = null;
+    }
+  }
   removeById(workAreas, args.workAreaId);
   recordJobEvent({
     jobId: args.jobId,
@@ -2761,6 +2806,11 @@ export function deleteDemoJobTask(args: {
       annotation.taskId = null;
     }
   }
+  for (const note of jobVoiceNotes) {
+    if (note.jobId === args.jobId && note.taskId === args.taskId) {
+      note.taskId = null;
+    }
+  }
   removeById(jobTasks, args.taskId);
   recordJobEvent({
     jobId: args.jobId,
@@ -2810,6 +2860,12 @@ export function deleteDemoJobDocument(args: {
       .map((annotation) => annotation.id),
   );
   for (const note of jobFieldNotes) {
+    if (note.annotationId && annotationIds.has(note.annotationId)) {
+      note.annotationId = null;
+    }
+  }
+  for (const note of jobVoiceNotes) {
+    if (note.documentId === args.documentId) note.documentId = null;
     if (note.annotationId && annotationIds.has(note.annotationId)) {
       note.annotationId = null;
     }
@@ -3104,3 +3160,255 @@ export function voidDemoJobPlanAnnotation(args: {
   });
   return annotation;
 }
+
+export function listDemoJobVoiceNotes(jobId: string): JobVoiceNoteRow[] {
+  for (const note of jobVoiceNotes) {
+    if (note.jobId === jobId && note.status === "queued") {
+      processDemoVoiceTranscription(note.id);
+    }
+  }
+  return jobVoiceNotes
+    .filter((note) => note.jobId === jobId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+export function getDemoJobVoiceNote(
+  jobId: string,
+  voiceNoteId: string,
+): JobVoiceNoteRow | null {
+  return (
+    jobVoiceNotes.find(
+      (note) => note.id === voiceNoteId && note.jobId === jobId,
+    ) ?? null
+  );
+}
+
+export function addDemoJobVoiceNote(args: {
+  jobId: string;
+  actor: string;
+  input: VoiceNoteInput;
+  bytes: Uint8Array;
+}): JobVoiceNoteRow | null {
+  if (!getDemoJob(args.jobId)) return null;
+  if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
+    return null;
+  }
+  if (
+    args.input.taskId &&
+    !jobTasks.some((task) => task.id === args.input.taskId && task.jobId === args.jobId)
+  ) {
+    return null;
+  }
+  if (
+    args.input.annotationId &&
+    !jobPlanAnnotations.some(
+      (annotation) =>
+        annotation.id === args.input.annotationId && annotation.jobId === args.jobId,
+    )
+  ) {
+    return null;
+  }
+  if (
+    args.input.documentId &&
+    !jobDocuments.some(
+      (document) => document.id === args.input.documentId && document.jobId === args.jobId,
+    )
+  ) {
+    return null;
+  }
+  const now = new Date();
+  const id = crypto.randomUUID();
+  const note: JobVoiceNoteRow = {
+    id,
+    createdAt: now,
+    updatedAt: now,
+    jobId: args.jobId,
+    workAreaId: args.input.workAreaId,
+    taskId: args.input.taskId,
+    annotationId: args.input.annotationId,
+    documentId: args.input.documentId,
+    source: args.input.source,
+    filename: args.input.filename,
+    contentType: args.input.contentType,
+    sizeBytes: args.input.sizeBytes,
+    pathname: `jobs/${args.jobId}/voice/${id}/${args.input.filename}`,
+    storage: "memory",
+    durationSeconds: args.input.durationSeconds,
+    language: args.input.language,
+    provider: null,
+    model: null,
+    status: "queued",
+    machineTranscript: null,
+    transcript: null,
+    confidence: null,
+    queuedAt: now,
+    processingStartedAt: null,
+    completedAt: null,
+    failedAt: null,
+    error: null,
+    consentAt: args.input.consentAt,
+    createdBy: args.actor,
+  };
+  jobVoiceNotes.unshift(note);
+  setVoiceNoteBytes(id, args.bytes);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_added",
+    summary: `voice note queued: ${note.filename}`,
+    payload: {
+      voiceNoteId: note.id,
+      source: note.source,
+      status: note.status,
+    },
+  });
+  return note;
+}
+
+export function processDemoVoiceTranscription(
+  voiceNoteId: string,
+): JobVoiceNoteRow | null {
+  const note = jobVoiceNotes.find((item) => item.id === voiceNoteId);
+  if (!note || (note.status !== "queued" && note.status !== "processing")) {
+    return note ?? null;
+  }
+  const job = getDemoJob(note.jobId);
+  const task = note.taskId
+    ? jobTasks.find((item) => item.id === note.taskId)
+    : null;
+  const annotation = note.annotationId
+    ? jobPlanAnnotations.find((item) => item.id === note.annotationId)
+    : null;
+  const document = note.documentId
+    ? jobDocuments.find((item) => item.id === note.documentId)
+    : null;
+  const result = demoVoiceTranscript({
+    jobName: job?.name ?? "this job",
+    source: note.source as VoiceNoteInput["source"],
+    taskTitle: task?.title,
+    annotationTitle: annotation?.title,
+    documentName: document?.filename,
+  });
+  const now = new Date();
+  note.status = "completed";
+  note.processingStartedAt = note.processingStartedAt ?? now;
+  note.completedAt = now;
+  note.updatedAt = now;
+  note.provider = result.provider;
+  note.model = result.model;
+  note.confidence = result.confidence;
+  note.machineTranscript = result.transcript;
+  note.transcript = note.transcript || result.transcript;
+  note.error = null;
+  recordJobEvent({
+    jobId: note.jobId,
+    actor: "system",
+    kind: "voice_note_transcribed",
+    summary: `voice note transcribed: ${note.filename}`,
+    payload: { voiceNoteId: note.id, status: note.status },
+  });
+  return note;
+}
+
+export function updateDemoVoiceTranscript(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+  transcript: string;
+}): JobVoiceNoteRow | null {
+  const note = getDemoJobVoiceNote(args.jobId, args.voiceNoteId);
+  if (!note || note.status !== "completed") return null;
+  note.transcript = args.transcript;
+  note.updatedAt = new Date();
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_updated",
+    summary: `voice transcript edited: ${note.filename}`,
+    payload: { voiceNoteId: note.id },
+  });
+  return note;
+}
+
+export function extractDemoVoiceNote(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+  kind: VoiceExtractKind;
+  selectedText: string;
+}): { ok: true; created: "task" | "field_note" } | { ok: false; error: string } {
+  const note = getDemoJobVoiceNote(args.jobId, args.voiceNoteId);
+  if (!note) return { ok: false, error: "That voice note could not be found." };
+  if (args.kind === "task") {
+    const task = addDemoJobTask({
+      jobId: args.jobId,
+      actor: args.actor,
+      input: {
+        title: args.selectedText.slice(0, 160),
+        assignee: null,
+        assigneeUserId: null,
+        dueAt: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
+        workAreaId: note.workAreaId,
+      },
+    });
+    if (!task) return { ok: false, error: "That task could not be created." };
+    return { ok: true, created: "task" };
+  }
+  const fieldNote = addDemoJobFieldNote({
+    jobId: args.jobId,
+    actor: args.actor,
+    input: {
+      kind:
+        args.kind === "blocker"
+          ? "blocker"
+          : args.kind === "deficiency"
+            ? "deficiency"
+            : args.kind === "material_request"
+              ? "material_request"
+              : "daily_report",
+      body: args.selectedText,
+      workAreaId: note.workAreaId,
+      taskId: note.taskId,
+      annotationId: note.annotationId,
+      quantity: null,
+      unit: null,
+    },
+  });
+  if (!fieldNote) return { ok: false, error: "That field entry could not be created." };
+  return { ok: true, created: "field_note" };
+}
+
+export function deleteDemoJobVoiceNote(args: {
+  jobId: string;
+  voiceNoteId: string;
+  actor: string;
+}): JobVoiceNoteRow | null {
+  const note = getDemoJobVoiceNote(args.jobId, args.voiceNoteId);
+  if (!note) return null;
+  clearVoiceNoteBytes(note.id);
+  const index = jobVoiceNotes.findIndex((item) => item.id === note.id);
+  if (index >= 0) jobVoiceNotes.splice(index, 1);
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_deleted",
+    summary: `voice note deleted: ${note.filename}`,
+    payload: { voiceNoteId: note.id },
+  });
+  return note;
+}
+
+export function getDemoJobVoiceNoteDownload(
+  jobId: string,
+  voiceNoteId: string,
+): { note: JobVoiceNoteRow; bytes: Uint8Array } | null {
+  const note = getDemoJobVoiceNote(jobId, voiceNoteId);
+  if (!note) return null;
+  const bytes = getStoredVoiceNoteBytes(note.id);
+  if (!bytes) return null;
+  return { note, bytes };
+}
+
+export type { VoiceTranscriptStatus };
