@@ -2285,7 +2285,13 @@ export function addDemoJobDocument(args: {
   const previousId = args.input.replacesDocumentId ?? null;
   if (previousId) {
     const previous = getDemoJobDocument(args.jobId, previousId);
-    if (!previous || previous.kind !== "plan") return null;
+    if (
+      !previous ||
+      !isCurrentPlanDocument(previous) ||
+      args.input.kind !== "plan"
+    ) {
+      return null;
+    }
     sheetKey = planSheetKey(previous);
     previous.sheetKey = sheetKey;
     previous.supersededAt = now;
@@ -2677,6 +2683,14 @@ export function deleteDemoWorkArea(args: {
       note.workAreaId = null;
     }
   }
+  for (const annotation of jobPlanAnnotations) {
+    if (
+      annotation.jobId === args.jobId &&
+      annotation.workAreaId === args.workAreaId
+    ) {
+      annotation.workAreaId = null;
+    }
+  }
   removeById(workAreas, args.workAreaId);
   recordJobEvent({
     jobId: args.jobId,
@@ -2766,6 +2780,7 @@ export function updateDemoJobDocument(args: {
 }): JobDocumentRow | null {
   const document = getDemoJobDocument(args.jobId, args.documentId);
   if (!document) return null;
+  if (document.kind === "plan" || args.input.kind === "plan") return null;
   if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
     return null;
   }
@@ -2788,6 +2803,22 @@ export function deleteDemoJobDocument(args: {
 }): JobDocumentRow | null {
   const document = getDemoJobDocument(args.jobId, args.documentId);
   if (!document) return null;
+  if (document.kind === "plan") return null;
+  const annotationIds = new Set(
+    jobPlanAnnotations
+      .filter((annotation) => annotation.documentId === args.documentId)
+      .map((annotation) => annotation.id),
+  );
+  for (const note of jobFieldNotes) {
+    if (note.annotationId && annotationIds.has(note.annotationId)) {
+      note.annotationId = null;
+    }
+  }
+  for (const candidate of jobDocuments) {
+    if (candidate.replacesDocumentId === args.documentId) {
+      candidate.replacesDocumentId = null;
+    }
+  }
   for (let i = jobPlanAnnotations.length - 1; i >= 0; i -= 1) {
     if (jobPlanAnnotations[i]?.documentId === args.documentId) {
       jobPlanAnnotations.splice(i, 1);
@@ -3017,6 +3048,8 @@ export function setDemoJobPlanAnnotationStatus(args: {
 }): JobPlanAnnotationRow | null {
   const annotation = getDemoJobPlanAnnotation(args.jobId, args.annotationId);
   if (!annotation || annotation.voidedAt) return null;
+  const document = getDemoJobDocument(args.jobId, annotation.documentId);
+  if (!document || !isCurrentPlanDocument(document)) return null;
   const now = new Date();
   annotation.status = args.status;
   annotation.updatedAt = now;
@@ -3053,6 +3086,8 @@ export function voidDemoJobPlanAnnotation(args: {
 }): JobPlanAnnotationRow | null {
   const annotation = getDemoJobPlanAnnotation(args.jobId, args.annotationId);
   if (!annotation || annotation.voidedAt) return null;
+  const document = getDemoJobDocument(args.jobId, annotation.documentId);
+  if (!document || !isCurrentPlanDocument(document)) return null;
   const now = new Date();
   annotation.voidedAt = now;
   annotation.voidedBy = args.actor;

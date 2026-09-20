@@ -316,6 +316,13 @@ export function parseJobDocumentInput(input: {
       field: "replacesDocumentId",
     };
   }
+  if (replacesDocumentId && kind !== "plan") {
+    return {
+      ok: false,
+      error: "Only plan files can replace a plan revision.",
+      field: "kind",
+    };
+  }
   return {
     ok: true,
     value: {

@@ -523,12 +523,17 @@ export const jobDocuments = pgTable(
       columns: [table.replacesDocumentId],
       foreignColumns: [table.id],
       name: "job_documents_replaces_document_fk",
-    }),
+    }).onDelete("set null"),
     index("job_documents_job_current_plan_idx").on(
       table.jobId,
       table.kind,
       table.supersededAt,
     ),
+    uniqueIndex("job_documents_sheet_current_unique")
+      .on(table.sheetKey)
+      .where(
+        sql`${table.kind} = 'plan' AND ${table.supersededAt} IS NULL AND ${table.sheetKey} <> ''`,
+      ),
   ],
 );
 
@@ -564,6 +569,11 @@ export const jobPlanAnnotations = pgTable(
     voidedBy: text("voided_by"),
   },
   (table) => [
+    foreignKey({
+      columns: [table.workAreaId, table.jobId],
+      foreignColumns: [workAreas.id, workAreas.jobId],
+      name: "job_plan_annotations_work_area_job_fk",
+    }),
     check("job_plan_annotations_page_positive", sql`${table.pageNumber} >= 1`),
     check(
       "job_plan_annotations_x_normalized",
@@ -597,7 +607,10 @@ export const jobFieldNotes = pgTable(
       .references(() => jobs.id),
     workAreaId: uuid("work_area_id"),
     taskId: uuid("task_id").references(() => jobTasks.id),
-    annotationId: uuid("annotation_id").references(() => jobPlanAnnotations.id),
+    annotationId: uuid("annotation_id").references(
+      () => jobPlanAnnotations.id,
+      { onDelete: "set null" },
+    ),
     kind: text("kind").notNull().default("note"),
     body: text("body").notNull(),
     quantity: integer("quantity"),

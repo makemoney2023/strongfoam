@@ -340,6 +340,9 @@ export async function uploadJobDocument(formData: FormData): Promise<ActionState
     );
   }
   const files = listJobUploadFiles(formData);
+  const replacesDocumentId = String(
+    formData.get("replacesDocumentId") ?? "",
+  ).trim();
   const returnTo = safeReturnTo(
     String(formData.get("returnTo") ?? ""),
     `/app/jobs/${jobId}`,
@@ -349,6 +352,9 @@ export async function uploadJobDocument(formData: FormData): Promise<ActionState
   }
   if (files.length > MAX_JOB_UPLOAD_FILES) {
     return fail(returnTo, `Upload up to ${MAX_JOB_UPLOAD_FILES} files at a time.`);
+  }
+  if (replacesDocumentId && files.length !== 1) {
+    return fail(returnTo, "Upload one file per plan revision.");
   }
 
   const uploaded: string[] = [];
@@ -361,7 +367,7 @@ export async function uploadJobDocument(formData: FormData): Promise<ActionState
       sizeBytes: file.size,
       kind: String(formData.get("kind") ?? ""),
       workAreaId: String(formData.get("workAreaId") ?? ""),
-      replacesDocumentId: String(formData.get("replacesDocumentId") ?? ""),
+      replacesDocumentId,
     });
     if (!parsed.ok) {
       failed.push(`${file.name}: ${parsed.error}`);

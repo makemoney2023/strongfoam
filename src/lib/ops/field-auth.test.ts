@@ -75,5 +75,8 @@ describe("field session", () => {
     expect(
       resolveFieldSession(session, { ...identity, membershipActive: false }),
     ).toBeNull();
+    expect(
+      resolveFieldSession(session, { ...identity, role: "field_lead" }),
+    ).toBeNull();
   });
 });

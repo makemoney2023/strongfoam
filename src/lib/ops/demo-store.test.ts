@@ -33,6 +33,7 @@ import {
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
   deleteDemoJobFieldNote,
+  deleteDemoJobDocument,
   deleteDemoJobTaskDependency,
   deleteDemoWorkArea,
   getDemoCompany,
@@ -70,10 +71,12 @@ import {
   setDemoJobTaskStatus,
   setDemoUserActive,
   updateDemoEstimateRequest,
+  updateDemoJobDocument,
   updateDemoJobFieldNote,
   updateDemoUser,
   updateDemoWorkArea,
   upsertDemoScheduleCalendarException,
+  voidDemoJobPlanAnnotation,
   isDemoOpsStore,
   boundedRows,
   listDemoPortfolioSchedule,
@@ -923,6 +926,57 @@ describe("job workspace", () => {
         },
       }),
     ).toBeNull();
+    expect(
+      setDemoJobPlanAnnotationStatus({
+        jobId: DEMO_JOB_ID,
+        annotationId: DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+        actor: DEMO_FIELD_EMAIL,
+        status: "planned",
+      }),
+    ).toBeNull();
+    expect(
+      voidDemoJobPlanAnnotation({
+        jobId: DEMO_JOB_ID,
+        annotationId: DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+        actor: DEMO_ADMIN_EMAIL,
+      }),
+    ).toBeNull();
+    expect(
+      addDemoJobDocument({
+        jobId: DEMO_JOB_ID,
+        actor: DEMO_ADMIN_EMAIL,
+        input: {
+          filename: "branched-revision.png",
+          contentType: "image/png",
+          sizeBytes: 12,
+          kind: "plan",
+          workAreaId: null,
+          replacesDocumentId: DEMO_PLAN_DOCUMENT_ID,
+        },
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      }),
+    ).toBeNull();
+
+    expect(
+      deleteDemoJobDocument({
+        jobId: DEMO_JOB_ID,
+        documentId: DEMO_PLAN_DOCUMENT_ID,
+        actor: DEMO_ADMIN_EMAIL,
+      }),
+    ).toBeNull();
+    expect(
+      updateDemoJobDocument({
+        jobId: DEMO_JOB_ID,
+        documentId: DEMO_PLAN_DOCUMENT_ID,
+        actor: DEMO_ADMIN_EMAIL,
+        input: { kind: "photo", workAreaId: null },
+      }),
+    ).toBeNull();
+    expect(
+      listDemoJobDocuments(DEMO_JOB_ID).find(
+        (document) => document.id === replacement?.id,
+      )?.replacesDocumentId,
+    ).toBe(DEMO_PLAN_DOCUMENT_ID);
   });
 
   it("shares document bytes across module lookups", () => {
@@ -1339,11 +1393,38 @@ describe("workspace CRUD and filters", () => {
         actor: "morgan.cole@strongfoam.com",
       })?.id,
     ).toBe(note?.id);
+    const currentPlan = listDemoJobDocuments(DEMO_JOB_ID).find(
+      (document) => document.kind === "plan" && !document.supersededAt,
+    );
+    const annotation = currentPlan
+      ? addDemoJobPlanAnnotation({
+          jobId: DEMO_JOB_ID,
+          actor: DEMO_ADMIN_EMAIL,
+          input: {
+            documentId: currentPlan.id,
+            pageNumber: 1,
+            x: 0.4,
+            y: 0.4,
+            kind: "pin",
+            status: "planned",
+            title: "Stair 2 west",
+            body: null,
+            workAreaId: area?.id ?? null,
+            taskId: null,
+          },
+        })
+      : null;
+    expect(annotation?.workAreaId).toBe(area?.id);
     expect(deleteDemoWorkArea({
       jobId: DEMO_JOB_ID,
       workAreaId: area?.id ?? "",
       actor: "estimating@strongfoam.com",
     })?.id).toBe(area?.id);
+    expect(
+      listDemoJobPlanAnnotations(DEMO_JOB_ID, currentPlan?.id).find(
+        (item) => item.id === annotation?.id,
+      )?.workAreaId,
+    ).toBeNull();
   });
 
   it("filters jobs by status and planned date", () => {
