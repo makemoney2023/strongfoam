@@ -76,6 +76,16 @@ describe("db schema exports", () => {
     expect(index?.config.where).toBeDefined();
   });
 
+  it("allows drawing tools and optional trades on plan annotations", () => {
+    const checks = getTableConfig(jobPlanAnnotations).checks.map(
+      (check) => check.name,
+    );
+    expect(checks).toContain("job_plan_annotations_kind_valid");
+    expect(checks).toContain("job_plan_annotations_trade_valid");
+    expect(jobPlanAnnotations.geometry).toBeDefined();
+    expect(jobPlanAnnotations.trade).toBeDefined();
+  });
+
   it("allows only one current plan document per revision chain", () => {
     const index = getTableConfig(jobDocuments).indexes.find(
       (candidate) =>

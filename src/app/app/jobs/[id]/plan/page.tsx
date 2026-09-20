@@ -16,6 +16,7 @@ import {
   canMarkupPlanDocument,
   isCurrentPlanDocument,
   officePlanHref,
+  toPlanMarkView,
 } from "@/lib/ops/plan-markup";
 import {
   getJob,
@@ -84,7 +85,7 @@ export default async function JobPlanPage({
             ? `${selected.filename} · revision ${selected.versionNumber}${
                 selected.supersededAt ? " · previous revision" : " · current"
               }`
-            : "Upload a plan image so the crew can tap completed work."
+            : "Upload a plan image or PDF so the crew can tap completed work."
         }
         actions={
           selectedIsCurrent && selected ? (
@@ -149,37 +150,33 @@ export default async function JobPlanPage({
           jobId={job.id}
           documentId={selected.id}
           imageUrl={imageUrl}
+          contentType={selected.contentType}
+          sheetName={selected.filename}
+          revision={selected.versionNumber}
+          jobLabel={formatJobNumber(job.id)}
           mode="office"
           returnTo={returnTo}
           areas={areas.map(({ id: areaId, name }) => ({ id: areaId, name }))}
-          tasks={tasks.map(({ id: taskId, title }) => ({
-            id: taskId,
-            name: title,
+          tasks={tasks.map((task) => ({
+            id: task.id,
+            name: task.title,
+            assigneeUserId: task.assigneeUserId,
+            assignee: task.assignee,
           }))}
-          pins={annotations.map((annotation) => ({
-            id: annotation.id,
-            x: annotation.x,
-            y: annotation.y,
-            title: annotation.title,
-            body: annotation.body,
-            status: annotation.status as
-              | "planned"
-              | "in_progress"
-              | "completed"
-              | "blocked"
-              | "deficiency",
-            taskId: annotation.taskId,
-            workAreaId: annotation.workAreaId,
-            createdBy: annotation.createdBy,
-          }))}
+          pins={annotations.map((annotation) =>
+            toPlanMarkView(
+              annotation,
+              tasks.find((task) => task.id === annotation.taskId),
+            ),
+          )}
           placeAction={selectedIsCurrent ? placePlanPin : undefined}
           voidAction={selectedIsCurrent ? voidPlanPin : undefined}
         />
       ) : (
         <div className="space-y-3 rounded-xl border p-4">
           <p className="text-sm text-muted-foreground">
-            PDF plans can be opened, but tap-to-complete marks need a JPEG, PNG,
-            or WebP sheet.
+            This file type cannot be marked up. Upload a JPEG, PNG, WebP, or
+            PDF sheet.
           </p>
           {imageUrl ? (
             <Button

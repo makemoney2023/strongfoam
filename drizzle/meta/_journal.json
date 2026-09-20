@@ -99,6 +99,13 @@
       "when": 1758405300000,
       "tag": "0013_plan_revision_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1758408000000,
+      "tag": "0014_plan_annotation_geometry",
+      "breakpoints": true
     }
   ]
 }

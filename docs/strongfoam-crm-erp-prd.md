@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.8
+**Version:** 1.10
 **Created:** 2026-09-18
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-20
 
 ## 1. Purpose
 
@@ -72,10 +72,11 @@ lanes, and working calendars. Office staff can create individual application
 users and assign active field identities to jobs and tasks. Field has a
 separate login and application shell, and server authorization limits its job
 list and mutations to those assignments. Job events drive automatic two-way
-screen refreshes for online office and field sessions. The target
+screen refreshes for online office and field sessions. Office and Field can now mark current plan revisions with pins, circles,
+ellipses, polygons, arrows, and text; filter those layers; and export a
+marked-up PDF closeout. Image and PDF sheets are supported. The target
 Supabase/Render deployment split, full permission matrix, crews, durable
-offline sync, document markup, transcription, and financial workflows remain
-to be completed.
+offline sync, transcription, and financial workflows remain to be completed.
 
 ## 4. Product vision
 
@@ -1628,9 +1629,9 @@ policy and human review.
 
 ### Plans and voice
 
-1. Add document versioning and plan rendering.
-2. Add circle, polygon, pin, text, and status annotations.
-3. Add marked-up exports.
+1. Add document versioning and plan rendering (done).
+2. Add circle, polygon, pin, text, and status annotations (done).
+3. Add marked-up exports (done).
 4. Add audio recording, durable processing, transcription, and transcript
    review.
 
@@ -1724,11 +1725,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-19 | Use the shared users and memberships model for individual Office and Field authentication, with administrator-only lifecycle controls and revocable sessions | A user record that cannot authenticate consistently or be revoked immediately is not an authoritative identity; a temporary environment login remains only for bootstrap migration |
 | 2026-09-19 | Add a read-only portfolio Schedule with project-specific planning rules and dashboard exception widgets | Operations managers need cross-project visibility, while mutations must remain project-scoped so calendars, dependencies, baselines, and optimistic versions stay unambiguous |
 | 2026-09-20 | Finish individual Office identity session revocation, then ship a pin-based plan completion MVP | Production field records need revocable Office sessions first; technicians should tap office-placed pins instead of drawing CAD geometry |
+| 2026-09-20 | Expand plan markup to drawing tools, layer filters, PDF sheets, and marked-up closeout export | The pin MVP proved the completion loop; remaining ANN-002/004/006 and DOC-001 PDF rendering were the next bounded field-documentation step |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.10 | 2026-09-20 | Added circle, ellipse, polygon, arrow, and text plan marks, layer filters, PDF sheet rendering, and marked-up closeout export |
 | 1.9 | 2026-09-20 | Hardened Office session revocation and shipped the first plan-based field completion loop: immutable plan revisions, image-sheet pin markup, and tap-to-complete field updates |
 | 1.8 | 2026-09-19 | Added SCH-023 to SCH-032 for a bounded all-project Schedule, cross-project resource overlaps, latest-baseline roll-up, and dashboard schedule-attention widgets. Field assignment remains SCH-022. |
 | 1.7 | 2026-09-19 | Expanded user administration requirements for individual Office authentication, administrator RBAC, lifecycle editing, credential reset, session revocation, lockout safeguards, and audit history |

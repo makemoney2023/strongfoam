@@ -69,8 +69,11 @@ Production operations requirements:
   uploads fail closed when private Blob storage is unavailable; they never use
   ephemeral process memory.
 - Run `npm run db:migrate` as a release step before deploying application code.
-  Migration `0010_user_administration.sql` is required for revocable sessions
-  and user lifecycle audit events.
+  Migration `0013_plan_revision_integrity.sql` is required before revision
+  writes. Migration `0014_plan_annotation_geometry.sql` is required for
+  circle, polygon, arrow, and text marks. The current Vercel Hobby deploy
+  still uses the in-memory demo store (`OPS_DEMO` or no `DATABASE_URL`), so
+  those SQL files apply when Postgres is attached.
 
 ```bash
 npm test
