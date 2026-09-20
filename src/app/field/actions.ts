@@ -26,6 +26,7 @@ import {
   deleteJobFieldNote,
   getJob,
   getJobPlanAnnotation,
+  listJobPlanAnnotations,
   listJobFieldNotes,
   setJobPlanAnnotationStatus,
   setJobTaskStatus,
@@ -321,6 +322,7 @@ export async function setFieldPlanAnnotationStatus(
   ) {
     return fail(returnTo, "You can only update marks assigned to you.");
   }
+  const jobBeforeUpdate = await getJob(jobId);
 
   const annotation = await setJobPlanAnnotationStatus({
     jobId,
@@ -362,6 +364,25 @@ export async function setFieldPlanAnnotationStatus(
       actor: session.email,
       status: "blocked",
       blockerNote: parsed.value.body || annotation.title,
+    });
+  } else if (
+    existing.status === "blocked" &&
+    jobBeforeUpdate?.status === "blocked" &&
+    (jobBeforeUpdate.blockerNote === existing.title ||
+      (existing.body !== null &&
+        jobBeforeUpdate.blockerNote === existing.body))
+  ) {
+    const nextBlockedMark = (await listJobPlanAnnotations(jobId)).find(
+      (candidate) =>
+        candidate.id !== annotation.id && candidate.status === "blocked",
+    );
+    await updateJobStatus({
+      jobId,
+      actor: session.email,
+      status: nextBlockedMark ? "blocked" : "in_progress",
+      blockerNote: nextBlockedMark
+        ? nextBlockedMark.body || nextBlockedMark.title
+        : null,
     });
   }
 

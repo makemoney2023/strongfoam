@@ -92,6 +92,13 @@
       "when": 1758400000000,
       "tag": "0012_plan_annotations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1758405300000,
+      "tag": "0013_plan_revision_integrity",
+      "breakpoints": true
     }
   ]
 }

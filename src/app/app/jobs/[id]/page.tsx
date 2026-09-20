@@ -948,39 +948,45 @@ export default async function JobDetailPage({
                           Open
                           <ExternalLinkIcon aria-hidden="true" />
                         </Button>
-                        <FormDialog
-                          triggerLabel="Edit"
-                          triggerIcon={<PencilIcon aria-hidden="true" />}
-                          triggerVariant="ghost"
-                          triggerAriaLabel={`Edit ${document.filename}`}
-                          title="Edit document"
-                          description={document.filename}
-                        >
-                          <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
-                            <input type="hidden" name="jobId" value={job.id} />
-                            <input type="hidden" name="documentId" value={document.id} />
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <DocumentMetaFields
-                              idPrefix={`doc-${document.id}`}
-                              areas={areaOptions}
-                              defaults={document}
-                            />
-                            <div className="sm:col-span-2">
-                              <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
-                                Save document
-                              </SubmitButton>
-                            </div>
-                          </ActionForm>
-                        </FormDialog>
-                        <ConfirmForm
-                          action={removeJobDocument}
-                          message={`Delete ${document.filename}? The file is removed permanently.`}
-                        >
-                          <input type="hidden" name="jobId" value={job.id} />
-                          <input type="hidden" name="documentId" value={document.id} />
-                          <input type="hidden" name="returnTo" value={returnTo} />
-                          <RowDeleteButton />
-                        </ConfirmForm>
+                        {document.kind === "plan" ? (
+                          <Badge variant="outline">Revision retained</Badge>
+                        ) : (
+                          <>
+                            <FormDialog
+                              triggerLabel="Edit"
+                              triggerIcon={<PencilIcon aria-hidden="true" />}
+                              triggerVariant="ghost"
+                              triggerAriaLabel={`Edit ${document.filename}`}
+                              title="Edit document"
+                              description={document.filename}
+                            >
+                              <ActionForm action={saveJobDocumentMeta} className="grid gap-3 sm:grid-cols-2">
+                                <input type="hidden" name="jobId" value={job.id} />
+                                <input type="hidden" name="documentId" value={document.id} />
+                                <input type="hidden" name="returnTo" value={returnTo} />
+                                <DocumentMetaFields
+                                  idPrefix={`doc-${document.id}`}
+                                  areas={areaOptions}
+                                  defaults={document}
+                                />
+                                <div className="sm:col-span-2">
+                                  <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
+                                    Save document
+                                  </SubmitButton>
+                                </div>
+                              </ActionForm>
+                            </FormDialog>
+                            <ConfirmForm
+                              action={removeJobDocument}
+                              message={`Delete ${document.filename}? The file is removed permanently.`}
+                            >
+                              <input type="hidden" name="jobId" value={job.id} />
+                              <input type="hidden" name="documentId" value={document.id} />
+                              <input type="hidden" name="returnTo" value={returnTo} />
+                              <RowDeleteButton />
+                            </ConfirmForm>
+                          </>
+                        )}
                       </div>
                     </li>
                   ))}

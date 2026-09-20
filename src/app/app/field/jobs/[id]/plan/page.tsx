@@ -62,6 +62,9 @@ export default async function FieldJobPlanPage({
     currentPlans[0] ??
     documents[0] ??
     null;
+  const selectedIsCurrent = selected
+    ? isCurrentPlanDocument(selected)
+    : false;
   const annotations = selected
     ? await listJobPlanAnnotations(job.id, selected.id)
     : [];
@@ -84,7 +87,9 @@ export default async function FieldJobPlanPage({
         title="Mark completed work"
         description={
           selected
-            ? `${selected.filename} · revision ${selected.versionNumber}`
+            ? `${selected.filename} · revision ${selected.versionNumber}${
+                selectedIsCurrent ? "" : " · previous revision"
+              }`
             : "The office has not uploaded a plan sheet yet."
         }
       />
@@ -146,7 +151,9 @@ export default async function FieldJobPlanPage({
             workAreaId: annotation.workAreaId,
             createdBy: annotation.createdBy,
           }))}
-          statusAction={setFieldPlanAnnotationStatus}
+          statusAction={
+            selectedIsCurrent ? setFieldPlanAnnotationStatus : undefined
+          }
         />
       ) : selected && imageUrl ? (
         <div className="space-y-3 rounded-xl border p-4">
@@ -168,6 +175,12 @@ export default async function FieldJobPlanPage({
           No plan set has been uploaded yet.
         </p>
       )}
+
+      {selected && !selectedIsCurrent ? (
+        <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+          This is a previous revision. Open the current sheet to update work.
+        </p>
+      ) : null}
     </div>
   );
 }

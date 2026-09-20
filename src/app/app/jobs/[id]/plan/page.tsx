@@ -53,6 +53,9 @@ export default async function JobPlanPage({
     currentPlans[0] ??
     documents[0] ??
     null;
+  const selectedIsCurrent = selected
+    ? isCurrentPlanDocument(selected)
+    : false;
   const annotations = selected
     ? await listJobPlanAnnotations(job.id, selected.id)
     : [];
@@ -84,7 +87,7 @@ export default async function JobPlanPage({
             : "Upload a plan image so the crew can tap completed work."
         }
         actions={
-          selected ? (
+          selectedIsCurrent && selected ? (
             <FormDialog
               triggerLabel="Upload revision"
               title="Replace this plan"
@@ -169,8 +172,8 @@ export default async function JobPlanPage({
             workAreaId: annotation.workAreaId,
             createdBy: annotation.createdBy,
           }))}
-          placeAction={placePlanPin}
-          voidAction={voidPlanPin}
+          placeAction={selectedIsCurrent ? placePlanPin : undefined}
+          voidAction={selectedIsCurrent ? voidPlanPin : undefined}
         />
       ) : (
         <div className="space-y-3 rounded-xl border p-4">
@@ -189,6 +192,13 @@ export default async function JobPlanPage({
           ) : null}
         </div>
       )}
+
+      {selected && !selectedIsCurrent ? (
+        <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Previous revisions are read-only. Open the current sheet to place or
+          void marks.
+        </p>
+      ) : null}
 
       <p className="text-sm text-muted-foreground">
         Field crews open the same marks at{" "}

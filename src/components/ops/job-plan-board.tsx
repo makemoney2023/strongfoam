@@ -68,22 +68,15 @@ export function JobPlanBoard({
   const [placing, setPlacing] = useState(false);
   const [draft, setDraft] = useState<{ x: number; y: number } | null>(null);
   const [mineOnly, setMineOnly] = useState(mode === "field");
-  const pinIds = pins.map((pin) => pin.id).join(",");
 
   useEffect(() => {
-    setPlacing(false);
-    setDraft(null);
-    setSelectedId((current) => {
-      if (current && pins.some((pin) => pin.id === current)) return current;
-      return (
-        pins.find((pin) => highlightedTaskIds.includes(pin.taskId ?? ""))?.id ??
-        pins.at(-1)?.id ??
-        null
-      );
-    });
-    // Pin identity is the trigger. A realtime refresh must not cancel placement.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pinIds
-  }, [pinIds]);
+    const handleSuccess = () => {
+      setPlacing(false);
+      setDraft(null);
+    };
+    window.addEventListener("ops-action-success", handleSuccess);
+    return () => window.removeEventListener("ops-action-success", handleSuccess);
+  }, []);
 
   const visiblePins = useMemo(() => {
     if (!mineOnly || highlightedTaskIds.length === 0) return pins;
@@ -92,7 +85,9 @@ export function JobPlanBoard({
     );
   }, [highlightedTaskIds, mineOnly, pins]);
 
-  const selected = visiblePins.find((pin) => pin.id === selectedId) ?? null;
+  const selected =
+    visiblePins.find((pin) => pin.id === selectedId) ??
+    (draft ? null : (visiblePins.at(-1) ?? null));
 
   function handleSheetClick(event: React.MouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -140,17 +135,14 @@ export function JobPlanBoard({
           <p className="text-sm text-muted-foreground">
             {placing
               ? "Tap the room or wall that is done. Then name the mark."
-              : "Tap a pin to update the work."}
+              : mode === "field" && !statusAction
+                ? "This previous revision is read-only."
+                : "Tap a pin to update the work."}
           </p>
         </div>
 
         <div className="overflow-auto rounded-xl border bg-muted/30">
-          <button
-            type="button"
-            className="relative mx-auto block min-w-full cursor-crosshair touch-pan-x touch-pan-y"
-            onClick={handleSheetClick}
-            aria-label={placing ? "Place a pin on the plan" : "Select a plan mark"}
-          >
+          <div className="relative mx-auto block min-w-full touch-pan-x touch-pan-y">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
@@ -158,28 +150,39 @@ export function JobPlanBoard({
               className="block h-auto w-full max-w-none select-none"
               draggable={false}
             />
+            <button
+              type="button"
+              className="absolute inset-0 z-0 cursor-crosshair"
+              onClick={handleSheetClick}
+              aria-label={
+                placing ? "Place a pin on the plan" : "Select a plan mark"
+              }
+            />
             {visiblePins.map((pin) => (
-              <span
+              <button
+                type="button"
                 key={pin.id}
                 className={cn(
-                  "absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md",
+                  "absolute z-10 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring",
                   PLAN_ANNOTATION_STATUS_TONES[pin.status],
                   selected?.id === pin.id && "ring-4 ring-foreground/30",
                   highlightedTaskIds.includes(pin.taskId ?? "") &&
                     "size-8 ring-2 ring-sky-300",
                 )}
                 style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
-                aria-hidden="true"
+                onClick={() => setSelectedId(pin.id)}
+                aria-label={`${pin.title}: ${PLAN_ANNOTATION_STATUS_LABELS[pin.status]}`}
+                aria-pressed={selected?.id === pin.id}
               />
             ))}
             {draft ? (
               <span
-                className="absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-500 shadow-md"
+                className="absolute z-10 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-500 shadow-md"
                 style={{ left: `${draft.x * 100}%`, top: `${draft.y * 100}%` }}
                 aria-hidden="true"
               />
             ) : null}
-          </button>
+          </div>
         </div>
 
         <ul className="flex flex-wrap gap-2 text-xs">
@@ -275,9 +278,7 @@ export function JobPlanBoard({
                   <NativeSelect
                     id="field-status"
                     name="status"
-                    defaultValue={
-                      selected.status === "completed" ? "completed" : "completed"
-                    }
+                    defaultValue="completed"
                   >
                     <option value="completed">Complete</option>
                     <option value="in_progress">In progress</option>

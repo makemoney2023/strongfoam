@@ -76,6 +76,16 @@ describe("db schema exports", () => {
     expect(index?.config.where).toBeDefined();
   });
 
+  it("allows only one current plan document per revision chain", () => {
+    const index = getTableConfig(jobDocuments).indexes.find(
+      (candidate) =>
+        candidate.config.name === "job_documents_sheet_current_unique",
+    );
+
+    expect(index?.config.unique).toBe(true);
+    expect(index?.config.where).toBeDefined();
+  });
+
   it("locks default-calendar writes before cleanup and index creation", () => {
     const migration = readFileSync(
       new URL(

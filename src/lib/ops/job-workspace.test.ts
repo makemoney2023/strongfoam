@@ -143,6 +143,18 @@ describe("job workspace parsers", () => {
       "/api/ops/jobs/job-1/documents/doc-1",
     );
     expect(formatFileSize(2048)).toBe("2.0 KB");
+    expect(
+      parseJobDocumentInput({
+        filename: "closeout.png",
+        contentType: "image/png",
+        sizeBytes: 2048,
+        kind: "photo",
+        replacesDocumentId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      }),
+    ).toMatchObject({
+      ok: false,
+      field: "kind",
+    });
   });
 
   it("updates document kind and work area without a file", () => {

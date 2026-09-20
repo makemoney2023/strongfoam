@@ -3018,9 +3018,11 @@ export async function recordUploadedJobDocument(args: {
     .limit(1);
   if (existing[0]) return existing[0];
 
-  let sheetKey = "";
+  const documentId = crypto.randomUUID();
+  let sheetKey = documentId;
   let versionNumber = 1;
   let replacesDocumentId: string | null = null;
+  let previousDocumentId: string | null = null;
   const previousId = args.input.replacesDocumentId ?? null;
   if (previousId) {
     const previousRows = await db
@@ -3031,20 +3033,23 @@ export async function recordUploadedJobDocument(args: {
       )
       .limit(1);
     const previous = previousRows[0];
-    if (!previous || previous.kind !== "plan") return null;
-    const now = new Date();
+    if (
+      !previous ||
+      !isCurrentPlanDocument(previous) ||
+      args.input.kind !== "plan"
+    ) {
+      return null;
+    }
     sheetKey = planSheetKey(previous);
     replacesDocumentId = previous.id;
+    previousDocumentId = previous.id;
     versionNumber = previous.versionNumber + 1;
-    await db
-      .update(jobDocuments)
-      .set({ sheetKey, supersededAt: now })
-      .where(eq(jobDocuments.id, previous.id));
   }
 
-  const rows = await db
+  const insertDocument = db
     .insert(jobDocuments)
     .values({
+      id: documentId,
       jobId: args.jobId,
       workAreaId: args.input.workAreaId,
       filename: args.input.filename,
@@ -3058,26 +3063,27 @@ export async function recordUploadedJobDocument(args: {
       versionNumber,
       replacesDocumentId,
     })
-    .onConflictDoNothing({ target: jobDocuments.pathname })
-    .returning();
-  const document =
-    rows[0] ??
-    (
-      await db
-        .select()
-        .from(jobDocuments)
-        .where(eq(jobDocuments.pathname, args.pathname))
-        .limit(1)
-    )[0];
-  if (!document) return null;
-  if (!document.sheetKey) {
-    await db
-      .update(jobDocuments)
-      .set({ sheetKey: document.id })
-      .where(eq(jobDocuments.id, document.id));
-    document.sheetKey = document.id;
+    .onConflictDoNothing({ target: jobDocuments.pathname });
+  if (previousDocumentId) {
+    await db.batch([
+      db
+        .update(jobDocuments)
+        .set({ sheetKey, supersededAt: new Date() })
+        .where(eq(jobDocuments.id, previousDocumentId)),
+      insertDocument,
+    ]);
+  } else {
+    await insertDocument;
   }
-  if (rows.length === 0) return document;
+  const document = (
+    await db
+      .select()
+      .from(jobDocuments)
+      .where(eq(jobDocuments.pathname, args.pathname))
+      .limit(1)
+  )[0];
+  if (!document) return null;
+  if (document.id !== documentId) return document;
   try {
     await db.insert(jobEvents).values({
       jobId: args.jobId,
@@ -3195,42 +3201,57 @@ export async function addJobPlanAnnotation(args: {
     const tasks = await listJobTasks(args.jobId);
     if (!tasks.some((task) => task.id === args.input.taskId)) return null;
   }
-  const now = new Date();
   const db = getDb();
-  const rows = await db
-    .insert(jobPlanAnnotations)
-    .values({
+  return db.transaction(async (tx) => {
+    const lockedDocuments = await tx
+      .select()
+      .from(jobDocuments)
+      .where(
+        and(
+          eq(jobDocuments.id, args.input.documentId),
+          eq(jobDocuments.jobId, args.jobId),
+        ),
+      )
+      .for("update");
+    const lockedDocument = lockedDocuments[0];
+    if (!lockedDocument || !isCurrentPlanDocument(lockedDocument)) return null;
+
+    const now = new Date();
+    const rows = await tx
+      .insert(jobPlanAnnotations)
+      .values({
+        jobId: args.jobId,
+        documentId: args.input.documentId,
+        pageNumber: args.input.pageNumber,
+        x: args.input.x,
+        y: args.input.y,
+        kind: args.input.kind,
+        status: args.input.status,
+        title: args.input.title,
+        body: args.input.body,
+        workAreaId: args.input.workAreaId,
+        taskId: args.input.taskId,
+        createdBy: args.actor,
+        completedAt: args.input.status === "completed" ? now : null,
+        completedBy: args.input.status === "completed" ? args.actor : null,
+      })
+      .returning();
+    const annotation = rows[0];
+    if (!annotation) return null;
+    await tx.insert(jobEvents).values({
       jobId: args.jobId,
-      documentId: args.input.documentId,
-      pageNumber: args.input.pageNumber,
-      x: args.input.x,
-      y: args.input.y,
-      kind: args.input.kind,
-      status: args.input.status,
-      title: args.input.title,
-      body: args.input.body,
-      workAreaId: args.input.workAreaId,
-      taskId: args.input.taskId,
-      createdBy: args.actor,
-      completedAt: args.input.status === "completed" ? now : null,
-      completedBy: args.input.status === "completed" ? args.actor : null,
-    })
-    .returning();
-  const annotation = rows[0];
-  if (!annotation) return null;
-  await db.insert(jobEvents).values({
-    jobId: args.jobId,
-    actor: args.actor,
-    kind: "plan_annotation_added",
-    summary: `plan mark added: ${annotation.title}`,
-    payload: {
-      annotationId: annotation.id,
-      documentId: annotation.documentId,
-      status: annotation.status,
-      taskId: annotation.taskId,
-    },
+      actor: args.actor,
+      kind: "plan_annotation_added",
+      summary: `plan mark added: ${annotation.title}`,
+      payload: {
+        annotationId: annotation.id,
+        documentId: annotation.documentId,
+        status: annotation.status,
+        taskId: annotation.taskId,
+      },
+    });
+    return annotation;
   });
-  return annotation;
 }
 
 export async function setJobPlanAnnotationStatus(args: {
@@ -3243,6 +3264,9 @@ export async function setJobPlanAnnotationStatus(args: {
   if (isDemoOpsStore()) return setDemoJobPlanAnnotationStatus(args);
   const existing = await getJobPlanAnnotation(args.jobId, args.annotationId);
   if (!existing || existing.voidedAt) return null;
+  const documents = await listJobDocuments(args.jobId, { kind: "plan" });
+  const document = documents.find((item) => item.id === existing.documentId);
+  if (!document || !isCurrentPlanDocument(document)) return null;
   const now = new Date();
   const db = getDb();
   const rows = await db
@@ -3258,6 +3282,13 @@ export async function setJobPlanAnnotationStatus(args: {
       and(
         eq(jobPlanAnnotations.id, args.annotationId),
         eq(jobPlanAnnotations.jobId, args.jobId),
+        sql`EXISTS (
+          SELECT 1
+          FROM ${jobDocuments}
+          WHERE ${jobDocuments.id} = ${jobPlanAnnotations.documentId}
+            AND ${jobDocuments.kind} = 'plan'
+            AND ${jobDocuments.supersededAt} IS NULL
+        )`,
       ),
     )
     .returning();
@@ -3289,6 +3320,9 @@ export async function voidJobPlanAnnotation(args: {
   if (isDemoOpsStore()) return voidDemoJobPlanAnnotation(args);
   const existing = await getJobPlanAnnotation(args.jobId, args.annotationId);
   if (!existing || existing.voidedAt) return null;
+  const documents = await listJobDocuments(args.jobId, { kind: "plan" });
+  const document = documents.find((item) => item.id === existing.documentId);
+  if (!document || !isCurrentPlanDocument(document)) return null;
   const now = new Date();
   const db = getDb();
   const rows = await db
@@ -3302,6 +3336,13 @@ export async function voidJobPlanAnnotation(args: {
       and(
         eq(jobPlanAnnotations.id, args.annotationId),
         eq(jobPlanAnnotations.jobId, args.jobId),
+        sql`EXISTS (
+          SELECT 1
+          FROM ${jobDocuments}
+          WHERE ${jobDocuments.id} = ${jobPlanAnnotations.documentId}
+            AND ${jobDocuments.kind} = 'plan'
+            AND ${jobDocuments.supersededAt} IS NULL
+        )`,
       ),
     )
     .returning();
@@ -3722,6 +3763,15 @@ export async function deleteWorkArea(args: {
       and(eq(jobFieldNotes.jobId, args.jobId), eq(jobFieldNotes.workAreaId, args.workAreaId)),
     );
   await db
+    .update(jobPlanAnnotations)
+    .set({ workAreaId: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(jobPlanAnnotations.jobId, args.jobId),
+        eq(jobPlanAnnotations.workAreaId, args.workAreaId),
+      ),
+    );
+  await db
     .delete(workAreas)
     .where(and(eq(workAreas.id, args.workAreaId), eq(workAreas.jobId, args.jobId)));
   await db.insert(jobEvents).values({
@@ -3837,11 +3887,24 @@ export async function updateJobDocument(args: {
   input: { kind: JobDocumentKind; workAreaId: string | null };
 }): Promise<JobDocumentRow | null> {
   if (isDemoOpsStore()) return updateDemoJobDocument(args);
+  const db = getDb();
+  const existingRows = await db
+    .select()
+    .from(jobDocuments)
+    .where(
+      and(
+        eq(jobDocuments.id, args.documentId),
+        eq(jobDocuments.jobId, args.jobId),
+      ),
+    )
+    .limit(1);
+  const existing = existingRows[0];
+  if (!existing) return null;
+  if (existing.kind === "plan" || args.input.kind === "plan") return null;
   if (args.input.workAreaId) {
     const areas = await listWorkAreas(args.jobId);
     if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
   }
-  const db = getDb();
   const rows = await db
     .update(jobDocuments)
     .set({ kind: args.input.kind, workAreaId: args.input.workAreaId })
@@ -3873,6 +3936,28 @@ export async function deleteJobDocument(args: {
     .limit(1);
   const document = existing[0];
   if (!document) return null;
+  if (document.kind === "plan") return null;
+  const annotationRows = await db
+    .select({ id: jobPlanAnnotations.id })
+    .from(jobPlanAnnotations)
+    .where(eq(jobPlanAnnotations.documentId, args.documentId));
+  const annotationIds = annotationRows.map((annotation) => annotation.id);
+  if (annotationIds.length > 0) {
+    await db
+      .update(jobFieldNotes)
+      .set({ annotationId: null })
+      .where(inArray(jobFieldNotes.annotationId, annotationIds));
+  }
+  await db
+    .update(jobDocuments)
+    .set({ replacesDocumentId: null })
+    .where(eq(jobDocuments.replacesDocumentId, args.documentId));
+  await db
+    .delete(jobPlanAnnotations)
+    .where(eq(jobPlanAnnotations.documentId, args.documentId));
+  await db
+    .delete(jobDocuments)
+    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)));
   if (document.storage === "blob") {
     try {
       const { del } = await import("@vercel/blob");
@@ -3883,12 +3968,6 @@ export async function deleteJobDocument(args: {
   } else {
     clearJobDocumentBytes(document.id);
   }
-  await db
-    .delete(jobPlanAnnotations)
-    .where(eq(jobPlanAnnotations.documentId, args.documentId));
-  await db
-    .delete(jobDocuments)
-    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)));
   await db.insert(jobEvents).values({
     jobId: args.jobId,
     actor: args.actor,
