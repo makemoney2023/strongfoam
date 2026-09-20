@@ -189,10 +189,12 @@ export function DocumentMetaFields({
   idPrefix,
   areas,
   defaults = {},
+  allowPlan = true,
 }: {
   idPrefix: string;
   areas: Option[];
   defaults?: { kind?: string; workAreaId?: string | null };
+  allowPlan?: boolean;
 }) {
   const id = (field: string) => `${idPrefix}-${field}`;
   return (
@@ -200,7 +202,9 @@ export function DocumentMetaFields({
       <div className="space-y-2">
         <Label htmlFor={id("kind")}>Document type</Label>
         <NativeSelect id={id("kind")} name="kind" defaultValue={defaults.kind ?? "plan"} className="h-11">
-          {JOB_DOCUMENT_KINDS.map((kind) => (
+          {JOB_DOCUMENT_KINDS.filter(
+            (kind) => allowPlan || kind !== "plan",
+          ).map((kind) => (
             <option key={kind} value={kind}>
               {JOB_DOCUMENT_LABELS[kind]}
             </option>

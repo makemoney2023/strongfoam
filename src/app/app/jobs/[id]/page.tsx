@@ -968,6 +968,7 @@ export default async function JobDetailPage({
                                   idPrefix={`doc-${document.id}`}
                                   areas={areaOptions}
                                   defaults={document}
+                                  allowPlan={false}
                                 />
                                 <div className="sm:col-span-2">
                                   <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
