@@ -10,6 +10,7 @@ import {
   jobDocuments,
   jobEvents,
   jobFieldNotes,
+  jobPlanAnnotations,
   jobTaskDependencies,
   jobTasks,
   jobs,
@@ -58,7 +59,11 @@ describe("db schema exports", () => {
     expect(jobTaskDependencies.successorTaskId).toBeDefined();
     expect(jobTaskDependencies.lagDays).toBeDefined();
     expect(jobDocuments).toBeDefined();
+    expect(jobDocuments.sheetKey).toBeDefined();
+    expect(jobDocuments.versionNumber).toBeDefined();
+    expect(jobPlanAnnotations).toBeDefined();
     expect(jobFieldNotes).toBeDefined();
+    expect(jobFieldNotes.annotationId).toBeDefined();
   });
 
   it("allows at most one default schedule calendar", () => {

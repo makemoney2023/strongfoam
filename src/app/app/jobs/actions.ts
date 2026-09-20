@@ -25,10 +25,12 @@ import {
   parseJobTaskInput,
   parseWorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import { parsePlanAnnotationInput } from "@/lib/ops/plan-markup";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
   addJobDocument,
+  addJobPlanAnnotation,
   addJobAssignment,
   addJobFieldNote,
   addJobTask,
@@ -49,6 +51,7 @@ import {
   updateJobStatus,
   updateJobTask,
   updateWorkArea,
+  voidJobPlanAnnotation,
 } from "@/lib/ops/store";
 
 
@@ -63,8 +66,10 @@ function refreshJobs(projectId?: string | null, jobId?: string | null) {
   if (projectId) revalidatePath(`/app/projects/${projectId}`);
   if (jobId) {
     revalidatePath(`/app/jobs/${jobId}`);
+    revalidatePath(`/app/jobs/${jobId}/plan`);
     revalidatePath(`/app/field/jobs/${jobId}`);
     revalidatePath(`/field/jobs/${jobId}`);
+    revalidatePath(`/field/jobs/${jobId}/plan`);
   }
 }
 
@@ -356,6 +361,7 @@ export async function uploadJobDocument(formData: FormData): Promise<ActionState
       sizeBytes: file.size,
       kind: String(formData.get("kind") ?? ""),
       workAreaId: String(formData.get("workAreaId") ?? ""),
+      replacesDocumentId: String(formData.get("replacesDocumentId") ?? ""),
     });
     if (!parsed.ok) {
       failed.push(`${file.name}: ${parsed.error}`);
@@ -638,4 +644,59 @@ export async function removeJobFieldEntry(formData: FormData): Promise<ActionSta
   if (!note) return fail(returnTo, "That field entry could not be deleted.");
   refreshJobs(null, jobId);
   return succeed(returnTo);
+}
+
+export async function placePlanPin(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}/plan`,
+  );
+  const parsed = parsePlanAnnotationInput({
+    documentId: String(formData.get("documentId") ?? ""),
+    pageNumber: String(formData.get("pageNumber") ?? "1"),
+    x: String(formData.get("x") ?? ""),
+    y: String(formData.get("y") ?? ""),
+    status: String(formData.get("status") ?? "planned"),
+    title: String(formData.get("title") ?? ""),
+    body: String(formData.get("body") ?? ""),
+    workAreaId: String(formData.get("workAreaId") ?? ""),
+    taskId: String(formData.get("taskId") ?? ""),
+  });
+  if (!jobId) return fail("/app/jobs", "Missing job.");
+  if (!parsed.ok) return invalidFrom(parsed);
+  const annotation = await addJobPlanAnnotation({
+    jobId,
+    actor: session.email,
+    input: parsed.value,
+  });
+  if (!annotation) {
+    return fail(returnTo, "That mark could not be placed on the current plan.");
+  }
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, `${annotation.title} was placed on the plan.`);
+}
+
+export async function voidPlanPin(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const annotationId = String(formData.get("annotationId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/app/jobs/${jobId}/plan`,
+  );
+  if (!jobId || !annotationId) return fail(returnTo, "Missing plan mark.");
+  const annotation = await voidJobPlanAnnotation({
+    jobId,
+    annotationId,
+    actor: session.email,
+  });
+  if (!annotation) return fail(returnTo, "That mark could not be removed.");
+  const job = await getJob(jobId);
+  refreshJobs(job?.projectId, jobId);
+  return succeed(returnTo, `${annotation.title} was voided.`);
 }

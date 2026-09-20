@@ -95,16 +95,19 @@ export function createFieldSessionToken(
   };
 }
 
-export async function getFieldSession(): Promise<FieldSession | null> {
-  const secret = fieldSessionSecret();
-  if (!secret) return null;
-  const store = await cookies();
-  const token = store.get(FIELD_SESSION_COOKIE)?.value;
-  if (!token) return null;
-  const session = verifyFieldSessionToken(token, secret);
-  if (!session) return null;
-
-  const identity = await getFieldIdentityById(session.userId);
+export function resolveFieldSession(
+  session: FieldSessionToken,
+  identity: {
+    userId: string;
+    organizationId: string;
+    email: string;
+    displayName: string;
+    role: MembershipRole;
+    active: boolean;
+    membershipActive: boolean;
+    sessionVersion: number;
+  } | null,
+): FieldSession | null {
   if (
     !identity ||
     !identity.active ||
@@ -122,4 +125,15 @@ export async function getFieldSession(): Promise<FieldSession | null> {
     displayName: identity.displayName,
     organizationId: identity.organizationId,
   };
+}
+
+export async function getFieldSession(): Promise<FieldSession | null> {
+  const secret = fieldSessionSecret();
+  if (!secret) return null;
+  const store = await cookies();
+  const token = store.get(FIELD_SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = verifyFieldSessionToken(token, secret);
+  if (!session) return null;
+  return resolveFieldSession(session, await getFieldIdentityById(session.userId));
 }

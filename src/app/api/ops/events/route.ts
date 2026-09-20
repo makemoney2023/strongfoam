@@ -14,10 +14,14 @@ export async function GET(request: Request): Promise<Response> {
   const projectId = url.searchParams.get("projectId");
 
   if (jobId && isUuid(jobId) && (await getJob(jobId))) {
-    return createJobEventStream(request, async () => [jobId]);
+    return createJobEventStream(request, async () => {
+      if (!(await getOpsSession())) return null;
+      return [jobId];
+    });
   }
   if (projectId && isUuid(projectId) && (await getProject(projectId))) {
     return createJobEventStream(request, async () => {
+      if (!(await getOpsSession())) return null;
       const jobs = await listJobs({ projectId });
       return jobs.map((job) => job.id);
     });

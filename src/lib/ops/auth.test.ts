@@ -7,6 +7,7 @@ import {
   createOpsSession,
   createUserOpsSession,
   isConfiguredStaffEmail,
+  resolveUserOpsSession,
   signOpsSession,
   verifyOpsSession,
 } from "@/lib/ops/auth";
@@ -82,6 +83,31 @@ describe("ops session tokens", () => {
       ),
     ).toEqual(session);
     expect(canManageUsers(session)).toBe(true);
+  });
+
+  it("rejects revoked or deactivated individual sessions", () => {
+    const identity = {
+      userId: "10101010-1010-4010-8010-101010101010",
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      email: "admin@example.com",
+      displayName: "Admin",
+      passwordHash: "unused",
+      active: true,
+      membershipActive: true,
+      role: "administrator" as const,
+      sessionVersion: 4,
+    };
+    const session = createUserOpsSession(identity, 1_700_000_000_000);
+    expect(resolveUserOpsSession(session, identity)?.displayName).toBe("Admin");
+    expect(
+      resolveUserOpsSession(session, { ...identity, sessionVersion: 5 }),
+    ).toBeNull();
+    expect(
+      resolveUserOpsSession(session, { ...identity, active: false }),
+    ).toBeNull();
+    expect(
+      resolveUserOpsSession(session, { ...identity, role: "field_worker" }),
+    ).toBeNull();
   });
 });
 

@@ -24,6 +24,7 @@ import {
   addDemoCompany,
   addDemoJobDocument,
   addDemoJobFieldNote,
+  addDemoJobPlanAnnotation,
   addDemoJobTaskDependency,
   addDemoJobTask,
   addDemoUser,
@@ -44,6 +45,7 @@ import {
   getDemoUserAssignmentSummary,
   listDemoUserEvents,
   listDemoJobDocuments,
+  listDemoJobPlanAnnotations,
   listDemoJobAssignments,
   listDemoJobEvents,
   listDemoJobFieldNotes,
@@ -64,6 +66,7 @@ import {
   saveDemoProjectScheduleCalendar,
   resetDemoUserPassword,
   revokeDemoUserSessions,
+  setDemoJobPlanAnnotationStatus,
   setDemoJobTaskStatus,
   setDemoUserActive,
   updateDemoEstimateRequest,
@@ -81,6 +84,9 @@ import {
   DEMO_FIELD_EMAIL,
   DEMO_FIELD_USER_ID,
   DEMO_JOB_ID,
+  DEMO_JOB_TASK_ID,
+  DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+  DEMO_PLAN_DOCUMENT_ID,
   DEMO_PROJECT_ID,
 } from "@/lib/ops/demo-data";
 import {
@@ -849,6 +855,74 @@ describe("job workspace", () => {
     });
     expect(quantity?.quantity).toBe(240);
     expect(listDemoJobFieldNotes(DEMO_JOB_ID)[0]?.id).toBe(quantity?.id);
+  });
+
+  it("keeps plan marks on the revision they were drawn on", () => {
+    const seeded = listDemoJobPlanAnnotations(DEMO_JOB_ID, DEMO_PLAN_DOCUMENT_ID);
+    expect(seeded.map((annotation) => annotation.id)).toContain(
+      DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+    );
+    expect(
+      setDemoJobPlanAnnotationStatus({
+        jobId: DEMO_JOB_ID,
+        annotationId: DEMO_PLAN_ASSIGNED_ANNOTATION_ID,
+        actor: DEMO_FIELD_EMAIL,
+        status: "completed",
+        body: "North elevation filled.",
+      }),
+    ).toMatchObject({
+      status: "completed",
+      completedBy: DEMO_FIELD_EMAIL,
+    });
+    const replacement = addDemoJobDocument({
+      jobId: DEMO_JOB_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      input: {
+        filename: "level-2-podium-rev2.png",
+        contentType: "image/png",
+        sizeBytes: 12,
+        kind: "plan",
+        workAreaId: null,
+        replacesDocumentId: DEMO_PLAN_DOCUMENT_ID,
+      },
+      bytes: new Uint8Array([1, 2, 3, 4]),
+    });
+    expect(replacement).toMatchObject({
+      versionNumber: 2,
+      replacesDocumentId: DEMO_PLAN_DOCUMENT_ID,
+      supersededAt: null,
+    });
+    expect(
+      listDemoJobDocuments(DEMO_JOB_ID).find(
+        (document) => document.id === DEMO_PLAN_DOCUMENT_ID,
+      )?.supersededAt,
+    ).toBeInstanceOf(Date);
+    expect(
+      listDemoJobPlanAnnotations(DEMO_JOB_ID, DEMO_PLAN_DOCUMENT_ID).map(
+        (annotation) => annotation.id,
+      ),
+    ).toContain(DEMO_PLAN_ASSIGNED_ANNOTATION_ID);
+    expect(listDemoJobPlanAnnotations(DEMO_JOB_ID, replacement?.id ?? "")).toEqual(
+      [],
+    );
+    expect(
+      addDemoJobPlanAnnotation({
+        jobId: DEMO_JOB_ID,
+        actor: DEMO_ADMIN_EMAIL,
+        input: {
+          documentId: DEMO_PLAN_DOCUMENT_ID,
+          pageNumber: 1,
+          x: 0.2,
+          y: 0.2,
+          kind: "pin",
+          status: "planned",
+          title: "Should stay off superseded sheet",
+          body: null,
+          workAreaId: null,
+          taskId: DEMO_JOB_TASK_ID,
+        },
+      }),
+    ).toBeNull();
   });
 
   it("shares document bytes across module lookups", () => {

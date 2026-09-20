@@ -66,6 +66,7 @@ import {
   formatFileSize,
   jobDocumentHref,
 } from "@/lib/ops/job-workspace";
+import { officePlanHref } from "@/lib/ops/plan-markup";
 import {
   JOB_ASSIGNMENT_ROLES,
   JOB_ASSIGNMENT_ROLE_LABELS,
@@ -860,11 +861,20 @@ export default async function JobDetailPage({
                 <div>
                   <CardTitle>Plans and documents</CardTitle>
                   <CardDescription>
-                    Blueprints, diagrams, and field photos.
+                    Blueprints, diagrams, and field photos. Place pins on the
+                    plan so the crew can tap completed work.
                   </CardDescription>
                 </div>
               </div>
-              <CardAction>
+              <CardAction className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="min-h-11 md:min-h-8"
+                  nativeButton={false}
+                  render={<Link href={officePlanHref(job.id)} />}
+                >
+                  Mark on plan
+                </Button>
                 <FormDialog
                   triggerLabel="Upload file"
                   triggerIcon={<UploadCloudIcon aria-hidden="true" />}
@@ -917,6 +927,18 @@ export default async function JobDetailPage({
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
+                        {document.kind === "plan" ? (
+                          <Button
+                            variant="outline"
+                            className="min-h-11 md:min-h-8"
+                            nativeButton={false}
+                            render={
+                              <Link href={officePlanHref(job.id, document.id)} />
+                            }
+                          >
+                            Marks
+                          </Button>
+                        ) : null}
                         <Button
                           variant="outline"
                           className="min-h-11 md:min-h-8"

@@ -25,17 +25,22 @@ import {
   canFieldUserAccessTask,
   deleteJobFieldNote,
   getJob,
+  getJobPlanAnnotation,
   listJobFieldNotes,
+  setJobPlanAnnotationStatus,
   setJobTaskStatus,
   updateJobFieldNote,
   updateJobStatus,
 } from "@/lib/ops/store";
+import { parsePlanAnnotationStatusInput } from "@/lib/ops/plan-markup";
 
 function refreshField(jobId: string, projectId?: string | null) {
   revalidatePath("/field");
   revalidatePath(`/field/jobs/${jobId}`);
+  revalidatePath(`/field/jobs/${jobId}/plan`);
   revalidatePath("/app/jobs");
   revalidatePath(`/app/jobs/${jobId}`);
+  revalidatePath(`/app/jobs/${jobId}/plan`);
   if (projectId) revalidatePath(`/app/projects/${projectId}`);
 }
 
@@ -283,5 +288,89 @@ export async function uploadFieldDocument(
       : uploaded.length === 1
         ? "Photo uploaded."
         : `${uploaded.length} photos uploaded.`,
+  );
+}
+
+export async function setFieldPlanAnnotationStatus(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const annotationId = String(formData.get("annotationId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/field/jobs/${jobId}/plan`,
+  );
+  const parsed = parsePlanAnnotationStatusInput({
+    status: String(formData.get("status") ?? ""),
+    body: String(formData.get("body") ?? ""),
+  });
+  if (!jobId || !annotationId) return fail(returnTo, "Missing plan mark.");
+  if (!parsed.ok) return invalidFrom(parsed);
+  if (!(await canFieldUserAccessJob(session.userId, jobId))) {
+    return fail("/field", "You do not have access to that job.");
+  }
+  const existing = await getJobPlanAnnotation(jobId, annotationId);
+  if (!existing || existing.voidedAt) {
+    return fail(returnTo, "That mark is no longer on this plan.");
+  }
+  if (
+    existing.taskId &&
+    !(await canFieldUserAccessTask(session.userId, jobId, existing.taskId))
+  ) {
+    return fail(returnTo, "You can only update marks assigned to you.");
+  }
+
+  const annotation = await setJobPlanAnnotationStatus({
+    jobId,
+    annotationId,
+    actor: session.email,
+    status: parsed.value.status,
+    body: parsed.value.body ?? existing.body,
+  });
+  if (!annotation) return fail(returnTo, "That mark could not be updated.");
+
+  if (annotation.taskId) {
+    await setJobTaskStatus({
+      jobId,
+      taskId: annotation.taskId,
+      actor: session.email,
+      status: parsed.value.status === "completed" ? "done" : "open",
+    });
+  }
+
+  if (parsed.value.body) {
+    await addJobFieldNote({
+      jobId,
+      actor: session.email,
+      input: {
+        kind: parsed.value.status === "blocked" ? "blocker" : "note",
+        body: parsed.value.body,
+        workAreaId: annotation.workAreaId,
+        taskId: annotation.taskId,
+        annotationId: annotation.id,
+        quantity: null,
+        unit: null,
+      },
+    });
+  }
+
+  if (parsed.value.status === "blocked") {
+    await updateJobStatus({
+      jobId,
+      actor: session.email,
+      status: "blocked",
+      blockerNote: parsed.value.body || annotation.title,
+    });
+  }
+
+  const job = await getJob(jobId);
+  refreshField(jobId, job?.projectId);
+  return succeed(
+    returnTo,
+    parsed.value.status === "completed"
+      ? `${annotation.title} marked complete.`
+      : `${annotation.title} updated.`,
   );
 }

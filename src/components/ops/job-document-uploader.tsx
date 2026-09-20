@@ -104,12 +104,14 @@ export function JobDocumentUploader({
   storageMode,
   defaultKind = "plan",
   returnTo,
+  replacesDocumentId,
 }: {
   jobId: string;
   areas: AreaOption[];
   storageMode: StorageMode;
   defaultKind?: "plan" | "photo" | "other";
   returnTo?: string;
+  replacesDocumentId?: string;
 }) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -137,6 +139,13 @@ export function JobDocumentUploader({
       <ActionForm action={uploadJobDocument} className="space-y-4">
         <input type="hidden" name="jobId" value={jobId} />
         {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+        {replacesDocumentId ? (
+          <input
+            type="hidden"
+            name="replacesDocumentId"
+            value={replacesDocumentId}
+          />
+        ) : null}
         <UploadFields areas={areas} defaultKind={defaultKind} />
         <SubmitButton className="min-h-11" pendingLabel="Uploading…">
           <UploadCloudIcon aria-hidden="true" />
@@ -178,6 +187,7 @@ export function JobDocumentUploader({
           sizeBytes: file.size,
           kind: String(data.get("kind") ?? "plan"),
           workAreaId: String(data.get("workAreaId") ?? ""),
+          replacesDocumentId: String(data.get("replacesDocumentId") ?? ""),
         });
         if (!parsed.ok) {
           failed.push(`${file.name}: ${parsed.error}`);
@@ -193,6 +203,7 @@ export function JobDocumentUploader({
             workAreaId: parsed.value.workAreaId,
             kind: parsed.value.kind,
             filename: parsed.value.filename,
+            replacesDocumentId: parsed.value.replacesDocumentId ?? null,
           }),
           onUploadProgress: ({ percentage }) => {
             const overall = ((index + percentage / 100) / files.length) * 100;

@@ -85,6 +85,13 @@
       "when": 1758316500000,
       "tag": "0011_schedule_calendar_default",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1758400000000,
+      "tag": "0012_plan_annotations",
+      "breakpoints": true
     }
   ]
 }

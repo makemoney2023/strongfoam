@@ -7,9 +7,10 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function GET(request: Request): Promise<Response> {
-  const session = await getFieldSession();
-  if (!session) return new Response(null, { status: 401 });
+  if (!(await getFieldSession())) return new Response(null, { status: 401 });
   return createJobEventStream(request, async () => {
+    const session = await getFieldSession();
+    if (!session) return null;
     const jobs = await listJobs({ fieldUserId: session.userId });
     return jobs.map((job) => job.id);
   });

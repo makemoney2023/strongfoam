@@ -50,7 +50,7 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createJobEventStream(
   request: Request,
-  getJobIds: () => Promise<string[]>,
+  getJobIds: () => Promise<string[] | null>,
 ): Response {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -75,7 +75,16 @@ export function createJobEventStream(
           !request.signal.aborted &&
           Date.now() - startedAt < STREAM_WINDOW_MS
         ) {
-          const jobIds = [...new Set(await getJobIds())].sort();
+          const jobIdsOrNull = await getJobIds();
+          if (jobIdsOrNull === null) {
+            send(
+              "unauthorized",
+              { at: new Date().toISOString() },
+              encodeEventId(cursor, previousJobIds ?? []),
+            );
+            break;
+          }
+          const jobIds = [...new Set(jobIdsOrNull)].sort();
           const eventId = () => encodeEventId(cursor, jobIds);
           if (!readySent) {
             send(

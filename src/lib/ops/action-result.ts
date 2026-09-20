@@ -23,7 +23,11 @@ export function safeReturnTo(value: string, fallback: string): string {
     const parsed = new URL(value, "https://strongfoam.local");
     if (
       parsed.origin !== "https://strongfoam.local" ||
-      !parsed.pathname.startsWith("/app/")
+      !(
+        parsed.pathname.startsWith("/app/") ||
+        parsed.pathname === "/field" ||
+        parsed.pathname.startsWith("/field/")
+      )
     ) {
       return fallback;
     }

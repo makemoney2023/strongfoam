@@ -24,6 +24,7 @@ type JobUploadPayload = {
   kind: string;
   filename: string;
   actor: string;
+  replacesDocumentId: string | null;
 };
 
 function parsePayload(value: string | null): JobUploadPayload | null {
@@ -31,6 +32,7 @@ function parsePayload(value: string | null): JobUploadPayload | null {
     const payload = JSON.parse(value ?? "{}") as Partial<JobUploadPayload>;
     const filename = sanitizeJobDocumentFilename(payload.filename ?? "");
     const workAreaId = payload.workAreaId?.trim() || null;
+    const replacesDocumentId = payload.replacesDocumentId?.trim() || null;
     if (
       typeof payload.jobId !== "string" ||
       !isUuid(payload.jobId) ||
@@ -38,6 +40,7 @@ function parsePayload(value: string | null): JobUploadPayload | null {
       typeof payload.kind !== "string" ||
       !isJobDocumentKind(payload.kind) ||
       (workAreaId !== null && !isUuid(workAreaId)) ||
+      (replacesDocumentId !== null && !isUuid(replacesDocumentId)) ||
       typeof payload.actor !== "string" ||
       !payload.actor
     ) {
@@ -49,6 +52,7 @@ function parsePayload(value: string | null): JobUploadPayload | null {
       kind: payload.kind,
       filename,
       actor: payload.actor,
+      replacesDocumentId,
     };
   } catch {
     return null;
@@ -157,6 +161,7 @@ export async function handleJobUploadPost(
           sizeBytes: metadata.size,
           kind: payload.kind,
           workAreaId: payload.workAreaId ?? "",
+          replacesDocumentId: payload.replacesDocumentId ?? "",
         });
         if (!parsed.ok) throw new Error("invalid_job_document");
 
