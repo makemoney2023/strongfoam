@@ -102,7 +102,7 @@ export default async function JobPlanPage({
                 storageMode={storageMode}
                 defaultKind="plan"
                 replacesDocumentId={selected.id}
-                returnTo={returnTo}
+                returnTo={officePlanHref(job.id)}
               />
             </FormDialog>
           ) : null
