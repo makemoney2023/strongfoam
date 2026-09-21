@@ -1407,6 +1407,20 @@ function recordJobEvent(args: {
   });
 }
 
+export function recordDemoScheduleDiffAccepted(args: {
+  jobId: string;
+  actor: string;
+  noteId: string;
+}) {
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "schedule_diff_accepted",
+    summary: "schedule diff accepted",
+    payload: { noteId: args.noteId },
+  });
+}
+
 export function recordDemoAiJobEvent(args: {
   jobId: string;
   actor: string;
@@ -3419,6 +3433,37 @@ export function updateDemoVoiceTranscript(args: {
     kind: "voice_note_updated",
     summary: `voice transcript edited: ${note.filename}`,
     payload: { voiceNoteId: note.id },
+  });
+  return note;
+}
+
+export function attachDemoVoiceNoteToPlanMark(args: {
+  jobId: string;
+  voiceNoteId: string;
+  annotationId: string;
+  documentId: string;
+  taskId: string | null;
+  actor: string;
+}): JobVoiceNoteRow | null {
+  const note = getDemoJobVoiceNote(args.jobId, args.voiceNoteId);
+  const mark = jobPlanAnnotations.find(
+    (annotation) =>
+      annotation.id === args.annotationId &&
+      annotation.jobId === args.jobId &&
+      !annotation.voidedAt,
+  );
+  if (!note || !mark) return null;
+  note.annotationId = mark.id;
+  note.documentId = args.documentId;
+  note.taskId = args.taskId;
+  note.source = "annotation";
+  note.updatedAt = new Date();
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_attached",
+    summary: `voice note attached: ${note.filename}`,
+    payload: { voiceNoteId: note.id, annotationId: mark.id },
   });
   return note;
 }

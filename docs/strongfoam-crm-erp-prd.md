@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.15
+**Version:** 1.16
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -85,9 +85,11 @@ daily-log entry. Office users can request a cited job summary (AI-008),
 draft a daily report that saves only after confirm (AI-009), and review the
 Home exception queue (AI-013). Field users get a read-only morning brief
 (AI-010). Office users can copy a material pick list (AI-015) and review
-deficiencies grouped by sheet (AI-020). AI-011, AI-012, AI-014, and AI-016
-through AI-026 remain specified and are not built. AI-014 waits until an
-open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
+deficiencies grouped by sheet (AI-020). A completed transcript can place one
+pin on the current plan after confirm (AI-011). A blocker or quantity note
+can propose a one-working-day schedule slip that accepts through the existing
+reschedule (AI-012). AI-014 and AI-016 through AI-026 remain specified and
+are not built. AI-014 waits until an open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
@@ -1505,8 +1507,8 @@ deletable by ordinary application roles.
 
 ### 24.9 AI rollout
 
-1. Release A on current records: AI-008, AI-009, AI-010, AI-013, AI-015, and
-   AI-020 are shipped. Still open in Release A: AI-011, AI-012, and AI-014.
+1. Release A on current records: AI-008, AI-009, AI-010, AI-011, AI-012,
+   AI-013, AI-015, and AI-020 are shipped. Still open in Release A: AI-014.
    AI-014 waits until an open task stores a stated quantity.
 2. Release B after the commercial records exist: AI-016 through AI-019 and
    AI-021. The agent drafts scope and quantity. A person sets price and
@@ -1539,8 +1541,8 @@ These boundaries apply to every ID:
 | AI-008 | Cited job summary | A | Shipped | Office session and a model configuration |
 | AI-009 | Daily report draft | A | Shipped | AI-008 evidence pack |
 | AI-010 | Morning field brief | A | Shipped | After AI-008 cites the right records |
-| AI-011 | Speak onto the plan | A | Ready | After AI-009 confirmation works |
-| AI-012 | Schedule diff from field truth | A | Ready | After AI-011; uses the existing reschedule confirm |
+| AI-011 | Speak onto the plan | A | Shipped | After AI-009 confirmation works |
+| AI-012 | Schedule diff from field truth | A | Shipped | After AI-011; uses the existing reschedule confirm |
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
 | AI-014 | Quantity pace warning | A | Blocked | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
@@ -1570,14 +1572,18 @@ the existing field-note command. Dismissing the draft saves nothing.
 assigned tasks, current plan revision, open blockers, and material already
 requested. The brief is read-only and cites those records.
 
-**AI-011:** A confirmed utterance on the current plan sheet creates the plan
-mark, keeps the transcript, and updates the linked task in one audited
-command. The user sees the exact effect before confirm.
+**AI-011:** A completed transcript on the current plan sheet can propose one
+pin at the center of page 1. The office user sees the exact effect first.
+Confirming places that pin through the existing plan-mark command and attaches
+the existing voice note. Preview writes nothing. This command does not change
+the linked task's status or dates.
 
-**AI-012:** When a blocker or missed quantity implies a schedule slip, the
-agent proposes the dependent task moves, the slip, and the variance to the
-latest baseline. Accepting the proposal uses the existing confirmed reschedule
-path. The agent does not drag the schedule itself.
+**AI-012:** A blocker or quantity note linked to a task that already has
+planned dates can propose a one-working-day slip. Finish-to-start successors
+move only when the slip would start them too early. Accepting calls the
+existing reschedule once per moved task and records that the note was
+accepted, so the same note does not propose another slip. Rejecting writes
+nothing. The proposal does not calculate variance against a baseline.
 
 **AI-013:** Home shows a review list, in addition to the existing attention
 counts, for missing daily logs on active field jobs, failed voice
@@ -1787,9 +1793,9 @@ policy and human review.
 1. Release A on current records: cited job summary (AI-008), daily-report
    draft (AI-009), and the exception queue (AI-013) (done).
 2. Continue Release A: morning brief (AI-010, done), material pick list
-   (AI-015, done), and deficiencies by sheet (AI-020, done). Still open:
-   speak onto the plan (AI-011), schedule diff (AI-012), and quantity pace
-   (AI-014, blocked until tasks store a stated quantity).
+   (AI-015, done), deficiencies by sheet (AI-020, done), speak onto the plan
+   (AI-011, done), and schedule diff (AI-012, done). Still open: quantity
+   pace (AI-014, blocked until tasks store a stated quantity).
 3. Add reversible direct task updates with confirmation and undo.
 4. Add exact-diff approvals for proactive and multi-record actions.
 5. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
@@ -1891,11 +1897,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Track AI-008 through AI-026 and build Release A before commercial AI | Cited summaries, daily-report drafts, and the current-record exception queue use data the app already stores. Scope, price, change orders, embeddings, dispatch, photo deficiencies, warranty triage, and cost explanation wait on the records named in section 24.10. Geometric takeoff, generated prices, and autonomous safety sign-off stay out |
 | 2026-09-21 | Ship AI-008, AI-009, and AI-013 on the Vercel AI Gateway | Office users get a cited job summary, a daily-report draft that saves only after confirm, and a Home exception list. Demo mode and a missing gateway key never call the network. AI-010 through AI-026 stay unimplemented |
 | 2026-09-21 | Add the morning brief, material pick list, and deficiencies by sheet | Field users see today's assignment, plan, blockers, and material requests. Office users can copy open material requests and review deficiencies grouped by sheet. Quantity pace waits until a task stores a stated quantity |
+| 2026-09-21 | Let a completed transcript propose one plan pin, and let a blocker or quantity note propose a one-working-day schedule slip | Confirm uses the existing plan-mark and reschedule commands. Preview and reject write nothing. Quantity pace still waits on a stated task quantity |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.16 | 2026-09-21 | Shipped AI-011 speak onto the plan and AI-012 schedule diff. AI-014 stays blocked until tasks store a stated quantity |
 | 1.15 | 2026-09-21 | Shipped AI-010 morning brief, AI-015 material pick list, and AI-020 deficiencies by sheet. AI-014 stays blocked until tasks store a stated quantity |
 | 1.14 | 2026-09-21 | Shipped AI-008 cited job summary, AI-009 confirmed daily-report draft, and AI-013 Home exception queue |
 | 1.13 | 2026-09-21 | Added AI-008 through AI-026 so field, commercial, and later platform AI can be tracked, and specified Release A |

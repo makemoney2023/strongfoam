@@ -104,10 +104,12 @@ import {
   listDemoJobVoiceNotes,
   processDemoVoiceTranscription,
   updateDemoVoiceTranscript,
+  attachDemoVoiceNoteToPlanMark,
   listDemoJobEvents,
   listDemoJobEventsSince,
   listDemoHomeExceptionSource,
   recordDemoAiJobEvent,
+  recordDemoScheduleDiffAccepted,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
@@ -3462,6 +3464,25 @@ export async function addJobFieldNote(args: {
   return note;
 }
 
+export async function recordScheduleDiffAccepted(args: {
+  jobId: string;
+  actor: string;
+  noteId: string;
+}): Promise<void> {
+  if (isDemoOpsStore()) {
+    recordDemoScheduleDiffAccepted(args);
+    return;
+  }
+  const db = getDb();
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "schedule_diff_accepted",
+    summary: "schedule diff accepted",
+    payload: { noteId: args.noteId },
+  });
+}
+
 export async function recordAiJobEvent(args: {
   jobId: string;
   actor: string;
@@ -3795,6 +3816,43 @@ export async function processJobVoiceTranscription(
     )[0];
     return failed ?? claimed;
   }
+}
+
+export async function attachJobVoiceNoteToPlanMark(args: {
+  jobId: string;
+  voiceNoteId: string;
+  annotationId: string;
+  documentId: string;
+  taskId: string | null;
+  actor: string;
+}): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return attachDemoVoiceNoteToPlanMark(args);
+  const db = getDb();
+  const mark = await getJobPlanAnnotation(args.jobId, args.annotationId);
+  if (!mark || mark.voidedAt) return null;
+  const rows = await db
+    .update(jobVoiceNotes)
+    .set({
+      annotationId: mark.id,
+      documentId: args.documentId,
+      taskId: args.taskId,
+      source: "annotation",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(jobVoiceNotes.id, args.voiceNoteId), eq(jobVoiceNotes.jobId, args.jobId)),
+    )
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_attached",
+    summary: `voice note attached: ${note.filename}`,
+    payload: { voiceNoteId: note.id, annotationId: mark.id },
+  });
+  return note;
 }
 
 export async function updateJobVoiceTranscript(args: {
