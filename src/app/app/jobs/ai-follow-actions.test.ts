@@ -260,5 +260,16 @@ describe("plan voice and schedule diff actions", () => {
       ),
     ).toBe(addWorkingDays(beforeEnd!, 1, DEFAULT_WORKING_CALENDAR));
     expect(after?.dueAt?.toISOString()).toBe(beforeDueIso);
+    const again = await acceptScheduleDiff(DEMO_JOB_ID, note!.id);
+    expect(again).toEqual({
+      ok: false,
+      error: "That schedule suggestion was already accepted.",
+    });
+    const stayed = listDemoJobTasks(DEMO_JOB_ID).find(
+      (task) => task.id === DEMO_JOB_TASK_ID,
+    );
+    expect(stayed?.plannedStartAt?.toISOString()).toBe(
+      after?.plannedStartAt?.toISOString(),
+    );
   });
 });

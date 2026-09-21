@@ -1581,8 +1581,9 @@ the linked task's status or dates.
 **AI-012:** A blocker or quantity note linked to a task that already has
 planned dates can propose a one-working-day slip. Finish-to-start successors
 move only when the slip would start them too early. Accepting calls the
-existing reschedule once per moved task. Rejecting writes nothing. The
-proposal does not calculate variance against a baseline.
+existing reschedule once per moved task and records that the note was
+accepted, so the same note does not propose another slip. Rejecting writes
+nothing. The proposal does not calculate variance against a baseline.
 
 **AI-013:** Home shows a review list, in addition to the existing attention
 counts, for missing daily logs on active field jobs, failed voice

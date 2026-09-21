@@ -6,17 +6,22 @@ import { getOpsSession, type OpsSession } from "@/lib/ops/auth";
 import { isOfficeMembershipRole } from "@/lib/ops/identity";
 import { parsePlanAnnotationInput, isCurrentPlanDocument } from "@/lib/ops/plan-markup";
 import { proposeSpokenPlanMark, type SpokenPlanProposal } from "@/lib/ops/spoken-plan-mark";
-import { proposeScheduleDiff } from "@/lib/ops/schedule-diff";
+import {
+  acceptedScheduleDiffNoteId,
+  proposeScheduleDiff,
+} from "@/lib/ops/schedule-diff";
 import {
   addJobPlanAnnotation,
   attachJobVoiceNoteToPlanMark,
   getJob,
   getJobVoiceNote,
   listJobDocuments,
+  listJobEvents,
   listJobFieldNotes,
   listJobTasks,
   listProjectJobTasks,
   listProjectTaskDependencies,
+  recordScheduleDiffAccepted,
   rescheduleJobTask,
   resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
@@ -112,12 +117,16 @@ export async function acceptScheduleDiff(
   const session = await requireOfficeSession();
   const job = await getJob(jobId);
   if (!job?.projectId) return { ok: false, error: "That job has no project schedule." };
-  const [notes, taskResult, dependencyResult, calendar] = await Promise.all([
+  const [notes, events, taskResult, dependencyResult, calendar] = await Promise.all([
     listJobFieldNotes(jobId),
+    listJobEvents(jobId),
     listProjectJobTasks(job.projectId),
     listProjectTaskDependencies(job.projectId),
     resolveProjectScheduleCalendar(job.projectId),
   ]);
+  if (events.some((event) => acceptedScheduleDiffNoteId(event) === noteId)) {
+    return { ok: false, error: "That schedule suggestion was already accepted." };
+  }
   const note = notes.find((item) => item.id === noteId);
   if (!note) return { ok: false, error: "That field note could not be found." };
   const proposal = proposeScheduleDiff({
@@ -142,6 +151,11 @@ export async function acceptScheduleDiff(
     });
     if (!result.ok) return result;
   }
+  await recordScheduleDiffAccepted({
+    jobId,
+    actor: session.email,
+    noteId,
+  });
   revalidatePath(`/app/jobs/${jobId}`);
   revalidatePath(`/app/projects/${job.projectId}`);
   return { ok: true, effect: proposal.effect };

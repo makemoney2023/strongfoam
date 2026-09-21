@@ -58,7 +58,10 @@ import {
   formatFieldQuantity,
 } from "@/lib/ops/field-workspace";
 import { buildMaterialPickList } from "@/lib/ops/material-pick-list";
-import { proposeScheduleDiff } from "@/lib/ops/schedule-diff";
+import {
+  acceptedScheduleDiffNoteId,
+  proposeScheduleDiff,
+} from "@/lib/ops/schedule-diff";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUSES,
@@ -234,6 +237,12 @@ export default async function JobDetailPage({
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
   const materialPickList = buildMaterialPickList(materialNotes);
+  const acceptedScheduleNotes = new Set(
+    events.flatMap((event) => {
+      const noteId = acceptedScheduleDiffNoteId(event);
+      return noteId ? [noteId] : [];
+    }),
+  );
   const scheduleProposals =
     projectTasks &&
     projectDependencies &&
@@ -241,6 +250,7 @@ export default async function JobDetailPage({
     !projectTasks.truncated &&
     !projectDependencies.truncated
       ? scheduleNotes.flatMap((note) => {
+          if (acceptedScheduleNotes.has(note.id)) return [];
           const proposal = proposeScheduleDiff({
             note,
             tasks: projectTasks.tasks,

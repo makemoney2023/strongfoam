@@ -28,6 +28,16 @@ export type ScheduleMove = {
   beforeEnd: string;
 };
 
+export function acceptedScheduleDiffNoteId(event: {
+  kind: string;
+  payload: unknown;
+}): string | null {
+  if (event.kind !== "schedule_diff_accepted") return null;
+  if (!event.payload || typeof event.payload !== "object") return null;
+  const noteId = (event.payload as { noteId?: unknown }).noteId;
+  return typeof noteId === "string" ? noteId : null;
+}
+
 export type ScheduleDiffProposal = {
   noteId: string;
   kind: "blocker" | "quantity";

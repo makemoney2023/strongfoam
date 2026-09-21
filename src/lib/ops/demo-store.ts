@@ -1407,6 +1407,20 @@ function recordJobEvent(args: {
   });
 }
 
+export function recordDemoScheduleDiffAccepted(args: {
+  jobId: string;
+  actor: string;
+  noteId: string;
+}) {
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "schedule_diff_accepted",
+    summary: "schedule diff accepted",
+    payload: { noteId: args.noteId },
+  });
+}
+
 export function recordDemoAiJobEvent(args: {
   jobId: string;
   actor: string;

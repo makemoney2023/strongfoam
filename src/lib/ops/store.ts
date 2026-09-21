@@ -109,6 +109,7 @@ import {
   listDemoJobEventsSince,
   listDemoHomeExceptionSource,
   recordDemoAiJobEvent,
+  recordDemoScheduleDiffAccepted,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
@@ -3461,6 +3462,25 @@ export async function addJobFieldNote(args: {
     },
   });
   return note;
+}
+
+export async function recordScheduleDiffAccepted(args: {
+  jobId: string;
+  actor: string;
+  noteId: string;
+}): Promise<void> {
+  if (isDemoOpsStore()) {
+    recordDemoScheduleDiffAccepted(args);
+    return;
+  }
+  const db = getDb();
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "schedule_diff_accepted",
+    summary: "schedule diff accepted",
+    payload: { noteId: args.noteId },
+  });
 }
 
 export async function recordAiJobEvent(args: {
