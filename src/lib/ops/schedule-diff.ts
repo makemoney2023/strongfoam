@@ -195,3 +195,94 @@ export function proposeScheduleDiff(input: {
     moves,
   };
 }
+
+export type ScheduleDiffApproval = {
+  noteId: string;
+  effect: string;
+  moves: Array<
+    Pick<
+      ScheduleMove,
+      | "taskId"
+      | "jobId"
+      | "plannedStartAt"
+      | "plannedEndAt"
+      | "dueAt"
+      | "expectedUpdatedAt"
+      | "beforeStart"
+      | "beforeEnd"
+    >
+  >;
+};
+
+function sameMove(
+  move: ScheduleMove,
+  approved: ScheduleDiffApproval["moves"][number],
+): boolean {
+  return (
+    move.taskId === approved.taskId &&
+    move.jobId === approved.jobId &&
+    move.plannedStartAt === approved.plannedStartAt &&
+    move.plannedEndAt === approved.plannedEndAt &&
+    move.dueAt === approved.dueAt &&
+    move.expectedUpdatedAt === approved.expectedUpdatedAt &&
+    move.beforeStart === approved.beforeStart &&
+    move.beforeEnd === approved.beforeEnd
+  );
+}
+
+export function scheduleDiffMatchesApproval(
+  proposal: ScheduleDiffProposal,
+  approval: ScheduleDiffApproval,
+): boolean {
+  if (proposal.noteId !== approval.noteId || proposal.effect !== approval.effect) {
+    return false;
+  }
+  if (proposal.moves.length !== approval.moves.length) return false;
+  return proposal.moves.every((move, index) => {
+    const approved = approval.moves[index];
+    return approved ? sameMove(move, approved) : false;
+  });
+}
+
+export async function applyApprovedScheduleMoves(
+  moves: ScheduleMove[],
+  applyMove: (
+    move: ScheduleMove,
+    dates: {
+      plannedStartAt: string;
+      plannedEndAt: string;
+      dueAt: string | null;
+      expectedUpdatedAt: string;
+    },
+  ) => Promise<{ ok: true; updatedAt: string } | { ok: false; error: string }>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const applied: Array<{ move: ScheduleMove; updatedAt: string }> = [];
+  for (const move of moves) {
+    const result = await applyMove(move, {
+      plannedStartAt: move.plannedStartAt,
+      plannedEndAt: move.plannedEndAt,
+      dueAt: move.dueAt,
+      expectedUpdatedAt: move.expectedUpdatedAt,
+    });
+    if (!result.ok) {
+      for (const prior of [...applied].reverse()) {
+        const restored = await applyMove(prior.move, {
+          plannedStartAt: prior.move.beforeStart,
+          plannedEndAt: prior.move.beforeEnd,
+          dueAt: prior.move.dueAt,
+          expectedUpdatedAt: prior.updatedAt,
+        });
+        if (!restored.ok) {
+          return {
+            ok: false,
+            error:
+              "Part of that schedule moved and could not be restored. Refresh and review the dates.",
+          };
+        }
+      }
+      return result;
+    }
+    applied.push({ move, updatedAt: result.updatedAt });
+  }
+  return { ok: true };
+}

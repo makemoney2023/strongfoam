@@ -268,15 +268,7 @@ export default async function JobDetailPage({
             edges: projectDependencies.edges,
             calendar: scheduleCalendar,
           });
-          return proposal
-            ? [
-                {
-                  noteId: proposal.noteId,
-                  kind: proposal.kind,
-                  effect: proposal.effect,
-                },
-              ]
-            : [];
+          return proposal ? [proposal] : [];
         })
       : [];
   const completedTasks = tasks.filter((task) => task.status === "done").length;

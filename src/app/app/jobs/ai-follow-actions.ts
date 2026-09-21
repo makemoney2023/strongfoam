@@ -8,7 +8,10 @@ import { parsePlanAnnotationInput, isCurrentPlanDocument } from "@/lib/ops/plan-
 import { proposeSpokenPlanMark, type SpokenPlanProposal } from "@/lib/ops/spoken-plan-mark";
 import {
   acceptedScheduleDiffNoteId,
+  applyApprovedScheduleMoves,
   proposeScheduleDiff,
+  scheduleDiffMatchesApproval,
+  type ScheduleDiffApproval,
 } from "@/lib/ops/schedule-diff";
 import {
   addJobPlanAnnotation,
@@ -116,8 +119,7 @@ export async function confirmSpokenPlanMark(
 
 export async function acceptScheduleDiff(
   jobId: string,
-  noteId: string,
-  expectedEffect: string,
+  approval: ScheduleDiffApproval,
 ): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
   const session = await requireOfficeSession();
   const job = await getJob(jobId);
@@ -129,10 +131,10 @@ export async function acceptScheduleDiff(
     listProjectTaskDependencies(job.projectId),
     resolveProjectScheduleCalendar(job.projectId),
   ]);
-  if (events.some((event) => acceptedScheduleDiffNoteId(event) === noteId)) {
+  if (events.some((event) => acceptedScheduleDiffNoteId(event) === approval.noteId)) {
     return { ok: false, error: "That schedule suggestion was already accepted." };
   }
-  const note = notes.find((item) => item.id === noteId);
+  const note = notes.find((item) => item.id === approval.noteId);
   if (!note) return { ok: false, error: "That field note could not be found." };
   const proposal = proposeScheduleDiff({
     note,
@@ -143,26 +145,28 @@ export async function acceptScheduleDiff(
   if (!proposal) {
     return { ok: false, error: "That note does not have an allowed schedule move." };
   }
-  if (proposal.effect !== expectedEffect) {
+  if (!scheduleDiffMatchesApproval(proposal, approval)) {
     return { ok: false, error: "That schedule changed. Refresh and try again." };
   }
-  for (const move of proposal.moves) {
+  const applied = await applyApprovedScheduleMoves(proposal.moves, async (move, dates) => {
     const result = await rescheduleJobTask({
-      projectId: job.projectId,
+      projectId: job.projectId!,
       jobId: move.jobId,
       taskId: move.taskId,
-      plannedStartAt: new Date(move.plannedStartAt),
-      plannedEndAt: new Date(move.plannedEndAt),
-      dueAt: move.dueAt ? new Date(move.dueAt) : null,
-      expectedUpdatedAt: new Date(move.expectedUpdatedAt),
+      plannedStartAt: new Date(dates.plannedStartAt),
+      plannedEndAt: new Date(dates.plannedEndAt),
+      dueAt: dates.dueAt ? new Date(dates.dueAt) : null,
+      expectedUpdatedAt: new Date(dates.expectedUpdatedAt),
       actor: session.email,
     });
     if (!result.ok) return result;
-  }
+    return { ok: true, updatedAt: result.task.updatedAt.toISOString() };
+  });
+  if (!applied.ok) return applied;
   await recordScheduleDiffAccepted({
     jobId,
     actor: session.email,
-    noteId,
+    noteId: approval.noteId,
   });
   revalidatePath(`/app/jobs/${jobId}`);
   revalidatePath(`/app/projects/${job.projectId}`);
