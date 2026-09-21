@@ -62,8 +62,10 @@ describe("job AI gateway", () => {
     delete process.env.OPS_DEMO;
     process.env.AI_GATEWAY_API_KEY = "test-key";
     process.env.AI_GATEWAY_MODEL = "test-model";
-    const fetchImpl = vi.fn(async () =>
-      new Response(
+    let requestBody = "";
+    const fetchImpl = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      requestBody = String(init?.body ?? "");
+      return new Response(
         JSON.stringify({
           choices: [
             {
@@ -87,8 +89,8 @@ describe("job AI gateway", () => {
           ],
         }),
         { status: 200 },
-      ),
-    );
+      );
+    });
     const result = await requestJobAi({
       pack,
       purpose: "summary",
@@ -99,7 +101,7 @@ describe("job AI gateway", () => {
     expect(result.bullets.map((bullet) => bullet.text)).toEqual(["Real task."]);
     expect(result.provider).toBe("vercel-ai-gateway");
     expect(result.model).toBe("test-model");
-    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    const body = JSON.parse(requestBody);
     expect(body.messages[0].content).toContain("what is missing");
   });
 

@@ -133,7 +133,9 @@ export default async function FieldJobPage({
       listJobFieldNotes(job.id),
       listJobTasks(job.id),
       listJobDocuments(job.id, { kind: "plan" }),
-      resolveProjectScheduleCalendar(job.projectId),
+      job.projectId
+        ? resolveProjectScheduleCalendar(job.projectId)
+        : Promise.resolve(null),
     ]);
   const hasJobAssignment = assignments.some(
     (assignment) => assignment.userId === session.userId,
@@ -168,7 +170,7 @@ export default async function FieldJobPage({
     jobId: job.id,
     userId: session.userId,
     now: getOpsNow(),
-    timeZone: calendar.timeZone,
+    timeZone: calendar?.timeZone,
     siteLabel: site
       ? `${site.name} · ${site.city}${site.province === "ON" ? ", ON" : ""}`
       : null,

@@ -1456,7 +1456,9 @@ export function listDemoHomeExceptionSource(): {
       name: job.name,
       status: job.status,
       updatedAt: job.updatedAt,
-      timeZone: resolveDemoProjectScheduleCalendar(job.projectId).timeZone,
+      timeZone: job.projectId
+        ? resolveDemoProjectScheduleCalendar(job.projectId).timeZone
+        : "America/Toronto",
     })),
     tasks: jobTasks
       .filter((task) => task.status !== "done")

@@ -59,7 +59,9 @@ async function loadJobEvidence(jobId: string): Promise<JobEvidencePack | null> {
       listJobEvents(jobId),
       listJobPlanAnnotations(jobId),
       listJobDocuments(jobId),
-      resolveProjectScheduleCalendar(job.projectId),
+      job.projectId
+        ? resolveProjectScheduleCalendar(job.projectId)
+        : Promise.resolve(null),
     ]);
   const currentPlans = new Set(
     documents
@@ -114,7 +116,7 @@ async function loadJobEvidence(jobId: string): Promise<JobEvidencePack | null> {
       createdAt: event.createdAt,
     })),
     now: getOpsNow(),
-    timeZone: calendar.timeZone,
+    timeZone: calendar?.timeZone,
   });
 }
 
