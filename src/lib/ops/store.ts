@@ -104,6 +104,7 @@ import {
   listDemoJobVoiceNotes,
   processDemoVoiceTranscription,
   updateDemoVoiceTranscript,
+  attachDemoVoiceNoteToPlanMark,
   listDemoJobEvents,
   listDemoJobEventsSince,
   listDemoHomeExceptionSource,
@@ -3795,6 +3796,43 @@ export async function processJobVoiceTranscription(
     )[0];
     return failed ?? claimed;
   }
+}
+
+export async function attachJobVoiceNoteToPlanMark(args: {
+  jobId: string;
+  voiceNoteId: string;
+  annotationId: string;
+  documentId: string;
+  taskId: string | null;
+  actor: string;
+}): Promise<JobVoiceNoteRow | null> {
+  if (isDemoOpsStore()) return attachDemoVoiceNoteToPlanMark(args);
+  const db = getDb();
+  const mark = await getJobPlanAnnotation(args.jobId, args.annotationId);
+  if (!mark || mark.voidedAt) return null;
+  const rows = await db
+    .update(jobVoiceNotes)
+    .set({
+      annotationId: mark.id,
+      documentId: args.documentId,
+      taskId: args.taskId,
+      source: "annotation",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(jobVoiceNotes.id, args.voiceNoteId), eq(jobVoiceNotes.jobId, args.jobId)),
+    )
+    .returning();
+  const note = rows[0];
+  if (!note) return null;
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_attached",
+    summary: `voice note attached: ${note.filename}`,
+    payload: { voiceNoteId: note.id, annotationId: mark.id },
+  });
+  return note;
 }
 
 export async function updateJobVoiceTranscript(args: {

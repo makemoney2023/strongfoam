@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { JobDocumentUploader } from "@/components/ops/job-document-uploader";
 import { JobPlanBoard } from "@/components/ops/job-plan-board";
+import { SpeakOntoPlan } from "@/components/ops/speak-onto-plan";
 import { FormDialog } from "@/components/ops/form-dialog";
 import { NativeSelect } from "@/components/ops/native-select";
 import { PageHeader } from "@/components/ops/page-header";
@@ -25,6 +26,7 @@ import {
   listJobFieldNotes,
   listJobPlanAnnotations,
   listJobTasks,
+  listJobVoiceNotes,
   listWorkAreas,
 } from "@/lib/ops/store";
 
@@ -43,13 +45,19 @@ export default async function JobPlanPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [documents, areas, tasks, notes, marks] = await Promise.all([
+  const [documents, areas, tasks, notes, marks, voiceNotes] = await Promise.all([
     listJobDocuments(job.id, { kind: "plan" }),
     listWorkAreas(job.id),
     listJobTasks(job.id),
     listJobFieldNotes(job.id),
     listJobPlanAnnotations(job.id),
+    listJobVoiceNotes(job.id),
   ]);
+  const spokenNotes = voiceNotes.flatMap((note) =>
+    note.status === "completed" && note.transcript?.trim()
+      ? [{ id: note.id, filename: note.filename, transcript: note.transcript }]
+      : [],
+  );
   const deficiencyGroups = groupDeficienciesBySheet({
     jobId: job.id,
     documents,
@@ -176,6 +184,14 @@ export default async function JobPlanPage({
           </ul>
         )}
       </section>
+
+      {selected && selectedIsCurrent ? (
+        <SpeakOntoPlan
+          jobId={job.id}
+          documentId={selected.id}
+          notes={spokenNotes}
+        />
+      ) : null}
 
       {!selected ? (
         <JobDocumentUploader

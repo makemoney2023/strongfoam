@@ -18,6 +18,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
+import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { ActionForm } from "@/components/ops/action-form";
@@ -57,6 +58,7 @@ import {
   formatFieldQuantity,
 } from "@/lib/ops/field-workspace";
 import { buildMaterialPickList } from "@/lib/ops/material-pick-list";
+import { proposeScheduleDiff } from "@/lib/ops/schedule-diff";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUSES,
@@ -88,7 +90,10 @@ import {
   listJobAssignments,
   listJobTasks,
   listActiveFieldUsers,
+  listProjectJobTasks,
+  listProjectTaskDependencies,
   listWorkAreas,
+  resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import {
@@ -188,6 +193,10 @@ export default async function JobDetailPage({
     assignments,
     fieldUsers,
     materialNotes,
+    scheduleNotes,
+    projectTasks,
+    projectDependencies,
+    scheduleCalendar,
   ] =
     await Promise.all([
       job.projectId ? getProject(job.projectId) : null,
@@ -203,6 +212,14 @@ export default async function JobDetailPage({
       listJobAssignments(job.id),
       listActiveFieldUsers(),
       listJobFieldNotes(job.id, { kind: "material_request" }),
+      job.projectId ? listJobFieldNotes(job.id) : Promise.resolve([]),
+      job.projectId ? listProjectJobTasks(job.projectId) : Promise.resolve(null),
+      job.projectId
+        ? listProjectTaskDependencies(job.projectId)
+        : Promise.resolve(null),
+      job.projectId
+        ? resolveProjectScheduleCalendar(job.projectId)
+        : Promise.resolve(null),
     ]);
 
   const returnTo = `/app/jobs/${job.id}`;
@@ -217,6 +234,30 @@ export default async function JobDetailPage({
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
   const materialPickList = buildMaterialPickList(materialNotes);
+  const scheduleProposals =
+    projectTasks &&
+    projectDependencies &&
+    scheduleCalendar &&
+    !projectTasks.truncated &&
+    !projectDependencies.truncated
+      ? scheduleNotes.flatMap((note) => {
+          const proposal = proposeScheduleDiff({
+            note,
+            tasks: projectTasks.tasks,
+            edges: projectDependencies.edges,
+            calendar: scheduleCalendar,
+          });
+          return proposal
+            ? [
+                {
+                  noteId: proposal.noteId,
+                  kind: proposal.kind,
+                  effect: proposal.effect,
+                },
+              ]
+            : [];
+        })
+      : [];
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const taskProgress =
     tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
@@ -1131,6 +1172,8 @@ export default async function JobDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <ScheduleDiffPanel jobId={job.id} proposals={scheduleProposals} />
 
           <Card>
             <CardHeader>
