@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.11
+**Version:** 1.13
 **Created:** 2026-09-18
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-21
 
 ## 1. Purpose
 
@@ -81,9 +81,11 @@ transcription runs after save (demo stub, Deepgram Nova-3 when
 `DEEPGRAM_API_KEY` is set, otherwise an empty transcript the user can type
 from audio). Selected
 transcript text can become a task, blocker, deficiency, material request, or
-daily-log entry. The target Supabase/Render deployment split, full
-permission matrix, crews, durable offline sync, AI operations, and
-financial workflows remain to be completed.
+daily-log entry. AI capabilities AI-008 through AI-026 are specified for
+tracking and are not built. Release A (cited job summary, daily-report draft,
+and the exception queue on current records) has a design and implementation
+plan. The target Supabase/Render deployment split, full permission matrix,
+crews, durable offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
 
@@ -880,6 +882,11 @@ Examples include:
 - Cost or schedule variance.
 - Missing daily logs or time entries.
 
+AI-013 covers the exception queue for records that exist today: missing daily
+logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes that
+have not been extracted. Unapproved change orders, inspections, and cost
+variance appear in this queue only after their source records exist.
+
 **RPT-002:** Users must be able to navigate from a dashboard result to the
 underlying record and activity history.
 
@@ -1495,12 +1502,141 @@ deletable by ordinary application roles.
 
 ### 24.9 AI rollout
 
-1. Read-only search and cited summaries for selected internal users.
-2. Draft tasks, notes, reports, and communications.
-3. Direct reversible updates to the requesting user's tasks.
-4. Approved task creation, assignment, and internal-note actions.
-5. Durable note/transcript extraction and exception queues.
-6. Policy-driven automation after measured accuracy and adoption justify it.
+1. Release A on current records: AI-008, AI-009, and AI-013 first, then
+   AI-010, AI-011, AI-012, AI-014, AI-015, and AI-020.
+2. Release B after the commercial records exist: AI-016 through AI-019 and
+   AI-021. The agent drafts scope and quantity. A person sets price and
+   approval.
+3. Release C after the named platform dependency exists: AI-022 through
+   AI-026.
+4. Direct reversible task updates (AI-003) and exact-diff approvals stay in
+   force for every mutation. Policy-driven automation waits until measured
+   accuracy and adoption justify it.
+
+### 24.10 Tracked capability catalog
+
+Every AI capability below is trackable on its own. Disabling the model must
+leave the underlying Office and Field workflow usable. A draft has no
+persistent effect until the requesting user confirms it. Factual output cites
+source records. Offline captures become visible to the agent only after they
+sync.
+
+These boundaries apply to every ID:
+
+- Geometric measurement of plan PDFs stays a non-goal. AI-018 drafts scope
+  lines from a walkthrough and the price book. It does not trace the drawing.
+- The agent does not generate price, markup, tax, or an approval decision.
+- Safety and compliance sign-off stays with a person. AI-024 may propose a
+  deficiency and may not close one.
+- Customer and subcontractor sending stays a human action.
+
+| ID | Capability | Release | Status | Starts when |
+|---|---|---|---|---|
+| AI-008 | Cited job summary | A | Ready | Office session and a model configuration |
+| AI-009 | Daily report draft | A | Ready | AI-008 evidence pack |
+| AI-010 | Morning field brief | A | Ready | After AI-008 cites the right records |
+| AI-011 | Speak onto the plan | A | Ready | After AI-009 confirmation works |
+| AI-012 | Schedule diff from field truth | A | Ready | After AI-011; uses the existing reschedule confirm |
+| AI-013 | Exception queue on current records | A | Ready | With AI-008 |
+| AI-014 | Quantity pace warning | A | Ready | After AI-013 |
+| AI-015 | Material pick list | A | Ready | After AI-014 |
+| AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
+| AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
+| AI-018 | Walkthrough scope lines | B | Blocked | QTE-002, QTE-003, and section 17.1 assembly fields |
+| AI-019 | Change-order draft | B | Blocked | QTE-007; a person sets the price |
+| AI-020 | Deficiencies grouped by plan sheet | A | Ready | After AI-011 |
+| AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
+| AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Render worker and pgvector |
+| AI-023 | Dispatch recommendation | C | Blocked | Crew records and capacity |
+| AI-024 | Photo deficiency proposal | C | Later | Evaluation set required by section 24.8 |
+| AI-025 | Warranty and inbound email triage | C | Later | Customer portal or inbound mailbox |
+| AI-026 | Cost variance explanation | C | Blocked | Accounting system chosen in open decision 6 |
+
+**AI-008:** An authorized office user can request a progress summary for one
+job. The summary covers tasks, field notes, blockers, deficiencies, quantities,
+voice transcripts, and recent job events, and each claim links to the source
+record. The summary writes nothing.
+
+**AI-009:** From the same job evidence, the agent drafts the daily report for
+the working day: work completed, holds, material shortfalls, and what is
+needed next. Confirming the draft saves one `daily_report` field note through
+the existing field-note command. Dismissing the draft saves nothing.
+
+**AI-010:** Each assigned field user can open a short brief for today: site,
+assigned tasks, current plan revision, open blockers, and material already
+requested. The brief is read-only and cites those records.
+
+**AI-011:** A confirmed utterance on the current plan sheet creates the plan
+mark, keeps the transcript, and updates the linked task in one audited
+command. The user sees the exact effect before confirm.
+
+**AI-012:** When a blocker or missed quantity implies a schedule slip, the
+agent proposes the dependent task moves, the slip, and the variance to the
+latest baseline. Accepting the proposal uses the existing confirmed reschedule
+path. The agent does not drag the schedule itself.
+
+**AI-013:** Home shows a review list, in addition to the existing attention
+counts, for missing daily logs on active field jobs, failed voice
+transcriptions, blocked jobs, overdue tasks, and completed voice notes whose
+text has not been extracted. Each row links to the underlying record.
+
+**AI-014:** The agent warns when installed quantity is ahead of the remaining
+area or bag count described on the job. The warning uses field quantities
+only. It does not state dollars, margin, or a price.
+
+**AI-015:** Open material requests can be grouped into a draft pick list by
+job and supplier wording in the request. Confirming the list does not create
+a purchase order. Purchase orders remain section 16 work.
+
+**AI-016:** After a price book exists, the agent may propose service mix, site
+assembly, and scope wording from an estimate request. The estimator accepts
+the outline onto the opportunity. Public survey qualification stays
+deterministic.
+
+**AI-017:** When estimate versions exist, the agent explains what scope,
+quantity, and price changed between two versions and which approval threshold
+the change crosses. The approver still decides.
+
+**AI-018:** An estimator or technician walkthrough may become draft price-book
+lines for location, R-value, area, depth, product, and bag count. A person
+chooses the price-book item and the amount. This is not geometric takeoff.
+
+**AI-019:** A voice note, photo, and plan pin may become a draft change order
+containing location, assembly, quantity, and schedule impact, plus
+customer-ready wording. A person enters price and approval. The agent does
+not send the change order.
+
+**AI-020:** Open deficiency field notes and deficiency plan marks are grouped
+by plan sheet for closeout review. The group is a view and a draft. It does
+not replace a future punch-list workflow.
+
+**AI-021:** After insulation assembly fields exist, the agent drafts the
+closeout and rebate narrative from the marked-up PDF, quantities, photos, and
+those fields. Publishing the packet to a customer waits on portal policy.
+
+**AI-022:** Approved note and transcript text may be embedded for hybrid
+retrieval under section 24.5. Audio binaries are not embedded. Interactive
+summaries in Release A do not require embeddings.
+
+**AI-023:** After crew capacity exists, the agent may recommend a person for
+an open task and present the assignment as an exact diff. Overlap warnings
+that already exist on the schedule remain the source for conflicts.
+
+**AI-024:** After an evaluation set exists, a photo may produce a proposed
+deficiency attached to a plan region. A person files or discards it. The
+agent cannot mark safety or compliance work complete.
+
+**AI-025:** After a portal or inbound mailbox exists, a warranty message may
+become a proposed warranty job linked to the closed project. Until then, field
+deficiencies cover problems found by the crew.
+
+**AI-026:** After an accounting system of record is chosen, the agent explains
+cost and schedule variance in plain language and links to the source budget
+and field quantities. It does not post invoices, bills, or payments.
+
+Design and the Release A implementation plan live in
+`docs/superpowers/specs/2026-09-21-ai-operations-design.md` and
+`docs/superpowers/plans/2026-09-21-ai-operations.md`.
 
 ## 25. Security, privacy, and compliance
 
@@ -1644,19 +1780,28 @@ policy and human review.
 
 ### AI operations
 
-1. Add authorized hybrid retrieval and cited read-only summaries.
-2. Add task, note, and report drafts.
+1. Release A on current records: cited job summary (AI-008), daily-report
+   draft (AI-009), and the exception queue (AI-013).
+2. Continue Release A: morning brief (AI-010), speak onto the plan (AI-011),
+   schedule diff (AI-012), quantity pace (AI-014), material pick list
+   (AI-015), and deficiencies by sheet (AI-020).
 3. Add reversible direct task updates with confirmation and undo.
 4. Add exact-diff approvals for proactive and multi-record actions.
-5. Add scheduled exception detection and operational review queues.
+5. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
 
 ### Commercial and operational expansion
 
 1. Add estimate versions, line items, price books, proposals, and approvals.
 2. Add change orders and project budgets.
-3. Add dispatch, time, materials, equipment, inspections, and closeout.
-4. Add job costing and accounting integrations.
-5. Add customer and subcontractor portals if validated.
+3. Then allow commercial AI drafts: scope outline (AI-016), revision
+   explanation (AI-017), walkthrough scope lines (AI-018), and change-order
+   drafts (AI-019).
+4. Add dispatch, time, materials, equipment, inspections, and closeout, then
+   the closeout packet (AI-021) and dispatch recommendation (AI-023).
+5. Add job costing and accounting integrations, then cost variance
+   explanation (AI-026).
+6. Add customer and subcontractor portals if validated, then warranty triage
+   (AI-025).
 
 Each stage must include authorization tests, audit coverage, data migration,
 operational monitoring, and user acceptance criteria.
@@ -1693,7 +1838,9 @@ These decisions are required before their respective implementation stage:
 3. Annotation library and marked-up PDF export approach.
 4. Speech-to-text languages beyond English, consent copy, and audio retention.
    The provider is Deepgram Nova-3 prerecorded listen.
-5. AI model gateway, model providers, embedding model, and cost limits.
+5. Embedding model and AI cost limits. Release A uses the Vercel AI Gateway.
+   The model id is configuration, and the agent stays off when that
+   configuration is missing. Embeddings wait for AI-022.
 6. Accounting system of record and synchronization boundaries.
 7. Required field devices and minimum supported browsers.
 8. Offline requirements beyond drafts and queued uploads.
@@ -1736,11 +1883,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-20 | Store voice notes in a dedicated `job_voice_notes` table with async transcription after save | Field save must not wait on a provider; audio stays private (demo memory / production Blob); extract selected text into existing task and field-note records |
 | 2026-09-20 | Expand plan markup to drawing tools, layer filters, PDF sheets, and marked-up closeout export | The pin MVP proved the completion loop; remaining ANN-002/004/006 and DOC-001 PDF rendering were the next bounded field-documentation step |
 | 2026-09-21 | Transcribe saved voice notes with Deepgram Nova-3 prerecorded listen | Matches the Showdesk batch path (`nova-3`, `en-US`, smart format, punctuate). Field save still finishes when `DEEPGRAM_API_KEY` is unset, leaving an empty transcript the user can type |
+| 2026-09-21 | Track AI-008 through AI-026 and build Release A before commercial AI | Cited summaries, daily-report drafts, and the current-record exception queue use data the app already stores. Scope, price, change orders, embeddings, dispatch, photo deficiencies, warranty triage, and cost explanation wait on the records named in section 24.10. Geometric takeoff, generated prices, and autonomous safety sign-off stay out |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.13 | 2026-09-21 | Added AI-008 through AI-026 so field, commercial, and later platform AI can be tracked, and specified Release A |
 | 1.12 | 2026-09-21 | Switched voice-note transcription from OpenAI Whisper to Deepgram Nova-3 prerecorded listen, including provider confidence |
 | 1.11 | 2026-09-20 | Added circle, ellipse, polygon, arrow, and text plan marks, layer filters, PDF sheet rendering, and marked-up closeout export |
 | 1.10 | 2026-09-20 | Shipped Release 4 voice notes: private recording, queued/processing/completed/failed transcription, editable transcripts, and extract-to-task/blocker/deficiency/material/daily-log |
