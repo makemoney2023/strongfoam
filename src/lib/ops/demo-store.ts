@@ -130,6 +130,7 @@ import type {
   PortfolioScheduleStoreResult,
   ProjectListFilters,
 } from "@/lib/ops/store";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
 
 export { isDemoOpsStore } from "@/lib/ops/demo-mode";
@@ -2497,7 +2498,7 @@ export function addDemoJobFieldNote(args: {
 
   const note: JobFieldNoteRow = {
     id: crypto.randomUUID(),
-    createdAt: new Date(),
+    createdAt: getOpsNow(),
     jobId: args.jobId,
     workAreaId: args.input.workAreaId,
     taskId: args.input.taskId,
