@@ -135,6 +135,48 @@ describe("operations exceptions", () => {
     expect(rows).toHaveLength(8);
   });
 
+  it("uses each job calendar for today's daily log", () => {
+    const now = new Date("2026-09-19T12:00:00.000Z");
+    const rows = listOperationsExceptions({
+      now,
+      jobs: [
+        {
+          id: "toronto",
+          name: "Toronto job",
+          status: "in_progress",
+          updatedAt: now,
+          timeZone: "America/Toronto",
+        },
+        {
+          id: "honolulu",
+          name: "Honolulu job",
+          status: "in_progress",
+          updatedAt: now,
+          timeZone: "Pacific/Honolulu",
+        },
+      ],
+      tasks: [],
+      fieldNotes: [
+        {
+          jobId: "toronto",
+          kind: "daily_report",
+          createdAt: new Date("2026-09-19T05:00:00.000Z"),
+        },
+        {
+          jobId: "honolulu",
+          kind: "daily_report",
+          createdAt: new Date("2026-09-19T05:00:00.000Z"),
+        },
+      ],
+      voiceNotes: [],
+      events: [],
+    });
+    expect(rows.find((row) => row.label.includes("Toronto"))).toBeUndefined();
+    expect(rows.find((row) => row.label.includes("Honolulu"))?.kind).toBe(
+      "missing_daily_log",
+    );
+  });
+
   it("reads the demo home source without dropping jobs", () => {
     const source = listDemoHomeExceptionSource();
     const rows = listOperationsExceptions({

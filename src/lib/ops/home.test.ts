@@ -92,10 +92,12 @@ describe("Home operations exceptions", () => {
     const schedule = source.indexOf("Schedule attention");
     const exceptions = source.indexOf("Operations exceptions");
     const empty = source.indexOf("No operations exceptions.");
+    const count = source.indexOf("to review");
     const nextUp = source.indexOf("<CardTitle>Next up</CardTitle>");
     expect(schedule).toBeGreaterThan(-1);
     expect(exceptions).toBeGreaterThan(schedule);
     expect(empty).toBeGreaterThan(exceptions);
+    expect(count).toBeGreaterThan(exceptions);
     expect(nextUp).toBeGreaterThan(exceptions);
   });
 

@@ -24,6 +24,7 @@ export type ExceptionJob = {
   name: string;
   status: string;
   updatedAt: Date;
+  timeZone?: string;
 };
 
 export type ExceptionTask = {
@@ -72,6 +73,10 @@ export type HomeExceptionSource = {
   events: ExceptionEvent[];
 };
 
+function jobTimeZone(job: ExceptionJob, fallback: string): string {
+  return job.timeZone?.trim() || fallback;
+}
+
 export function listOperationsExceptions(
   input: {
     now: Date;
@@ -84,8 +89,7 @@ export function listOperationsExceptions(
   },
   limit = 8,
 ): OperationsException[] {
-  const timeZone = input.timeZone?.trim() || "America/Toronto";
-  const workingDay = workingDayLabel(input.now, timeZone);
+  const fallbackZone = input.timeZone?.trim() || "America/Toronto";
   const extracted = new Set(
     input.events
       .filter((event) => event.kind === "voice_note_extracted")
@@ -96,6 +100,8 @@ export function listOperationsExceptions(
 
   for (const job of input.jobs) {
     if (!FIELD_ACTIVE.has(job.status)) continue;
+    const timeZone = jobTimeZone(job, fallbackZone);
+    const workingDay = workingDayLabel(input.now, timeZone);
     const hasLog = input.fieldNotes.some(
       (note) =>
         note.jobId === job.id &&
@@ -162,4 +168,10 @@ export function listOperationsExceptions(
   return rows
     .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.label.localeCompare(b.label))
     .slice(0, limit);
+}
+
+export function countOperationsExceptions(
+  input: Parameters<typeof listOperationsExceptions>[0],
+): number {
+  return listOperationsExceptions(input, Number.POSITIVE_INFINITY).length;
 }

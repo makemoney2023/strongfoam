@@ -99,5 +99,25 @@ describe("job AI gateway", () => {
     expect(result.bullets.map((bullet) => bullet.text)).toEqual(["Real task."]);
     expect(result.provider).toBe("vercel-ai-gateway");
     expect(result.model).toBe("test-model");
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(body.messages[0].content).toContain("what is missing");
+  });
+
+  it("returns a failed draft when the gateway cannot be reached", async () => {
+    delete process.env.OPS_DEMO;
+    process.env.AI_GATEWAY_API_KEY = "test-key";
+    process.env.AI_GATEWAY_MODEL = "test-model";
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const result = await requestJobAi({
+      pack,
+      purpose: "daily_report",
+      fetchImpl,
+    });
+    expect(result).toEqual({
+      status: "failed",
+      message: "The daily report could not be drafted.",
+    });
   });
 });

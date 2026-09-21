@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.14
+**Version:** 1.15
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -83,8 +83,11 @@ from audio). Selected
 transcript text can become a task, blocker, deficiency, material request, or
 daily-log entry. Office users can request a cited job summary (AI-008),
 draft a daily report that saves only after confirm (AI-009), and review the
-Home exception queue (AI-013). AI-010 through AI-026 are specified and are
-not built. The target Supabase/Render deployment split, full permission matrix,
+Home exception queue (AI-013). Field users get a read-only morning brief
+(AI-010). Office users can copy a material pick list (AI-015) and review
+deficiencies grouped by sheet (AI-020). AI-011, AI-012, AI-014, and AI-016
+through AI-026 remain specified and are not built. AI-014 waits until an
+open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
@@ -1502,9 +1505,9 @@ deletable by ordinary application roles.
 
 ### 24.9 AI rollout
 
-1. Release A on current records: AI-008, AI-009, and AI-013 are shipped. The
-   remainder of Release A is AI-010, AI-011, AI-012, AI-014, AI-015, and
-   AI-020.
+1. Release A on current records: AI-008, AI-009, AI-010, AI-013, AI-015, and
+   AI-020 are shipped. Still open in Release A: AI-011, AI-012, and AI-014.
+   AI-014 waits until an open task stores a stated quantity.
 2. Release B after the commercial records exist: AI-016 through AI-019 and
    AI-021. The agent drafts scope and quantity. A person sets price and
    approval.
@@ -1535,17 +1538,17 @@ These boundaries apply to every ID:
 |---|---|---|---|---|
 | AI-008 | Cited job summary | A | Shipped | Office session and a model configuration |
 | AI-009 | Daily report draft | A | Shipped | AI-008 evidence pack |
-| AI-010 | Morning field brief | A | Ready | After AI-008 cites the right records |
+| AI-010 | Morning field brief | A | Shipped | After AI-008 cites the right records |
 | AI-011 | Speak onto the plan | A | Ready | After AI-009 confirmation works |
 | AI-012 | Schedule diff from field truth | A | Ready | After AI-011; uses the existing reschedule confirm |
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
-| AI-014 | Quantity pace warning | A | Ready | After AI-013 |
-| AI-015 | Material pick list | A | Ready | After AI-014 |
+| AI-014 | Quantity pace warning | A | Blocked | Open tasks store a stated quantity in bags or sq ft |
+| AI-015 | Material pick list | A | Shipped | After AI-014 |
 | AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
 | AI-018 | Walkthrough scope lines | B | Blocked | QTE-002, QTE-003, and section 17.1 assembly fields |
 | AI-019 | Change-order draft | B | Blocked | QTE-007; a person sets the price |
-| AI-020 | Deficiencies grouped by plan sheet | A | Ready | After AI-011 |
+| AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
 | AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
 | AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Render worker and pgvector |
 | AI-023 | Dispatch recommendation | C | Blocked | Crew records and capacity |
@@ -1783,9 +1786,10 @@ policy and human review.
 
 1. Release A on current records: cited job summary (AI-008), daily-report
    draft (AI-009), and the exception queue (AI-013) (done).
-2. Continue Release A: morning brief (AI-010), speak onto the plan (AI-011),
-   schedule diff (AI-012), quantity pace (AI-014), material pick list
-   (AI-015), and deficiencies by sheet (AI-020).
+2. Continue Release A: morning brief (AI-010, done), material pick list
+   (AI-015, done), and deficiencies by sheet (AI-020, done). Still open:
+   speak onto the plan (AI-011), schedule diff (AI-012), and quantity pace
+   (AI-014, blocked until tasks store a stated quantity).
 3. Add reversible direct task updates with confirmation and undo.
 4. Add exact-diff approvals for proactive and multi-record actions.
 5. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
@@ -1886,11 +1890,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Transcribe saved voice notes with Deepgram Nova-3 prerecorded listen | Matches the Showdesk batch path (`nova-3`, `en-US`, smart format, punctuate). Field save still finishes when `DEEPGRAM_API_KEY` is unset, leaving an empty transcript the user can type |
 | 2026-09-21 | Track AI-008 through AI-026 and build Release A before commercial AI | Cited summaries, daily-report drafts, and the current-record exception queue use data the app already stores. Scope, price, change orders, embeddings, dispatch, photo deficiencies, warranty triage, and cost explanation wait on the records named in section 24.10. Geometric takeoff, generated prices, and autonomous safety sign-off stay out |
 | 2026-09-21 | Ship AI-008, AI-009, and AI-013 on the Vercel AI Gateway | Office users get a cited job summary, a daily-report draft that saves only after confirm, and a Home exception list. Demo mode and a missing gateway key never call the network. AI-010 through AI-026 stay unimplemented |
+| 2026-09-21 | Add the morning brief, material pick list, and deficiencies by sheet | Field users see today's assignment, plan, blockers, and material requests. Office users can copy open material requests and review deficiencies grouped by sheet. Quantity pace waits until a task stores a stated quantity |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.15 | 2026-09-21 | Shipped AI-010 morning brief, AI-015 material pick list, and AI-020 deficiencies by sheet. AI-014 stays blocked until tasks store a stated quantity |
 | 1.14 | 2026-09-21 | Shipped AI-008 cited job summary, AI-009 confirmed daily-report draft, and AI-013 Home exception queue |
 | 1.13 | 2026-09-21 | Added AI-008 through AI-026 so field, commercial, and later platform AI can be tracked, and specified Release A |
 | 1.12 | 2026-09-21 | Switched voice-note transcription from OpenAI Whisper to Deepgram Nova-3 prerecorded listen, including provider confidence |

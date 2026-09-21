@@ -3493,15 +3493,22 @@ export async function listHomeExceptionSource() {
   if (isDemoOpsStore()) return listDemoHomeExceptionSource();
   const db = getDb();
   const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const [jobRows, taskRows, noteRows, voiceRows, eventRows] = await Promise.all([
+  const [jobRows, taskRows, noteRows, voiceRows, eventRows, defaultCalendars] =
+    await Promise.all([
     db
       .select({
         id: jobs.id,
         name: jobs.name,
         status: jobs.status,
         updatedAt: jobs.updatedAt,
+        timeZone: scheduleCalendars.timeZone,
       })
-      .from(jobs),
+      .from(jobs)
+      .leftJoin(projects, eq(projects.id, jobs.projectId))
+      .leftJoin(
+        scheduleCalendars,
+        eq(scheduleCalendars.id, projects.scheduleCalendarId),
+      ),
     db
       .select({
         id: jobTasks.id,
@@ -3542,9 +3549,21 @@ export async function listHomeExceptionSource() {
       })
       .from(jobEvents)
       .where(eq(jobEvents.kind, "voice_note_extracted")),
+    db
+      .select({ timeZone: scheduleCalendars.timeZone })
+      .from(scheduleCalendars)
+      .where(eq(scheduleCalendars.isDefault, true))
+      .limit(1),
   ]);
+  const fallbackTimeZone = defaultCalendars[0]?.timeZone?.trim() || "America/Toronto";
   return {
-    jobs: jobRows,
+    jobs: jobRows.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      updatedAt: job.updatedAt,
+      timeZone: job.timeZone?.trim() || fallbackTimeZone,
+    })),
     tasks: taskRows,
     fieldNotes: noteRows,
     voiceNotes: voiceRows,

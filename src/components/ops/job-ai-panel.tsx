@@ -26,12 +26,33 @@ type SummaryState = {
   bullets: Cited[];
 };
 
+type DraftState = {
+  body: string;
+  citations: Citation[];
+};
+
+function uniqueCitations(sections: Cited[][]): Citation[] {
+  const seen = new Set<string>();
+  const citations: Citation[] = [];
+  for (const section of sections) {
+    for (const item of section) {
+      for (const citation of item.citations) {
+        const key = `${citation.kind}:${citation.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        citations.push(citation);
+      }
+    }
+  }
+  return citations;
+}
+
 export function JobAiPanel({ jobId }: { jobId: string }) {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [summary, setSummary] = useState<SummaryState | null>(null);
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<DraftState | null>(null);
 
   async function runSummary() {
     setPending("summary");
@@ -68,14 +89,22 @@ export function JobAiPanel({ jobId }: { jobId: string }) {
       setMessage(result.message);
       return;
     }
-    setDraft(result.body ?? "");
+    setDraft({
+      body: result.body ?? "",
+      citations: uniqueCitations([
+        result.sections.completed,
+        result.sections.held,
+        result.sections.material,
+        result.sections.next,
+      ]),
+    });
   }
 
   async function saveDraft() {
-    if (!draft?.trim()) return;
+    if (!draft?.body.trim()) return;
     setPending("save");
     setMessage(null);
-    const result = await saveJobDailyReport(jobId, draft);
+    const result = await saveJobDailyReport(jobId, draft.body);
     setPending(null);
     if (!result.ok) {
       setMessage(result.error);
@@ -155,8 +184,10 @@ export function JobAiPanel({ jobId }: { jobId: string }) {
               Today’s report
               <Textarea
                 id="ai-daily-report"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
+                value={draft.body}
+                onChange={(event) =>
+                  setDraft({ body: event.target.value, citations: draft.citations })
+                }
                 rows={10}
               />
             </label>
@@ -164,7 +195,7 @@ export function JobAiPanel({ jobId }: { jobId: string }) {
               <Button
                 type="button"
                 className="min-h-11"
-                disabled={pending !== null || !draft.trim()}
+                disabled={pending !== null || !draft.body.trim()}
                 onClick={saveDraft}
               >
                 {pending === "save" ? "Saving…" : "Save daily report"}
@@ -179,6 +210,19 @@ export function JobAiPanel({ jobId }: { jobId: string }) {
                 Discard
               </Button>
             </div>
+            {draft.citations.length ? (
+              <p className="text-xs text-muted-foreground">
+                {draft.citations.map((citation) => (
+                  <a
+                    key={`${citation.kind}-${citation.id}`}
+                    href={citationHref(jobId, citation.kind)}
+                    className="mr-3 underline"
+                  >
+                    {citation.kind.replaceAll("_", " ")}
+                  </a>
+                ))}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </CardContent>

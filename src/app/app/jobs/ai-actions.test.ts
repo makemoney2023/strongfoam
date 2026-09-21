@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 
 import {
   discardJobAiDraft,
+  draftJobDailyReport,
   saveJobDailyReport,
   summarizeJob,
 } from "@/app/app/jobs/ai-actions";
@@ -50,6 +51,16 @@ describe("job AI actions", () => {
   it("rejects a caller without an office session", async () => {
     getOpsSession.mockResolvedValue(null);
     await expect(summarizeJob(DEMO_JOB_ID)).rejects.toThrow("REDIRECT:/app/login");
+  });
+
+  it("rejects a field session", async () => {
+    getOpsSession.mockResolvedValue({
+      ...officeSession,
+      role: "field_worker",
+    });
+    await expect(draftJobDailyReport(DEMO_JOB_ID)).rejects.toThrow(
+      "REDIRECT:/app/login",
+    );
   });
 
   it("returns disabled and writes no field note when the gateway is unset", async () => {

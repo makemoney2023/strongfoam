@@ -25,7 +25,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { listOperationsExceptions } from "@/lib/ops/ai-exceptions";
+import {
+  countOperationsExceptions,
+  listOperationsExceptions,
+} from "@/lib/ops/ai-exceptions";
 import { getOpsSession } from "@/lib/ops/auth";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
 import { getOpsNow } from "@/lib/ops/ops-now";
@@ -162,10 +165,12 @@ export default async function OpsHomePage() {
   );
   const partialScheduleCounts = new Set(portfolioSummary.partialCounts);
   const partialHint = "Partial result — portfolio limit reached";
-  const operationsExceptions = listOperationsExceptions({
+  const exceptionInput = {
     ...exceptionSource,
     now: opsNow,
-  });
+  };
+  const operationsExceptions = listOperationsExceptions(exceptionInput);
+  const exceptionTotal = countOperationsExceptions(exceptionInput);
   const projectOptions = projects
     .filter((project) => project.status !== "closed")
     .map((project) => ({
@@ -302,7 +307,11 @@ export default async function OpsHomePage() {
             Operations exceptions
           </h2>
           <p className="text-sm text-muted-foreground">
-            Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract.
+            {exceptionTotal === 0
+              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract."
+              : exceptionTotal > operationsExceptions.length
+                ? `${exceptionTotal} to review. Showing the ${operationsExceptions.length} oldest.`
+                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract.`}
           </p>
         </div>
         {operationsExceptions.length === 0 ? (

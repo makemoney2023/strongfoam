@@ -18,9 +18,11 @@ import {
   officePlanHref,
   toPlanMarkView,
 } from "@/lib/ops/plan-markup";
+import { groupDeficienciesBySheet } from "@/lib/ops/deficiency-sheets";
 import {
   getJob,
   listJobDocuments,
+  listJobFieldNotes,
   listJobPlanAnnotations,
   listJobTasks,
   listWorkAreas,
@@ -41,11 +43,19 @@ export default async function JobPlanPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [documents, areas, tasks] = await Promise.all([
+  const [documents, areas, tasks, notes, marks] = await Promise.all([
     listJobDocuments(job.id, { kind: "plan" }),
     listWorkAreas(job.id),
     listJobTasks(job.id),
+    listJobFieldNotes(job.id),
+    listJobPlanAnnotations(job.id),
   ]);
+  const deficiencyGroups = groupDeficienciesBySheet({
+    jobId: job.id,
+    documents,
+    marks,
+    notes,
+  });
   const currentPlans = documents.filter((document) =>
     isCurrentPlanDocument(document),
   );
@@ -136,6 +146,36 @@ export default async function JobPlanPage({
           </Button>
         </form>
       ) : null}
+
+      <section aria-labelledby="deficiencies-by-sheet" className="space-y-3">
+        <div>
+          <h2 id="deficiencies-by-sheet" className="text-lg font-semibold">
+            Deficiencies by sheet
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Deficiency marks and notes grouped by plan sheet. This does not file a punch list.
+          </p>
+        </div>
+        {deficiencyGroups.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No deficiencies on these sheets.</p>
+        ) : (
+          <ul className="space-y-4">
+            {deficiencyGroups.map((group) => (
+              <li key={group.key}>
+                <a href={group.href} className="text-sm font-medium underline">
+                  {group.filename}
+                  {group.pageNumber ? ` · page ${group.pageNumber}` : ""}
+                </a>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {group.items.map((item) => (
+                    <li key={item.id}>{item.label}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {!selected ? (
         <JobDocumentUploader

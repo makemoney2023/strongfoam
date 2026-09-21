@@ -122,6 +122,12 @@ function readCited(value: unknown, pack: JobEvidencePack): AiCitedText[] {
   return keepCited(items, pack);
 }
 
+function failureMessage(purpose: GatewayPurpose): string {
+  return purpose === "daily_report"
+    ? "The daily report could not be drafted."
+    : "The job summary could not be completed.";
+}
+
 function readSections(value: unknown, pack: JobEvidencePack): AiDraftSections {
   const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
@@ -145,6 +151,7 @@ export async function requestJobAi(args: {
   if (!apiKey || !model) return { status: "disabled" };
 
   const fetchImpl = args.fetchImpl ?? fetch;
+  try {
   const response = await fetchImpl("https://ai-gateway.vercel.sh/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -158,7 +165,7 @@ export async function requestJobAi(args: {
         {
           role: "system",
           content:
-            "You summarize one construction job from the JSON evidence pack. Return JSON with paragraph, bullets, and sections.completed, sections.held, sections.material, and sections.next. Each bullet and section item is {text, citations:[{kind,id}]}. Citation kinds are task, field_note, voice_note, plan_mark, and job_event. Use only ids present in the pack. Do not invent prices or records.",
+            "You summarize one construction job from the JSON evidence pack. Return JSON with paragraph, bullets, and sections.completed, sections.held, sections.material, and sections.next. Each bullet and section item is {text, citations:[{kind,id}]}. Citation kinds are task, field_note, voice_note, plan_mark, and job_event. Use only ids present in the pack. When the pack is thin, the paragraph must say what is missing. Do not invent prices or records.",
         },
         {
           role: "user",
@@ -172,7 +179,7 @@ export async function requestJobAi(args: {
     }),
   });
   if (!response.ok) {
-    return { status: "failed", message: "The job summary could not be completed." };
+    return { status: "failed", message: failureMessage(args.purpose) };
   }
   const payload = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
@@ -202,6 +209,9 @@ export async function requestJobAi(args: {
       sections,
     };
   } catch {
-    return { status: "failed", message: "The summary could not be read." };
+    return { status: "failed", message: failureMessage(args.purpose) };
+  }
+  } catch {
+    return { status: "failed", message: failureMessage(args.purpose) };
   }
 }

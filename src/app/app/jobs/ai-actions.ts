@@ -12,8 +12,9 @@ import {
   type AiCitedText,
   type AiGatewayResult,
 } from "@/lib/ops/ai-gateway";
-import { getOpsSession } from "@/lib/ops/auth";
+import { getOpsSession, type OpsSession } from "@/lib/ops/auth";
 import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { isOfficeMembershipRole } from "@/lib/ops/identity";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import {
   addJobFieldNote,
@@ -117,13 +118,22 @@ async function loadJobEvidence(jobId: string): Promise<JobEvidencePack | null> {
   });
 }
 
+function canUseOfficeAi(session: OpsSession): boolean {
+  return session.role === "estimator" || isOfficeMembershipRole(session.role);
+}
+
+async function requireOfficeSession(): Promise<OpsSession> {
+  const session = await getOpsSession();
+  if (!session || !canUseOfficeAi(session)) redirect("/app/login");
+  return session;
+}
+
 async function requestCapability(
   jobId: string,
   purpose: "summary" | "daily_report",
   capabilityId: "AI-008" | "AI-009",
 ): Promise<AiGatewayResult> {
-  const session = await getOpsSession();
-  if (!session) redirect("/app/login");
+  const session = await requireOfficeSession();
   const pack = await loadJobEvidence(jobId);
   if (!pack) return { status: "failed", message: "That job could not be found." };
   const result = await requestJobAi({ pack, purpose });
@@ -164,8 +174,7 @@ export async function saveJobDailyReport(
   jobId: string,
   body: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const session = await getOpsSession();
-  if (!session) redirect("/app/login");
+  const session = await requireOfficeSession();
   const parsed = parseFieldNoteInput({ kind: "daily_report", body });
   if (!parsed.ok) return { ok: false, error: parsed.error };
   const note = await addJobFieldNote({
@@ -180,7 +189,6 @@ export async function saveJobDailyReport(
 }
 
 export async function discardJobAiDraft(): Promise<{ ok: true }> {
-  const session = await getOpsSession();
-  if (!session) redirect("/app/login");
+  await requireOfficeSession();
   return { ok: true };
 }
