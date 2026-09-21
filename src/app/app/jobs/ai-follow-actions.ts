@@ -77,10 +77,14 @@ export async function confirmSpokenPlanMark(
   jobId: string,
   documentId: string,
   voiceNoteId: string,
+  expectedEffect: string,
 ): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
   const session = await requireOfficeSession();
   const proposed = await spokenProposal(jobId, documentId, voiceNoteId);
   if (!proposed.ok) return proposed;
+  if (proposed.proposal.effect !== expectedEffect) {
+    return { ok: false, error: "That transcript changed. Refresh and try again." };
+  }
   const parsed = parsePlanAnnotationInput(proposed.proposal);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   const annotation = await addJobPlanAnnotation({
@@ -113,6 +117,7 @@ export async function confirmSpokenPlanMark(
 export async function acceptScheduleDiff(
   jobId: string,
   noteId: string,
+  expectedEffect: string,
 ): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
   const session = await requireOfficeSession();
   const job = await getJob(jobId);
@@ -137,6 +142,9 @@ export async function acceptScheduleDiff(
   });
   if (!proposal) {
     return { ok: false, error: "That note does not have an allowed schedule move." };
+  }
+  if (proposal.effect !== expectedEffect) {
+    return { ok: false, error: "That schedule changed. Refresh and try again." };
   }
   for (const move of proposal.moves) {
     const result = await rescheduleJobTask({

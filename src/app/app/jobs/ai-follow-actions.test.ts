@@ -29,6 +29,7 @@ import {
   DEMO_JOB_ID,
   DEMO_JOB_TASK_ID,
   DEMO_PLAN_DOCUMENT_ID,
+  DEMO_PROJECT_ID,
   DEMO_VOICE_NOTE_ID,
 } from "@/lib/ops/demo-data";
 import {
@@ -36,7 +37,11 @@ import {
   getDemoJobVoiceNote,
   listDemoJobPlanAnnotations,
   listDemoJobTasks,
+  listDemoProjectJobTasks,
+  listDemoProjectTaskDependencies,
+  resolveDemoProjectScheduleCalendar,
 } from "@/lib/ops/demo-store";
+import { proposeScheduleDiff } from "@/lib/ops/schedule-diff";
 import {
   addWorkingDays,
   calendarDate,
@@ -167,6 +172,7 @@ describe("plan voice and schedule diff actions", () => {
         DEMO_JOB_ID,
         DEMO_PLAN_DOCUMENT_ID,
         DEMO_VOICE_NOTE_ID,
+        "unused",
       ),
     ).rejects.toThrow("REDIRECT:/app/login");
   });
@@ -177,10 +183,31 @@ describe("plan voice and schedule diff actions", () => {
       DEMO_JOB_ID,
       DEMO_PLAN_DOCUMENT_ID,
     );
+    const preview = await previewSpokenPlanMark(
+      DEMO_JOB_ID,
+      DEMO_PLAN_DOCUMENT_ID,
+      DEMO_VOICE_NOTE_ID,
+    );
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+    const stale = await confirmSpokenPlanMark(
+      DEMO_JOB_ID,
+      DEMO_PLAN_DOCUMENT_ID,
+      DEMO_VOICE_NOTE_ID,
+      "Place a different pin.",
+    );
+    expect(stale).toEqual({
+      ok: false,
+      error: "That transcript changed. Refresh and try again.",
+    });
+    expect(
+      listDemoJobPlanAnnotations(DEMO_JOB_ID, DEMO_PLAN_DOCUMENT_ID),
+    ).toHaveLength(before.length);
     const result = await confirmSpokenPlanMark(
       DEMO_JOB_ID,
       DEMO_PLAN_DOCUMENT_ID,
       DEMO_VOICE_NOTE_ID,
+      preview.proposal.effect,
     );
     expect(result.ok).toBe(true);
     const after = listDemoJobPlanAnnotations(
@@ -237,7 +264,31 @@ describe("plan voice and schedule diff actions", () => {
     const beforeStartIso = before?.plannedStartAt?.toISOString() ?? "";
     const beforeEndIso = before?.plannedEndAt?.toISOString() ?? "";
     const beforeDueIso = before?.dueAt?.toISOString();
-    const result = await acceptScheduleDiff(DEMO_JOB_ID, note!.id);
+    const proposal = proposeScheduleDiff({
+      note: note!,
+      tasks: listDemoProjectJobTasks(DEMO_PROJECT_ID).tasks,
+      edges: listDemoProjectTaskDependencies(DEMO_PROJECT_ID).edges,
+      calendar: resolveDemoProjectScheduleCalendar(DEMO_PROJECT_ID),
+    });
+    expect(proposal?.effect).toContain("Prepare podium deck");
+    const stale = await acceptScheduleDiff(
+      DEMO_JOB_ID,
+      note!.id,
+      "Slip a different task.",
+    );
+    expect(stale).toEqual({
+      ok: false,
+      error: "That schedule changed. Refresh and try again.",
+    });
+    expect(
+      listDemoJobTasks(DEMO_JOB_ID).find((task) => task.id === DEMO_JOB_TASK_ID)
+        ?.plannedStartAt?.toISOString(),
+    ).toBe(beforeStartIso);
+    const result = await acceptScheduleDiff(
+      DEMO_JOB_ID,
+      note!.id,
+      proposal!.effect,
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.effect).toContain("Prepare podium deck");
@@ -260,7 +311,11 @@ describe("plan voice and schedule diff actions", () => {
       ),
     ).toBe(addWorkingDays(beforeEnd!, 1, DEFAULT_WORKING_CALENDAR));
     expect(after?.dueAt?.toISOString()).toBe(beforeDueIso);
-    const again = await acceptScheduleDiff(DEMO_JOB_ID, note!.id);
+    const again = await acceptScheduleDiff(
+      DEMO_JOB_ID,
+      note!.id,
+      proposal!.effect,
+    );
     expect(again).toEqual({
       ok: false,
       error: "That schedule suggestion was already accepted.",

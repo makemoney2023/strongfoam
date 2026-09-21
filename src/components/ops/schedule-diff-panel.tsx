@@ -28,10 +28,10 @@ export function ScheduleDiffPanel({
   const [pending, setPending] = useState<string | null>(null);
   const visible = proposals.filter((proposal) => !hidden.includes(proposal.noteId));
 
-  async function accept(noteId: string) {
+  async function accept(noteId: string, effect: string) {
     setPending(noteId);
     setMessage(null);
-    const result = await acceptScheduleDiff(jobId, noteId);
+    const result = await acceptScheduleDiff(jobId, noteId, effect);
     setPending(null);
     if (!result.ok) {
       setMessage(result.error);
@@ -68,7 +68,7 @@ export function ScheduleDiffPanel({
                 type="button"
                 className="min-h-11"
                 disabled={pending !== null}
-                onClick={() => accept(proposal.noteId)}
+                onClick={() => accept(proposal.noteId, proposal.effect)}
               >
                 Accept
               </Button>

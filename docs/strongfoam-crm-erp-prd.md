@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.17
+**Version:** 1.18
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -88,8 +88,12 @@ Home exception queue (AI-013). Field users get a read-only morning brief
 deficiencies grouped by sheet (AI-020). A completed transcript can place one
 pin on the current plan after confirm (AI-011). A blocker or quantity note
 can propose a one-working-day schedule slip that accepts through the existing
-reschedule (AI-012). Office users can preview a task status or one-working-day
-due-date change, apply it, and undo it while the task is unchanged (AI-003).
+reschedule (AI-012). Accept refuses when that schedule sentence no longer
+matches. Office users can preview a task status or one-working-day due-date
+change and apply it (AI-003). One-click complete and reopen record the same
+command. Undo restores the previous version, so an earlier command stays
+undoable when nothing else edited the task. A field user can undo only their
+own change. A spoken pin confirm refuses when the shown sentence changed.
 AI-014 and AI-016 through AI-026 remain specified and
 are not built. AI-014 waits until an open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
@@ -1364,11 +1368,14 @@ to the source records and versions.
 - Activity since a user's last review.
 
 **AI-003:** Office users can preview and apply one reversible task command:
-mark done, reopen, or move the due date one working day. Apply uses the
-existing task commands and records the previous status, completion time, and
-due date. Undo restores that snapshot when the task version still matches.
-Description, priority, checklist, and source-record link stay out until a task
-stores those fields.
+mark done, reopen, or move the due date one working day. The Complete and
+Reopen buttons record the same command. Apply uses the existing task commands
+and records the previous status, completion time, due date, and task version.
+Undo restores that snapshot, including the version, so an earlier command can
+be undone when nothing else edited the task. A field user can undo only their
+own change. A schedule accept or spoken pin confirm refuses when the sentence
+on screen no longer matches the current records. Description, priority,
+checklist, and source-record link stay out until a task stores those fields.
 
 **AI-004:** The agent should convert notes or transcripts into proposed tasks,
 material requests, blockers, deficiencies, follow-ups, and daily reports.
@@ -1802,8 +1809,9 @@ policy and human review.
    (AI-011, done), and schedule diff (AI-012, done). Still open: quantity
    pace (AI-014, blocked until tasks store a stated quantity).
 3. Add reversible direct task updates with confirmation and undo (done for
-   status and a one-working-day due date). Description, priority, and
-   checklist wait until a task stores those fields.
+   status and a one-working-day due date, including one-click complete and
+   chained undo while the task is otherwise unchanged). Description, priority,
+   and checklist wait until a task stores those fields.
 4. Add exact-diff approvals for proactive and multi-record actions.
 5. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
 
@@ -1906,11 +1914,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Add the morning brief, material pick list, and deficiencies by sheet | Field users see today's assignment, plan, blockers, and material requests. Office users can copy open material requests and review deficiencies grouped by sheet. Quantity pace waits until a task stores a stated quantity |
 | 2026-09-21 | Let a completed transcript propose one plan pin, and let a blocker or quantity note propose a one-working-day schedule slip | Confirm uses the existing plan-mark and reschedule commands. Preview and reject write nothing. Quantity pace still waits on a stated task quantity |
 | 2026-09-21 | Confirm task status and due-date commands before they write, and keep one undo | A direct reversible command states its effect first. Undo restores the recorded snapshot only while the task version still matches. Fields the task table does not store stay out |
+| 2026-09-21 | Restore the prior task version on undo, and refuse a schedule or pin confirm whose sentence changed | One undo must leave the previous command undoable. Accept and pin confirm must apply the sentence the user saw |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.18 | 2026-09-21 | Task undo walks back more than one command when nothing else edited the task. One-click office and field status changes are undoable. Schedule accept and spoken pin confirm refuse when the shown sentence changed. AI-014 stays blocked until tasks store a stated quantity |
 | 1.17 | 2026-09-21 | Shipped reversible task commands for status and a one-working-day due date, with confirm and undo. AI-014 stays blocked until tasks store a stated quantity |
 | 1.16 | 2026-09-21 | Shipped AI-011 speak onto the plan and AI-012 schedule diff. AI-014 stays blocked until tasks store a stated quantity |
 | 1.15 | 2026-09-21 | Shipped AI-010 morning brief, AI-015 material pick list, and AI-020 deficiencies by sheet. AI-014 stays blocked until tasks store a stated quantity |

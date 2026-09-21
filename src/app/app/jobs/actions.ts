@@ -26,6 +26,7 @@ import {
   parseWorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import { parsePlanAnnotationInput } from "@/lib/ops/plan-markup";
+import { applyDirectTaskStatus } from "@/lib/ops/apply-task-command";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import {
@@ -47,7 +48,6 @@ import {
   extractJobVoiceNote,
   getJob,
   removeJobAssignment,
-  setJobTaskStatus,
   updateJobDetails,
   updateJobDocument,
   updateJobFieldNote,
@@ -286,13 +286,13 @@ export async function setJobWorkspaceTaskStatus(formData: FormData): Promise<Act
     return fail(jobId ? `/app/jobs/${jobId}` : "/app/jobs", "That task could not be updated.");
   }
 
-  const task = await setJobTaskStatus({
+  const task = await applyDirectTaskStatus({
     jobId,
     taskId,
     actor: session.email,
     status,
   });
-  if (!task) return fail(`/app/jobs/${jobId}`, "That task could not be updated.");
+  if (!task.ok) return fail(`/app/jobs/${jobId}`, task.error);
   const job = await getJob(jobId);
   refreshJobs(job?.projectId, jobId);
   const returnTo = String(formData.get("returnTo") ?? `/app/jobs/${jobId}`);

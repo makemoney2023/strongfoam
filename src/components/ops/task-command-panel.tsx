@@ -38,11 +38,14 @@ export function TaskCommandPanel({
   const [proposal, setProposal] = useState<TaskCommandProposal | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const selectedTaskId = tasks.some((task) => task.id === taskId)
+    ? taskId
+    : (tasks[0]?.id ?? "");
 
   async function preview() {
     setPending(true);
     setMessage(null);
-    const result = await previewTaskCommand(jobId, taskId, kind);
+    const result = await previewTaskCommand(jobId, selectedTaskId, kind);
     setPending(false);
     if (!result.ok) {
       setProposal(null);
@@ -93,7 +96,7 @@ export function TaskCommandPanel({
       <CardHeader>
         <CardTitle>Task command</CardTitle>
         <CardDescription>
-          Preview a status or due-date change. Apply writes it. Undo restores that change when the task has not been edited since.
+          Preview a status or due-date change. Apply writes it. Undo restores that change, and the previous change stays undoable when nothing else edited the task.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -118,7 +121,7 @@ export function TaskCommandPanel({
               <select
                 id="task-command-task"
                 className="h-11 rounded-lg border bg-background px-3"
-                value={taskId}
+                value={selectedTaskId}
                 onChange={(event) => {
                   setTaskId(event.target.value);
                   setProposal(null);
