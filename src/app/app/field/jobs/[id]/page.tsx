@@ -47,6 +47,7 @@ import {
   fieldJobDocumentHref,
 } from "@/lib/ops/job-workspace";
 import { fieldPlanHref } from "@/lib/ops/plan-markup";
+import { newestTaskCommand } from "@/lib/ops/task-command";
 import {
   getCompany,
   canFieldUserAccessJob,
@@ -57,6 +58,7 @@ import {
   listContacts,
   listJobDocuments,
   listJobAssignments,
+  listJobEvents,
   listJobFieldNotes,
   listJobVoiceNotes,
   listJobTasks,
@@ -73,6 +75,7 @@ import {
   saveFieldEntry,
   saveFieldVoiceTranscript,
   setFieldTaskStatus,
+  undoFieldTaskStatus,
   uploadFieldDocument,
 } from "@/app/field/actions";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
@@ -114,6 +117,7 @@ export default async function FieldJobPage({
     documents,
     notes,
     voiceNotes,
+    events,
     assignments,
     briefNotes,
     briefTasks,
@@ -129,6 +133,7 @@ export default async function FieldJobPage({
       listJobDocuments(job.id, { kind: query.docKind, from: query.from, to: query.to }),
       listJobFieldNotes(job.id, { kind: query.kind, from: query.from, to: query.to }),
       listJobVoiceNotes(job.id),
+      listJobEvents(job.id),
       listJobAssignments(job.id),
       listJobFieldNotes(job.id),
       listJobTasks(job.id),
@@ -396,6 +401,24 @@ export default async function FieldJobPage({
                     reopenLabel="Reopen task"
                     className="min-h-11 w-full"
                   />
+                  {(() => {
+                    const command = newestTaskCommand(events, task.id);
+                    if (
+                      !command ||
+                      command.actor !== session.email ||
+                      command.afterUpdatedAt !== task.updatedAt.toISOString()
+                    ) {
+                      return null;
+                    }
+                    return (
+                      <ActionForm action={undoFieldTaskStatus}>
+                        <input type="hidden" name="jobId" value={job.id} />
+                        <input type="hidden" name="taskId" value={task.id} />
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <SubmitButton className="min-h-11 w-full">Undo</SubmitButton>
+                      </ActionForm>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>

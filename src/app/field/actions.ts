@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { applyDirectTaskStatus, undoAppliedTaskCommand } from "@/lib/ops/apply-task-command";
 import { fail, succeed } from "@/lib/ops/action-redirect";
 import {
   invalidFrom,
@@ -77,19 +78,49 @@ export async function setFieldTaskStatus(
   ) {
     return fail(returnTo, "You do not have access to that task.");
   }
-  const task = await setJobTaskStatus({
+  const task = await applyDirectTaskStatus({
     jobId,
     taskId,
     actor: session.email,
     status,
   });
-  if (!task) return fail(returnTo, "That task could not be updated.");
+  if (!task.ok) return fail(returnTo, task.error);
   const job = await getJob(jobId);
   refreshField(jobId, job?.projectId);
   return succeed(
     returnTo,
     status === "done" ? "Task completed." : "Task reopened.",
   );
+}
+
+export async function undoFieldTaskStatus(
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/field/jobs/${jobId}`,
+  );
+  if (
+    !jobId ||
+    !taskId ||
+    !(await canFieldUserAccessTask(session.userId, jobId, taskId))
+  ) {
+    return fail(returnTo, "You do not have access to that task.");
+  }
+  const result = await undoAppliedTaskCommand({
+    jobId,
+    taskId,
+    actor: session.email,
+    onlyActor: session.email,
+  });
+  if (!result.ok) return fail(returnTo, result.error);
+  const job = await getJob(jobId);
+  refreshField(jobId, job?.projectId);
+  return succeed(returnTo, "Task change undone.");
 }
 
 export async function addFieldEntry(

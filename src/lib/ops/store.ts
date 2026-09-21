@@ -2961,6 +2961,7 @@ export async function setJobTaskStatus(args: {
   status: TaskStatus;
   expectedUpdatedAt?: Date;
   completedAt?: Date | null;
+  restoredUpdatedAt?: Date;
 }): Promise<JobTaskRow | null> {
   if (isDemoOpsStore()) return setDemoJobTaskStatus(args);
   const db = getDb();
@@ -2981,7 +2982,7 @@ export async function setJobTaskStatus(args: {
             ? new Date()
             : args.completedAt
           : null,
-      updatedAt: new Date(),
+      updatedAt: args.restoredUpdatedAt ?? new Date(),
     })
     .where(and(...conditions))
     .returning();
@@ -4445,6 +4446,7 @@ export async function updateJobTask(args: {
   actor: string;
   input: JobTaskInput;
   expectedUpdatedAt?: Date;
+  restoredUpdatedAt?: Date;
 }): Promise<JobTaskRow | null> {
   if (isDemoOpsStore()) return updateDemoJobTask(args);
   if (args.input.workAreaId) {
@@ -4482,7 +4484,7 @@ export async function updateJobTask(args: {
       plannedStartAt: args.input.plannedStartAt,
       plannedEndAt: args.input.plannedEndAt,
       workAreaId: args.input.workAreaId,
-      updatedAt: new Date(),
+      updatedAt: args.restoredUpdatedAt ?? new Date(),
     })
     .where(and(...conditions))
     .returning();

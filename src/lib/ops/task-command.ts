@@ -25,7 +25,9 @@ export type AppliedTaskCommand = {
   beforeStatus: TaskStatus;
   beforeCompletedAt: string | null;
   beforeDueAt: string | null;
+  beforeUpdatedAt: string | null;
   afterUpdatedAt: string;
+  actor: string | null;
 };
 
 function shiftWorkingDays(
@@ -42,10 +44,8 @@ function shiftWorkingDays(
   return new Date(value.getTime() + (to - from));
 }
 
-function isCommandKind(value: unknown): value is TaskCommandKind {
-  return (
-    value === "complete" || value === "reopen" || value === "slip_due"
-  );
+export function isTaskCommandKind(value: unknown): value is TaskCommandKind {
+  return value === "complete" || value === "reopen" || value === "slip_due";
 }
 
 function isStatus(value: unknown): value is TaskStatus {
@@ -112,7 +112,7 @@ export function appliedTaskCommand(event: {
   if (
     typeof payload.commandId !== "string" ||
     typeof payload.taskId !== "string" ||
-    !isCommandKind(payload.kind) ||
+    !isTaskCommandKind(payload.kind) ||
     typeof payload.effect !== "string" ||
     !isStatus(payload.beforeStatus) ||
     typeof payload.afterUpdatedAt !== "string"
@@ -128,6 +128,14 @@ export function appliedTaskCommand(event: {
     return null;
   }
   if (beforeDueAt !== null && typeof beforeDueAt !== "string") return null;
+  const beforeUpdatedAt = payload.beforeUpdatedAt;
+  if (
+    beforeUpdatedAt !== undefined &&
+    beforeUpdatedAt !== null &&
+    typeof beforeUpdatedAt !== "string"
+  ) {
+    return null;
+  }
   return {
     commandId: payload.commandId,
     taskId: payload.taskId,
@@ -136,7 +144,9 @@ export function appliedTaskCommand(event: {
     beforeStatus: payload.beforeStatus,
     beforeCompletedAt,
     beforeDueAt,
+    beforeUpdatedAt: typeof beforeUpdatedAt === "string" ? beforeUpdatedAt : null,
     afterUpdatedAt: payload.afterUpdatedAt,
+    actor: null,
   };
 }
 
@@ -151,7 +161,7 @@ export function undoneCommandId(event: {
 }
 
 export function newestTaskCommand(
-  events: Array<{ kind: string; payload: unknown }>,
+  events: Array<{ kind: string; payload: unknown; actor?: string }>,
   taskId: string,
 ): AppliedTaskCommand | null {
   const undone = new Set(
@@ -165,7 +175,10 @@ export function newestTaskCommand(
     if (!applied || applied.taskId !== taskId || undone.has(applied.commandId)) {
       continue;
     }
-    return applied;
+    return {
+      ...applied,
+      actor: typeof event.actor === "string" ? event.actor : null,
+    };
   }
   return null;
 }

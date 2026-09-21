@@ -2372,6 +2372,7 @@ export function setDemoJobTaskStatus(args: {
   status: "open" | "done";
   expectedUpdatedAt?: Date;
   completedAt?: Date | null;
+  restoredUpdatedAt?: Date;
 }): JobTaskRow | null {
   const task = jobTasks.find(
     (item) => item.id === args.taskId && item.jobId === args.jobId,
@@ -2390,7 +2391,7 @@ export function setDemoJobTaskStatus(args: {
         ? new Date()
         : args.completedAt
       : null;
-  task.updatedAt = new Date();
+  task.updatedAt = args.restoredUpdatedAt ?? new Date();
   recordJobEvent({
     jobId: args.jobId,
     actor: args.actor,
@@ -2887,6 +2888,7 @@ export function updateDemoJobTask(args: {
   actor: string;
   input: JobTaskInput;
   expectedUpdatedAt?: Date;
+  restoredUpdatedAt?: Date;
 }): JobTaskRow | null {
   const task = jobTasks.find(
     (item) => item.id === args.taskId && item.jobId === args.jobId,
@@ -2912,7 +2914,7 @@ export function updateDemoJobTask(args: {
   task.plannedStartAt = args.input.plannedStartAt;
   task.plannedEndAt = args.input.plannedEndAt;
   task.workAreaId = args.input.workAreaId;
-  task.updatedAt = new Date();
+  task.updatedAt = args.restoredUpdatedAt ?? new Date();
   recordJobEvent({
     jobId: args.jobId,
     actor: args.actor,
