@@ -19,6 +19,7 @@ import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
+import { TranscriptRecordPanel } from "@/components/ops/transcript-record-panel";
 import { TaskCommandPanel } from "@/components/ops/task-command-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
@@ -64,6 +65,10 @@ import {
   proposeScheduleDiff,
 } from "@/lib/ops/schedule-diff";
 import { newestTaskCommand } from "@/lib/ops/task-command";
+import {
+  extractedVoiceNoteId,
+  proposeTranscriptRecord,
+} from "@/lib/ops/transcript-record";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUSES,
@@ -271,6 +276,22 @@ export default async function JobDetailPage({
           return proposal ? [proposal] : [];
         })
       : [];
+  const extractedVoiceNotes = new Set(
+    events.flatMap((event) => {
+      const voiceNoteId = extractedVoiceNoteId(event);
+      return voiceNoteId ? [voiceNoteId] : [];
+    }),
+  );
+  const transcriptProposals = voiceNotes.flatMap((note) => {
+    if (note.status !== "completed" || !note.transcript?.trim()) return [];
+    const proposal = proposeTranscriptRecord({
+      voiceNoteId: note.id,
+      filename: note.filename,
+      transcript: note.transcript,
+      alreadyExtracted: extractedVoiceNotes.has(note.id),
+    });
+    return proposal ? [proposal] : [];
+  });
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const taskProgress =
     tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
@@ -1221,6 +1242,8 @@ export default async function JobDetailPage({
               <CopyDraftButton text={materialPickList.draft} />
             </CardContent>
           </Card>
+
+          <TranscriptRecordPanel jobId={job.id} proposals={transcriptProposals} />
 
           <JobAiPanel jobId={job.id} />
 

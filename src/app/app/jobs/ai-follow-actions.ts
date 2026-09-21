@@ -16,6 +16,7 @@ import {
 import {
   addJobPlanAnnotation,
   attachJobVoiceNoteToPlanMark,
+  extractJobVoiceNote,
   getJob,
   getJobVoiceNote,
   listJobDocuments,
@@ -27,7 +28,14 @@ import {
   recordScheduleDiffAccepted,
   rescheduleJobTask,
   resolveProjectScheduleCalendar,
+  updateJobStatus,
 } from "@/lib/ops/store";
+import {
+  extractedVoiceNoteId,
+  proposeTranscriptRecord,
+  transcriptRecordMatches,
+  type TranscriptRecordProposal,
+} from "@/lib/ops/transcript-record";
 
 function canUseOfficeAi(session: OpsSession): boolean {
   return session.role === "estimator" || isOfficeMembershipRole(session.role);
@@ -176,4 +184,52 @@ export async function acceptScheduleDiff(
 export async function rejectScheduleDiff(): Promise<{ ok: true }> {
   await requireOfficeSession();
   return { ok: true };
+}
+
+export async function confirmTranscriptRecord(
+  jobId: string,
+  approval: TranscriptRecordProposal,
+): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
+  const session = await requireOfficeSession();
+  const [note, events] = await Promise.all([
+    getJobVoiceNote(jobId, approval.voiceNoteId),
+    listJobEvents(jobId),
+  ]);
+  if (!note || note.status !== "completed" || !note.transcript?.trim()) {
+    return { ok: false, error: "Choose a completed transcript." };
+  }
+  const alreadyExtracted = events.some(
+    (event) => extractedVoiceNoteId(event) === note.id,
+  );
+  if (alreadyExtracted) {
+    return { ok: false, error: "That transcript was already turned into a record." };
+  }
+  const proposal = proposeTranscriptRecord({
+    voiceNoteId: note.id,
+    filename: note.filename,
+    transcript: note.transcript,
+    alreadyExtracted: false,
+  });
+  if (!proposal || !transcriptRecordMatches(proposal, approval)) {
+    return { ok: false, error: "That transcript changed. Refresh and try again." };
+  }
+  const created = await extractJobVoiceNote({
+    jobId,
+    voiceNoteId: note.id,
+    actor: session.email,
+    kind: proposal.kind,
+    selectedText: proposal.selectedText,
+  });
+  if (!created.ok) return created;
+  if (proposal.kind === "blocker") {
+    await updateJobStatus({
+      jobId,
+      actor: session.email,
+      status: "blocked",
+      blockerNote: proposal.selectedText,
+    });
+  }
+  revalidatePath(`/app/jobs/${jobId}`);
+  revalidatePath("/app");
+  return { ok: true, effect: proposal.effect };
 }
