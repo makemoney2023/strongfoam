@@ -102,14 +102,14 @@ OPS_STAFF_EMAILS
 OPS_ADMIN_EMAILS
 OPS_STAFF_PASSWORD
 OPS_DEMO
-OPENAI_API_KEY
+DEEPGRAM_API_KEY
 VOICE_RETENTION_DAYS
 VOICE_CONSENT_NOTICE
 ```
 
 Voice notes store audio privately (demo memory, production Blob). Transcription
-runs after save: a demo stub in `OPS_DEMO`, OpenAI Whisper when
-`OPENAI_API_KEY` is set, otherwise an empty machine transcript so the user can
+runs after save: a demo stub in `OPS_DEMO`, Deepgram Nova-3 (`en-US`) when
+`DEEPGRAM_API_KEY` is set, otherwise an empty machine transcript so the user can
 type from the audio.
 
 In demo mode, Office and Field display their seeded logins on their respective
