@@ -271,11 +271,16 @@ describe("plan voice and schedule diff actions", () => {
       calendar: resolveDemoProjectScheduleCalendar(DEMO_PROJECT_ID),
     });
     expect(proposal?.effect).toContain("Prepare podium deck");
-    const stale = await acceptScheduleDiff(
-      DEMO_JOB_ID,
-      note!.id,
-      "Slip a different task.",
-    );
+    expect(proposal).not.toBeNull();
+    if (!proposal) return;
+    const stale = await acceptScheduleDiff(DEMO_JOB_ID, {
+      ...proposal,
+      moves: proposal.moves.map((move, index) =>
+        index === 0
+          ? { ...move, plannedStartAt: "2026-10-01T12:00:00.000Z" }
+          : move,
+      ),
+    });
     expect(stale).toEqual({
       ok: false,
       error: "That schedule changed. Refresh and try again.",
@@ -284,11 +289,7 @@ describe("plan voice and schedule diff actions", () => {
       listDemoJobTasks(DEMO_JOB_ID).find((task) => task.id === DEMO_JOB_TASK_ID)
         ?.plannedStartAt?.toISOString(),
     ).toBe(beforeStartIso);
-    const result = await acceptScheduleDiff(
-      DEMO_JOB_ID,
-      note!.id,
-      proposal!.effect,
-    );
+    const result = await acceptScheduleDiff(DEMO_JOB_ID, proposal);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.effect).toContain("Prepare podium deck");
@@ -311,11 +312,7 @@ describe("plan voice and schedule diff actions", () => {
       ),
     ).toBe(addWorkingDays(beforeEnd!, 1, DEFAULT_WORKING_CALENDAR));
     expect(after?.dueAt?.toISOString()).toBe(beforeDueIso);
-    const again = await acceptScheduleDiff(
-      DEMO_JOB_ID,
-      note!.id,
-      proposal!.effect,
-    );
+    const again = await acceptScheduleDiff(DEMO_JOB_ID, proposal);
     expect(again).toEqual({
       ok: false,
       error: "That schedule suggestion was already accepted.",

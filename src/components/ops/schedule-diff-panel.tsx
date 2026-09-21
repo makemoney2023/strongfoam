@@ -20,7 +20,21 @@ export function ScheduleDiffPanel({
   proposals,
 }: {
   jobId: string;
-  proposals: Array<{ noteId: string; kind: string; effect: string }>;
+  proposals: Array<{
+    noteId: string;
+    kind: string;
+    effect: string;
+    moves: Array<{
+      taskId: string;
+      jobId: string;
+      plannedStartAt: string;
+      plannedEndAt: string;
+      dueAt: string | null;
+      expectedUpdatedAt: string;
+      beforeStart: string;
+      beforeEnd: string;
+    }>;
+  }>;
 }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<string[]>([]);
@@ -28,10 +42,14 @@ export function ScheduleDiffPanel({
   const [pending, setPending] = useState<string | null>(null);
   const visible = proposals.filter((proposal) => !hidden.includes(proposal.noteId));
 
-  async function accept(noteId: string, effect: string) {
-    setPending(noteId);
+  async function accept(proposal: (typeof proposals)[number]) {
+    setPending(proposal.noteId);
     setMessage(null);
-    const result = await acceptScheduleDiff(jobId, noteId, effect);
+    const result = await acceptScheduleDiff(jobId, {
+      noteId: proposal.noteId,
+      effect: proposal.effect,
+      moves: proposal.moves,
+    });
     setPending(null);
     if (!result.ok) {
       setMessage(result.error);
@@ -68,7 +86,7 @@ export function ScheduleDiffPanel({
                 type="button"
                 className="min-h-11"
                 disabled={pending !== null}
-                onClick={() => accept(proposal.noteId, proposal.effect)}
+                onClick={() => accept(proposal)}
               >
                 Accept
               </Button>

@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.18
+**Version:** 1.19
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -88,8 +88,8 @@ Home exception queue (AI-013). Field users get a read-only morning brief
 deficiencies grouped by sheet (AI-020). A completed transcript can place one
 pin on the current plan after confirm (AI-011). A blocker or quantity note
 can propose a one-working-day schedule slip that accepts through the existing
-reschedule (AI-012). Accept refuses when that schedule sentence no longer
-matches. Office users can preview a task status or one-working-day due-date
+reschedule (AI-012). Accept writes only the moves shown, and restores earlier
+moves if a later move fails. Office users can preview a task status or one-working-day due-date
 change and apply it (AI-003). One-click complete and reopen record the same
 command. Undo restores the previous version, so an earlier command stays
 undoable when nothing else edited the task. A field user can undo only their
@@ -1812,7 +1812,10 @@ policy and human review.
    status and a one-working-day due date, including one-click complete and
    chained undo while the task is otherwise unchanged). Description, priority,
    and checklist wait until a task stores those fields.
-4. Add exact-diff approvals for proactive and multi-record actions.
+4. Add exact-diff approvals for proactive and multi-record actions (done for
+   a schedule slip: accept writes only the moves shown, and a later failure
+   restores the earlier moves). Bulk reassignment stays out until that command
+   exists.
 5. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
 
 ### Commercial and operational expansion
@@ -1915,11 +1918,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Let a completed transcript propose one plan pin, and let a blocker or quantity note propose a one-working-day schedule slip | Confirm uses the existing plan-mark and reschedule commands. Preview and reject write nothing. Quantity pace still waits on a stated task quantity |
 | 2026-09-21 | Confirm task status and due-date commands before they write, and keep one undo | A direct reversible command states its effect first. Undo restores the recorded snapshot only while the task version still matches. Fields the task table does not store stay out |
 | 2026-09-21 | Restore the prior task version on undo, and refuse a schedule or pin confirm whose sentence changed | One undo must leave the previous command undoable. Accept and pin confirm must apply the sentence the user saw |
+| 2026-09-21 | Bind a schedule accept to every shown move and restore earlier moves if a later move fails | A multi-record slip must not leave the schedule half applied or apply dates the user did not approve |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.19 | 2026-09-21 | A schedule accept writes only the exact moves shown. If a later move fails, earlier moves are restored. AI-014 stays blocked until tasks store a stated quantity |
 | 1.18 | 2026-09-21 | Task undo walks back more than one command when nothing else edited the task. One-click office and field status changes are undoable. Schedule accept and spoken pin confirm refuse when the shown sentence changed. AI-014 stays blocked until tasks store a stated quantity |
 | 1.17 | 2026-09-21 | Shipped reversible task commands for status and a one-working-day due date, with confirm and undo. AI-014 stays blocked until tasks store a stated quantity |
 | 1.16 | 2026-09-21 | Shipped AI-011 speak onto the plan and AI-012 schedule diff. AI-014 stays blocked until tasks store a stated quantity |
