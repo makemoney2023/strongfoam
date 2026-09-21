@@ -1407,6 +1407,22 @@ function recordJobEvent(args: {
   });
 }
 
+export function recordDemoTaskCommandEvent(args: {
+  jobId: string;
+  actor: string;
+  kind: "task_command_applied" | "task_command_undone";
+  summary: string;
+  payload: Record<string, unknown>;
+}) {
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: args.kind,
+    summary: args.summary,
+    payload: args.payload,
+  });
+}
+
 export function recordDemoScheduleDiffAccepted(args: {
   jobId: string;
   actor: string;
@@ -2354,13 +2370,26 @@ export function setDemoJobTaskStatus(args: {
   taskId: string;
   actor: string;
   status: "open" | "done";
+  expectedUpdatedAt?: Date;
+  completedAt?: Date | null;
 }): JobTaskRow | null {
   const task = jobTasks.find(
     (item) => item.id === args.taskId && item.jobId === args.jobId,
   );
   if (!task) return null;
+  if (
+    args.expectedUpdatedAt &&
+    task.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()
+  ) {
+    return null;
+  }
   task.status = args.status;
-  task.completedAt = args.status === "done" ? new Date() : null;
+  task.completedAt =
+    args.status === "done"
+      ? args.completedAt === undefined
+        ? new Date()
+        : args.completedAt
+      : null;
   task.updatedAt = new Date();
   recordJobEvent({
     jobId: args.jobId,
@@ -2857,11 +2886,18 @@ export function updateDemoJobTask(args: {
   taskId: string;
   actor: string;
   input: JobTaskInput;
+  expectedUpdatedAt?: Date;
 }): JobTaskRow | null {
   const task = jobTasks.find(
     (item) => item.id === args.taskId && item.jobId === args.jobId,
   );
   if (!task) return null;
+  if (
+    args.expectedUpdatedAt &&
+    task.updatedAt.getTime() !== args.expectedUpdatedAt.getTime()
+  ) {
+    return null;
+  }
   if (args.input.workAreaId && !getDemoWorkArea(args.jobId, args.input.workAreaId)) {
     return null;
   }
