@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.13
+**Version:** 1.14
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -81,10 +81,10 @@ transcription runs after save (demo stub, Deepgram Nova-3 when
 `DEEPGRAM_API_KEY` is set, otherwise an empty transcript the user can type
 from audio). Selected
 transcript text can become a task, blocker, deficiency, material request, or
-daily-log entry. AI capabilities AI-008 through AI-026 are specified for
-tracking and are not built. Release A (cited job summary, daily-report draft,
-and the exception queue on current records) has a design and implementation
-plan. The target Supabase/Render deployment split, full permission matrix,
+daily-log entry. Office users can request a cited job summary (AI-008),
+draft a daily report that saves only after confirm (AI-009), and review the
+Home exception queue (AI-013). AI-010 through AI-026 are specified and are
+not built. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
@@ -1502,8 +1502,9 @@ deletable by ordinary application roles.
 
 ### 24.9 AI rollout
 
-1. Release A on current records: AI-008, AI-009, and AI-013 first, then
-   AI-010, AI-011, AI-012, AI-014, AI-015, and AI-020.
+1. Release A on current records: AI-008, AI-009, and AI-013 are shipped. The
+   remainder of Release A is AI-010, AI-011, AI-012, AI-014, AI-015, and
+   AI-020.
 2. Release B after the commercial records exist: AI-016 through AI-019 and
    AI-021. The agent drafts scope and quantity. A person sets price and
    approval.
@@ -1532,12 +1533,12 @@ These boundaries apply to every ID:
 
 | ID | Capability | Release | Status | Starts when |
 |---|---|---|---|---|
-| AI-008 | Cited job summary | A | Ready | Office session and a model configuration |
-| AI-009 | Daily report draft | A | Ready | AI-008 evidence pack |
+| AI-008 | Cited job summary | A | Shipped | Office session and a model configuration |
+| AI-009 | Daily report draft | A | Shipped | AI-008 evidence pack |
 | AI-010 | Morning field brief | A | Ready | After AI-008 cites the right records |
 | AI-011 | Speak onto the plan | A | Ready | After AI-009 confirmation works |
 | AI-012 | Schedule diff from field truth | A | Ready | After AI-011; uses the existing reschedule confirm |
-| AI-013 | Exception queue on current records | A | Ready | With AI-008 |
+| AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
 | AI-014 | Quantity pace warning | A | Ready | After AI-013 |
 | AI-015 | Material pick list | A | Ready | After AI-014 |
 | AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
@@ -1781,7 +1782,7 @@ policy and human review.
 ### AI operations
 
 1. Release A on current records: cited job summary (AI-008), daily-report
-   draft (AI-009), and the exception queue (AI-013).
+   draft (AI-009), and the exception queue (AI-013) (done).
 2. Continue Release A: morning brief (AI-010), speak onto the plan (AI-011),
    schedule diff (AI-012), quantity pace (AI-014), material pick list
    (AI-015), and deficiencies by sheet (AI-020).
@@ -1884,11 +1885,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-20 | Expand plan markup to drawing tools, layer filters, PDF sheets, and marked-up closeout export | The pin MVP proved the completion loop; remaining ANN-002/004/006 and DOC-001 PDF rendering were the next bounded field-documentation step |
 | 2026-09-21 | Transcribe saved voice notes with Deepgram Nova-3 prerecorded listen | Matches the Showdesk batch path (`nova-3`, `en-US`, smart format, punctuate). Field save still finishes when `DEEPGRAM_API_KEY` is unset, leaving an empty transcript the user can type |
 | 2026-09-21 | Track AI-008 through AI-026 and build Release A before commercial AI | Cited summaries, daily-report drafts, and the current-record exception queue use data the app already stores. Scope, price, change orders, embeddings, dispatch, photo deficiencies, warranty triage, and cost explanation wait on the records named in section 24.10. Geometric takeoff, generated prices, and autonomous safety sign-off stay out |
+| 2026-09-21 | Ship AI-008, AI-009, and AI-013 on the Vercel AI Gateway | Office users get a cited job summary, a daily-report draft that saves only after confirm, and a Home exception list. Demo mode and a missing gateway key never call the network. AI-010 through AI-026 stay unimplemented |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.14 | 2026-09-21 | Shipped AI-008 cited job summary, AI-009 confirmed daily-report draft, and AI-013 Home exception queue |
 | 1.13 | 2026-09-21 | Added AI-008 through AI-026 so field, commercial, and later platform AI can be tracked, and specified Release A |
 | 1.12 | 2026-09-21 | Switched voice-note transcription from OpenAI Whisper to Deepgram Nova-3 prerecorded listen, including provider confidence |
 | 1.11 | 2026-09-20 | Added circle, ellipse, polygon, arrow, and text plan marks, layer filters, PDF sheet rendering, and marked-up closeout export |

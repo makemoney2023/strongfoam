@@ -1406,6 +1406,93 @@ function recordJobEvent(args: {
   });
 }
 
+export function recordDemoAiJobEvent(args: {
+  jobId: string;
+  actor: string;
+  capabilityId: "AI-008" | "AI-009";
+  provider: string;
+  model: string;
+  citationIds: string[];
+}) {
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "ai_requested",
+    summary: `${args.capabilityId} requested`,
+    payload: {
+      capabilityId: args.capabilityId,
+      provider: args.provider,
+      model: args.model,
+      citationIds: args.citationIds,
+    },
+  });
+}
+
+export function listDemoHomeExceptionSource(): {
+  jobs: Array<{ id: string; name: string; status: string; updatedAt: Date }>;
+  tasks: Array<{
+    id: string;
+    jobId: string;
+    title: string;
+    status: string;
+    dueAt: Date | null;
+    plannedEndAt: Date | null;
+  }>;
+  fieldNotes: Array<{ jobId: string; kind: string; createdAt: Date }>;
+  voiceNotes: Array<{
+    id: string;
+    jobId: string;
+    status: string;
+    transcript: string | null;
+    filename: string;
+    createdAt: Date;
+  }>;
+  events: Array<{ kind: string; payload: unknown; createdAt: Date }>;
+} {
+  return {
+    jobs: jobsList.map((job) => ({
+      id: job.id,
+      name: job.name,
+      status: job.status,
+      updatedAt: job.updatedAt,
+    })),
+    tasks: jobTasks
+      .filter((task) => task.status !== "done")
+      .map((task) => ({
+        id: task.id,
+        jobId: task.jobId,
+        title: task.title,
+        status: task.status,
+        dueAt: task.dueAt,
+        plannedEndAt: task.plannedEndAt,
+      })),
+    fieldNotes: jobFieldNotes
+      .filter((note) => note.kind === "daily_report")
+      .map((note) => ({
+        jobId: note.jobId,
+        kind: note.kind,
+        createdAt: note.createdAt,
+      })),
+    voiceNotes: jobVoiceNotes
+      .filter((note) => note.status === "failed" || note.status === "completed")
+      .map((note) => ({
+        id: note.id,
+        jobId: note.jobId,
+        status: note.status,
+        transcript: note.transcript,
+        filename: note.filename,
+        createdAt: note.createdAt,
+      })),
+    events: jobEvents
+      .filter((event) => event.kind === "voice_note_extracted")
+      .map((event) => ({
+        kind: event.kind,
+        payload: event.payload,
+        createdAt: event.createdAt,
+      })),
+  };
+}
+
 export function convertDemoOpportunityToProject(args: {
   opportunityId: string;
   actor: string;
@@ -3356,6 +3443,13 @@ export function extractDemoVoiceNote(args: {
       },
     });
     if (!task) return { ok: false, error: "That task could not be created." };
+    recordJobEvent({
+      jobId: args.jobId,
+      actor: args.actor,
+      kind: "voice_note_extracted",
+      summary: `voice note extracted: ${note.filename}`,
+      payload: { voiceNoteId: note.id },
+    });
     return { ok: true, created: "task" };
   }
   const fieldNote = addDemoJobFieldNote({
@@ -3379,6 +3473,13 @@ export function extractDemoVoiceNote(args: {
     },
   });
   if (!fieldNote) return { ok: false, error: "That field entry could not be created." };
+  recordJobEvent({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_extracted",
+    summary: `voice note extracted: ${note.filename}`,
+    payload: { voiceNoteId: note.id },
+  });
   return { ok: true, created: "field_note" };
 }
 

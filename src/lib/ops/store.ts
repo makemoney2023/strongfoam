@@ -8,6 +8,7 @@ import {
   ilike,
   inArray,
   lte,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -105,6 +106,8 @@ import {
   updateDemoVoiceTranscript,
   listDemoJobEvents,
   listDemoJobEventsSince,
+  listDemoHomeExceptionSource,
+  recordDemoAiJobEvent,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
@@ -3459,6 +3462,96 @@ export async function addJobFieldNote(args: {
   return note;
 }
 
+export async function recordAiJobEvent(args: {
+  jobId: string;
+  actor: string;
+  capabilityId: "AI-008" | "AI-009";
+  provider: string;
+  model: string;
+  citationIds: string[];
+}): Promise<void> {
+  if (isDemoOpsStore()) {
+    recordDemoAiJobEvent(args);
+    return;
+  }
+  const db = getDb();
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "ai_requested",
+    summary: `${args.capabilityId} requested`,
+    payload: {
+      capabilityId: args.capabilityId,
+      provider: args.provider,
+      model: args.model,
+      citationIds: args.citationIds,
+    },
+  });
+}
+
+export async function listHomeExceptionSource() {
+  if (isDemoOpsStore()) return listDemoHomeExceptionSource();
+  const db = getDb();
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const [jobRows, taskRows, noteRows, voiceRows, eventRows] = await Promise.all([
+    db
+      .select({
+        id: jobs.id,
+        name: jobs.name,
+        status: jobs.status,
+        updatedAt: jobs.updatedAt,
+      })
+      .from(jobs),
+    db
+      .select({
+        id: jobTasks.id,
+        jobId: jobTasks.jobId,
+        title: jobTasks.title,
+        status: jobTasks.status,
+        dueAt: jobTasks.dueAt,
+        plannedEndAt: jobTasks.plannedEndAt,
+      })
+      .from(jobTasks)
+      .where(ne(jobTasks.status, "done")),
+    db
+      .select({
+        jobId: jobFieldNotes.jobId,
+        kind: jobFieldNotes.kind,
+        createdAt: jobFieldNotes.createdAt,
+      })
+      .from(jobFieldNotes)
+      .where(
+        and(eq(jobFieldNotes.kind, "daily_report"), gte(jobFieldNotes.createdAt, since)),
+      ),
+    db
+      .select({
+        id: jobVoiceNotes.id,
+        jobId: jobVoiceNotes.jobId,
+        status: jobVoiceNotes.status,
+        transcript: jobVoiceNotes.transcript,
+        filename: jobVoiceNotes.filename,
+        createdAt: jobVoiceNotes.createdAt,
+      })
+      .from(jobVoiceNotes)
+      .where(inArray(jobVoiceNotes.status, ["failed", "completed"])),
+    db
+      .select({
+        kind: jobEvents.kind,
+        payload: jobEvents.payload,
+        createdAt: jobEvents.createdAt,
+      })
+      .from(jobEvents)
+      .where(eq(jobEvents.kind, "voice_note_extracted")),
+  ]);
+  return {
+    jobs: jobRows,
+    tasks: taskRows,
+    fieldNotes: noteRows,
+    voiceNotes: voiceRows,
+    events: eventRows,
+  };
+}
+
 export async function listJobVoiceNotes(jobId: string): Promise<JobVoiceNoteRow[]> {
   if (isDemoOpsStore()) return listDemoJobVoiceNotes(jobId);
   const db = getDb();
@@ -3729,6 +3822,7 @@ export async function extractJobVoiceNote(args: {
   if (isDemoOpsStore()) return extractDemoVoiceNote(args);
   const note = await getJobVoiceNote(args.jobId, args.voiceNoteId);
   if (!note) return { ok: false, error: "That voice note could not be found." };
+  const db = getDb();
   if (args.kind === "task") {
     const task = await addJobTask({
       jobId: args.jobId,
@@ -3744,6 +3838,13 @@ export async function extractJobVoiceNote(args: {
       },
     });
     if (!task) return { ok: false, error: "That task could not be created." };
+    await db.insert(jobEvents).values({
+      jobId: args.jobId,
+      actor: args.actor,
+      kind: "voice_note_extracted",
+      summary: `voice note extracted: ${note.filename}`,
+      payload: { voiceNoteId: note.id },
+    });
     return { ok: true, created: "task" };
   }
   const fieldNote = await addJobFieldNote({
@@ -3767,6 +3868,13 @@ export async function extractJobVoiceNote(args: {
     },
   });
   if (!fieldNote) return { ok: false, error: "That field entry could not be created." };
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: "voice_note_extracted",
+    summary: `voice note extracted: ${note.filename}`,
+    payload: { voiceNoteId: note.id },
+  });
   return { ok: true, created: "field_note" };
 }
 

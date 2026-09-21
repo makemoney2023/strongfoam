@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { listOperationsExceptions } from "@/lib/ops/ai-exceptions";
+import { PORTFOLIO_SCHEDULE_WIDGETS } from "@/lib/ops/portfolio-schedule-query";
 import { buildHomeSummary, isOpenRequest, isOverdue } from "./home";
 
 const NOW = new Date("2026-09-19T12:00:00Z").getTime();
@@ -79,6 +81,97 @@ describe("home summary", () => {
     );
     expect(summary.nextUp).toHaveLength(3);
     expect(summary.nextUp[0].id).toBe("r7");
+  });
+});
+
+describe("Home operations exceptions", () => {
+  const source = readFileSync(new URL("../../app/app/page.tsx", import.meta.url), "utf8");
+  const now = new Date("2026-09-19T16:00:00.000Z");
+
+  it("renders the exception list under Schedule attention", () => {
+    const schedule = source.indexOf("Schedule attention");
+    const exceptions = source.indexOf("Operations exceptions");
+    const empty = source.indexOf("No operations exceptions.");
+    const nextUp = source.indexOf("<CardTitle>Next up</CardTitle>");
+    expect(schedule).toBeGreaterThan(-1);
+    expect(exceptions).toBeGreaterThan(schedule);
+    expect(empty).toBeGreaterThan(exceptions);
+    expect(nextUp).toBeGreaterThan(exceptions);
+  });
+
+  it("builds one row per exception type and skips a job that already has today's report", () => {
+    const rows = listOperationsExceptions({
+      now,
+      jobs: [
+        {
+          id: "job-open",
+          name: "Podium",
+          status: "in_progress",
+          updatedAt: new Date("2026-09-18T12:00:00.000Z"),
+        },
+        {
+          id: "job-logged",
+          name: "Logged",
+          status: "in_progress",
+          updatedAt: now,
+        },
+        {
+          id: "job-blocked",
+          name: "Dock",
+          status: "blocked",
+          updatedAt: new Date("2026-09-17T12:00:00.000Z"),
+        },
+      ],
+      tasks: [
+        {
+          id: "task-late",
+          jobId: "job-open",
+          title: "Prepare deck",
+          status: "open",
+          dueAt: new Date("2026-09-18T12:00:00.000Z"),
+          plannedEndAt: null,
+        },
+      ],
+      fieldNotes: [
+        {
+          jobId: "job-logged",
+          kind: "daily_report",
+          createdAt: new Date("2026-09-19T15:00:00.000Z"),
+        },
+        {
+          jobId: "job-blocked",
+          kind: "daily_report",
+          createdAt: new Date("2026-09-19T15:00:00.000Z"),
+        },
+      ],
+      voiceNotes: [
+        {
+          id: "voice-fail",
+          jobId: "job-open",
+          status: "failed",
+          transcript: null,
+          filename: "fail.webm",
+          createdAt: new Date("2026-09-16T12:00:00.000Z"),
+        },
+        {
+          id: "voice-raw",
+          jobId: "job-open",
+          status: "completed",
+          transcript: "Hold inspection.",
+          filename: "raw.webm",
+          createdAt: new Date("2026-09-15T12:00:00.000Z"),
+        },
+      ],
+      events: [],
+    });
+    expect(rows.map((row) => [row.kind, row.href])).toEqual([
+      ["unextracted_voice_note", "/app/jobs/job-open#voice-notes"],
+      ["failed_transcription", "/app/jobs/job-open#voice-notes"],
+      ["blocked_job", "/app/jobs?status=blocked"],
+      ["overdue_task", PORTFOLIO_SCHEDULE_WIDGETS.overdueTasks.href],
+      ["missing_daily_log", "/app/jobs/job-open#field-log"],
+    ]);
+    expect(rows.some((row) => row.label.includes("Logged"))).toBe(false);
   });
 });
 

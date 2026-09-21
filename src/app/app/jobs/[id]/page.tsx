@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { ActionForm } from "@/components/ops/action-form";
@@ -702,7 +703,7 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="tasks">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <SectionIcon>
@@ -869,7 +870,7 @@ export default async function JobDetailPage({
                   <FileTextIcon aria-hidden="true" />
                 </SectionIcon>
                 <div>
-                  <CardTitle>Plans and documents</CardTitle>
+                  <CardTitle id="plan">Plans and documents</CardTitle>
                   <CardDescription>
                     Blueprints, diagrams, and field photos. Place pins on the
                     plan so the crew can tap completed work.
@@ -1006,7 +1007,7 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="field-log">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <SectionIcon>
@@ -1126,6 +1127,8 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
+          <JobAiPanel jobId={job.id} />
+
           <VoiceNotesPanel
             jobId={job.id}
             notes={voiceNotes}
@@ -1158,7 +1161,7 @@ export default async function JobDetailPage({
                   <ActivityIcon aria-hidden="true" />
                 </SectionIcon>
                 <div>
-                  <CardTitle>Activity</CardTitle>
+                  <CardTitle id="activity">Activity</CardTitle>
                   <CardDescription>
                     Attributable changes for this job.
                   </CardDescription>
