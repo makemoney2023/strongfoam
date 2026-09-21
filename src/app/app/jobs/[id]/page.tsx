@@ -19,6 +19,7 @@ import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
+import { TaskCommandPanel } from "@/components/ops/task-command-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { ActionForm } from "@/components/ops/action-form";
@@ -62,6 +63,7 @@ import {
   acceptedScheduleDiffNoteId,
   proposeScheduleDiff,
 } from "@/lib/ops/schedule-diff";
+import { newestTaskCommand } from "@/lib/ops/task-command";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUSES,
@@ -200,6 +202,7 @@ export default async function JobDetailPage({
     projectTasks,
     projectDependencies,
     scheduleCalendar,
+    commandTasks,
   ] =
     await Promise.all([
       job.projectId ? getProject(job.projectId) : null,
@@ -223,6 +226,7 @@ export default async function JobDetailPage({
       job.projectId
         ? resolveProjectScheduleCalendar(job.projectId)
         : Promise.resolve(null),
+      listJobTasks(job.id),
     ]);
 
   const returnTo = `/app/jobs/${job.id}`;
@@ -237,6 +241,13 @@ export default async function JobDetailPage({
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
   const materialPickList = buildMaterialPickList(materialNotes);
+  const taskUndos = commandTasks.flatMap((task) => {
+    const command = newestTaskCommand(events, task.id);
+    if (!command || command.afterUpdatedAt !== task.updatedAt.toISOString()) {
+      return [];
+    }
+    return [{ taskId: task.id, title: task.title, effect: command.effect }];
+  });
   const acceptedScheduleNotes = new Set(
     events.flatMap((event) => {
       const noteId = acceptedScheduleDiffNoteId(event);
@@ -918,6 +929,16 @@ export default async function JobDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <TaskCommandPanel
+            jobId={job.id}
+            tasks={commandTasks.map((task) => ({
+              id: task.id,
+              title: task.title,
+              status: task.status,
+            }))}
+            undos={taskUndos}
+          />
 
           <Card>
             <CardHeader>

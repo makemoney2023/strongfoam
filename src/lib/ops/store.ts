@@ -110,6 +110,7 @@ import {
   listDemoHomeExceptionSource,
   recordDemoAiJobEvent,
   recordDemoScheduleDiffAccepted,
+  recordDemoTaskCommandEvent,
   listDemoJobFieldNotes,
   listDemoJobTasks,
   listDemoProjectJobTasks,
@@ -2958,17 +2959,31 @@ export async function setJobTaskStatus(args: {
   taskId: string;
   actor: string;
   status: TaskStatus;
+  expectedUpdatedAt?: Date;
+  completedAt?: Date | null;
 }): Promise<JobTaskRow | null> {
   if (isDemoOpsStore()) return setDemoJobTaskStatus(args);
   const db = getDb();
+  const conditions = [
+    eq(jobTasks.id, args.taskId),
+    eq(jobTasks.jobId, args.jobId),
+  ];
+  if (args.expectedUpdatedAt) {
+    conditions.push(eq(jobTasks.updatedAt, args.expectedUpdatedAt));
+  }
   const rows = await db
     .update(jobTasks)
     .set({
       status: args.status,
-      completedAt: args.status === "done" ? new Date() : null,
+      completedAt:
+        args.status === "done"
+          ? args.completedAt === undefined
+            ? new Date()
+            : args.completedAt
+          : null,
       updatedAt: new Date(),
     })
-    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
+    .where(and(...conditions))
     .returning();
   const task = rows[0];
   if (!task) return null;
@@ -3462,6 +3477,27 @@ export async function addJobFieldNote(args: {
     },
   });
   return note;
+}
+
+export async function recordTaskCommandEvent(args: {
+  jobId: string;
+  actor: string;
+  kind: "task_command_applied" | "task_command_undone";
+  summary: string;
+  payload: Record<string, unknown>;
+}): Promise<void> {
+  if (isDemoOpsStore()) {
+    recordDemoTaskCommandEvent(args);
+    return;
+  }
+  const db = getDb();
+  await db.insert(jobEvents).values({
+    jobId: args.jobId,
+    actor: args.actor,
+    kind: args.kind,
+    summary: args.summary,
+    payload: args.payload,
+  });
 }
 
 export async function recordScheduleDiffAccepted(args: {
@@ -4408,6 +4444,7 @@ export async function updateJobTask(args: {
   taskId: string;
   actor: string;
   input: JobTaskInput;
+  expectedUpdatedAt?: Date;
 }): Promise<JobTaskRow | null> {
   if (isDemoOpsStore()) return updateDemoJobTask(args);
   if (args.input.workAreaId) {
@@ -4428,6 +4465,13 @@ export async function updateJobTask(args: {
     assignee = identity.displayName;
   }
   const db = getDb();
+  const conditions = [
+    eq(jobTasks.id, args.taskId),
+    eq(jobTasks.jobId, args.jobId),
+  ];
+  if (args.expectedUpdatedAt) {
+    conditions.push(eq(jobTasks.updatedAt, args.expectedUpdatedAt));
+  }
   const rows = await db
     .update(jobTasks)
     .set({
@@ -4440,7 +4484,7 @@ export async function updateJobTask(args: {
       workAreaId: args.input.workAreaId,
       updatedAt: new Date(),
     })
-    .where(and(eq(jobTasks.id, args.taskId), eq(jobTasks.jobId, args.jobId)))
+    .where(and(...conditions))
     .returning();
   const task = rows[0];
   if (!task) return null;
