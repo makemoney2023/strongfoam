@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { CopyDraftButton } from "@/components/ops/copy-draft-button";
+import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { TaskStatusButton } from "@/components/ops/task-status-button";
 import { ActionForm } from "@/components/ops/action-form";
@@ -54,6 +56,7 @@ import {
   FIELD_NOTE_LABELS,
   formatFieldQuantity,
 } from "@/lib/ops/field-workspace";
+import { buildMaterialPickList } from "@/lib/ops/material-pick-list";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUSES,
@@ -184,6 +187,7 @@ export default async function JobDetailPage({
     voiceNotes,
     assignments,
     fieldUsers,
+    materialNotes,
   ] =
     await Promise.all([
       job.projectId ? getProject(job.projectId) : null,
@@ -198,6 +202,7 @@ export default async function JobDetailPage({
       listJobVoiceNotes(job.id),
       listJobAssignments(job.id),
       listActiveFieldUsers(),
+      listJobFieldNotes(job.id, { kind: "material_request" }),
     ]);
 
   const returnTo = `/app/jobs/${job.id}`;
@@ -211,6 +216,7 @@ export default async function JobDetailPage({
     areas.find((area) => area.id === workAreaId)?.name;
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
+  const materialPickList = buildMaterialPickList(materialNotes);
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const taskProgress =
     tasks.length === 0 ? 0 : Math.round((completedTasks / tasks.length) * 100);
@@ -702,7 +708,7 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="tasks">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <SectionIcon>
@@ -869,7 +875,7 @@ export default async function JobDetailPage({
                   <FileTextIcon aria-hidden="true" />
                 </SectionIcon>
                 <div>
-                  <CardTitle>Plans and documents</CardTitle>
+                  <CardTitle id="plan">Plans and documents</CardTitle>
                   <CardDescription>
                     Blueprints, diagrams, and field photos. Place pins on the
                     plan so the crew can tap completed work.
@@ -1006,7 +1012,7 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="field-log">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <SectionIcon>
@@ -1126,6 +1132,32 @@ export default async function JobDetailPage({
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Material pick list</CardTitle>
+              <CardDescription>
+                Open material requests on this job. Copy the list. It does not create a purchase order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {materialPickList.lines.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No open material requests.</p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {materialPickList.lines.map((line) => (
+                    <li key={line.ids[0]}>
+                      {line.text}
+                      {line.count > 1 ? ` (×${line.count})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <CopyDraftButton text={materialPickList.draft} />
+            </CardContent>
+          </Card>
+
+          <JobAiPanel jobId={job.id} />
+
           <VoiceNotesPanel
             jobId={job.id}
             notes={voiceNotes}
@@ -1158,7 +1190,7 @@ export default async function JobDetailPage({
                   <ActivityIcon aria-hidden="true" />
                 </SectionIcon>
                 <div>
-                  <CardTitle>Activity</CardTitle>
+                  <CardTitle id="activity">Activity</CardTitle>
                   <CardDescription>
                     Attributable changes for this job.
                   </CardDescription>

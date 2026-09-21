@@ -25,6 +25,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  countOperationsExceptions,
+  listOperationsExceptions,
+} from "@/lib/ops/ai-exceptions";
 import { getOpsSession } from "@/lib/ops/auth";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
 import { getOpsNow } from "@/lib/ops/ops-now";
@@ -40,6 +44,7 @@ import {
 import {
   listCompanies,
   listEstimateRequests,
+  listHomeExceptionSource,
   listJobs,
   listOpportunities,
   listPortfolioSchedule,
@@ -138,6 +143,7 @@ export default async function OpsHomePage() {
     jobs,
     companies,
     portfolioScheduleResult,
+    exceptionSource,
   ] = await Promise.all([
     listEstimateRequests(),
     listOpportunities(),
@@ -145,6 +151,7 @@ export default async function OpsHomePage() {
     listJobs(),
     listCompanies(),
     listPortfolioSchedule({ projectStatus: "active" }),
+    listHomeExceptionSource(),
   ]);
 
   const opsNow = getOpsNow();
@@ -158,6 +165,12 @@ export default async function OpsHomePage() {
   );
   const partialScheduleCounts = new Set(portfolioSummary.partialCounts);
   const partialHint = "Partial result — portfolio limit reached";
+  const exceptionInput = {
+    ...exceptionSource,
+    now: opsNow,
+  };
+  const operationsExceptions = listOperationsExceptions(exceptionInput);
+  const exceptionTotal = countOperationsExceptions(exceptionInput);
   const projectOptions = projects
     .filter((project) => project.status !== "closed")
     .map((project) => ({
@@ -286,6 +299,38 @@ export default async function OpsHomePage() {
             tone="alert"
           />
         </div>
+      </section>
+
+      <section aria-labelledby="operations-exceptions-heading" className="space-y-3">
+        <div>
+          <h2 id="operations-exceptions-heading" className="text-lg font-semibold">
+            Operations exceptions
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {exceptionTotal === 0
+              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract."
+              : exceptionTotal > operationsExceptions.length
+                ? `${exceptionTotal} to review. Showing the ${operationsExceptions.length} oldest.`
+                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract.`}
+          </p>
+        </div>
+        {operationsExceptions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No operations exceptions.</p>
+        ) : (
+          <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+            {operationsExceptions.map((exception) => (
+              <li key={`${exception.kind}-${exception.href}-${exception.label}`}>
+                <Link
+                  href={exception.href}
+                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                >
+                  <span>{exception.label}</span>
+                  <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">

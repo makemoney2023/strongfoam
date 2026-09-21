@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
+import { buildMorningBrief } from "@/lib/ops/morning-brief";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import {
   FIELD_NOTE_KINDS,
@@ -59,6 +61,7 @@ import {
   listJobVoiceNotes,
   listJobTasks,
   listWorkAreas,
+  resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 import {
@@ -112,6 +115,10 @@ export default async function FieldJobPage({
     notes,
     voiceNotes,
     assignments,
+    briefNotes,
+    briefTasks,
+    planDocuments,
+    calendar,
   ] =
     await Promise.all([
       job.companyId ? getCompany(job.companyId) : null,
@@ -123,6 +130,12 @@ export default async function FieldJobPage({
       listJobFieldNotes(job.id, { kind: query.kind, from: query.from, to: query.to }),
       listJobVoiceNotes(job.id),
       listJobAssignments(job.id),
+      listJobFieldNotes(job.id),
+      listJobTasks(job.id),
+      listJobDocuments(job.id, { kind: "plan" }),
+      job.projectId
+        ? resolveProjectScheduleCalendar(job.projectId)
+        : Promise.resolve(null),
     ]);
   const hasJobAssignment = assignments.some(
     (assignment) => assignment.userId === session.userId,
@@ -150,6 +163,23 @@ export default async function FieldJobPage({
     areas.find((area) => area.id === workAreaId)?.name;
   const taskTitle = (taskId: string | null) =>
     tasks.find((task) => task.id === taskId)?.title;
+  const currentPlan =
+    planDocuments.find((document) => document.kind === "plan" && !document.supersededAt) ??
+    null;
+  const morningBrief = buildMorningBrief({
+    jobId: job.id,
+    userId: session.userId,
+    now: getOpsNow(),
+    timeZone: calendar?.timeZone,
+    siteLabel: site
+      ? `${site.name} · ${site.city}${site.province === "ON" ? ", ON" : ""}`
+      : null,
+    tasks: briefTasks,
+    notes: briefNotes,
+    plan: currentPlan
+      ? { id: currentPlan.id, filename: currentPlan.filename }
+      : null,
+  });
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
@@ -171,6 +201,31 @@ export default async function FieldJobPage({
           />
         }
       />
+
+      <Card id="morning-brief">
+        <CardHeader>
+          <CardTitle>Morning brief</CardTitle>
+          <CardDescription>
+            Today on this job, from your assignments. Nothing here is saved or sent.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3">
+            {morningBrief.map((line) => (
+              <li key={`${line.label}-${line.detail}`}>
+                <p className="text-xs font-medium text-muted-foreground">{line.label}</p>
+                {line.href ? (
+                  <a href={line.href} className="text-sm underline">
+                    {line.detail}
+                  </a>
+                ) : (
+                  <p className="text-sm">{line.detail}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
 
       <ListFilters>
         <div className="space-y-2">
@@ -212,7 +267,7 @@ export default async function FieldJobPage({
         <FilterSubmit />
       </ListFilters>
 
-      <Card>
+      <Card id="assignment">
         <CardHeader>
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
@@ -300,7 +355,7 @@ export default async function FieldJobPage({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="tasks">
         <CardHeader>
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
@@ -348,7 +403,7 @@ export default async function FieldJobPage({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="field-log">
         <CardHeader>
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
