@@ -1,6 +1,10 @@
 import { FIELD_ACTIVE_JOB_STATUSES } from "@/lib/ops/field-workspace";
 import { PORTFOLIO_SCHEDULE_WIDGETS } from "@/lib/ops/portfolio-schedule-query";
 import { workingDayLabel } from "@/lib/ops/ai-evidence";
+import {
+  listTranscriptRecords,
+  savedTranscriptSelections,
+} from "@/lib/ops/transcript-record";
 
 export const OPERATIONS_EXCEPTION_KINDS = [
   "missing_daily_log",
@@ -59,10 +63,27 @@ export type ExceptionEvent = {
 
 const FIELD_ACTIVE = new Set<string>(FIELD_ACTIVE_JOB_STATUSES);
 
-function voiceNoteId(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const id = (payload as { voiceNoteId?: unknown }).voiceNoteId;
-  return typeof id === "string" ? id : null;
+function remainingTranscript(note: ExceptionVoiceNote, input: {
+  events: ExceptionEvent[];
+  tasks: ExceptionTask[];
+}): { remaining: boolean; partial: boolean } {
+  const transcript = note.transcript?.trim() ?? "";
+  if (note.status !== "completed" || !transcript) {
+    return { remaining: false, partial: false };
+  }
+  const saved = savedTranscriptSelections(input.events, note.id);
+  if (saved.legacy) return { remaining: false, partial: false };
+  const tasks = input.tasks
+    .filter((task) => task.jobId === note.jobId)
+    .map((task) => ({ title: task.title, status: task.status }));
+  const remaining = listTranscriptRecords({
+    voiceNoteId: note.id,
+    filename: note.filename,
+    transcript,
+    savedTexts: saved.texts,
+    tasks,
+  });
+  return { remaining: remaining.length > 0, partial: saved.texts.length > 0 };
 }
 
 export type HomeExceptionSource = {
@@ -90,12 +111,6 @@ export function listOperationsExceptions(
   limit = 8,
 ): OperationsException[] {
   const fallbackZone = input.timeZone?.trim() || "America/Toronto";
-  const extracted = new Set(
-    input.events
-      .filter((event) => event.kind === "voice_note_extracted")
-      .map((event) => voiceNoteId(event.payload))
-      .filter((id): id is string => Boolean(id)),
-  );
   const rows: OperationsException[] = [];
 
   for (const job of input.jobs) {
@@ -127,11 +142,13 @@ export function listOperationsExceptions(
         occurredAt: note.createdAt.toISOString(),
       });
     }
-    const transcript = note.transcript?.trim() ?? "";
-    if (note.status === "completed" && transcript && !extracted.has(note.id)) {
+    const transcript = remainingTranscript(note, input);
+    if (transcript.remaining) {
       rows.push({
         kind: "unextracted_voice_note",
-        label: `Unextracted voice note: ${note.filename}`,
+        label: transcript.partial
+          ? `Remaining transcript: ${note.filename}`
+          : `Unextracted voice note: ${note.filename}`,
         href: `/app/jobs/${note.jobId}#voice-notes`,
         occurredAt: note.createdAt.toISOString(),
       });
