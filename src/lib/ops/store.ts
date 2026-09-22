@@ -47,6 +47,9 @@ import {
   estimateVersions,
   commercialApprovalRules,
   estimateApprovals,
+  proposals,
+  proposalEvents,
+  estimateAcceptances,
   estimateLines,
   estimateClauses,
   estimateAlternates,
@@ -99,6 +102,15 @@ import {
   listDemoApprovalRules,
   listDemoEstimateApprovals,
   saveDemoEstimateApproval,
+  getDemoOrganization,
+  listDemoProposals,
+  getDemoProposal,
+  getDemoProposalByTokenHash,
+  saveDemoProposal,
+  listDemoProposalEvents,
+  appendDemoProposalEvent,
+  getDemoEstimateAcceptance,
+  saveDemoEstimateAcceptance,
   listDemoPriceBookVersions,
   saveDemoPriceBookDraft,
   updateDemoEstimateLine,
@@ -213,6 +225,17 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
+import {
+  decideProposal,
+  hashProposalToken,
+  recordProposalView,
+  type EstimateAcceptance,
+  type ProposalEvent,
+  type ProposalEventKind,
+  type ProposalPublicSnapshot,
+  type ProposalRecord,
+} from "@/lib/ops/proposals";
 import { BACKGROUND_JOB_ATTEMPT_LIMIT } from "@/lib/ops/background-jobs";
 import { nextDocumentVersion, type BidDocumentInput } from "@/lib/ops/commercial-documents";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
@@ -5969,4 +5992,241 @@ export async function saveEstimateApproval(approval: {
   if (isDemoOpsStore()) return saveDemoEstimateApproval(approval);
   await getDb().insert(estimateApprovals).values(approval);
   return approval;
+}
+
+function proposalEventKind(value: string): ProposalEventKind {
+  if (
+    value === "generated" ||
+    value === "delivered" ||
+    value === "viewed" ||
+    value === "accepted" ||
+    value === "rejected" ||
+    value === "expired" ||
+    value === "revoked"
+  ) {
+    return value;
+  }
+  return "generated";
+}
+
+function proposalFromRow(row: typeof proposals.$inferSelect): ProposalRecord | null {
+  const snapshot = row.publicSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const record = snapshot as ProposalPublicSnapshot;
+  if (typeof record.estimateNumber !== "string" || typeof record.totalCents !== "number") return null;
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    estimateId: row.estimateId,
+    estimateVersionId: row.estimateVersionId,
+    versionNumber: row.versionNumber,
+    contentHash: row.contentHash,
+    pdfSha256: row.pdfSha256,
+    pdfBase64: row.pdfBase64,
+    tokenHash: row.tokenHash,
+    expiresAt: row.expiresAt,
+    createdBy: row.createdBy,
+    createdAt: row.createdAt,
+    snapshot: record,
+  };
+}
+
+function eventFromRow(row: typeof proposalEvents.$inferSelect): ProposalEvent {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    proposalId: row.proposalId,
+    kind: proposalEventKind(row.kind),
+    actorEmail: row.actorEmail,
+    recipientName: row.recipientName,
+    recipientEmail: row.recipientEmail,
+    channel: row.channel,
+    externalMessageId: row.externalMessageId,
+    attestation: row.attestation,
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    createdAt: row.createdAt,
+  };
+}
+
+export async function getOrganization(id: string) {
+  if (isDemoOpsStore()) return getDemoOrganization(id);
+  const rows = await getDb().select().from(organizations).where(eq(organizations.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listProposals(estimateId: string): Promise<ProposalRecord[]> {
+  if (isDemoOpsStore()) return listDemoProposals(estimateId);
+  const rows = await getDb()
+    .select()
+    .from(proposals)
+    .where(eq(proposals.estimateId, estimateId))
+    .orderBy(proposals.createdAt);
+  return rows.flatMap((row) => {
+    const proposal = proposalFromRow(row);
+    return proposal ? [proposal] : [];
+  });
+}
+
+export async function getProposal(proposalId: string): Promise<ProposalRecord | null> {
+  if (isDemoOpsStore()) return getDemoProposal(proposalId);
+  const rows = await getDb().select().from(proposals).where(eq(proposals.id, proposalId)).limit(1);
+  return rows[0] ? proposalFromRow(rows[0]) : null;
+}
+
+export async function saveProposal(proposal: ProposalRecord): Promise<ProposalRecord> {
+  if (isDemoOpsStore()) return saveDemoProposal(proposal);
+  await getDb().insert(proposals).values({
+    id: proposal.id,
+    organizationId: proposal.organizationId,
+    estimateId: proposal.estimateId,
+    estimateVersionId: proposal.estimateVersionId,
+    versionNumber: proposal.versionNumber,
+    contentHash: proposal.contentHash,
+    pdfSha256: proposal.pdfSha256,
+    pdfBase64: proposal.pdfBase64,
+    tokenHash: proposal.tokenHash,
+    publicSnapshot: proposal.snapshot,
+    expiresAt: proposal.expiresAt,
+    createdBy: proposal.createdBy,
+    createdAt: proposal.createdAt,
+  });
+  return proposal;
+}
+
+export async function listProposalEvents(proposalId: string): Promise<ProposalEvent[]> {
+  if (isDemoOpsStore()) return listDemoProposalEvents(proposalId);
+  const rows = await getDb()
+    .select()
+    .from(proposalEvents)
+    .where(eq(proposalEvents.proposalId, proposalId))
+    .orderBy(proposalEvents.createdAt);
+  return rows.map(eventFromRow);
+}
+
+export async function appendProposalEvent(event: ProposalEvent): Promise<ProposalEvent> {
+  if (isDemoOpsStore()) return appendDemoProposalEvent(event);
+  await getDb().insert(proposalEvents).values(event);
+  return event;
+}
+
+export async function getEstimateAcceptance(proposalId: string): Promise<EstimateAcceptance | null> {
+  if (isDemoOpsStore()) return getDemoEstimateAcceptance(proposalId);
+  const rows = await getDb()
+    .select()
+    .from(estimateAcceptances)
+    .where(eq(estimateAcceptances.proposalId, proposalId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    proposalId: row.proposalId,
+    estimateId: row.estimateId,
+    estimateVersionId: row.estimateVersionId,
+    contentHash: row.contentHash,
+    recipientName: row.recipientName,
+    recipientEmail: row.recipientEmail,
+    attestation: row.attestation,
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    createdAt: row.createdAt,
+  };
+}
+
+export async function saveEstimateAcceptance(acceptance: EstimateAcceptance): Promise<EstimateAcceptance> {
+  if (isDemoOpsStore()) return saveDemoEstimateAcceptance(acceptance);
+  const existing = await getEstimateAcceptance(acceptance.proposalId);
+  if (existing) return existing;
+  await getDb().insert(estimateAcceptances).values(acceptance);
+  return acceptance;
+}
+
+async function proposalByToken(token: string): Promise<ProposalRecord | null> {
+  const tokenHash = hashProposalToken(token);
+  if (isDemoOpsStore()) return getDemoProposalByTokenHash(tokenHash);
+  const rows = await getDb()
+    .select()
+    .from(proposals)
+    .where(eq(proposals.tokenHash, tokenHash))
+    .limit(1);
+  return rows[0] ? proposalFromRow(rows[0]) : null;
+}
+
+export async function openProposalByToken(token: string, now = new Date()) {
+  const proposal = await proposalByToken(token);
+  if (!proposal) return { ok: false as const };
+  const events = await listProposalEvents(proposal.id);
+  const viewed = recordProposalView({ proposal, events, now });
+  if (!viewed.ok) return { ok: false as const };
+  if (viewed.event) await appendProposalEvent(viewed.event);
+  const acceptance = await getEstimateAcceptance(proposal.id);
+  const decision = acceptance
+    ? ("accepted" as const)
+    : events.some((event) => event.kind === "rejected")
+      ? ("rejected" as const)
+      : null;
+  return {
+    ok: true as const,
+    snapshot: viewed.snapshot,
+    expiresAt: proposal.expiresAt.toISOString(),
+    decision,
+    pdfBase64: proposal.pdfBase64,
+  };
+}
+
+export async function decideStoredProposal(input: {
+  token: string;
+  decision: "accepted" | "rejected";
+  recipientName: string;
+  recipientEmail: string;
+  attestation: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const proposal = await proposalByToken(input.token);
+  if (!proposal) return { ok: false as const, error: "unavailable" };
+  const [events, acceptance, graphs, rules, approvals] = await Promise.all([
+    listProposalEvents(proposal.id),
+    getEstimateAcceptance(proposal.id),
+    listEstimateGraphs(proposal.estimateId),
+    listCommercialApprovalRules(proposal.organizationId),
+    listEstimateApprovals(proposal.estimateId),
+  ]);
+  const version = graphs.find((graph) => graph.versionId === proposal.estimateVersionId);
+  const latest = graphs.reduce((max, graph) => Math.max(max, graph.versionNumber), 0);
+  const approval = version
+    ? evaluateApprovalRules({
+        now,
+        organizationId: proposal.organizationId,
+        versionId: version.versionId,
+        contentHash: version.contentHash,
+        totalCents: version.totalCents,
+        rules,
+        decisions: approvals,
+      })
+    : null;
+  const decided = decideProposal({
+    proposal,
+    events,
+    now,
+    decision: input.decision,
+    latestVersionNumber: latest,
+    approvalSatisfied: Boolean(approval?.satisfied && version?.contentHash === proposal.contentHash),
+    existingAcceptance: acceptance,
+    recipientName: input.recipientName,
+    recipientEmail: input.recipientEmail,
+    attestation: input.attestation,
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+  });
+  if (!decided.ok) return decided;
+  if (!decided.replayed) {
+    await appendProposalEvent(decided.event);
+    if (decided.decision === "accepted") await saveEstimateAcceptance(decided.acceptance);
+  }
+  return decided;
 }

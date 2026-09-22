@@ -850,33 +850,33 @@ Commit message: `Approve exact immutable estimate versions.`
 - Modify: `src/lib/ops/store.ts`
 - Modify: `src/lib/ops/demo-store.ts`
 
-- [ ] **Step 1: Write proposal lifecycle tests**
+- [x] **Step 1: Write proposal lifecycle tests**
 
 Assert generation requires current approval, writes no delivered event, token
 storage uses SHA-256 rather than plaintext, first view writes one viewed event,
 revoked/expired tokens reveal no proposal, and accept/reject is idempotent.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/proposals.test.ts src/app/proposals/[token]/actions.test.ts
 ```
 
-- [ ] **Step 3: Generate the branded immutable PDF**
+- [x] **Step 3: Generate the branded immutable PDF**
 
 Use existing `pdf-lib`. Render company/site, estimate number/version, base
 scope, lines, alternates, inclusions, exclusions, total, expiry, and acceptance
 terms. Store the PDF privately, its SHA-256, exact estimate version/hash, and a
 hashed 32-byte random review token.
 
-- [ ] **Step 4: Add narrow signed review**
+- [x] **Step 4: Add narrow signed review**
 
 The public route reads only one unexpired, unrevoked proposal. It records view
 once per bounded event policy and exposes accept/reject with recipient name,
 email, and attestation. It exposes no internal notes, cost assumptions,
 approval comments, other records, or raw source documents.
 
-- [ ] **Step 5: Add human delivery action**
+- [x] **Step 5: Add human delivery action**
 
 **Generate proposal** and **Record delivery** are separate. Record channel,
 recipient, actor, timestamp, and optional external message ID. No generic email
@@ -893,7 +893,7 @@ npm test
 Generate without delivery, record delivery, view signed link, accept, then
 confirm a second acceptance returns the original result.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit message: `Track exact proposal delivery and acceptance.`
 

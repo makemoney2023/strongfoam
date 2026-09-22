@@ -2,6 +2,7 @@ export type ActionState = {
   error?: string;
   fields?: Record<string, string>;
   href?: string;
+  reviewPath?: string;
   notice?: {
     kind: "success" | "error";
     message: string;

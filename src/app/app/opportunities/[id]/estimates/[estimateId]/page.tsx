@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EstimateApprovalPanel } from "@/components/ops/estimate-approval-panel";
+import { ProposalPanel } from "@/components/ops/proposal-panel";
 import { EstimateEditor } from "@/components/ops/estimate-editor";
 import { EstimateJobPackages } from "@/components/ops/estimate-job-packages";
 import { EstimateVersionDiff } from "@/components/ops/estimate-version-diff";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
+import { proposalLifecycleStatus } from "@/lib/ops/proposals";
 import { compareEstimateVersions } from "@/lib/ops/estimates";
 import { formatUnitPrice, priceBookUnitLabel } from "@/lib/ops/price-book";
 import {
@@ -20,6 +22,8 @@ import {
   listEstimateGraphs,
   listPriceBookItems,
   listPriceBookVersions,
+  listProposalEvents,
+  listProposals,
 } from "@/lib/ops/store";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +88,32 @@ export default async function EstimateWorkspacePage({
   const previous = graphs.find((graph) => graph.versionNumber === selected.versionNumber - 1);
   const approvalDiff = previous ? compareEstimateVersions(previous, selected) : null;
   const canApprove = resolveCommercialAccess(session, "estimate.approve").ok;
+  const canDeliver = resolveCommercialAccess(session, "proposal.deliver").ok;
+  const proposalRows = await listProposals(estimate.id);
+  const proposalEvents = await Promise.all(
+    proposalRows.map(async (proposal) => ({
+      proposal,
+      events: await listProposalEvents(proposal.id),
+    })),
+  );
+  const proposalSummaries = proposalEvents.map(({ proposal, events }) => ({
+    id: proposal.id,
+    estimateVersionId: proposal.estimateVersionId,
+    versionNumber: proposal.versionNumber,
+    createdAt: proposal.createdAt.toISOString(),
+    expiresAt: proposal.expiresAt.toISOString(),
+    status: proposalLifecycleStatus(proposal, events, now),
+    events: events.map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      createdAt: event.createdAt.toISOString(),
+      actorEmail: event.actorEmail,
+      recipientName: event.recipientName,
+      recipientEmail: event.recipientEmail,
+      channel: event.channel,
+      externalMessageId: event.externalMessageId,
+    })),
+  }));
   const revisions = versions
     .filter((version) => version.status === "approved")
     .filter((version) => items.find((item) => item.id === version.itemId)?.active)
@@ -183,6 +213,22 @@ export default async function EstimateWorkspacePage({
             fromVersion={previous?.versionNumber ?? null}
             canDecide={canApprove}
             now={now}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Proposal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProposalPanel
+            estimateId={estimate.id}
+            versionId={selected.versionId}
+            approved={approval.status === "approved"}
+            isLatest={selected.versionNumber === latest.versionNumber}
+            canDeliver={canDeliver}
+            proposals={proposalSummaries}
           />
         </CardContent>
       </Card>

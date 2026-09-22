@@ -1,5 +1,10 @@
 import type { CommercialApprovalRule, EstimateApproval } from "@/lib/ops/estimate-approvals";
 import type {
+  EstimateAcceptance,
+  ProposalEvent,
+  ProposalRecord,
+} from "@/lib/ops/proposals";
+import type {
   AuditEventRow,
   DocumentChunkRow,
   DocumentExtractionRow,
@@ -236,6 +241,9 @@ type DemoOpsState = {
   estimateGraphs: PreparedEstimateVersion[];
   approvalRules: CommercialApprovalRule[];
   estimateApprovals: EstimateApproval[];
+  proposals: ProposalRecord[];
+  proposalEvents: ProposalEvent[];
+  estimateAcceptances: EstimateAcceptance[];
   auditEvents: AuditEventRow[];
   bidDocuments: DocumentRow[];
   bidDocumentVersions: DocumentVersionRow[];
@@ -296,6 +304,9 @@ function getDemoState(): DemoOpsState {
       estimateGraphs: [seeded.graph],
       approvalRules: [demoApprovalRule()],
       estimateApprovals: [],
+      proposals: [],
+      proposalEvents: [],
+      estimateAcceptances: [],
       auditEvents: [],
       bidDocuments: [seeded.document],
       bidDocumentVersions: [seeded.documentVersion],
@@ -411,6 +422,11 @@ function getDemoState(): DemoOpsState {
   if (!globalForDemo.__strongfoamDemoOps.approvalRules) {
     globalForDemo.__strongfoamDemoOps.approvalRules = [demoApprovalRule()];
     globalForDemo.__strongfoamDemoOps.estimateApprovals = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.proposals) {
+    globalForDemo.__strongfoamDemoOps.proposals = [];
+    globalForDemo.__strongfoamDemoOps.proposalEvents = [];
+    globalForDemo.__strongfoamDemoOps.estimateAcceptances = [];
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -4439,6 +4455,61 @@ export function saveDemoEstimateApproval(approval: EstimateApproval): EstimateAp
   if (existing) return existing;
   state.estimateApprovals.push(approval);
   return approval;
+}
+
+export function getDemoOrganization(id: string) {
+  return getDemoState().organizations.find((organization) => organization.id === id) ?? null;
+}
+
+export function listDemoProposals(estimateId: string): ProposalRecord[] {
+  return getDemoState().proposals.filter((proposal) => proposal.estimateId === estimateId);
+}
+
+export function getDemoProposalByTokenHash(tokenHash: string): ProposalRecord | null {
+  return getDemoState().proposals.find((proposal) => proposal.tokenHash === tokenHash) ?? null;
+}
+
+export function getDemoProposal(proposalId: string): ProposalRecord | null {
+  return getDemoState().proposals.find((proposal) => proposal.id === proposalId) ?? null;
+}
+
+export function saveDemoProposal(proposal: ProposalRecord): ProposalRecord {
+  const state = getDemoState();
+  const existing = state.proposals.find(
+    (item) => item.id === proposal.id || item.tokenHash === proposal.tokenHash,
+  );
+  if (existing) return existing;
+  state.proposals.push(proposal);
+  return proposal;
+}
+
+export function listDemoProposalEvents(proposalId: string): ProposalEvent[] {
+  return getDemoState().proposalEvents.filter((event) => event.proposalId === proposalId);
+}
+
+export function appendDemoProposalEvent(event: ProposalEvent): ProposalEvent {
+  const state = getDemoState();
+  const existing = state.proposalEvents.find((item) => item.id === event.id);
+  if (existing) return existing;
+  state.proposalEvents.push(event);
+  return event;
+}
+
+export function getDemoEstimateAcceptance(proposalId: string): EstimateAcceptance | null {
+  return (
+    getDemoState().estimateAcceptances.find((acceptance) => acceptance.proposalId === proposalId) ??
+    null
+  );
+}
+
+export function saveDemoEstimateAcceptance(acceptance: EstimateAcceptance): EstimateAcceptance {
+  const state = getDemoState();
+  const existing = state.estimateAcceptances.find(
+    (item) => item.id === acceptance.id || item.proposalId === acceptance.proposalId,
+  );
+  if (existing) return existing;
+  state.estimateAcceptances.push(acceptance);
+  return acceptance;
 }
 
 export function listDemoEstimateGraphs(estimateId?: string): PreparedEstimateVersion[] {

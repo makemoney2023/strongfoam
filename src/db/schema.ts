@@ -1526,6 +1526,99 @@ export const estimateApprovals = pgTable(
 export type CommercialApprovalRuleRow = typeof commercialApprovalRules.$inferSelect;
 export type EstimateApprovalRow = typeof estimateApprovals.$inferSelect;
 
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateId: uuid("estimate_id")
+      .notNull()
+      .references(() => estimates.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    versionNumber: integer("version_number").notNull(),
+    contentHash: text("content_hash").notNull(),
+    pdfSha256: text("pdf_sha256").notNull(),
+    pdfBase64: text("pdf_base64").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    publicSnapshot: jsonb("public_snapshot").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("proposals_token_hash_unique").on(table.tokenHash),
+    index("proposals_estimate_idx").on(table.organizationId, table.estimateId),
+  ],
+);
+
+export const proposalEvents = pgTable(
+  "proposal_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id),
+    kind: text("kind").notNull(),
+    actorEmail: text("actor_email"),
+    recipientName: text("recipient_name"),
+    recipientEmail: text("recipient_email"),
+    channel: text("channel"),
+    externalMessageId: text("external_message_id"),
+    attestation: text("attestation"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check(
+      "proposal_events_kind_valid",
+      sql`${table.kind} IN ('generated', 'delivered', 'viewed', 'accepted', 'rejected', 'expired', 'revoked')`,
+    ),
+    index("proposal_events_proposal_idx").on(table.organizationId, table.proposalId),
+  ],
+);
+
+export const estimateAcceptances = pgTable(
+  "estimate_acceptances",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id),
+    estimateId: uuid("estimate_id")
+      .notNull()
+      .references(() => estimates.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    contentHash: text("content_hash").notNull(),
+    recipientName: text("recipient_name").notNull(),
+    recipientEmail: text("recipient_email").notNull(),
+    attestation: text("attestation").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("estimate_acceptances_proposal_unique").on(table.proposalId),
+    index("estimate_acceptances_estimate_idx").on(table.organizationId, table.estimateId),
+  ],
+);
+
+export type ProposalRow = typeof proposals.$inferSelect;
+export type ProposalEventRow = typeof proposalEvents.$inferSelect;
+export type EstimateAcceptanceRow = typeof estimateAcceptances.$inferSelect;
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {

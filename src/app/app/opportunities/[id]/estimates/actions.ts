@@ -11,19 +11,31 @@ import {
 } from "@/lib/ops/commercial-authorization";
 import { formatUnitPrice } from "@/lib/ops/price-book";
 import { decideEstimateVersion } from "@/lib/ops/estimate-approvals";
+import {
+  generateProposal,
+  recordProposalDelivery,
+  revokeProposal,
+} from "@/lib/ops/proposals";
 import { parseWorkspaceDraft } from "@/lib/ops/estimate-workspace";
 import { prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
 import {
+  appendProposalEvent,
   createEstimateVersion,
   getAuthorizedOpportunity,
+  getCompany,
   getEstimate,
+  getOrganization,
+  getProposal,
+  getSite,
   listCommercialApprovalRules,
   listEstimateApprovals,
   listEstimateCitations,
   listEstimateGraphs,
   listPriceBookItems,
   listPriceBookVersions,
+  listProposalEvents,
   saveEstimateApproval,
+  saveProposal,
 } from "@/lib/ops/store";
 
 const ERRORS: Record<string, string> = {
@@ -37,6 +49,8 @@ const ERRORS: Record<string, string> = {
   "stale-hash": "That estimate version changed. Reload it before deciding.",
   superseded: "A newer estimate version exists. Decide the latest version.",
   "already-decided": "That approver already decided this version.",
+  "approval-required": "Approve this version before generating a proposal.",
+  "recipient-required": "Enter the recipient name, email, and channel.",
 };
 
 function explain(error: string): string {
@@ -227,6 +241,127 @@ export async function decideEstimateVersionAction(formData: FormData): Promise<A
       ? `Version ${version.versionNumber} approved.`
       : `Version ${version.versionNumber} rejected.`;
   return succeed(path, message);
+}
+
+async function proposalParties(organizationId: string, opportunityId: string) {
+  const [organization, opportunity] = await Promise.all([
+    getOrganization(organizationId),
+    getAuthorizedOpportunity(organizationId, opportunityId),
+  ]);
+  const company = opportunity?.companyId ? await getCompany(opportunity.companyId) : null;
+  const site = opportunity?.siteId ? await getSite(opportunity.siteId) : null;
+  return {
+    organizationName: organization?.name ?? "Strong Foam",
+    companyName:
+      company && company.organizationId === organizationId ? company.name : "Customer",
+    siteName:
+      site && site.organizationId === organizationId
+        ? `${site.name}, ${site.city}`
+        : "Site to be confirmed",
+  };
+}
+
+export async function generateProposalAction(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const estimate = estimateId ? await getEstimate(estimateId) : null;
+  const fallback = estimate
+    ? estimatePath(estimate.opportunityId, estimate.id)
+    : "/app/opportunities";
+  const access = resolveCommercialAccess(session, "proposal.deliver");
+  if (!access.ok) return fail(fallback, access.error);
+  if (!estimate) return fail(fallback, "That estimate could not be found.");
+  const same = assertSameOrganization(access.organizationId, estimate.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const graphs = await listEstimateGraphs(estimate.id);
+  const versionId = String(formData.get("estimateVersionId") ?? "");
+  const version = graphs.find((graph) => graph.versionId === versionId);
+  if (!version) return fail(fallback, "That estimate version could not be found.");
+  const latest = graphs.reduce((max, graph) => Math.max(max, graph.versionNumber), 0);
+  const parties = await proposalParties(estimate.organizationId, estimate.opportunityId);
+  const generated = await generateProposal({
+    actor: { email: session.email, role: session.role, organizationId: access.organizationId },
+    now: new Date(),
+    loaded: {
+      organizationId: estimate.organizationId,
+      ...parties,
+      estimateNumber: estimate.number,
+      estimateTitle: estimate.title,
+      version,
+      latestVersionNumber: latest,
+      approvals: await listEstimateApprovals(estimate.id),
+      rules: await listCommercialApprovalRules(access.organizationId),
+    },
+  });
+  const path = estimatePath(estimate.opportunityId, estimate.id, version.versionNumber);
+  if (!generated.ok) return fail(path, explain(generated.error));
+  await saveProposal(generated.proposal);
+  for (const item of generated.events) await appendProposalEvent(item);
+  revalidatePath(path);
+  return {
+    href: path,
+    reviewPath: `/proposals/${generated.token}`,
+    notice: {
+      kind: "success",
+      message: "Proposal generated. Delivery was not recorded.",
+    },
+  };
+}
+
+export async function recordProposalDeliveryAction(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const proposal = proposalId ? await getProposal(proposalId) : null;
+  const estimate = proposal ? await getEstimate(proposal.estimateId) : null;
+  const fallback = estimate
+    ? estimatePath(estimate.opportunityId, estimate.id, proposal?.versionNumber)
+    : "/app/opportunities";
+  const access = resolveCommercialAccess(session, "proposal.deliver");
+  if (!access.ok) return fail(fallback, access.error);
+  if (!proposal || !estimate) return fail(fallback, "That proposal could not be found.");
+  const same = assertSameOrganization(access.organizationId, proposal.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const recorded = recordProposalDelivery({
+    actor: { email: session.email, role: session.role, organizationId: access.organizationId },
+    proposal,
+    now: new Date(),
+    channel: String(formData.get("channel") ?? ""),
+    recipientName: String(formData.get("recipientName") ?? ""),
+    recipientEmail: String(formData.get("recipientEmail") ?? ""),
+    externalMessageId: String(formData.get("externalMessageId") ?? ""),
+  });
+  if (!recorded.ok) return fail(fallback, explain(recorded.error));
+  await appendProposalEvent(recorded.event);
+  revalidatePath(fallback);
+  return succeed(fallback, "Delivery recorded. Nothing was sent automatically.");
+}
+
+export async function revokeProposalAction(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const proposal = proposalId ? await getProposal(proposalId) : null;
+  const estimate = proposal ? await getEstimate(proposal.estimateId) : null;
+  const fallback = estimate
+    ? estimatePath(estimate.opportunityId, estimate.id, proposal?.versionNumber)
+    : "/app/opportunities";
+  const access = resolveCommercialAccess(session, "proposal.deliver");
+  if (!access.ok) return fail(fallback, access.error);
+  if (!proposal) return fail(fallback, "That proposal could not be found.");
+  const same = assertSameOrganization(access.organizationId, proposal.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const revoked = revokeProposal({
+    actor: { email: session.email, role: session.role, organizationId: access.organizationId },
+    proposal,
+    events: await listProposalEvents(proposal.id),
+    now: new Date(),
+  });
+  if (!revoked.ok) return fail(fallback, explain(revoked.error));
+  if (!revoked.replayed) await appendProposalEvent(revoked.event);
+  revalidatePath(fallback);
+  return succeed(fallback, revoked.replayed ? "This review link is already revoked." : "Review link revoked.");
 }
 
 export async function discardEstimateDraft(formData: FormData): Promise<ActionState> {
