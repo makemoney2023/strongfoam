@@ -308,7 +308,7 @@ Commit message: `Scope commercial records and audit to an organization.`
 - Modify: `.env.example`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write failing state-machine tests**
+- [x] **Step 1: Write failing state-machine tests**
 
 Assert:
 
@@ -321,20 +321,20 @@ expect(checkpointJob(job, { page: 12 }).checkpoint).toEqual({ page: 12 });
 
 The same idempotency key returns the existing background job.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/background-jobs.test.ts
 ```
 
-- [ ] **Step 3: Add schema and pure state transitions**
+- [x] **Step 3: Add schema and pure state transitions**
 
 Create organization-scoped `outbox_events`, `background_jobs`, and
 `dead_letter_jobs`. Enforce unique `(organization_id, idempotency_key)`.
 Statuses are `queued`, `running`, `retry_wait`, `completed`, `dead_letter`,
 and `cancelled`.
 
-- [ ] **Step 4: Add the worker process**
+- [x] **Step 4: Add the worker process**
 
 Install latest packages:
 
@@ -354,7 +354,7 @@ The worker starts pg-boss, registers handlers from `registry.ts`, records a
 heartbeat, handles `SIGTERM`, stops claiming work, waits for active handlers,
 and exits cleanly. It uses `DATABASE_URL` and never imports a client component.
 
-- [ ] **Step 5: Add transactional enqueue**
+- [x] **Step 5: Add transactional enqueue**
 
 Provide:
 
@@ -374,12 +374,12 @@ export async function writeOutbox(
 
 The business write and outbox insert use the same transaction.
 
-- [ ] **Step 6: Test restart, retry, and dead-letter behavior**
+- [x] **Step 6: Test restart, retry, and dead-letter behavior**
 
 Use a handler that fails after checkpoint page 2, restarts, resumes page 3,
 then exhausts a second fixture. Assert no duplicate effect.
 
-- [ ] **Step 7: Run checks and commit**
+- [x] **Step 7: Run checks and commit**
 
 ```bash
 npx vitest run src/lib/ops/background-jobs.test.ts

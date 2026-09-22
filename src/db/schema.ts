@@ -891,6 +891,103 @@ export const auditEvents = pgTable(
 
 export type AuditEventRow = typeof auditEvents.$inferSelect;
 
+export const outboxEvents = pgTable(
+  "outbox_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    kind: text("kind").notNull(),
+    aggregateType: text("aggregate_type").notNull(),
+    aggregateId: uuid("aggregate_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("outbox_events_organization_idempotency_unique").on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    index("outbox_events_unpublished_idx").on(
+      table.organizationId,
+      table.publishedAt,
+    ),
+  ],
+);
+
+export const backgroundJobs = pgTable(
+  "background_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    kind: text("kind").notNull(),
+    aggregateType: text("aggregate_type").notNull(),
+    aggregateId: uuid("aggregate_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    checkpoint: jsonb("checkpoint").$type<Record<string, unknown> | null>(),
+    lockedBy: text("locked_by"),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    lastError: text("last_error"),
+  },
+  (table) => [
+    unique("background_jobs_organization_idempotency_unique").on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    check(
+      "background_jobs_status_valid",
+      sql`${table.status} IN ('queued', 'running', 'retry_wait', 'completed', 'dead_letter', 'cancelled')`,
+    ),
+    index("background_jobs_status_idx").on(
+      table.organizationId,
+      table.status,
+      table.nextRunAt,
+    ),
+  ],
+);
+
+export const deadLetterJobs = pgTable(
+  "dead_letter_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    backgroundJobId: uuid("background_job_id")
+      .notNull()
+      .references(() => backgroundJobs.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    kind: text("kind").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    attempts: integer("attempts").notNull(),
+    checkpoint: jsonb("checkpoint").$type<Record<string, unknown> | null>(),
+    lastError: text("last_error"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  },
+  (table) => [
+    index("dead_letter_jobs_organization_idx").on(table.organizationId),
+  ],
+);
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {

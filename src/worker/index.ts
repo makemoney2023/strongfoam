@@ -1,0 +1,81 @@
+import { pathToFileURL } from "node:url";
+import { PgBoss } from "pg-boss";
+import { recordHeartbeat } from "@/lib/ops/background-jobs";
+import { handlers, type WorkerHandler } from "@/worker/registry";
+
+const SHUTDOWN_TIMEOUT_MS = 30_000;
+
+export type WorkerBoss = {
+  start: () => Promise<unknown>;
+  stop: (options?: { graceful?: boolean; timeout?: number }) => Promise<void>;
+  work: (name: string, handler: WorkerHandler) => Promise<string>;
+  createQueue: (name: string) => Promise<void>;
+};
+
+export type RunningWorker = {
+  workerId: string;
+  stop: () => Promise<void>;
+};
+
+export async function startWorker(
+  boss: WorkerBoss,
+  workerId = process.env.WORKER_ID ?? "strongfoam-worker",
+): Promise<RunningWorker> {
+  await boss.start();
+  let active = 0;
+  const heartbeat = setInterval(() => {
+    recordHeartbeat(workerId, new Date(), active);
+  }, 15_000);
+  heartbeat.unref?.();
+
+  for (const [name, handler] of Object.entries(handlers)) {
+    await boss.createQueue(name);
+    await boss.work(name, async (job) => {
+      active += 1;
+      try {
+        await handler(job);
+      } finally {
+        active -= 1;
+      }
+    });
+  }
+
+  let stopping = false;
+  return {
+    workerId,
+    async stop() {
+      if (stopping) return;
+      stopping = true;
+      clearInterval(heartbeat);
+      await boss.stop({ graceful: true, timeout: SHUTDOWN_TIMEOUT_MS });
+    },
+  };
+}
+
+async function main(): Promise<void> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set");
+  }
+  const boss = new PgBoss(connectionString);
+  const worker = await startWorker(boss);
+  const shutdown = () => {
+    worker.stop().then(
+      () => process.exit(0),
+      (error: unknown) => {
+        console.error(error);
+        process.exit(1);
+      },
+    );
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+}
+
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(entry).href) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
