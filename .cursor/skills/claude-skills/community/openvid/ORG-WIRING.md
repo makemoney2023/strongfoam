@@ -24,13 +24,15 @@ Upstream is an app, not a Claude skill. Seats use it when the source is a **scre
 **How to run (operator or video-producer on this Mac)**
 
 ```bash
-cd skills/community/openvid
+cd .cursor/skills/claude-skills/community/openvid
 pnpm install
-cp .env.example .env   # only if cloud backup is in scope
+cp .env.example .env
+# Walkthrough exports do not need Supabase. In .env set:
+#   NEXT_PUBLIC_OPENVID_ALLOW_LOCAL_EXPORT=true
 pnpm dev
 ```
 
-Open http://localhost:3000. Export from the app into the leased path above. Do not commit `node_modules/` or `.next/`.
+Open http://localhost:3010/en/editor. Port 3010 keeps this off the Strongfoam app on port 3000. `pnpm dev` also disables source maps so the editor can compile alongside the rest of this repo. Export from the app into the leased path above. Do not commit `node_modules/`, `.next/`, or `.env`.
 
 **Nested skills worth reading**
 
