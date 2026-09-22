@@ -21,10 +21,16 @@ export function TranscriptRecordPanel({
   proposals: TranscriptRecordProposal[];
 }) {
   const router = useRouter();
-  const [hidden, setHidden] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-  const visible = proposals.filter((proposal) => !hidden.includes(proposal.voiceNoteId));
+  const shown = new Map<string, TranscriptRecordProposal>();
+  for (const proposal of proposals) {
+    const key = `${proposal.voiceNoteId}:${proposal.selectedText}`;
+    if (skipped.includes(key) || shown.has(proposal.voiceNoteId)) continue;
+    shown.set(proposal.voiceNoteId, proposal);
+  }
+  const visible = [...shown.values()];
 
   async function confirm(proposal: TranscriptRecordProposal) {
     setPending(proposal.voiceNoteId);
@@ -46,7 +52,7 @@ export function TranscriptRecordPanel({
       <CardHeader>
         <CardTitle>Transcript record</CardTitle>
         <CardDescription>
-          A completed transcript can propose one blocker, deficiency, or material request. Saving uses the existing voice extract. Dismissing writes nothing.
+          A completed transcript can propose one blocker, deficiency, material request, or new task. Saving uses the existing voice extract. Another sentence can still be saved. Dismissing writes nothing and shows the next sentence.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -68,7 +74,10 @@ export function TranscriptRecordPanel({
                 className="min-h-11"
                 disabled={pending !== null}
                 onClick={() => {
-                  setHidden((current) => [...current, proposal.voiceNoteId]);
+                  setSkipped((current) => [
+                    ...current,
+                    `${proposal.voiceNoteId}:${proposal.selectedText}`,
+                  ]);
                   setMessage("Transcript left unchanged.");
                 }}
               >

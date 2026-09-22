@@ -22,7 +22,10 @@ vi.mock("next/navigation", () => ({
 import { confirmTranscriptRecord } from "@/app/app/jobs/ai-follow-actions";
 import { DEMO_JOB_ID, DEMO_VOICE_NOTE_ID } from "@/lib/ops/demo-data";
 import { getDemoJob, listDemoJobFieldNotes } from "@/lib/ops/demo-store";
-import { proposeTranscriptRecord } from "@/lib/ops/transcript-record";
+import {
+  listTranscriptRecords,
+  proposeTranscriptRecord,
+} from "@/lib/ops/transcript-record";
 
 const officeSession = {
   userId: "20202020-2020-4020-8020-202020202020",
@@ -112,7 +115,7 @@ describe("transcript record actions", () => {
       voiceNoteId: DEMO_VOICE_NOTE_ID,
       filename: note?.filename ?? "",
       transcript: note?.transcript ?? "",
-      alreadyExtracted: false,
+      tasks: [{ title: "Install closed-cell at podium deck", status: "open" }],
     });
     expect(proposal?.kind).toBe("blocker");
     if (!proposal) return;
@@ -141,5 +144,92 @@ describe("transcript record actions", () => {
       error: "That transcript was already turned into a record.",
     });
     expect(listDemoJobFieldNotes(DEMO_JOB_ID)).toHaveLength(before + 1);
+  });
+
+  it("saves a later sentence without saving the earlier one", async () => {
+    const note = (
+      globalThis as typeof globalThis & {
+        __strongfoamDemoOps?: {
+          jobVoiceNotes: Array<{ id: string; filename: string; transcript: string | null }>;
+        };
+      }
+    ).__strongfoamDemoOps?.jobVoiceNotes.find((row) => row.id === DEMO_VOICE_NOTE_ID);
+    expect(note).toBeTruthy();
+    if (!note) return;
+    const original = note.transcript;
+    note.transcript =
+      "Hold the south wall. Request more closed-cell for the afternoon lift.";
+    try {
+      const material = listTranscriptRecords({
+        voiceNoteId: DEMO_VOICE_NOTE_ID,
+        filename: note.filename,
+        transcript: note.transcript,
+      }).find((record) => record.kind === "material_request");
+      expect(material).toBeTruthy();
+      if (!material) return;
+      expect(await confirmTranscriptRecord(DEMO_JOB_ID, material)).toEqual({
+        ok: true,
+        effect: material.effect,
+      });
+      const notes = listDemoJobFieldNotes(DEMO_JOB_ID);
+      expect(
+        notes.some(
+          (row) => row.kind === "material_request" && row.body === material.selectedText,
+        ),
+      ).toBe(true);
+      expect(notes.some((row) => row.kind === "blocker")).toBe(false);
+      expect(getDemoJob(DEMO_JOB_ID)?.status).not.toBe("blocked");
+    } finally {
+      note.transcript = original;
+    }
+  });
+
+  it("saves a later sentence after the first record", async () => {
+    const note = (
+      globalThis as typeof globalThis & {
+        __strongfoamDemoOps?: {
+          jobVoiceNotes: Array<{ id: string; filename: string; transcript: string | null }>;
+        };
+      }
+    ).__strongfoamDemoOps?.jobVoiceNotes.find((row) => row.id === DEMO_VOICE_NOTE_ID);
+    expect(note).toBeTruthy();
+    if (!note) return;
+    const original = note.transcript;
+    note.transcript =
+      "Hold the south wall. Request more closed-cell for the afternoon lift.";
+    try {
+      const blocker = proposeTranscriptRecord({
+        voiceNoteId: DEMO_VOICE_NOTE_ID,
+        filename: note.filename,
+        transcript: note.transcript,
+      });
+      expect(blocker?.kind).toBe("blocker");
+      if (!blocker) return;
+      expect(await confirmTranscriptRecord(DEMO_JOB_ID, blocker)).toEqual({
+        ok: true,
+        effect: blocker.effect,
+      });
+      const material = proposeTranscriptRecord({
+        voiceNoteId: DEMO_VOICE_NOTE_ID,
+        filename: note.filename,
+        transcript: note.transcript,
+        savedTexts: [blocker.selectedText],
+      });
+      expect(material?.kind).toBe("material_request");
+      if (!material) return;
+      expect(await confirmTranscriptRecord(DEMO_JOB_ID, material)).toEqual({
+        ok: true,
+        effect: material.effect,
+      });
+      const notes = listDemoJobFieldNotes(DEMO_JOB_ID);
+      expect(notes.some((row) => row.kind === "blocker" && row.body === blocker.selectedText)).toBe(
+        true,
+      );
+      expect(
+        notes.some((row) => row.kind === "material_request" && row.body === material.selectedText),
+      ).toBe(true);
+    } finally {
+      note.transcript = original;
+    }
   });
 });

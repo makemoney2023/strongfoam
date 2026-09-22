@@ -48,12 +48,7 @@ export function SpeakOntoPlan({
     if (!proposal) return;
     setPending(true);
     setMessage(null);
-    const result = await confirmSpokenPlanMark(
-      jobId,
-      documentId,
-      voiceNoteId,
-      proposal.effect,
-    );
+    const result = await confirmSpokenPlanMark(jobId, documentId, voiceNoteId, proposal);
     setPending(false);
     if (!result.ok) {
       setMessage(result.error);
