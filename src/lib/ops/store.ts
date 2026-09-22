@@ -30,6 +30,7 @@ import {
   documents,
   outboxEvents,
   backgroundJobs,
+  auditEvents,
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
@@ -50,6 +51,9 @@ import {
   proposals,
   proposalEvents,
   estimateAcceptances,
+  estimateConversions,
+  projectBudgets,
+  projectBudgetLines,
   estimateLines,
   estimateClauses,
   estimateAlternates,
@@ -111,6 +115,10 @@ import {
   appendDemoProposalEvent,
   getDemoEstimateAcceptance,
   saveDemoEstimateAcceptance,
+  convertDemoAcceptedEstimate,
+  findDemoAcceptedEstimate,
+  listDemoEntityDocumentVersionIds,
+  listDemoEstimateConversions,
   listDemoPriceBookVersions,
   saveDemoPriceBookDraft,
   updateDemoEstimateLine,
@@ -226,6 +234,12 @@ import {
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
+import {
+  commitEstimateConversion,
+  createMemoryLedger,
+  emptyConversionDraft,
+  type ConversionResult,
+} from "@/lib/ops/estimate-conversion";
 import {
   decideProposal,
   hashProposalToken,
@@ -2478,6 +2492,13 @@ export async function convertOpportunityToProject(args: {
   }
   if (opportunity.projectId) {
     return { ok: false, error: "This opportunity already has a project." };
+  }
+  const accepted = await findAcceptedEstimate(opportunity.id);
+  if (accepted) {
+    return {
+      ok: false,
+      error: `Accepted estimate ${accepted.number} must be converted from its preview.`,
+    };
   }
 
   const request = opportunity.sourceLeadId
@@ -6221,4 +6242,282 @@ export async function decideStoredProposal(input: {
     if (decided.decision === "accepted") await saveEstimateAcceptance(decided.acceptance);
   }
   return decided;
+}
+
+export async function listEntityDocumentVersionIds(
+  organizationId: string,
+  entityIds: string[],
+): Promise<string[]> {
+  if (entityIds.length === 0) return [];
+  if (isDemoOpsStore()) return listDemoEntityDocumentVersionIds(organizationId, entityIds);
+  const rows = await getDb()
+    .select({ documentVersionId: documentLinks.documentVersionId })
+    .from(documentLinks)
+    .where(
+      and(
+        eq(documentLinks.organizationId, organizationId),
+        inArray(documentLinks.entityId, entityIds),
+      ),
+    );
+  return rows.map((row) => row.documentVersionId);
+}
+
+export async function findAcceptedEstimate(opportunityId: string) {
+  if (isDemoOpsStore()) return findDemoAcceptedEstimate(opportunityId);
+  const estimateRows = await getDb()
+    .select()
+    .from(estimates)
+    .where(eq(estimates.opportunityId, opportunityId));
+  for (const estimate of estimateRows) {
+    const proposalRows = await getDb()
+      .select()
+      .from(proposals)
+      .where(eq(proposals.estimateId, estimate.id));
+    for (const proposal of proposalRows) {
+      const acceptance = await getEstimateAcceptance(proposal.id);
+      if (acceptance) return { estimateId: estimate.id, number: estimate.number };
+    }
+  }
+  return null;
+}
+
+export async function listEstimateConversions(estimateId: string): Promise<ConversionResult[]> {
+  if (isDemoOpsStore()) return listDemoEstimateConversions(estimateId);
+  const rows = await getDb()
+    .select()
+    .from(estimateConversions)
+    .where(eq(estimateConversions.estimateId, estimateId));
+  return rows.map((row) => ({
+    id: row.id,
+    organizationId: row.organizationId,
+    acceptanceId: row.acceptanceId,
+    estimateId: row.estimateId,
+    estimateVersionId: row.estimateVersionId,
+    contentHash: row.contentHash,
+    idempotencyKey: row.idempotencyKey,
+    payloadHash: row.payloadHash,
+    projectId: row.projectId,
+    jobIds: row.jobIds,
+    workAreaIds: [],
+    taskIds: [],
+    budgetId: "",
+    documentVersionIds: [],
+    createdAt: row.createdAt,
+  }));
+}
+
+export async function convertAcceptedEstimate(args: {
+  actor: {
+    email: string;
+    role: "administrator" | "office" | "field_lead" | "field_worker" | "estimator";
+    organizationId?: string;
+  };
+  acceptanceId: string;
+  expectedHash: string;
+  idempotencyKey: string;
+  now?: Date;
+}): Promise<
+  | { ok: true; result: ConversionResult; replayed: boolean }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return convertDemoAcceptedEstimate(args);
+  const now = args.now ?? new Date();
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const acceptanceRows = await tx
+      .select()
+      .from(estimateAcceptances)
+      .where(eq(estimateAcceptances.id, args.acceptanceId))
+      .limit(1);
+    const acceptanceRow = acceptanceRows[0];
+    if (!acceptanceRow) return { ok: false as const, error: "That acceptance could not be found." };
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${acceptanceRow.organizationId}, 0))`,
+    );
+    const existingRows = await tx
+      .select()
+      .from(estimateConversions)
+      .where(eq(estimateConversions.acceptanceId, acceptanceRow.id))
+      .limit(1);
+    if (existingRows[0]) {
+      const listed = await listEstimateConversions(acceptanceRow.estimateId);
+      const existing = listed.find((item) => item.acceptanceId === acceptanceRow.id);
+      if (existing) return { ok: true as const, result: existing, replayed: true };
+    }
+    const estimateRows = await tx
+      .select()
+      .from(estimates)
+      .where(eq(estimates.id, acceptanceRow.estimateId))
+      .limit(1);
+    const estimate = estimateRows[0];
+    if (!estimate) return { ok: false as const, error: "That estimate could not be found." };
+    const opportunityRows = await tx
+      .select()
+      .from(opportunities)
+      .where(eq(opportunities.id, estimate.opportunityId))
+      .for("update")
+      .limit(1);
+    const opportunity = opportunityRows[0];
+    const proposalRows = await tx
+      .select()
+      .from(proposals)
+      .where(eq(proposals.id, acceptanceRow.proposalId))
+      .limit(1);
+    const proposal = proposalRows[0] ? proposalFromRow(proposalRows[0]) : null;
+    const graphs = await listEstimateGraphs(estimate.id);
+    const version = graphs.find((graph) => graph.versionId === acceptanceRow.estimateVersionId);
+    if (!opportunity || !version) return { ok: false as const, error: "That estimate could not be found." };
+    const latest = graphs.reduce((max, graph) => Math.max(max, graph.versionNumber), 0);
+    const [rules, approvals, eventRows] = await Promise.all([
+      listCommercialApprovalRules(estimate.organizationId),
+      listEstimateApprovals(estimate.id),
+      tx.select().from(proposalEvents).where(eq(proposalEvents.proposalId, acceptanceRow.proposalId)),
+    ]);
+    const approval = evaluateApprovalRules({
+      now,
+      organizationId: estimate.organizationId,
+      versionId: version.versionId,
+      contentHash: version.contentHash,
+      totalCents: version.totalCents,
+      rules,
+      decisions: approvals,
+    });
+    const linkRows = await tx
+      .select()
+      .from(documentLinks)
+      .where(eq(documentLinks.organizationId, estimate.organizationId));
+    const documentVersionIds = [
+      ...new Set([
+        ...version.sources.map((source) => source.documentVersionId),
+        ...linkRows
+          .filter((link) => link.entityId === estimate.id || link.entityId === opportunity.id)
+          .map((link) => link.documentVersionId),
+      ]),
+    ];
+    const ledger = createMemoryLedger({
+      ...emptyConversionDraft(opportunity.stage),
+      opportunityProjectId: opportunity.projectId,
+      opportunityStage: opportunity.stage,
+    });
+    const committed = await commitEstimateConversion({
+      actor: args.actor,
+      now,
+      idempotencyKey: args.idempotencyKey,
+      expectedHash: args.expectedHash,
+      acceptance: {
+        id: acceptanceRow.id,
+        organizationId: acceptanceRow.organizationId,
+        proposalId: acceptanceRow.proposalId,
+        estimateId: acceptanceRow.estimateId,
+        estimateVersionId: acceptanceRow.estimateVersionId,
+        contentHash: acceptanceRow.contentHash,
+        recipientName: acceptanceRow.recipientName,
+        recipientEmail: acceptanceRow.recipientEmail,
+        attestation: acceptanceRow.attestation,
+        ipAddress: acceptanceRow.ipAddress,
+        userAgent: acceptanceRow.userAgent,
+        createdAt: acceptanceRow.createdAt,
+      },
+      events: eventRows.map(eventFromRow),
+      version,
+      latestVersionNumber: latest,
+      approvalSatisfied: approval.satisfied,
+      acceptanceExpired: proposal ? proposal.expiresAt <= now : true,
+      opportunity,
+      documentVersionIds,
+      ledger,
+    });
+    if (!committed.ok || committed.replayed) return committed;
+    const draft = ledger.read();
+    if (draft.projects[0]) {
+      await tx.insert(projects).values({
+        ...draft.projects[0],
+        createdAt: now,
+        updatedAt: now,
+        scheduleCalendarId: null,
+      });
+    }
+    if (draft.jobs.length) {
+      await tx.insert(jobs).values(
+        draft.jobs.map((job) => ({
+          ...job,
+          createdAt: now,
+          updatedAt: now,
+          foreman: null,
+          plannedStartAt: null,
+          plannedEndAt: null,
+          blockerNote: null,
+        })),
+      );
+    }
+    if (draft.workAreas.length) {
+      await tx.insert(workAreas).values(
+        draft.workAreas.map((area) => ({
+          ...area,
+          createdAt: now,
+          updatedAt: now,
+          notes: null,
+        })),
+      );
+    }
+    if (draft.tasks.length) {
+      await tx.insert(jobTasks).values(
+        draft.tasks.map((task) => ({
+          ...task,
+          createdAt: now,
+          updatedAt: now,
+          assignee: null,
+          assigneeUserId: null,
+          dueAt: null,
+          plannedStartAt: null,
+          plannedEndAt: null,
+          completedAt: null,
+          statedQuantity: null,
+          statedUnit: null,
+        })),
+      );
+    }
+    if (draft.documentLinks.length) {
+      await tx.insert(documentLinks).values(
+        draft.documentLinks.map((link) => ({ ...link, createdAt: now })),
+      );
+    }
+    if (draft.budgets.length) await tx.insert(projectBudgets).values(draft.budgets.map((budget) => ({ ...budget, createdAt: now })));
+    if (draft.budgetLines.length) await tx.insert(projectBudgetLines).values(draft.budgetLines);
+    if (draft.jobEvents.length) {
+      await tx.insert(jobEvents).values(draft.jobEvents.map((event) => ({ ...event, createdAt: now })));
+    }
+    if (draft.audits.length) {
+      await tx.insert(auditEvents).values(
+        draft.audits.map((audit) => ({ ...audit, createdAt: now, payload: {} })),
+      );
+    }
+    if (draft.outbox.length) {
+      await tx.insert(outboxEvents).values(draft.outbox.map((event) => ({ ...event, createdAt: now })));
+    }
+    await tx.insert(estimateConversions).values({
+      id: committed.result.id,
+      organizationId: committed.result.organizationId,
+      acceptanceId: committed.result.acceptanceId,
+      estimateId: committed.result.estimateId,
+      estimateVersionId: committed.result.estimateVersionId,
+      contentHash: committed.result.contentHash,
+      idempotencyKey: committed.result.idempotencyKey,
+      payloadHash: committed.result.payloadHash,
+      projectId: committed.result.projectId,
+      jobIds: committed.result.jobIds,
+      createdAt: now,
+    });
+    await tx
+      .update(opportunities)
+      .set({ projectId: committed.result.projectId, stage: "won", updatedAt: now })
+      .where(eq(opportunities.id, opportunity.id));
+    if (opportunity.sourceLeadId) {
+      await tx
+        .update(leads)
+        .set({ workflowStatus: "won", updatedAt: now })
+        .where(eq(leads.id, opportunity.sourceLeadId));
+    }
+    return { ok: true as const, result: committed.result, replayed: false };
+  });
 }

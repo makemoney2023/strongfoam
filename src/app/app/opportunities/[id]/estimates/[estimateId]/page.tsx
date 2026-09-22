@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EstimateApprovalPanel } from "@/components/ops/estimate-approval-panel";
+import { EstimateConversionPreview } from "@/components/ops/estimate-conversion-preview";
 import { ProposalPanel } from "@/components/ops/proposal-panel";
 import { EstimateEditor } from "@/components/ops/estimate-editor";
 import { EstimateJobPackages } from "@/components/ops/estimate-job-packages";
@@ -11,14 +12,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
+import { buildEstimateConversionPreview } from "@/lib/ops/estimate-conversion";
 import { proposalLifecycleStatus } from "@/lib/ops/proposals";
 import { compareEstimateVersions } from "@/lib/ops/estimates";
 import { formatUnitPrice, priceBookUnitLabel } from "@/lib/ops/price-book";
 import {
   getEstimate,
+  getEstimateAcceptance,
+  getOpportunity,
   listCommercialApprovalRules,
+  listEntityDocumentVersionIds,
   listEstimateApprovals,
   listEstimateCitations,
+  listEstimateConversions,
   listEstimateGraphs,
   listPriceBookItems,
   listPriceBookVersions,
@@ -131,6 +137,35 @@ export default async function EstimateWorkspacePage({
   }));
   const latest = graphs[graphs.length - 1];
   const canEdit = resolveCommercialAccess(session, "estimate.edit").ok;
+  const canConvert = resolveCommercialAccess(session, "estimate.convert").ok;
+  const acceptances = (
+    await Promise.all(proposalRows.map((proposal) => getEstimateAcceptance(proposal.id)))
+  ).filter((acceptance) => acceptance != null);
+  const acceptance = acceptances[0] ?? null;
+  const conversions = await listEstimateConversions(estimate.id);
+  const conversion =
+    conversions.find((item) => item.acceptanceId === acceptance?.id) ?? conversions[0] ?? null;
+  const acceptedVersion = acceptance
+    ? graphs.find((graph) => graph.versionId === acceptance.estimateVersionId)
+    : null;
+  const opportunity = await getOpportunity(estimate.opportunityId);
+  const linkedVersionIds = await listEntityDocumentVersionIds(estimate.organizationId, [
+    estimate.id,
+    estimate.opportunityId,
+  ]);
+  const preview =
+    acceptedVersion && opportunity
+      ? buildEstimateConversionPreview({
+          projectName: opportunity.name,
+          version: acceptedVersion,
+          documentVersionIds: [
+            ...new Set([
+              ...acceptedVersion.sources.map((source) => source.documentVersionId),
+              ...linkedVersionIds,
+            ]),
+          ],
+        })
+      : null;
   const grouped = new Map<string, typeof selected.lines>();
   for (const line of selected.lines) {
     const bucket = grouped.get(line.category) ?? [];
@@ -229,6 +264,27 @@ export default async function EstimateWorkspacePage({
             isLatest={selected.versionNumber === latest.versionNumber}
             canDeliver={canDeliver}
             proposals={proposalSummaries}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Convert to project</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EstimateConversionPreview
+            estimateId={estimate.id}
+            acceptanceId={acceptance?.id ?? null}
+            expectedHash={acceptedVersion?.contentHash ?? ""}
+            idempotencyKey={acceptance ? `estimate-conversion:${acceptance.id}` : ""}
+            preview={preview}
+            canConvert={canConvert}
+            result={
+              conversion
+                ? { projectId: conversion.projectId, jobIds: conversion.jobIds }
+                : null
+            }
           />
         </CardContent>
       </Card>

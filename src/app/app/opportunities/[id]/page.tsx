@@ -36,6 +36,7 @@ import {
   getCompany,
   getContact,
   getEstimateRequest,
+  findAcceptedEstimate,
   getOpportunity,
   getProject,
   getSite,
@@ -91,7 +92,11 @@ export default async function OpportunityDetailPage({
     : process.env.BLOB_READ_WRITE_TOKEN
       ? "blob"
       : "unavailable";
+  const acceptedEstimate = opportunity.projectId
+    ? null
+    : await findAcceptedEstimate(opportunity.id);
   const canConvert =
+    !acceptedEstimate &&
     !opportunity.projectId &&
     canConvertWonWork({
       workflowStatus: request?.workflowStatus,
@@ -293,6 +298,16 @@ export default async function OpportunityDetailPage({
                 </li>
               ))}
             </ul>
+          ) : acceptedEstimate ? (
+            <p className="text-sm">
+              Accepted estimate {acceptedEstimate.number} has a conversion preview.{" "}
+              <Link
+                className="font-medium underline underline-offset-4"
+                href={`/app/opportunities/${opportunity.id}/estimates/${acceptedEstimate.estimateId}`}
+              >
+                Open the estimate
+              </Link>
+            </p>
           ) : canConvert ? (
             <ConvertWonWorkForm
               opportunityId={opportunity.id}

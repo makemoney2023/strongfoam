@@ -20,6 +20,7 @@ import { parseWorkspaceDraft } from "@/lib/ops/estimate-workspace";
 import { prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
 import {
   appendProposalEvent,
+  convertAcceptedEstimate,
   createEstimateVersion,
   getAuthorizedOpportunity,
   getCompany,
@@ -51,6 +52,11 @@ const ERRORS: Record<string, string> = {
   "already-decided": "That approver already decided this version.",
   "approval-required": "Approve this version before generating a proposal.",
   "recipient-required": "Enter the recipient name, email, and channel.",
+  "stale-approval": "This proposal is no longer tied to the approved version.",
+  "not-accepted": "Accept the proposal before creating jobs.",
+  expired: "This proposal has expired.",
+  "already-has-project": "This opportunity already has a project.",
+  "injected-task-failure": "Conversion rolled back.",
 };
 
 function explain(error: string): string {
@@ -362,6 +368,38 @@ export async function revokeProposalAction(formData: FormData): Promise<ActionSt
   if (!revoked.replayed) await appendProposalEvent(revoked.event);
   revalidatePath(fallback);
   return succeed(fallback, revoked.replayed ? "This review link is already revoked." : "Review link revoked.");
+}
+
+export async function convertAcceptedEstimateAction(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const estimate = estimateId ? await getEstimate(estimateId) : null;
+  const fallback = estimate
+    ? estimatePath(estimate.opportunityId, estimate.id)
+    : "/app/opportunities";
+  const access = resolveCommercialAccess(session, "estimate.convert");
+  if (!access.ok) return fail(fallback, access.error);
+  if (!estimate) return fail(fallback, "That estimate could not be found.");
+  const same = assertSameOrganization(access.organizationId, estimate.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const converted = await convertAcceptedEstimate({
+    actor: { email: session.email, role: session.role, organizationId: access.organizationId },
+    acceptanceId: String(formData.get("acceptanceId") ?? ""),
+    expectedHash: String(formData.get("expectedHash") ?? ""),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  if (!converted.ok) return fail(fallback, explain(converted.error));
+  revalidatePath(fallback);
+  revalidatePath(`/app/projects/${converted.result.projectId}`);
+  revalidatePath("/app/jobs");
+  const message = converted.replayed
+    ? "This acceptance was already converted."
+    : "Project and jobs created from the accepted estimate.";
+  return succeed(
+    `${estimatePath(estimate.opportunityId, estimate.id)}?converted=${converted.result.projectId}`,
+    message,
+  );
 }
 
 export async function discardEstimateDraft(formData: FormData): Promise<ActionState> {

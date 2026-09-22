@@ -1619,6 +1619,94 @@ export type ProposalRow = typeof proposals.$inferSelect;
 export type ProposalEventRow = typeof proposalEvents.$inferSelect;
 export type EstimateAcceptanceRow = typeof estimateAcceptances.$inferSelect;
 
+export const estimateConversions = pgTable(
+  "estimate_conversions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    acceptanceId: uuid("acceptance_id")
+      .notNull()
+      .references(() => estimateAcceptances.id),
+    estimateId: uuid("estimate_id")
+      .notNull()
+      .references(() => estimates.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    contentHash: text("content_hash").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    jobIds: jsonb("job_ids").$type<string[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("estimate_conversions_acceptance_unique").on(table.acceptanceId),
+    unique("estimate_conversions_idempotency_unique").on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    index("estimate_conversions_estimate_idx").on(table.organizationId, table.estimateId),
+  ],
+);
+
+export const projectBudgets = pgTable(
+  "project_budgets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    contentHash: text("content_hash").notNull(),
+    totalCents: integer("total_cents").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("project_budgets_project_unique").on(table.projectId),
+    index("project_budgets_organization_idx").on(table.organizationId, table.projectId),
+  ],
+);
+
+export const projectBudgetLines = pgTable(
+  "project_budget_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    budgetId: uuid("budget_id")
+      .notNull()
+      .references(() => projectBudgets.id),
+    estimateLineId: uuid("estimate_line_id")
+      .notNull()
+      .references(() => estimateLines.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    priceBookVersionId: uuid("price_book_version_id").references(() => priceBookItemVersions.id),
+    description: text("description").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    index("project_budget_lines_budget_idx").on(table.organizationId, table.budgetId),
+  ],
+);
+
+export type EstimateConversionRow = typeof estimateConversions.$inferSelect;
+export type ProjectBudgetRow = typeof projectBudgets.$inferSelect;
+export type ProjectBudgetLineRow = typeof projectBudgetLines.$inferSelect;
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {

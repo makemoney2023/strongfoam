@@ -917,7 +917,7 @@ Commit message: `Track exact proposal delivery and acceptance.`
 - Create: `drizzle/0024_estimate_conversion.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Write conversion tests**
+- [x] **Step 1: Write conversion tests**
 
 Fixtures use an accepted approved version with three job packages, seven work
 areas, eighteen tasks, five selected document versions, and estimate lines.
@@ -933,19 +933,19 @@ Assert:
 - Injected failure on task 10 rolls back project, jobs, areas, tasks, budget,
   links, status, events, and completion marker.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/estimate-conversion.test.ts
 ```
 
-- [ ] **Step 3: Add conversion and budget schema**
+- [x] **Step 3: Add conversion and budget schema**
 
 Create `estimate_conversions`, `project_budgets`, and
 `project_budget_lines`. Unique acceptance ID and idempotency key enforce one
 conversion. Store created project/job IDs and conversion payload hash.
 
-- [ ] **Step 4: Implement pure preview**
+- [x] **Step 4: Implement pure preview**
 
 `buildEstimateConversionPreview` derives only from accepted estimate content:
 
@@ -965,7 +965,7 @@ type EstimateConversionPreview = {
 };
 ```
 
-- [ ] **Step 5: Implement one PostgreSQL transaction**
+- [x] **Step 5: Implement one PostgreSQL transaction**
 
 Lock acceptance, estimate version, opportunity, and existing conversion. Recheck
 organization, approval, expiry, accepted decision, content hash, and absence of
@@ -973,13 +973,13 @@ an existing opportunity project. Insert all records, audit/business events,
 completion record, and outbox events through the transaction object. Never call
 the existing non-transactional one-job conversion from this command.
 
-- [ ] **Step 6: Add explicit internal confirmation**
+- [x] **Step 6: Add explicit internal confirmation**
 
 Show the exact preview and require administrator `estimate.convert`. The action
 posts acceptance ID, expected estimate hash, and idempotency key. On success,
 link to the created project and all jobs.
 
-- [ ] **Step 7: Preserve old manual conversion**
+- [x] **Step 7: Preserve old manual conversion**
 
 Existing won-work conversion remains for opportunities without an accepted
 estimate. If an accepted estimate exists, direct the user to its conversion
@@ -997,7 +997,7 @@ Accept the demo proposal, inspect preview, confirm, and verify the project,
 three jobs, work areas, tasks, budget, and source plans. Submit the same form
 again and verify no duplicates.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Commit message: `Convert an accepted estimate into approved jobs once.`
 

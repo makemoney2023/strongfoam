@@ -4,6 +4,14 @@ import type {
   ProposalEvent,
   ProposalRecord,
 } from "@/lib/ops/proposals";
+import {
+  commitEstimateConversion,
+  createMemoryLedger,
+  emptyConversionDraft,
+  type ConversionDraft,
+  type ConversionResult,
+} from "@/lib/ops/estimate-conversion";
+import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
 import type {
   AuditEventRow,
   DocumentChunkRow,
@@ -244,6 +252,10 @@ type DemoOpsState = {
   proposals: ProposalRecord[];
   proposalEvents: ProposalEvent[];
   estimateAcceptances: EstimateAcceptance[];
+  estimateConversions: ConversionResult[];
+  projectBudgets: ConversionDraft["budgets"];
+  projectBudgetLines: ConversionDraft["budgetLines"];
+  conversionOutbox: ConversionDraft["outbox"];
   auditEvents: AuditEventRow[];
   bidDocuments: DocumentRow[];
   bidDocumentVersions: DocumentVersionRow[];
@@ -307,6 +319,10 @@ function getDemoState(): DemoOpsState {
       proposals: [],
       proposalEvents: [],
       estimateAcceptances: [],
+      estimateConversions: [],
+      projectBudgets: [],
+      projectBudgetLines: [],
+      conversionOutbox: [],
       auditEvents: [],
       bidDocuments: [seeded.document],
       bidDocumentVersions: [seeded.documentVersion],
@@ -427,6 +443,12 @@ function getDemoState(): DemoOpsState {
     globalForDemo.__strongfoamDemoOps.proposals = [];
     globalForDemo.__strongfoamDemoOps.proposalEvents = [];
     globalForDemo.__strongfoamDemoOps.estimateAcceptances = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.estimateConversions) {
+    globalForDemo.__strongfoamDemoOps.estimateConversions = [];
+    globalForDemo.__strongfoamDemoOps.projectBudgets = [];
+    globalForDemo.__strongfoamDemoOps.projectBudgetLines = [];
+    globalForDemo.__strongfoamDemoOps.conversionOutbox = [];
   }
   return globalForDemo.__strongfoamDemoOps;
 }
@@ -1771,6 +1793,13 @@ export function convertDemoOpportunityToProject(args: {
   }
   if (opportunity.projectId) {
     return { ok: false, error: "This opportunity already has a project." };
+  }
+  const accepted = findDemoAcceptedEstimate(args.opportunityId);
+  if (accepted) {
+    return {
+      ok: false,
+      error: `Accepted estimate ${accepted.number} must be converted from its preview.`,
+    };
   }
 
   const request = opportunity.sourceLeadId
@@ -4510,6 +4539,240 @@ export function saveDemoEstimateAcceptance(acceptance: EstimateAcceptance): Esti
   if (existing) return existing;
   state.estimateAcceptances.push(acceptance);
   return acceptance;
+}
+
+export function listDemoEstimateConversions(estimateId?: string): ConversionResult[] {
+  return getDemoState().estimateConversions.filter(
+    (item) => !estimateId || item.estimateId === estimateId,
+  );
+}
+
+export function listDemoEntityDocumentVersionIds(
+  organizationId: string,
+  entityIds: string[],
+): string[] {
+  return getDemoState()
+    .bidDocumentLinks.filter(
+      (link) => link.organizationId === organizationId && entityIds.includes(link.entityId),
+    )
+    .map((link) => link.documentVersionId);
+}
+
+export function findDemoAcceptedEstimate(opportunityId: string): { estimateId: string; number: string } | null {
+  const state = getDemoState();
+  const estimate = state.estimates.find((item) => {
+    if (item.opportunityId !== opportunityId) return false;
+    return state.proposals.some(
+      (proposal) =>
+        proposal.estimateId === item.id &&
+        state.estimateAcceptances.some((acceptance) => acceptance.proposalId === proposal.id),
+    );
+  });
+  return estimate ? { estimateId: estimate.id, number: estimate.number } : null;
+}
+
+export async function convertDemoAcceptedEstimate(args: {
+  actor: { email: string; role: "administrator" | "office" | "field_lead" | "field_worker" | "estimator"; organizationId?: string };
+  acceptanceId: string;
+  expectedHash: string;
+  idempotencyKey: string;
+  now?: Date;
+}): Promise<
+  | { ok: true; result: ConversionResult; replayed: boolean }
+  | { ok: false; error: string }
+> {
+  const state = getDemoState();
+  const acceptance = state.estimateAcceptances.find((item) => item.id === args.acceptanceId);
+  if (!acceptance) return { ok: false, error: "That acceptance could not be found." };
+  const estimate = state.estimates.find((item) => item.id === acceptance.estimateId);
+  const opportunity = estimate
+    ? state.opportunities.find((item) => item.id === estimate.opportunityId)
+    : null;
+  const version = state.estimateGraphs.find((item) => item.versionId === acceptance.estimateVersionId);
+  if (!estimate || !opportunity || !version) {
+    return { ok: false, error: "That estimate could not be found." };
+  }
+  const proposal = state.proposals.find((item) => item.id === acceptance.proposalId);
+  const now = args.now ?? new Date();
+  const graphs = state.estimateGraphs.filter((item) => item.estimateId === estimate.id);
+  const latest = graphs.reduce((max, item) => Math.max(max, item.versionNumber), 0);
+  const approval = evaluateApprovalRules({
+    now,
+    organizationId: estimate.organizationId,
+    versionId: version.versionId,
+    contentHash: version.contentHash,
+    totalCents: version.totalCents,
+    rules: state.approvalRules,
+    decisions: state.estimateApprovals,
+  });
+  const documentVersionIds = [
+    ...new Set([
+      ...version.sources.map((source) => source.documentVersionId),
+      ...state.bidDocumentLinks
+        .filter(
+          (link) =>
+            link.organizationId === estimate.organizationId &&
+            (link.entityId === estimate.id || link.entityId === opportunity.id),
+        )
+        .map((link) => link.documentVersionId),
+    ]),
+  ];
+  const ledger = createMemoryLedger({
+    ...emptyConversionDraft(opportunity.stage),
+    conversions: state.estimateConversions.filter((item) => item.acceptanceId === acceptance.id),
+    opportunityProjectId: opportunity.projectId,
+    opportunityStage: opportunity.stage,
+  });
+  const committed = await commitEstimateConversion({
+    actor: args.actor,
+    now,
+    idempotencyKey: args.idempotencyKey,
+    expectedHash: args.expectedHash,
+    acceptance,
+    events: state.proposalEvents.filter((event) => event.proposalId === acceptance.proposalId),
+    version,
+    latestVersionNumber: latest,
+    approvalSatisfied: approval.satisfied,
+    acceptanceExpired: proposal ? proposal.expiresAt <= now : true,
+    opportunity,
+    documentVersionIds,
+    ledger,
+  });
+  if (!committed.ok || committed.replayed) return committed;
+  const draft = ledger.read();
+  for (const project of draft.projects) {
+    if (state.projects.some((item) => item.id === project.id)) continue;
+    state.projects.unshift({
+      id: project.id,
+      organizationId: project.organizationId,
+      createdAt: now,
+      updatedAt: now,
+      companyId: project.companyId,
+      siteId: project.siteId,
+      opportunityId: project.opportunityId,
+      sourceLeadId: project.sourceLeadId,
+      name: project.name,
+      status: "active",
+      projectManager: project.projectManager,
+      scheduleCalendarId: null,
+    });
+  }
+  for (const job of draft.jobs) {
+    if (state.jobsList.some((item) => item.id === job.id)) continue;
+    state.jobsList.unshift({
+      id: job.id,
+      organizationId: job.organizationId,
+      createdAt: now,
+      updatedAt: now,
+      projectId: job.projectId,
+      companyId: job.companyId,
+      siteId: job.siteId,
+      opportunityId: job.opportunityId,
+      name: job.name,
+      status: "draft",
+      scope: job.scope,
+      services: job.services,
+      projectManager: job.projectManager,
+      foreman: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      blockerNote: null,
+    });
+  }
+  for (const area of draft.workAreas) {
+    if (state.workAreas.some((item) => item.id === area.id)) continue;
+    state.workAreas.push({
+      id: area.id,
+      createdAt: now,
+      updatedAt: now,
+      jobId: area.jobId,
+      name: area.name,
+      kind: area.kind,
+      notes: null,
+      sortOrder: area.sortOrder,
+    });
+  }
+  for (const task of draft.tasks) {
+    if (state.jobTasks.some((item) => item.id === task.id)) continue;
+    state.jobTasks.push({
+      id: task.id,
+      createdAt: now,
+      updatedAt: now,
+      jobId: task.jobId,
+      workAreaId: task.workAreaId,
+      title: task.title,
+      assignee: null,
+      assigneeUserId: null,
+      dueAt: null,
+      plannedStartAt: null,
+      plannedEndAt: null,
+      completedAt: null,
+      status: "open",
+      statedQuantity: null,
+      statedUnit: null,
+      createdBy: task.createdBy,
+    });
+  }
+  for (const link of draft.documentLinks) {
+    if (state.bidDocumentLinks.some((item) => item.id === link.id)) continue;
+    state.bidDocumentLinks.push({
+      id: link.id,
+      organizationId: link.organizationId,
+      documentVersionId: link.documentVersionId,
+      entityType: link.entityType,
+      entityId: link.entityId,
+      purpose: link.purpose,
+      createdAt: now,
+    });
+  }
+  for (const event of draft.jobEvents) {
+    if (state.jobEvents.some((item) => item.id === event.id)) continue;
+    state.jobEvents.push({
+      id: event.id,
+      jobId: event.jobId,
+      createdAt: now,
+      actor: event.actor,
+      kind: event.kind,
+      summary: event.summary,
+      payload: event.payload,
+    });
+  }
+  for (const audit of draft.audits) {
+    if (state.auditEvents.some((item) => item.id === audit.id)) continue;
+    state.auditEvents.push({
+      id: audit.id,
+      organizationId: audit.organizationId,
+      createdAt: now,
+      actor: audit.actor,
+      action: audit.action,
+      entityType: audit.entityType,
+      entityId: audit.entityId,
+      result: audit.result,
+      correlationId: audit.correlationId,
+      payload: {},
+    });
+  }
+  state.projectBudgets.push(...draft.budgets.filter((item) => !state.projectBudgets.some((saved) => saved.id === item.id)));
+  state.projectBudgetLines.push(
+    ...draft.budgetLines.filter((item) => !state.projectBudgetLines.some((saved) => saved.id === item.id)),
+  );
+  state.conversionOutbox.push(
+    ...draft.outbox.filter((item) => !state.conversionOutbox.some((saved) => saved.id === item.id)),
+  );
+  state.estimateConversions.push(
+    ...draft.conversions.filter((item) => !state.estimateConversions.some((saved) => saved.id === item.id)),
+  );
+  opportunity.projectId = draft.opportunityProjectId;
+  opportunity.stage = "won";
+  opportunity.updatedAt = now;
+  if (opportunity.sourceLeadId) {
+    const request = state.requests.find((item) => item.id === opportunity.sourceLeadId);
+    if (request) {
+      request.workflowStatus = "won";
+      request.updatedAt = now;
+    }
+  }
+  return { ok: true, result: committed.result, replayed: false };
 }
 
 export function listDemoEstimateGraphs(estimateId?: string): PreparedEstimateVersion[] {

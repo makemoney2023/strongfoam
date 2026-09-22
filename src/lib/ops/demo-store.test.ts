@@ -33,6 +33,8 @@ import {
   captureDemoProjectScheduleBaseline,
   convertDemoOpportunityToProject,
   convertDemoRequestToCrm,
+  saveDemoEstimateAcceptance,
+  saveDemoProposal,
   deleteDemoJobFieldNote,
   deleteDemoJobVoiceNote,
   extractDemoVoiceNote,
@@ -90,6 +92,10 @@ import {
 import {
   DEMO_ADMIN_EMAIL,
   DEMO_ADMIN_USER_ID,
+  DEMO_ESTIMATE_ID,
+  DEMO_ESTIMATE_VERSION_ID,
+  DEMO_OPEN_OPPORTUNITY_ID,
+  DEMO_ORGANIZATION_ID,
   DEMO_FIELD_EMAIL,
   DEMO_FIELD_USER_ID,
   DEMO_JOB_ID,
@@ -789,6 +795,86 @@ describe("CRM conversion", () => {
         },
       }).ok,
     ).toBe(false);
+  });
+
+  it("sends accepted estimates to the conversion preview", () => {
+    const proposalId = crypto.randomUUID();
+    const acceptanceId = crypto.randomUUID();
+    saveDemoProposal({
+      id: proposalId,
+      organizationId: DEMO_ORGANIZATION_ID,
+      estimateId: DEMO_ESTIMATE_ID,
+      estimateVersionId: DEMO_ESTIMATE_VERSION_ID,
+      versionNumber: 1,
+      contentHash: "hash",
+      pdfSha256: "pdf",
+      pdfBase64: "",
+      tokenHash: `token-${proposalId}`,
+      expiresAt: new Date("2026-12-31T00:00:00.000Z"),
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt: new Date("2026-09-22T00:00:00.000Z"),
+      snapshot: {
+        organizationName: "Strong Foam",
+        companyName: "Acme",
+        siteName: "Waterloo",
+        estimateNumber: "EST-1001",
+        estimateTitle: "Harbour bid package",
+        versionNumber: 1,
+        lines: [],
+        inclusions: [],
+        exclusions: [],
+        scope: [],
+        totalCents: 97265,
+        acceptanceTerms: "terms",
+      },
+    });
+    saveDemoEstimateAcceptance({
+      id: acceptanceId,
+      organizationId: DEMO_ORGANIZATION_ID,
+      proposalId,
+      estimateId: DEMO_ESTIMATE_ID,
+      estimateVersionId: DEMO_ESTIMATE_VERSION_ID,
+      contentHash: "hash",
+      recipientName: "Pat",
+      recipientEmail: "pat@example.com",
+      attestation: "accepted",
+      ipAddress: null,
+      userAgent: null,
+      createdAt: new Date("2026-09-22T00:00:00.000Z"),
+    });
+    const refused = convertDemoOpportunityToProject({
+      opportunityId: DEMO_OPEN_OPPORTUNITY_ID,
+      actor: DEMO_ADMIN_EMAIL,
+      input: {
+        projectName: "Harbour",
+        jobName: "One job",
+        scope: "",
+        projectManager: null,
+        foreman: null,
+        plannedStartAt: null,
+        plannedEndAt: null,
+      },
+    });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) {
+      expect(refused.error).toBe(
+        "Accepted estimate EST-1001 must be converted from its preview.",
+      );
+    }
+    const state = (
+      globalThis as typeof globalThis & {
+        __strongfoamDemoOps?: {
+          proposals: Array<{ id: string }>;
+          estimateAcceptances: Array<{ id: string }>;
+        };
+      }
+    ).__strongfoamDemoOps;
+    if (state) {
+      state.proposals = state.proposals.filter((item) => item.id !== proposalId);
+      state.estimateAcceptances = state.estimateAcceptances.filter(
+        (item) => item.id !== acceptanceId,
+      );
+    }
   });
 });
 

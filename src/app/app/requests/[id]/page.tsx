@@ -39,6 +39,7 @@ import {
   JOB_STATUS_LABELS,
 } from "@/lib/ops/jobs";
 import {
+  findAcceptedEstimate,
   getEstimateRequest,
   getProject,
   getRequestCrmRecords,
@@ -112,7 +113,12 @@ export default async function EstimateRequestDetailPage({
     ? await getProject(crm.opportunity.projectId)
     : null;
   const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
+  const acceptedEstimate =
+    crm.opportunity && !crm.opportunity.projectId
+      ? await findAcceptedEstimate(crm.opportunity.id)
+      : null;
   const canConvert =
+    !acceptedEstimate &&
     Boolean(crm.opportunity) &&
     !crm.opportunity?.projectId &&
     canConvertWonWork({
@@ -491,6 +497,16 @@ export default async function EstimateRequestDetailPage({
                   ))}
                 </ul>
               </div>
+            ) : acceptedEstimate && crm.opportunity ? (
+              <p className="mt-3 text-sm">
+                Accepted estimate {acceptedEstimate.number} has a conversion preview.{" "}
+                <Link
+                  className="font-medium underline underline-offset-4"
+                  href={`/app/opportunities/${crm.opportunity.id}/estimates/${acceptedEstimate.estimateId}`}
+                >
+                  Open the estimate
+                </Link>
+              </p>
             ) : canConvert && crm.opportunity && jobDraft ? (
               <ConvertWonWorkForm
                 opportunityId={crm.opportunity.id}
