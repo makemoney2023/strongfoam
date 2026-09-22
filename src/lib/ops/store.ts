@@ -43,6 +43,15 @@ import {
   organizations,
   priceBookItems,
   priceBookItemVersions,
+  estimates,
+  estimateVersions,
+  estimateLines,
+  estimateClauses,
+  estimateAlternates,
+  estimateJobPackages,
+  estimateJobWorkAreas,
+  estimateJobTasks,
+  estimateLineSources,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
@@ -80,8 +89,10 @@ import {
   addDemoJobToProject,
   addDemoPriceBookItem,
   approveDemoPriceBookRevision,
+  createDemoEstimateVersion,
   listDemoPriceBookVersions,
   saveDemoPriceBookDraft,
+  updateDemoEstimateLine,
   addDemoSite,
   addDemoUser,
   addDemoJobVoiceNote,
@@ -198,6 +209,11 @@ import { nextDocumentVersion, type BidDocumentInput } from "@/lib/ops/commercial
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import { priceRevisionContentHash } from "@/lib/ops/price-book";
+import {
+  estimateRecords,
+  prepareEstimateVersion,
+  type EstimateVersionDraft,
+} from "@/lib/ops/estimates";
 import {
   clearJobDocumentBytes,
   getStoredJobDocumentBytes,
@@ -5574,4 +5590,138 @@ export async function approvePriceBookRevision(args: {
     })
     .where(eq(priceBookItems.id, args.itemId));
   return { ok: true, revision: approved };
+}
+
+export async function updateEstimateVersionContent(): Promise<{
+  ok: false;
+  error: "immutable";
+}> {
+  if (isDemoOpsStore()) return updateDemoEstimateLine();
+  return { ok: false, error: "immutable" };
+}
+
+export async function createEstimateVersion(draft: EstimateVersionDraft) {
+  if (isDemoOpsStore()) return createDemoEstimateVersion(draft);
+  const db = getDb();
+  const revisionIds = [
+    ...new Set(
+      draft.lines
+        .map((line) => line.priceBookVersionId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const chunkIds = [
+    ...new Set(draft.lines.flatMap((line) => line.sources.map((source) => source.chunkId))),
+  ];
+  const [revisionRows, itemRows, chunkRows, pageRows, existingVersions, existingEstimates] =
+    await Promise.all([
+      revisionIds.length
+        ? db
+            .select()
+            .from(priceBookItemVersions)
+            .where(
+              and(
+                eq(priceBookItemVersions.organizationId, draft.organizationId),
+                inArray(priceBookItemVersions.id, revisionIds),
+              ),
+            )
+        : Promise.resolve([]),
+      revisionIds.length
+        ? db
+            .select()
+            .from(priceBookItems)
+            .where(eq(priceBookItems.organizationId, draft.organizationId))
+        : Promise.resolve([]),
+      chunkIds.length
+        ? db
+            .select()
+            .from(documentChunks)
+            .where(
+              and(
+                eq(documentChunks.organizationId, draft.organizationId),
+                inArray(documentChunks.id, chunkIds),
+              ),
+            )
+        : Promise.resolve([]),
+      chunkIds.length
+        ? db
+            .select()
+            .from(documentPages)
+            .where(eq(documentPages.organizationId, draft.organizationId))
+        : Promise.resolve([]),
+      db
+        .select({ versionNumber: estimateVersions.versionNumber })
+        .from(estimateVersions)
+        .where(
+          and(
+            eq(estimateVersions.estimateId, draft.estimateId),
+            eq(estimateVersions.organizationId, draft.organizationId),
+          ),
+        ),
+      db
+        .select()
+        .from(estimates)
+        .where(
+          and(eq(estimates.id, draft.estimateId), eq(estimates.organizationId, draft.organizationId)),
+        ),
+    ]);
+  const prepared = prepareEstimateVersion(draft, {
+    revisions: revisionRows.map((version) => ({
+      id: version.id,
+      itemId: version.itemId,
+      organizationId: version.organizationId,
+      status: version.status,
+      active: itemRows.find((item) => item.id === version.itemId)?.active ?? false,
+      trade: version.trade,
+      description: version.description,
+      unit: version.unit,
+      unitPriceCents: version.unitPriceCents,
+    })),
+    citations: chunkRows.flatMap((chunk) => {
+      const page = pageRows.find((item) => item.id === chunk.pageId);
+      if (!page) return [];
+      return [
+        {
+          id: chunk.id,
+          organizationId: chunk.organizationId,
+          documentVersionId: chunk.documentVersionId,
+          pageNumber: page.pageNumber,
+          contentHash: chunk.contentHash,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset,
+        },
+      ];
+    }),
+    existingVersionNumbers: existingVersions.map((version) => version.versionNumber),
+  });
+  if (!prepared.ok) return prepared;
+  const createdAt = new Date();
+  const records = estimateRecords(prepared.version, createdAt);
+  const estimate = existingEstimates[0];
+  if (!estimate) {
+    await db.insert(estimates).values({
+      id: draft.estimateId,
+      organizationId: draft.organizationId,
+      opportunityId: draft.opportunityId,
+      number: `EST-${existingEstimates.length + 1001}`,
+      title: "Estimate",
+      createdBy: draft.createdBy,
+      currentVersionId: null,
+    });
+  }
+  await db.insert(estimateVersions).values(records.version);
+  // neon-http cannot open an interactive transaction. These inserts run in
+  // order, and the content trigger rejects any later update or delete.
+  if (records.alternates.length) await db.insert(estimateAlternates).values(records.alternates);
+  if (records.lines.length) await db.insert(estimateLines).values(records.lines);
+  if (records.clauses.length) await db.insert(estimateClauses).values(records.clauses);
+  if (records.jobPackages.length) await db.insert(estimateJobPackages).values(records.jobPackages);
+  if (records.workAreas.length) await db.insert(estimateJobWorkAreas).values(records.workAreas);
+  if (records.tasks.length) await db.insert(estimateJobTasks).values(records.tasks);
+  if (records.sources.length) await db.insert(estimateLineSources).values(records.sources);
+  await db
+    .update(estimates)
+    .set({ currentVersionId: prepared.version.versionId, updatedAt: createdAt })
+    .where(eq(estimates.id, draft.estimateId));
+  return { ok: true as const, version: prepared.version };
 }
