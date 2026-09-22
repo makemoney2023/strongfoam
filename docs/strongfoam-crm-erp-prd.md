@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.25
+**Version:** 1.26
 **Created:** 2026-09-18
 **Last updated:** 2026-09-22
 
@@ -34,6 +34,10 @@ user-facing requirements.
 
 - The existing lead survey remains governed by
   `docs/superpowers/specs/2026-09-16-lead-generation-survey-design.md`.
+- The Import Center implementation contract is
+  `docs/superpowers/specs/2026-09-22-data-import-center-design.md`; its
+  test-first sequence is
+  `docs/superpowers/plans/2026-09-22-data-import-center.md`.
 - Implementation plans may add technical detail but must not silently change
   requirements in this PRD.
 - Material scope or workflow decisions must update this document's decision log
@@ -109,9 +113,14 @@ book. Assemblies, scope templates, estimate versions, proposals, and approvals
 are not stored yet. AI-016 through AI-026 remain specified and
 are not built. A cited bid-package-to-estimate-to-job workflow is specified,
 but opportunity documents, durable document extraction, estimate versions,
-approvals, proposals, and accepted-work conversion are not built. The target
-Supabase/Render deployment split, full permission matrix, crews, durable
-offline sync, and financial workflows remain to be completed.
+approvals, proposals, and accepted-work conversion are not built. Supabase
+staging and production databases have been provisioned. The application still
+needs to move its runtime driver, private storage, and worker connections onto
+Supabase before real business imports are durable. A governed spreadsheet
+Import Center is now specified for customers, workforce, price book,
+opportunities, projects, jobs, assignments, work areas, and tasks. The full
+permission matrix, crews, durable offline sync, and financial workflows remain
+to be completed.
 
 ## 4. Product vision
 
@@ -156,6 +165,8 @@ The system should answer:
 - Establish ownership, status, next action, and review history for each request.
 - Convert a request into a customer, project, estimate, or job without
   re-entering information.
+- Import Strong Foam's existing customer, workforce, product/cost, project, and
+  job spreadsheets through a reviewed, auditable migration workflow.
 - Let staff create manual jobs that did not originate from the survey.
 - Let technicians mark completed or blocked work on plan sheets.
 - Let technicians record voice notes and receive editable transcripts.
@@ -184,6 +195,10 @@ The system should answer:
 - Replacing existing accounting software.
 - A customer or subcontractor portal.
 - AI-generated pricing or autonomous approval decisions.
+- Treating an uploaded spreadsheet as authority to delete or deactivate
+  omitted records.
+- Importing plaintext passwords or automatically activating imported users.
+- Importing individual payroll wages into the generally available price book.
 
 These may be reconsidered after the core data and operating workflows are stable.
 
@@ -191,7 +206,8 @@ These may be reconsidered after the core data and operating workflows are stable
 
 | Role | Primary responsibilities |
 |---|---|
-| Administrator | Users, roles, configuration, integrations, audit review |
+| Administrator | Users, roles, configuration, integrations, import commit, audit review |
+| Office | Prepare, map, validate, and reconcile imports; no import commit |
 | Sales / estimator | Review requests, qualify opportunities, perform takeoff, issue estimates |
 | Project manager | Convert won work, plan execution, manage changes and closeout |
 | Dispatcher / coordinator | Schedule jobs, assign crews, manage next actions |
@@ -608,9 +624,14 @@ subcontractor, overhead, markup, tax, alternates, allowances, inclusions, and
 exclusions.
 
 **QTE-003:** Reusable price-book items, assemblies, and scope templates must be
-available by trade. Price-book items are stored with a trade, name, unit, and
-Canadian-dollar unit price, and an item can be retired without deleting it.
-Assemblies and scope templates are not stored yet.
+available by trade. A price-book item must support an organization-unique item
+code, item kind (material, labour, equipment, subcontractor, or allowance),
+trade, description, unit, optional supplier, optional internal unit cost, and
+Canadian-dollar selling price. Cost and selling-price changes must create an
+immutable draft revision that an administrator approves. An item can be
+retired without deleting it. Existing estimate versions continue to use their
+snapshotted approved selling price. Assemblies and scope templates are not
+stored yet.
 
 **QTE-004:** Authorized users must be able to compare revisions and require
 internal approval based on configurable thresholds.
@@ -1068,6 +1089,8 @@ costs, invoices, payments
 change_orders, inspections, deficiencies, daily_logs
 notifications, audit_events, integration_events
 outbox_events, background_jobs, dead_letter_jobs
+data_import_batches, data_import_sheets, data_import_rows
+data_import_mapping_profiles, external_record_keys, data_import_events
 ai_runs, ai_steps, ai_citations, ai_proposals, ai_approvals
 ai_tool_executions, knowledge_chunks, embedding_versions
 ```
@@ -1083,6 +1106,149 @@ Data-model rules:
 - Human-edited transcripts must not destroy original machine output.
 - Business events and audit events should be append-only.
 - Deletion and retention must respect legal, contractual, and privacy needs.
+
+### 21.1 Supabase Data Import Center
+
+The Import Center moves Strong Foam's existing spreadsheets into the canonical
+CRM/ERP model. Upload and analysis are staging operations. They do not create
+or update customers, users, prices, opportunities, projects, jobs, assignments,
+work areas, or tasks until an administrator commits the exact validated
+preview.
+
+The canonical first-release workbook supports companies, contacts, sites,
+workforce, price-book items, opportunities, projects, jobs, assignments, work
+areas, and tasks. Stable source codes preserve relationships and support safe
+repeat imports. Binary plans, photos, audio, historical estimates, proposals,
+acceptances, payroll, and accounting transactions require separate migration
+contracts.
+
+#### Authority and private storage
+
+**IMP-001:** An Office user may upload, map, validate, reconcile, and cancel an
+uncommitted import. Only an administrator may commit.
+
+**IMP-002:** Field roles must not list, read, upload, validate, download, or
+commit import files or staged records.
+
+**IMP-003:** Organization scope must come from the authenticated session and
+stored batch. A workbook, URL, form, or job payload may not choose another
+organization.
+
+**IMP-004:** XLSX and CSV source files must use a private Supabase Storage
+bucket with server-generated organization/batch object paths and short-lived,
+object-scoped upload and download authorization.
+
+**IMP-005:** Supabase secret/service credentials, database credentials, and
+unrestricted object access must never reach browser code.
+
+#### Parsing, mapping, and validation
+
+**IMP-006:** Release 1 must accept `.xlsx` and UTF-8 `.csv` within documented
+file, sheet, row, ZIP-entry, and uncompressed-size limits. Legacy `.xls`,
+macros, protected workbooks, embedded objects, and unsupported external links
+must fail closed.
+
+**IMP-007:** A durable worker must scan a source for malware and bound XLSX
+archive expansion before parsing. Analysis is checkpointed, retryable, and
+writes no business record.
+
+**IMP-008:** Mapping profiles may store sheet, header, constant, and value
+mappings. They must not store source row values.
+
+**IMP-009:** The server must not evaluate workbook formulas. A formula requires
+a safe cached scalar value or correction in the source workbook.
+
+**IMP-010:** The server must normalize codes, emails, CAD money, quantities,
+dates, booleans, roles, statuses, services, trades, units, and item kinds
+deterministically. It must not guess ambiguous dates or enum values.
+
+**IMP-011:** Every staged row must retain source sheet/row, normalized payload,
+source key, proposed operation, row hash, resolved references, warnings, and
+errors.
+
+**IMP-012:** Any row error, missing required relationship, or unresolved
+conflict must block commit.
+
+**IMP-013:** An existing source-key crosswalk or exact protected natural key may
+resolve a record. Fuzzy company, project, worker, address, phone, or name
+matches are suggestions only and must never merge automatically.
+
+**IMP-014:** Preview counts, operations, mappings, resolutions, and row hashes
+must be bound to the committed batch revision. A stale preview must be
+revalidated.
+
+**IMP-015:** Omission from a spreadsheet must not delete, retire, deactivate,
+or unassign an existing record. Destructive synchronization requires a
+separate explicit workflow.
+
+#### Transactional commit and replay
+
+**IMP-016:** Commit must reload session authority, organization, batch,
+mapping, staged rows, crosswalks, and current target records server-side. It
+must not accept normalized business payloads or target IDs from the browser.
+
+**IMP-017:** Release 1 must commit a validated batch of at most 25,000 rows in
+one transaction under an organization-scoped PostgreSQL advisory lock.
+
+**IMP-018:** Commit must be idempotent by organization and idempotency key.
+Source-key crosswalk uniqueness must prevent duplicate records across repeat
+imports.
+
+**IMP-019:** Import must not send messages or notifications, generate or
+approve an estimate, create a proposal or acceptance, run won-work conversion,
+or invoke an AI model.
+
+**IMP-020:** Completion must produce source/create/update/skip/warning/error
+counts by entity, target IDs by source row, zero unresolved-reference count,
+an audit correlation ID, and a downloadable reconciliation report.
+
+#### Price book and workforce
+
+**IMP-021:** Price-book imports must support item code, item kind, trade,
+description, unit, optional supplier, optional internal unit cost, selling
+price, effective date, and active state.
+
+**IMP-022:** A changed imported price-book row must create or update one draft
+revision. It must not mutate or silently approve an approved revision.
+
+**IMP-023:** Estimates must continue to price from a human-selected approved
+selling-price revision. Internal cost must not replace selling price in an
+estimate total.
+
+**IMP-024:** Generic crew or role-based labour estimating rates may be imported
+as hourly price-book items. Individual compensation and payroll wages are out
+of scope and require a separately restricted model.
+
+**IMP-025:** Workforce import must accept no password. A new workforce identity
+must be inactive and unable to authenticate until an administrator completes
+the normal activation/credential or future Supabase invitation flow.
+
+**IMP-026:** Existing workforce may match only by stable crosswalk or exact
+normalized email. A later Supabase Auth migration must preserve the stable
+application user ID, membership, assignment, and audit history required by
+IAM-015.
+
+#### Audit, retention, and disabled operation
+
+**IMP-027:** Upload, analysis, mapping, conflict resolution, authorization,
+commit, retry, failure, cancellation, and retention must be audited without
+copying raw rows, passwords, tokens, signed URLs, or file bytes into audit
+payloads.
+
+**IMP-028:** Import staging and crosswalk tables must live outside exposed
+Supabase API schemas. Public business records remain organization-scoped and
+subject to domain authorization and reviewed RLS.
+
+**IMP-029:** Cancelled objects must be deleted after cancellation, failed
+pre-analysis objects retained no longer than 7 days, completed source/raw data
+no longer than 30 days, and normalized row reports no longer than 90 days.
+Batch summaries, crosswalks, commit authorization, and audit events are
+retained.
+
+**IMP-030:** Demo mode may provide a deterministic, network-free preview but
+must not claim durable completion. Supabase Storage, parser, worker, or import
+failure must leave all manual CRM, pricing, user, project, job, and task
+workflows usable.
 
 ## 22. Design system
 
@@ -1360,8 +1526,14 @@ perform full long-running jobs themselves.
   backup operations.
 - Use pooled connections for application traffic and a direct connection for
   migrations and supported maintenance.
+- Use a transaction-capable worker connection for pg-boss and bounded import
+  transactions; an HTTP-only driver that cannot open transactions is not
+  sufficient for authoritative import.
 - Make storage buckets private and use immutable object keys for plans,
-  recordings, evidence, proposals, and closeout documents.
+  recordings, evidence, proposals, import sources, reconciliation artifacts,
+  and closeout documents.
+- Keep import staging and source-key crosswalks in a non-exposed private
+  schema. Browser clients must not query staged rows through the Data API.
 - Enforce organization and record scope in RLS policies.
 - Use Realtime only for bounded status and activity updates initially, not
   collaborative plan drawing.
@@ -1405,16 +1577,24 @@ services that sleep or expire must never carry production CRM/ERP traffic.
 ### 23.6 Migration from current infrastructure
 
 1. Add versioned Drizzle migrations and baseline the existing lead schema.
-2. Provision Supabase Auth, PostgreSQL, Storage, and pgvector in staging.
-3. Copy existing Neon lead and Calendly records while preserving IDs.
-4. Verify counts, checksums, qualification behavior, and signed-file access.
-5. Move business logic and webhooks to the Render API.
-6. Move email delivery to the transactional outbox and worker.
-7. Migrate private Vercel Blob objects to Supabase Storage with a rollback
+2. Verify the provisioned Supabase staging and production PostgreSQL projects
+   are isolated and configure Auth, private Storage, and pgvector as required.
+3. Replace the Neon HTTP runtime driver with transaction-capable pooled
+   Supabase application and worker connections; reserve the direct connection
+   for migrations and supported maintenance.
+4. Copy existing Neon lead and Calendly records while preserving IDs.
+5. Verify counts, checksums, qualification behavior, transaction rollback, and
+   signed-file access.
+6. Move business logic and webhooks to the Render API.
+7. Move email delivery to the transactional outbox and worker.
+8. Migrate private Vercel Blob objects to Supabase Storage with a rollback
    window; do not dual-write indefinitely.
-8. Switch the frontend through an environment-controlled API endpoint.
-9. Remove production database credentials and authoritative business logic from
-   Vercel after cutover.
+9. Rehearse the Import Center with a sanitized Strong Foam workbook in staging.
+10. Import master and operational records with source-key crosswalks and
+    reconcile every count before production sign-off.
+11. Switch the frontend through an environment-controlled API endpoint.
+12. Remove obsolete production database credentials and authoritative business
+    logic from Vercel after cutover.
 
 ### 23.7 Observability and recovery
 
@@ -1814,6 +1994,10 @@ live in
   conditions.
 - Uploads must expose progress, retry, and final synchronization state.
 - Background jobs must be idempotent, retryable, and observable.
+- Import preview and commit must remain responsive through asynchronous parsing,
+  bounded batches, pagination, and downloadable reports.
+- An import transaction failure must expose a correlation ID and leave no
+  partial customer, workforce, price, project, or job graph.
 - Failed transcription or notification must not block field work.
 - Plan rendering should load pages on demand rather than downloading every
   sheet at full resolution.
@@ -1839,6 +2023,11 @@ Initial metrics:
   task.
 - Percentage of active project jobs and tasks with usable schedule dates.
 - AI suggestion acceptance, correction, undo, and failure rates.
+- Percentage of imported rows committed without manual correction.
+- Import conflicts, errors, retries, orphan references, and reconciliation
+  variance by batch.
+- Percentage of imported price-book drafts reviewed and workforce accounts
+  activated after reconciliation.
 
 Later metrics:
 
@@ -1857,12 +2046,35 @@ policy and human review.
 ### Foundation
 
 1. Add version-controlled database migrations.
-2. Provision isolated Supabase staging and production projects.
+2. Use and verify the provisioned isolated Supabase staging and production
+   projects.
 3. Establish organization, user, membership, role, RLS, and audit-event models.
 4. Add Supabase Auth and server-side authorization.
 5. Establish the Render API, worker, transactional outbox, and health checks.
 6. Separate public, office, and field application boundaries on Vercel.
 7. Preserve and test the existing lead intake contract during migration.
+
+### Data onboarding and import
+
+1. Move application and worker database traffic to transaction-capable
+   Supabase connections; keep migrations on a direct connection.
+2. Create a private `data-imports` bucket and a non-exposed import staging
+   schema.
+3. Add item codes, item kinds, supplier, internal cost, and selling-price
+   snapshots to immutable price-book revisions before importing products or
+   labour rates.
+4. Add XLSX/CSV scan, bounded parse, column mapping, deterministic
+   normalization, row validation, and saved mapping profiles.
+5. Add exact source-key crosswalks, human conflict resolution, hash-bound
+   preview, administrator commit, and one-transaction rollback.
+6. Import and reconcile companies, contacts, sites, inactive workforce
+   identities, and price-book drafts.
+7. Import and reconcile opportunities, projects, jobs, assignments, work
+   areas, and tasks in dependency order.
+8. Approve price drafts and activate workforce accounts through their separate
+   authorized workflows.
+9. Add retention, reconciliation downloads, exception monitoring, and the
+   staging-to-production cutover runbook.
 
 ### Estimate operations
 
@@ -2003,6 +2215,11 @@ operational monitoring, and user acceptance criteria.
 | AI creates duplicate or stale changes | Idempotency, optimistic locking, payload-bound approval, and undo |
 | Cross-platform releases create version skew | Versioned contracts and expand/contract deployment |
 | Supabase migration disrupts lead intake | Staging rehearsal, ID preservation, verification, and rollback window |
+| Spreadsheet import duplicates or mislinks records | Stable source keys, durable crosswalks, exact protected matches, human conflict resolution, and zero-orphan reconciliation |
+| Import fails after creating part of a project graph | Bounded batches, organization advisory lock, one transaction, injected-failure tests, and idempotent replay |
+| Spreadsheet PII or pricing is exposed | Private Storage, non-exposed staging schema, scoped authorization, audit redaction, and retention deletion |
+| Workforce spreadsheet creates insecure accounts | Reject password columns, create inactive identities, and require separate administrator activation |
+| Internal labour costs are mistaken for payroll wages | Generic estimating-rate items only; individual compensation requires a separate restricted model |
 | Render worker stops during processing | Checkpointed jobs, graceful shutdown, retries, and dead-letter queue |
 | Infrastructure stores Canadian data outside Canada | Confirm contractual residency and transfer requirements before provisioning |
 
@@ -2026,6 +2243,11 @@ These decisions are required before their respective implementation stage:
    thresholds above the required administrator approval, proposal expiry, and
    legal acceptance copy.
 10. Final data residency, retention, backup, and disaster-recovery policies.
+11. Which workbook/source system is authoritative after the initial cutover,
+    who owns source-freeze sign-off, and whether recurring synchronization is
+    needed.
+12. Which non-administrator roles may view imported internal unit cost. Until
+    approved, cost visibility remains administrator-only.
 
 ## 31. Decision log
 
@@ -2077,11 +2299,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Store a stated quantity in bags or square feet on an open task and warn when installed quantity is ahead of that remainder | Quantity pace uses field quantities only. It does not state dollars, margin, or a price. A due-date command leaves the stated quantity in place |
 | 2026-09-22 | Store reusable price-book items by trade before estimate versions | Estimators need a unit price they can reuse. An item can be retired without deleting it. Assemblies, templates, versions, proposals, and approvals stay out of this slice |
 | 2026-09-22 | Treat a bid package as private opportunity evidence before a job exists, and create operational records only after exact-version approval, customer acceptance, and internal conversion confirmation | Upload and AI draft must have no operational effect. Written quantities may be cited; geometric takeoff and generated prices remain out. Deterministic estimate versions, human price selection, and one atomic idempotent conversion preserve financial and job history |
+| 2026-09-22 | Import existing Strong Foam spreadsheets through a reviewed Supabase Import Center rather than direct database writes | Private staging, stable source keys, deterministic validation, human conflict resolution, administrator commit, one transaction, inactive workforce identities, draft price revisions, and reconciliation make the migration repeatable and auditable |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.26 | 2026-09-22 | Added IMP-001 through IMP-030 for the Supabase Data Import Center: private XLSX/CSV staging, malware/archive checks, mapping profiles, deterministic validation, source-key crosswalks, administrator-only transactional commit, price-book product codes and costs, inactive workforce import, linked customer/project/job import, reconciliation, retention, and production cutover |
 | 1.25 | 2026-09-22 | Specified the governed bid-package-to-estimate-to-job workflow. Added pre-job private document versions, durable scan/extraction/OCR, citations, immutable price and estimate versions, deterministic calculation, exact approval/proposal/acceptance, atomic multi-job conversion, and the boundary against geometric takeoff or AI-generated pricing |
 | 1.24 | 2026-09-22 | Shipped price-book items by trade, with a Canadian-dollar unit price and a retired state. Assemblies, scope templates, estimate versions, proposals, and approvals remain open. AI-016 can start from the item book and is not built |
 | 1.23 | 2026-09-22 | Shipped AI-014. An open task stores a stated quantity in bags or square feet. Home and the job warn when installed field quantity is ahead of that remainder, without dollars or margin |

@@ -26,7 +26,8 @@ ExcelJS, yauzl, Vitest, Tailwind 4, existing shadcn/ui components.
 - Design:
   `docs/superpowers/specs/2026-09-22-data-import-center-design.md`
 - Product architecture:
-  `docs/strongfoam-crm-erp-prd.md`, sections 7, 8, 16, 23, and 24.
+  `docs/strongfoam-crm-erp-prd.md`, IMP-001 through IMP-030 in section 21.1,
+  plus sections 7, 8, 16, 23, and 24.
 - Existing database and stores:
   - `src/db/index.ts`
   - `src/db/schema.ts`

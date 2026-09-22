@@ -3,7 +3,7 @@
 **Date:** 2026-09-22  
 **Product:** Strong Foam Operations Platform  
 **Status:** Proposed, implementation-ready  
-**Requirements:** IMP-001 through IMP-030  
+**PRD requirements:** IMP-001 through IMP-030
 **Primary surfaces:** `/app/imports`, `/app/imports/[batchId]`,
 `/app/price-book`, `/app/users`
 
@@ -71,9 +71,8 @@ demo memory would disappear after a restart or deployment.
 | Audit and durable work | Audit, outbox, pg-boss jobs, retry, and dead letters exist | No import batch lifecycle or reconciliation report | Reuse worker patterns with import-specific staging, events, and reports |
 | Security | Organization scope and Supabase defense-in-depth are required | A spreadsheet can contain PII, prices, formulas, malware, and ambiguous identifiers | Private storage, malware/archive checks, deterministic validation, admin commit, retention |
 
-This specification adds IMP-001 through IMP-030 as the implementation contract.
-A later PRD revision can promote those identifiers into the product requirement
-catalog without changing the design.
+PRD v1.26 promotes IMP-001 through IMP-030 into the product requirement
+catalog. This specification remains their detailed implementation contract.
 
 ## Goals
 
