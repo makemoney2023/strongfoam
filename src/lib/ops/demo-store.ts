@@ -1,3 +1,4 @@
+import type { CommercialApprovalRule, EstimateApproval } from "@/lib/ops/estimate-approvals";
 import type {
   AuditEventRow,
   DocumentChunkRow,
@@ -233,6 +234,8 @@ type DemoOpsState = {
   estimateJobTasks: EstimateJobTaskRow[];
   estimateLineSources: EstimateLineSourceRow[];
   estimateGraphs: PreparedEstimateVersion[];
+  approvalRules: CommercialApprovalRule[];
+  estimateApprovals: EstimateApproval[];
   auditEvents: AuditEventRow[];
   bidDocuments: DocumentRow[];
   bidDocumentVersions: DocumentVersionRow[];
@@ -291,6 +294,8 @@ function getDemoState(): DemoOpsState {
       estimateJobTasks: seeded.records.tasks,
       estimateLineSources: seeded.records.sources,
       estimateGraphs: [seeded.graph],
+      approvalRules: [demoApprovalRule()],
+      estimateApprovals: [],
       auditEvents: [],
       bidDocuments: [seeded.document],
       bidDocumentVersions: [seeded.documentVersion],
@@ -388,6 +393,8 @@ function getDemoState(): DemoOpsState {
     globalForDemo.__strongfoamDemoOps.estimateJobTasks = seeded.records.tasks;
     globalForDemo.__strongfoamDemoOps.estimateLineSources = seeded.records.sources;
     globalForDemo.__strongfoamDemoOps.estimateGraphs = [seeded.graph];
+    globalForDemo.__strongfoamDemoOps.approvalRules ??= [demoApprovalRule()];
+    globalForDemo.__strongfoamDemoOps.estimateApprovals ??= [];
     if (
       !globalForDemo.__strongfoamDemoOps.bidDocumentChunks.some(
         (chunk) => chunk.id === DEMO_ESTIMATE_CHUNK_ID,
@@ -401,7 +408,21 @@ function getDemoState(): DemoOpsState {
       globalForDemo.__strongfoamDemoOps.bidDocumentChunks.push(seeded.chunk);
     }
   }
+  if (!globalForDemo.__strongfoamDemoOps.approvalRules) {
+    globalForDemo.__strongfoamDemoOps.approvalRules = [demoApprovalRule()];
+    globalForDemo.__strongfoamDemoOps.estimateApprovals = [];
+  }
   return globalForDemo.__strongfoamDemoOps;
+}
+
+function demoApprovalRule(): CommercialApprovalRule {
+  return {
+    id: "44444444-4444-4444-8444-444444444401",
+    organizationId: STRONG_FOAM_ORGANIZATION_ID,
+    name: "Administrator approval",
+    active: true,
+    secondApproverTotalCents: null,
+  };
 }
 
 function seedDemoVoiceBytes(state: DemoOpsState) {
@@ -4400,6 +4421,24 @@ export function listDemoEstimates(organizationId?: string): EstimateRow[] {
 
 export function getDemoEstimate(estimateId: string): EstimateRow | null {
   return getDemoState().estimates.find((estimate) => estimate.id === estimateId) ?? null;
+}
+
+export function listDemoApprovalRules(organizationId: string): CommercialApprovalRule[] {
+  return getDemoState().approvalRules.filter(
+    (rule) => rule.organizationId === organizationId && rule.active,
+  );
+}
+
+export function listDemoEstimateApprovals(estimateId: string): EstimateApproval[] {
+  return getDemoState().estimateApprovals.filter((approval) => approval.estimateId === estimateId);
+}
+
+export function saveDemoEstimateApproval(approval: EstimateApproval): EstimateApproval {
+  const state = getDemoState();
+  const existing = state.estimateApprovals.find((item) => item.id === approval.id);
+  if (existing) return existing;
+  state.estimateApprovals.push(approval);
+  return approval;
 }
 
 export function listDemoEstimateGraphs(estimateId?: string): PreparedEstimateVersion[] {

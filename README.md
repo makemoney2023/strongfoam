@@ -79,8 +79,9 @@ Production operations requirements:
   organization-scoped commercial writes, `0019_background_execution.sql`
   before the Render worker claims outbox jobs, and `0020_commercial_documents.sql`
   before storing bid-package documents, `0021_price_book_versions.sql`
-  before approving a new price-book revision, and `0022_estimates.sql` before
-  storing an estimate version. The current Vercel Hobby deploy still uses the in-memory
+  before approving a new price-book revision, `0022_estimates.sql` before
+  storing an estimate version, and `0023_estimate_approvals_proposals.sql`
+  before recording an estimate approval. The current Vercel Hobby deploy still uses the in-memory
   demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
   Postgres is attached.
 

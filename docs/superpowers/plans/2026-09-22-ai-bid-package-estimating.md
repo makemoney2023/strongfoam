@@ -802,31 +802,31 @@ Commit message: `Add the manual estimate version workspace.`
 - Create: `drizzle/0023_estimate_approvals_proposals.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Write rule and approval tests**
+- [x] **Step 1: Write rule and approval tests**
 
 Cover administrator permission, wrong organization, stale hash, superseded
 version, expired decision, rejection, second-approver threshold, and replay.
 Default organization rule requires one administrator for every estimate.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/estimate-approvals.test.ts
 ```
 
-- [ ] **Step 3: Add approval records and evaluator**
+- [x] **Step 3: Add approval records and evaluator**
 
 `evaluateApprovalRules` is pure and returns required decisions. Approval input
 contains estimate version ID and expected hash; the command reloads and
 compares both before insert. It never accepts a rule result from the browser.
 
-- [ ] **Step 4: Add approval UI**
+- [x] **Step 4: Add approval UI**
 
 Show exact version, total, changes, applicable rule, expiry, approver, comment,
 approve, and reject. A new estimate version invalidates use of the prior
 approval without deleting it.
 
-- [ ] **Step 5: Run checks and commit**
+- [x] **Step 5: Run checks and commit**
 
 ```bash
 npx vitest run src/lib/ops/estimate-approvals.test.ts src/app/app/opportunities/[id]/estimates/actions.test.ts

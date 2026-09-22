@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { EstimateApprovalPanel } from "@/components/ops/estimate-approval-panel";
 import { EstimateEditor } from "@/components/ops/estimate-editor";
 import { EstimateJobPackages } from "@/components/ops/estimate-job-packages";
 import { EstimateVersionDiff } from "@/components/ops/estimate-version-diff";
@@ -8,10 +9,13 @@ import { RecentVisit } from "@/components/ops/recent-visit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
+import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
 import { compareEstimateVersions } from "@/lib/ops/estimates";
 import { formatUnitPrice, priceBookUnitLabel } from "@/lib/ops/price-book";
 import {
   getEstimate,
+  listCommercialApprovalRules,
+  listEstimateApprovals,
   listEstimateCitations,
   listEstimateGraphs,
   listPriceBookItems,
@@ -60,11 +64,26 @@ export default async function EstimateWorkspacePage({
     compared && compared.versionId !== selected.versionId
       ? compareEstimateVersions(selected, compared)
       : null;
-  const [items, versions, citations] = await Promise.all([
+  const [items, versions, citations, rules, approvals] = await Promise.all([
     listPriceBookItems({ includeInactive: true }),
     listPriceBookVersions(),
     listEstimateCitations(readAccess.organizationId),
+    listCommercialApprovalRules(readAccess.organizationId),
+    listEstimateApprovals(estimate.id),
   ]);
+  const now = new Date();
+  const approval = evaluateApprovalRules({
+    now,
+    organizationId: estimate.organizationId,
+    versionId: selected.versionId,
+    contentHash: selected.contentHash,
+    totalCents: selected.totalCents,
+    rules,
+    decisions: approvals,
+  });
+  const previous = graphs.find((graph) => graph.versionNumber === selected.versionNumber - 1);
+  const approvalDiff = previous ? compareEstimateVersions(previous, selected) : null;
+  const canApprove = resolveCommercialAccess(session, "estimate.approve").ok;
   const revisions = versions
     .filter((version) => version.status === "approved")
     .filter((version) => items.find((item) => item.id === version.itemId)?.active)
@@ -140,6 +159,31 @@ export default async function EstimateWorkspacePage({
               diff={diff}
             />
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EstimateApprovalPanel
+            estimateId={estimate.id}
+            versionId={selected.versionId}
+            versionNumber={selected.versionNumber}
+            contentHash={selected.contentHash}
+            totalCents={selected.totalCents}
+            latestVersionNumber={latest.versionNumber}
+            ruleName={approval.rule.name}
+            requiredApprovals={approval.requiredApprovals}
+            thresholdCents={approval.rule.secondApproverTotalCents}
+            status={approval.status}
+            decisions={approvals.filter((item) => item.estimateVersionId === selected.versionId)}
+            diff={approvalDiff}
+            fromVersion={previous?.versionNumber ?? null}
+            canDecide={canApprove}
+            now={now}
+          />
         </CardContent>
       </Card>
 

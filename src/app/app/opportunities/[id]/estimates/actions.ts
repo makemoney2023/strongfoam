@@ -10,16 +10,20 @@ import {
   resolveCommercialAccess,
 } from "@/lib/ops/commercial-authorization";
 import { formatUnitPrice } from "@/lib/ops/price-book";
+import { decideEstimateVersion } from "@/lib/ops/estimate-approvals";
 import { parseWorkspaceDraft } from "@/lib/ops/estimate-workspace";
 import { prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
 import {
   createEstimateVersion,
   getAuthorizedOpportunity,
   getEstimate,
+  listCommercialApprovalRules,
+  listEstimateApprovals,
   listEstimateCitations,
   listEstimateGraphs,
   listPriceBookItems,
   listPriceBookVersions,
+  saveEstimateApproval,
 } from "@/lib/ops/store";
 
 const ERRORS: Record<string, string> = {
@@ -30,6 +34,9 @@ const ERRORS: Record<string, string> = {
   price: "The unit price has to come from the approved revision.",
   alternate: "That alternate is not on this version.",
   "basis-points": "Enter overhead, markup, and tax as basis points.",
+  "stale-hash": "That estimate version changed. Reload it before deciding.",
+  superseded: "A newer estimate version exists. Decide the latest version.",
+  "already-decided": "That approver already decided this version.",
 };
 
 function explain(error: string): string {
@@ -162,6 +169,64 @@ export async function saveEstimateVersion(formData: FormData): Promise<ActionSta
   revalidatePath(opportunityPath(estimate.opportunityId));
   revalidatePath(estimatePath(estimate.opportunityId, estimate.id));
   return succeed(path, `Estimate version ${created.version.versionNumber} created.`);
+}
+
+export async function decideEstimateVersionAction(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const estimate = estimateId ? await getEstimate(estimateId) : null;
+  const fallback = estimate
+    ? estimatePath(estimate.opportunityId, estimate.id)
+    : "/app/opportunities";
+  const access = resolveCommercialAccess(session, "estimate.approve");
+  if (!access.ok) return fail(fallback, access.error);
+  if (!estimate) return fail(fallback, "That estimate could not be found.");
+  const same = assertSameOrganization(access.organizationId, estimate.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const graphs = await listEstimateGraphs(estimate.id);
+  const versionId = String(formData.get("estimateVersionId") ?? "");
+  const version = graphs.find((graph) => graph.versionId === versionId);
+  if (!version) return fail(fallback, "That estimate version could not be found.");
+  const latest = graphs.reduce((max, graph) => Math.max(max, graph.versionNumber), 0);
+  const decision = formData.get("decision") === "rejected" ? "rejected" : "approved";
+  const decided = decideEstimateVersion({
+    actor: {
+      email: session.email,
+      role: session.role,
+      organizationId: access.organizationId,
+    },
+    expected: {
+      estimateVersionId: versionId,
+      contentHash: String(formData.get("expectedHash") ?? ""),
+    },
+    decision,
+    comment: String(formData.get("comment") ?? ""),
+    now: new Date(),
+    loaded: {
+      organizationId: estimate.organizationId,
+      estimateId: estimate.id,
+      versionId: version.versionId,
+      versionNumber: version.versionNumber,
+      latestVersionNumber: latest,
+      contentHash: version.contentHash,
+      totalCents: version.totalCents,
+    },
+    rules: await listCommercialApprovalRules(access.organizationId),
+    existing: await listEstimateApprovals(estimate.id),
+    claimedRuleId: String(formData.get("ruleId") ?? ""),
+  });
+  if (!decided.ok) return fail(estimatePath(estimate.opportunityId, estimate.id, version.versionNumber), explain(decided.error));
+  if (!decided.replayed) await saveEstimateApproval(decided.approval);
+  const path = estimatePath(estimate.opportunityId, estimate.id, version.versionNumber);
+  revalidatePath(opportunityPath(estimate.opportunityId));
+  revalidatePath(estimatePath(estimate.opportunityId, estimate.id));
+  const message = decided.replayed
+    ? `Version ${version.versionNumber} already has this decision.`
+    : decision === "approved"
+      ? `Version ${version.versionNumber} approved.`
+      : `Version ${version.versionNumber} rejected.`;
+  return succeed(path, message);
 }
 
 export async function discardEstimateDraft(formData: FormData): Promise<ActionState> {

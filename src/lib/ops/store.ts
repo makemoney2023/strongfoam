@@ -45,6 +45,8 @@ import {
   priceBookItemVersions,
   estimates,
   estimateVersions,
+  commercialApprovalRules,
+  estimateApprovals,
   estimateLines,
   estimateClauses,
   estimateAlternates,
@@ -94,6 +96,9 @@ import {
   listDemoEstimateCitations,
   listDemoEstimateGraphs,
   listDemoEstimates,
+  listDemoApprovalRules,
+  listDemoEstimateApprovals,
+  saveDemoEstimateApproval,
   listDemoPriceBookVersions,
   saveDemoPriceBookDraft,
   updateDemoEstimateLine,
@@ -5890,4 +5895,78 @@ export async function listEstimateCitations(organizationId: string) {
       },
     ];
   });
+}
+
+export async function listCommercialApprovalRules(organizationId: string) {
+  if (isDemoOpsStore()) return listDemoApprovalRules(organizationId);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(commercialApprovalRules)
+    .where(
+      and(
+        eq(commercialApprovalRules.organizationId, organizationId),
+        eq(commercialApprovalRules.active, true),
+      ),
+    );
+  if (rows.length) {
+    return rows.map((row) => ({
+      id: row.id,
+      organizationId: row.organizationId,
+      name: row.name,
+      active: row.active,
+      secondApproverTotalCents: row.secondApproverTotalCents,
+    }));
+  }
+  const created = {
+    id: crypto.randomUUID(),
+    organizationId,
+    name: "Administrator approval",
+    active: true,
+    secondApproverTotalCents: null,
+  };
+  await db.insert(commercialApprovalRules).values(created);
+  return [created];
+}
+
+export async function listEstimateApprovals(estimateId: string) {
+  if (isDemoOpsStore()) return listDemoEstimateApprovals(estimateId);
+  const rows = await getDb()
+    .select()
+    .from(estimateApprovals)
+    .where(eq(estimateApprovals.estimateId, estimateId))
+    .orderBy(estimateApprovals.createdAt);
+  return rows.map((row) => ({
+    id: row.id,
+    organizationId: row.organizationId,
+    estimateId: row.estimateId,
+    estimateVersionId: row.estimateVersionId,
+    versionNumber: row.versionNumber,
+    contentHash: row.contentHash,
+    ruleId: row.ruleId,
+    actorEmail: row.actorEmail,
+    decision: row.decision === "rejected" ? ("rejected" as const) : ("approved" as const),
+    comment: row.comment,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+  }));
+}
+
+export async function saveEstimateApproval(approval: {
+  id: string;
+  organizationId: string;
+  estimateId: string;
+  estimateVersionId: string;
+  versionNumber: number;
+  contentHash: string;
+  ruleId: string;
+  actorEmail: string;
+  decision: "approved" | "rejected";
+  comment: string;
+  expiresAt: Date;
+  createdAt: Date;
+}) {
+  if (isDemoOpsStore()) return saveDemoEstimateApproval(approval);
+  await getDb().insert(estimateApprovals).values(approval);
+  return approval;
 }

@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 
 import {
   createOpportunityEstimate,
+  decideEstimateVersionAction,
   discardEstimateDraft,
   saveEstimateVersion,
 } from "@/app/app/opportunities/[id]/estimates/actions";
@@ -32,6 +33,7 @@ import {
   priceBookVersionId,
 } from "@/lib/ops/demo-data";
 import {
+  listDemoEstimateApprovals,
   listDemoEstimateGraphs,
   listDemoEstimates,
   listDemoJobs,
@@ -237,5 +239,47 @@ describe("estimate workspace actions", () => {
     );
     expect(createdEstimate?.organizationId).toBe(STRONG_FOAM_ORGANIZATION_ID);
     expect(listDemoEstimateGraphs(createdEstimate?.id).map((graph) => graph.versionNumber)).toEqual([1]);
+  });
+
+  it("lets an administrator approve the latest hash and replays that decision", async () => {
+    getOpsSession.mockResolvedValue(officeSession);
+    const graph = listDemoEstimateGraphs(DEMO_ESTIMATE_ID).at(-1);
+    expect(graph).toBeTruthy();
+    if (!graph) return;
+    const denied = await decideEstimateVersionAction(
+      form({
+        estimateId: DEMO_ESTIMATE_ID,
+        estimateVersionId: graph.versionId,
+        expectedHash: graph.contentHash,
+        decision: "approved",
+        comment: "Office",
+        ruleId: "browser-rule",
+      }),
+    );
+    expect(denied.error).toBe("You do not have access to that commercial action.");
+    expect(
+      listDemoEstimateApprovals(DEMO_ESTIMATE_ID).filter((item) => item.actorEmail === officeSession.email),
+    ).toHaveLength(0);
+
+    getOpsSession.mockResolvedValue(adminSession);
+    const projects = listDemoProjects().length;
+    const body = {
+      estimateId: DEMO_ESTIMATE_ID,
+      estimateVersionId: graph.versionId,
+      expectedHash: graph.contentHash,
+      decision: "approved",
+      comment: "Approved for proposal",
+      ruleId: "browser-rule",
+    };
+    const approved = await decideEstimateVersionAction(form(body));
+    expect(approved.notice?.message).toBe(`Version ${graph.versionNumber} approved.`);
+    const again = await decideEstimateVersionAction(form(body));
+    expect(again.notice?.message).toBe(`Version ${graph.versionNumber} already has this decision.`);
+    const saved = listDemoEstimateApprovals(DEMO_ESTIMATE_ID).filter(
+      (item) => item.estimateVersionId === graph.versionId && item.actorEmail === adminSession.email,
+    );
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.ruleId).not.toBe("browser-rule");
+    expect(listDemoProjects()).toHaveLength(projects);
   });
 });

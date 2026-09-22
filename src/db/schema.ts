@@ -1479,6 +1479,53 @@ export type DocumentExtractionRow = typeof documentExtractions.$inferSelect;
 export type DocumentPageRow = typeof documentPages.$inferSelect;
 export type DocumentChunkRow = typeof documentChunks.$inferSelect;
 
+export const commercialApprovalRules = pgTable("commercial_approval_rules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
+  name: text("name").notNull(),
+  active: boolean("active").notNull(),
+  secondApproverTotalCents: integer("second_approver_total_cents"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const estimateApprovals = pgTable(
+  "estimate_approvals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateId: uuid("estimate_id")
+      .notNull()
+      .references(() => estimates.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    versionNumber: integer("version_number").notNull(),
+    contentHash: text("content_hash").notNull(),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => commercialApprovalRules.id),
+    actorEmail: text("actor_email").notNull(),
+    decision: text("decision").notNull(),
+    comment: text("comment").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("estimate_approvals_actor_version_unique").on(
+      table.estimateVersionId,
+      table.actorEmail,
+    ),
+    index("estimate_approvals_estimate_idx").on(table.organizationId, table.estimateId),
+  ],
+);
+
+export type CommercialApprovalRuleRow = typeof commercialApprovalRules.$inferSelect;
+export type EstimateApprovalRow = typeof estimateApprovals.$inferSelect;
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {
