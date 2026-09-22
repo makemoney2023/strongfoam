@@ -1013,7 +1013,7 @@ Commit message: `Convert an accepted estimate into approved jobs once.`
 - Modify: `src/lib/ops/store.ts`
 - Modify: `src/lib/ops/demo-store.ts`
 
-- [ ] **Step 1: Write evidence-pack tests**
+- [x] **Step 1: Write evidence-pack tests**
 
 Assert the pack:
 
@@ -1025,20 +1025,20 @@ Assert the pack:
   organization records.
 - Keeps immutable IDs/hashes required for citation validation.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/commercial-ai-evidence.test.ts
 ```
 
-- [ ] **Step 3: Implement the bounded pack**
+- [x] **Step 3: Implement the bounded pack**
 
 Build it server-side after `estimate.edit` authorization. Require explicit
 document-version selection. Prefer specification/addendum chunks, then plan
 notes/title blocks, and include the active estimate version only for revision
 drafts. Do not send file bytes when cited extracted text is sufficient.
 
-- [ ] **Step 4: Run checks and commit**
+- [x] **Step 4: Run checks and commit**
 
 ```bash
 npx vitest run src/lib/ops/commercial-ai-evidence.test.ts

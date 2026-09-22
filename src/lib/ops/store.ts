@@ -117,6 +117,7 @@ import {
   saveDemoEstimateAcceptance,
   convertDemoAcceptedEstimate,
   findDemoAcceptedEstimate,
+  gatherDemoCommercialEvidence,
   listDemoEntityDocumentVersionIds,
   listDemoEstimateConversions,
   listDemoPriceBookVersions,
@@ -233,6 +234,13 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import {
+  buildCommercialEvidencePack,
+  COMMERCIAL_EVIDENCE_BUDGET,
+  type CommercialEvidenceBudget,
+  type CommercialEvidenceInput,
+  type CommercialEvidencePack,
+} from "@/lib/ops/commercial-ai-evidence";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
 import {
   commitEstimateConversion,
@@ -6242,6 +6250,224 @@ export async function decideStoredProposal(input: {
     if (decided.decision === "accepted") await saveEstimateAcceptance(decided.acceptance);
   }
   return decided;
+}
+
+export async function getCommercialEvidencePack(args: {
+  actor: {
+    email?: string;
+    role: "administrator" | "office" | "field_lead" | "field_worker" | "estimator";
+    organizationId?: string;
+  };
+  organizationId: string;
+  opportunityId: string;
+  mode: "new" | "revision";
+  selectedDocumentVersionIds: string[];
+  tokenBudget?: CommercialEvidenceBudget;
+}): Promise<{ ok: true; pack: CommercialEvidencePack } | { ok: false; error: string }> {
+  const budget = args.tokenBudget ?? COMMERCIAL_EVIDENCE_BUDGET;
+  if (isDemoOpsStore()) {
+    const gathered = gatherDemoCommercialEvidence({ ...args, tokenBudget: budget });
+    if (!gathered) return { ok: false, error: "That opportunity could not be found." };
+    return buildCommercialEvidencePack(args.actor, gathered);
+  }
+  const opportunityRows = await getDb()
+    .select()
+    .from(opportunities)
+    .where(eq(opportunities.id, args.opportunityId))
+    .limit(1);
+  const opportunity = opportunityRows[0];
+  if (!opportunity) return { ok: false, error: "That opportunity could not be found." };
+  const [companyRows, contactRows, siteRows, estimateRows, itemRows, revisionRows] =
+    await Promise.all([
+      opportunity.companyId
+        ? getDb().select().from(companies).where(eq(companies.id, opportunity.companyId)).limit(1)
+        : Promise.resolve([]),
+      opportunity.contactId
+        ? getDb().select().from(contacts).where(eq(contacts.id, opportunity.contactId)).limit(1)
+        : Promise.resolve([]),
+      opportunity.siteId
+        ? getDb().select().from(sites).where(eq(sites.id, opportunity.siteId)).limit(1)
+        : Promise.resolve([]),
+      getDb().select().from(estimates).where(eq(estimates.opportunityId, opportunity.id)),
+      getDb().select().from(priceBookItems).where(eq(priceBookItems.organizationId, args.organizationId)),
+      getDb()
+        .select()
+        .from(priceBookItemVersions)
+        .where(eq(priceBookItemVersions.organizationId, args.organizationId)),
+    ]);
+  const estimateIds = estimateRows.map((estimate) => estimate.id);
+  const linkRows = await getDb()
+    .select()
+    .from(documentLinks)
+    .where(eq(documentLinks.organizationId, args.organizationId));
+  const selected = args.selectedDocumentVersionIds;
+  const versionRows = selected.length
+    ? await getDb()
+        .select()
+        .from(documentVersions)
+        .where(
+          and(
+            eq(documentVersions.organizationId, args.organizationId),
+            inArray(documentVersions.id, selected),
+          ),
+        )
+    : [];
+  const versionIds = versionRows.map((version) => version.id);
+  const [extractionRows, pageRows, chunkRows, versionGraphRows] = await Promise.all([
+    versionIds.length
+      ? getDb()
+          .select()
+          .from(documentExtractions)
+          .where(
+            and(
+              eq(documentExtractions.organizationId, args.organizationId),
+              inArray(documentExtractions.documentVersionId, versionIds),
+            ),
+          )
+      : Promise.resolve([]),
+    versionIds.length
+      ? getDb()
+          .select()
+          .from(documentPages)
+          .where(
+            and(
+              eq(documentPages.organizationId, args.organizationId),
+              inArray(documentPages.documentVersionId, versionIds),
+            ),
+          )
+      : Promise.resolve([]),
+    versionIds.length
+      ? getDb()
+          .select()
+          .from(documentChunks)
+          .where(
+            and(
+              eq(documentChunks.organizationId, args.organizationId),
+              inArray(documentChunks.documentVersionId, versionIds),
+            ),
+          )
+      : Promise.resolve([]),
+    estimateIds.length
+      ? getDb()
+          .select()
+          .from(estimateVersions)
+          .where(inArray(estimateVersions.estimateId, estimateIds))
+      : Promise.resolve([]),
+  ]);
+  const latest = versionGraphRows.sort((left, right) => right.versionNumber - left.versionNumber)[0];
+  const input: CommercialEvidenceInput = {
+    organizationId: args.organizationId,
+    opportunityId: args.opportunityId,
+    mode: args.mode,
+    selectedDocumentVersionIds: selected,
+    tokenBudget: budget,
+    opportunity: {
+      id: opportunity.id,
+      organizationId: opportunity.organizationId,
+      name: opportunity.name,
+      services: opportunity.services,
+      companyId: opportunity.companyId,
+      contactId: opportunity.contactId,
+      siteId: opportunity.siteId,
+    },
+    companies: companyRows.map((company) => ({
+      id: company.id,
+      organizationId: company.organizationId,
+      name: company.name,
+    })),
+    contacts: contactRows.map((contact) => ({
+      id: contact.id,
+      organizationId: contact.organizationId,
+      name: `${contact.firstName} ${contact.lastName}`,
+    })),
+    sites: siteRows.map((site) => ({
+      id: site.id,
+      organizationId: site.organizationId,
+      name: site.name,
+    })),
+    estimates: estimateRows.map((estimate) => ({
+      id: estimate.id,
+      organizationId: estimate.organizationId,
+      opportunityId: estimate.opportunityId,
+    })),
+    estimateVersion: latest
+      ? {
+          id: latest.id,
+          organizationId: latest.organizationId,
+          opportunityId: opportunity.id,
+          versionNumber: latest.versionNumber,
+          contentHash: latest.contentHash,
+        }
+      : null,
+    links: linkRows
+      .filter(
+        (link) =>
+          link.entityId === opportunity.id || estimateIds.includes(link.entityId),
+      )
+      .map((link) => ({
+        organizationId: link.organizationId,
+        documentVersionId: link.documentVersionId,
+        entityType: link.entityType,
+        entityId: link.entityId,
+        purpose: link.purpose,
+      })),
+    versions: versionRows.map((version) => ({
+      id: version.id,
+      organizationId: version.organizationId,
+      documentId: version.documentId,
+      versionNumber: version.versionNumber,
+      status: version.status,
+      kind: version.kind,
+      sha256: version.sha256,
+      filename: version.filename,
+      pathname: version.pathname,
+      sizeBytes: version.sizeBytes,
+    })),
+    extractions: extractionRows.map((extraction) => ({
+      id: extraction.id,
+      organizationId: extraction.organizationId,
+      documentVersionId: extraction.documentVersionId,
+      status: extraction.status,
+    })),
+    pages: pageRows.map((page) => ({
+      id: page.id,
+      organizationId: page.organizationId,
+      documentVersionId: page.documentVersionId,
+      extractionId: page.extractionId,
+      pageNumber: page.pageNumber,
+      sheetLabel: page.sheetLabel,
+      machineText: page.machineText,
+      correctedText: page.correctedText,
+    })),
+    chunks: chunkRows.map((chunk) => ({
+      id: chunk.id,
+      organizationId: chunk.organizationId,
+      documentVersionId: chunk.documentVersionId,
+      pageId: chunk.pageId,
+      startOffset: chunk.startOffset,
+      endOffset: chunk.endOffset,
+      contentHash: chunk.contentHash,
+      text: chunk.text,
+    })),
+    priceItems: itemRows.map((item) => ({
+      id: item.id,
+      organizationId: item.organizationId,
+      active: item.active,
+    })),
+    priceRevisions: revisionRows.map((revision) => ({
+      id: revision.id,
+      organizationId: revision.organizationId,
+      itemId: revision.itemId,
+      versionNumber: revision.versionNumber,
+      status: revision.status,
+      trade: revision.trade,
+      description: revision.description,
+      unit: revision.unit,
+      unitPriceCents: revision.unitPriceCents,
+      contentHash: revision.contentHash,
+    })),
+  };
+  return buildCommercialEvidencePack(args.actor, input);
 }
 
 export async function listEntityDocumentVersionIds(

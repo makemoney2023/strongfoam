@@ -11,6 +11,11 @@ import {
   type ConversionDraft,
   type ConversionResult,
 } from "@/lib/ops/estimate-conversion";
+import {
+  COMMERCIAL_EVIDENCE_BUDGET,
+  type CommercialEvidenceBudget,
+  type CommercialEvidenceInput,
+} from "@/lib/ops/commercial-ai-evidence";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
 import type {
   AuditEventRow,
@@ -4545,6 +4550,131 @@ export function listDemoEstimateConversions(estimateId?: string): ConversionResu
   return getDemoState().estimateConversions.filter(
     (item) => !estimateId || item.estimateId === estimateId,
   );
+}
+
+export function gatherDemoCommercialEvidence(args: {
+  organizationId: string;
+  opportunityId: string;
+  mode: "new" | "revision";
+  selectedDocumentVersionIds: string[];
+  tokenBudget?: CommercialEvidenceBudget;
+}): CommercialEvidenceInput | null {
+  const state = getDemoState();
+  const opportunity = state.opportunities.find((item) => item.id === args.opportunityId) ?? null;
+  if (!opportunity) return null;
+  const estimates = state.estimates
+    .filter((item) => item.opportunityId === opportunity.id)
+    .map((item) => ({
+      id: item.id,
+      organizationId: item.organizationId,
+      opportunityId: item.opportunityId,
+    }));
+  const latest = state.estimateGraphs
+    .filter((graph) => estimates.some((estimate) => estimate.id === graph.estimateId))
+    .sort((left, right) => right.versionNumber - left.versionNumber)[0];
+  return {
+    organizationId: args.organizationId,
+    opportunityId: args.opportunityId,
+    mode: args.mode,
+    selectedDocumentVersionIds: args.selectedDocumentVersionIds,
+    tokenBudget: args.tokenBudget ?? COMMERCIAL_EVIDENCE_BUDGET,
+    opportunity: {
+      id: opportunity.id,
+      organizationId: opportunity.organizationId,
+      name: opportunity.name,
+      services: opportunity.services,
+      companyId: opportunity.companyId,
+      contactId: opportunity.contactId,
+      siteId: opportunity.siteId,
+    },
+    companies: state.companies.map((company) => ({
+      id: company.id,
+      organizationId: company.organizationId,
+      name: company.name,
+    })),
+    contacts: state.contacts.map((contact) => ({
+      id: contact.id,
+      organizationId: contact.organizationId,
+      name: `${contact.firstName} ${contact.lastName}`,
+    })),
+    sites: state.sites.map((site) => ({
+      id: site.id,
+      organizationId: site.organizationId,
+      name: site.name,
+    })),
+    estimates,
+    estimateVersion: latest
+      ? {
+          id: latest.versionId,
+          organizationId: latest.organizationId,
+          opportunityId: opportunity.id,
+          versionNumber: latest.versionNumber,
+          contentHash: latest.contentHash,
+        }
+      : null,
+    links: state.bidDocumentLinks.map((link) => ({
+      organizationId: link.organizationId,
+      documentVersionId: link.documentVersionId,
+      entityType: link.entityType,
+      entityId: link.entityId,
+      purpose: link.purpose,
+    })),
+    versions: state.bidDocumentVersions.map((version) => ({
+      id: version.id,
+      organizationId: version.organizationId,
+      documentId: version.documentId,
+      versionNumber: version.versionNumber,
+      status: version.status,
+      kind: version.kind,
+      sha256: version.sha256,
+      filename: version.filename,
+      pathname: version.pathname,
+      sizeBytes: version.sizeBytes,
+    })),
+    extractions: state.bidDocumentExtractions.map((extraction) => ({
+      id: extraction.id,
+      organizationId: extraction.organizationId,
+      documentVersionId: extraction.documentVersionId,
+      status: extraction.status,
+    })),
+    pages: state.bidDocumentPages.map((page) => ({
+      id: page.id,
+      organizationId: page.organizationId,
+      documentVersionId: page.documentVersionId,
+      extractionId: page.extractionId,
+      pageNumber: page.pageNumber,
+      sheetLabel: page.sheetLabel,
+      machineText: page.machineText,
+      correctedText: page.correctedText,
+    })),
+    chunks: state.bidDocumentChunks.map((chunk) => ({
+      id: chunk.id,
+      organizationId: chunk.organizationId,
+      documentVersionId: chunk.documentVersionId,
+      pageId: chunk.pageId,
+      startOffset: chunk.startOffset,
+      endOffset: chunk.endOffset,
+      contentHash: chunk.contentHash,
+      text: chunk.text,
+    })),
+    priceItems: state.priceBookItems.map((item) => ({
+      id: item.id,
+      organizationId: item.organizationId,
+      active: item.active,
+    })),
+    priceRevisions: state.priceBookVersions.map((revision) => ({
+      id: revision.id,
+      organizationId: revision.organizationId,
+      itemId: revision.itemId,
+      versionNumber: revision.versionNumber,
+      status: revision.status,
+      trade: revision.trade,
+      description: revision.description,
+      unit: revision.unit,
+      unitPriceCents: revision.unitPriceCents,
+      contentHash: revision.contentHash,
+    })),
+  };
 }
 
 export function listDemoEntityDocumentVersionIds(
