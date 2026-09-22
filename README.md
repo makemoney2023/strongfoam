@@ -73,8 +73,11 @@ Production operations requirements:
   and user lifecycle audit events. Apply `0013_plan_revision_integrity.sql`
   before revision writes, `0014_job_voice_notes.sql` before serving voice-note
   code,   `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
-  and text marks, and `0016_task_stated_quantity.sql` before storing a stated
-  task quantity in bags or square feet. The current Vercel Hobby deploy still uses the in-memory
+  and text marks, `0016_task_stated_quantity.sql` before storing a stated
+  task quantity in bags or square feet, `0017_price_book_items.sql` before
+  storing price-book items, and `0018_organization_scope_audit.sql` before
+  organization-scoped commercial writes, and `0019_background_execution.sql`
+  before the Render worker claims outbox jobs. The current Vercel Hobby deploy still uses the in-memory
   demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
   Postgres is attached.
 
@@ -108,7 +111,12 @@ AI_GATEWAY_API_KEY
 AI_GATEWAY_MODEL
 VOICE_RETENTION_DAYS
 VOICE_CONSENT_NOTICE
+WORKER_ID
 ```
+
+`npm run worker` starts the Render background process. It claims pg-boss work,
+records a heartbeat, and stops cleanly on SIGTERM. It needs `DATABASE_URL` and
+does not serve the Next.js app.
 
 Voice notes store audio privately (demo memory, production Blob). Transcription
 runs after save: a demo stub in `OPS_DEMO`, Deepgram Nova-3 (`en-US`) when

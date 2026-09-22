@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.23
+**Version:** 1.25
 **Created:** 2026-09-18
 **Last updated:** 2026-09-22
 
@@ -103,9 +103,15 @@ will be written (AI-004, AI-011).
 An open task can store a stated quantity in bags or square feet. Home and the
 job warn when installed field quantities of that unit are ahead of the amount
 still stated on open tasks (AI-014). The warning does not state dollars,
-margin, or a price. AI-016 through AI-026 remain specified and
-are not built. The target Supabase/Render deployment split, full permission matrix,
-crews, durable offline sync, and financial workflows remain to be completed.
+margin, or a price. Office users keep a price book of reusable unit prices
+by trade, in bags, square feet, hours, or each. A retired item stays in the
+book. Assemblies, scope templates, estimate versions, proposals, and approvals
+are not stored yet. AI-016 through AI-026 remain specified and
+are not built. A cited bid-package-to-estimate-to-job workflow is specified,
+but opportunity documents, durable document extraction, estimate versions,
+approvals, proposals, and accepted-work conversion are not built. The target
+Supabase/Render deployment split, full permission matrix, crews, durable
+offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
 
@@ -174,6 +180,7 @@ The system should answer:
 - Native iOS or Android applications.
 - Full BIM authoring or editing IFC/Revit files.
 - Automated takeoff from plan geometry.
+- Inferring price or quantity from drawing scale, pixels, symbols, or geometry.
 - Replacing existing accounting software.
 - A customer or subcontractor portal.
 - AI-generated pricing or autonomous approval decisions.
@@ -361,6 +368,23 @@ contacts, and opportunities without deleting the original submission.
 **EST-010:** Staff must be able to convert approved or won work into a project
 and one or more jobs.
 
+**EST-011:** An authorized estimator must be able to attach a private,
+versioned bid package to an opportunity before a project or job exists.
+
+**EST-012:** Clean bid-package documents must be extracted asynchronously by
+page and sheet. Machine text, human corrections, extraction status, and source
+hashes must remain distinguishable.
+
+**EST-013:** Uploading or extracting a bid package must not create an estimate,
+price, project, job, task, budget, approval, proposal, or acceptance.
+
+**EST-014:** An accepted, approved estimate must present the exact project,
+jobs, work areas, starter tasks, budget, and document links before an
+authorized user confirms conversion.
+
+**EST-015:** Manual opportunity, estimate, approval, proposal, and job workflows
+must remain available when document extraction or AI is disabled or failing.
+
 ### 10.3 Acceptance outcomes
 
 - A new survey submission appears in the staff list without manual import.
@@ -449,8 +473,9 @@ through the Field application.
 
 **DOC-001:** Plans and diagrams must support PDF, JPEG, PNG, and WebP at minimum.
 
-**DOC-002:** Documents must be private and associated with an organization,
-project, job, and immutable document version.
+**DOC-002:** Documents must be private and associated with an organization and
+an immutable document version. A version may link to an authorized request,
+opportunity, estimate, project, or job without copying or moving its binary.
 
 **DOC-003:** Uploading a replacement plan must create a new version. Existing
 annotations must remain attached to the version on which they were created.
@@ -583,7 +608,9 @@ subcontractor, overhead, markup, tax, alternates, allowances, inclusions, and
 exclusions.
 
 **QTE-003:** Reusable price-book items, assemblies, and scope templates must be
-available by trade.
+available by trade. Price-book items are stored with a trade, name, unit, and
+Canadian-dollar unit price, and an item can be retired without deleting it.
+Assemblies and scope templates are not stored yet.
 
 **QTE-004:** Authorized users must be able to compare revisions and require
 internal approval based on configurable thresholds.
@@ -596,6 +623,75 @@ discarding the estimate history.
 
 **QTE-007:** Change orders must have scope, price, schedule impact, status,
 approval evidence, and budget effect.
+
+### 15.1 Bid package to approved jobs
+
+**BID-001:** An opportunity must accept private PDF, JPEG, PNG, and WebP bid
+documents before a project or job exists. Upload tokens must be short-lived,
+organization-bound, opportunity-bound, and object-bound.
+
+**BID-002:** Every replacement file must create an immutable document version.
+The platform must retain filename, kind, revision, byte size, content type,
+SHA-256, private object key, uploader, and predecessor.
+
+**BID-003:** Untrusted uploads must remain quarantined until scan success.
+Malware-positive files must not be rendered, extracted, downloaded broadly, or
+sent to an AI provider.
+
+**BID-004:** Document scan, text extraction, OCR, and page chunking must run as
+idempotent durable worker jobs with checkpoints, retry budgets, and dead-letter
+visibility.
+
+**BID-005:** Every extracted or AI-proposed claim must cite an authorized
+immutable document version, page, optional sheet, text span or bounding box,
+and content hash. Human correction must not destroy machine output.
+
+**BID-006:** AI may propose scope, job packages, estimate lines, clauses,
+alternates, questions, candidate price-book items, and an explicitly written
+quantity. Upload and AI proposal write no business record until a person
+selects and applies the suggestion.
+
+**BID-007:** AI must not measure drawing geometry or infer quantity from scale,
+pixels, symbols, or dimensions. Missing, ambiguous, conflicting, or unitless
+quantity must display **Takeoff required** or a cited estimator question.
+
+**BID-008:** AI must not generate or select price, cost, markup, overhead, tax,
+discount, total, approval, proposal delivery, project, or live job. The server
+must reject prohibited output before storing a proposal.
+
+**BID-009:** A price-book item must have immutable human-approved revisions.
+An estimate line must snapshot the chosen revision, unit, quantity, CAD unit
+price, pricing method, taxable state, calculation policy, and rounded amount.
+Changing or retiring an item must not alter a prior estimate version.
+
+**BID-010:** Estimate quantities must use bounded decimal precision and money
+must use integer CAD cents. The server must calculate line, overhead, markup,
+tax, alternate, and total amounts deterministically and ignore client/model
+totals.
+
+**BID-011:** Every estimate edit must create a new immutable version.
+Comparison must identify changed scope, quantity, selected price revision,
+amount, clause, alternate, job package, approval threshold, and total.
+
+**BID-012:** Approval, proposal, delivery, view, acceptance, rejection,
+expiration, and revocation must bind to the exact estimate version and content
+hash. Proposal generation does not send it, and customer acceptance does not
+create operational records.
+
+**BID-013:** An authorized internal confirmation must convert one accepted
+estimate exactly once. One transaction creates or links one project, every
+approved job package, its work areas and starter tasks, the approved project
+budget, selected document links, status changes, audit events, and publication
+outbox events.
+
+**BID-014:** Duplicate, concurrent, retried, stale, expired, revoked, or
+cross-organization acceptance and conversion requests must create no duplicate
+or partial effect.
+
+**BID-015:** Bid documents, extraction, commercial records, AI proposals,
+pricing, approval, proposal events, acceptance, exports, and conversion must
+be organization-scoped and append-only where the PRD requires immutable or
+auditable evidence. Field users must not receive commercial access.
 
 ## 16. Project and operational requirements
 
@@ -1542,9 +1638,10 @@ deletable by ordinary application roles.
 1. Release A on current records: AI-008, AI-009, AI-010, AI-011, AI-012,
    AI-013, AI-014, AI-015, and AI-020 are shipped. Release A on current
    records is complete.
-2. Release B after the commercial records exist: AI-016 through AI-019 and
-   AI-021. The agent drafts scope and quantity. A person sets price and
-   approval.
+2. Release B after the commercial records and durable document pipeline exist:
+   AI-016 through AI-019 and AI-021. The agent drafts cited scope and may
+   repeat an explicitly written quantity. A person selects the price-book
+   revision and quantity, and an authorized approver decides.
 3. Release C after the named platform dependency exists: AI-022 through
    AI-026.
 4. Direct reversible task updates (AI-003) and exact-diff approvals stay in
@@ -1561,8 +1658,9 @@ sync.
 
 These boundaries apply to every ID:
 
-- Geometric measurement of plan PDFs stays a non-goal. AI-018 drafts scope
-  lines from a walkthrough and the price book. It does not trace the drawing.
+- Geometric measurement of plan PDFs stays a non-goal. AI-016 and AI-018 may
+  use cited extracted document text or a walkthrough. They do not trace,
+  scale, or measure the drawing.
 - The agent does not generate price, markup, tax, or an approval decision.
 - Safety and compliance sign-off stays with a person. AI-024 may propose a
   deficiency and may not close one.
@@ -1578,9 +1676,9 @@ These boundaries apply to every ID:
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
 | AI-014 | Quantity pace warning | A | Shipped | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
-| AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
+| AI-016 | Cited bid/request scope outline | B | Blocked | Durable bid documents, extraction, approved price revisions, and manual estimate versions |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
-| AI-018 | Walkthrough scope lines | B | Blocked | QTE-002, QTE-003, and section 17.1 assembly fields |
+| AI-018 | Bid-package/walkthrough scope lines | B | Blocked | BID-001 through BID-011 and section 17.1 assembly fields |
 | AI-019 | Change-order draft | B | Blocked | QTE-007; a person sets the price |
 | AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
 | AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
@@ -1630,18 +1728,23 @@ only. It does not state dollars, margin, or a price.
 job and supplier wording in the request. Confirming the list does not create
 a purchase order. Purchase orders remain section 16 work.
 
-**AI-016:** After a price book exists, the agent may propose service mix, site
-assembly, and scope wording from an estimate request. The estimator accepts
-the outline onto the opportunity. Public survey qualification stays
-deterministic.
+**AI-016:** After durable bid documents, approved price revisions, and manual
+estimate versions exist, the agent may propose cited service mix, site
+assembly, job packages, and scope wording from an estimate request and its
+selected clean bid-package versions. The estimator selects suggestions and
+applies them through the normal estimate-version command. Upload and proposal
+write no estimate or job. Public survey qualification stays deterministic.
 
 **AI-017:** When estimate versions exist, the agent explains what scope,
 quantity, and price changed between two versions and which approval threshold
 the change crosses. The approver still decides.
 
-**AI-018:** An estimator or technician walkthrough may become draft price-book
-lines for location, R-value, area, depth, product, and bag count. A person
-chooses the price-book item and the amount. This is not geometric takeoff.
+**AI-018:** A selected bid-package text span or an estimator/technician
+walkthrough may become cited draft price-book lines for location, R-value,
+area, depth, product, and bag count. A quantity from a document must be
+explicitly written and unambiguous. A person chooses the price-book revision
+and confirms or enters the quantity. Missing or conflicting quantity displays
+Takeoff required. This is not geometric takeoff.
 
 **AI-019:** A voice note, photo, and plan pin may become a draft change order
 containing location, assembly, quantity, and schedule impact, plus
@@ -1679,6 +1782,11 @@ and field quantities. It does not post invoices, bills, or payments.
 Design and the Release A implementation plan live in
 `docs/superpowers/specs/2026-09-21-ai-operations-design.md` and
 `docs/superpowers/plans/2026-09-21-ai-operations.md`.
+
+The bid-package, estimating, and accepted-job design and implementation plan
+live in
+`docs/superpowers/specs/2026-09-22-ai-bid-package-estimating-design.md` and
+`docs/superpowers/plans/2026-09-22-ai-bid-package-estimating.md`.
 
 ## 25. Security, privacy, and compliance
 
@@ -1762,6 +1870,9 @@ policy and human review.
 2. Build request detail, assignment, status, comments, and tasks.
 3. Add company, contact, site, and opportunity conversion.
 4. Add the centralized activity timeline.
+5. Add private opportunity bid packages with immutable versions and durable,
+   cited page extraction before a job exists.
+6. Add manual deterministic estimate versions before commercial AI.
 
 ### Field jobs
 
@@ -1846,16 +1957,28 @@ policy and human review.
 
 ### Commercial and operational expansion
 
-1. Add estimate versions, line items, price books, proposals, and approvals.
-2. Add change orders and project budgets.
-3. Then allow commercial AI drafts: scope outline (AI-016), revision
-   explanation (AI-017), walkthrough scope lines (AI-018), and change-order
-   drafts (AI-019).
-4. Add dispatch, time, materials, equipment, inspections, and closeout, then
+1. Finish organization authorization, audit, the Render worker, transactional
+   outbox, retry, and dead-letter visibility required by commercial files.
+2. Add quarantined opportunity bid documents, immutable versions/links, text
+   extraction, OCR, page/sheet citations, and human correction.
+3. Harden price-book items with immutable approved revisions, then add manual
+   deterministic estimate versions, lines, clauses, alternates, and job
+   packages. Price-book items without revisions are the only stored commercial
+   foundation today.
+4. Add exact-version approvals, branded proposals, delivery/view/decision
+   events, and customer acceptance evidence.
+5. Add atomic idempotent accepted-estimate conversion to one project, every
+   approved job package, its work areas/tasks, a project budget, document
+   links, audit, and outbox events.
+6. Then allow cited commercial AI drafts: scope outline (AI-016), revision
+   explanation (AI-017), bid-package/walkthrough scope lines (AI-018), and
+   change-order drafts (AI-019). A person selects price and quantity.
+7. Add change orders under QTE-007 after initial estimate conversion is stable.
+8. Add dispatch, time, materials, equipment, inspections, and closeout, then
    the closeout packet (AI-021) and dispatch recommendation (AI-023).
-5. Add job costing and accounting integrations, then cost variance
+9. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
-6. Add customer and subcontractor portals if validated, then warranty triage
+10. Add customer and subcontractor portals if validated, then warranty triage
    (AI-025).
 
 Each stage must include authorization tests, audit coverage, data migration,
@@ -1866,7 +1989,7 @@ operational monitoring, and user acceptance criteria.
 | Risk or dependency | Mitigation |
 |---|---|
 | Internal access is added before robust authorization | Build organization and permission checks before internal UI |
-| Public uploads are reused for private job files | Create authenticated, job-scoped upload flows |
+| Public uploads are reused for private operational files | Create authenticated, organization- and record-scoped document versions and links |
 | Plan revisions invalidate field marks | Make document versions immutable and version-bound |
 | Poor jobsite connectivity causes missing records | Local drafts, retry queues, and visible sync state |
 | Transcription is slow, costly, or inaccurate | Async processing, provider adapter, user correction, usage metrics |
@@ -1899,7 +2022,9 @@ These decisions are required before their respective implementation stage:
 6. Accounting system of record and synchronization boundaries.
 7. Required field devices and minimum supported browsers.
 8. Offline requirements beyond drafts and queued uploads.
-9. Initial estimate format, price-book ownership, taxes, and approval rules.
+9. Organization defaults for markup, overhead, tax jurisdiction, approval
+   thresholds above the required administrator approval, proposal expiry, and
+   legal acceptance copy.
 10. Final data residency, retention, backup, and disaster-recovery policies.
 
 ## 31. Decision log
@@ -1950,11 +2075,15 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Let a dismissed transcript sentence stay unwritten while the next sentence can be confirmed | Office staff can record the request they want without first saving a higher-ranked sentence |
 | 2026-09-21 | Keep a transcript in the exception queue while a sentence can still be saved | One saved sentence must not hide a different request from the home queue |
 | 2026-09-22 | Store a stated quantity in bags or square feet on an open task and warn when installed quantity is ahead of that remainder | Quantity pace uses field quantities only. It does not state dollars, margin, or a price. A due-date command leaves the stated quantity in place |
+| 2026-09-22 | Store reusable price-book items by trade before estimate versions | Estimators need a unit price they can reuse. An item can be retired without deleting it. Assemblies, templates, versions, proposals, and approvals stay out of this slice |
+| 2026-09-22 | Treat a bid package as private opportunity evidence before a job exists, and create operational records only after exact-version approval, customer acceptance, and internal conversion confirmation | Upload and AI draft must have no operational effect. Written quantities may be cited; geometric takeoff and generated prices remain out. Deterministic estimate versions, human price selection, and one atomic idempotent conversion preserve financial and job history |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.25 | 2026-09-22 | Specified the governed bid-package-to-estimate-to-job workflow. Added pre-job private document versions, durable scan/extraction/OCR, citations, immutable price and estimate versions, deterministic calculation, exact approval/proposal/acceptance, atomic multi-job conversion, and the boundary against geometric takeoff or AI-generated pricing |
+| 1.24 | 2026-09-22 | Shipped price-book items by trade, with a Canadian-dollar unit price and a retired state. Assemblies, scope templates, estimate versions, proposals, and approvals remain open. AI-016 can start from the item book and is not built |
 | 1.23 | 2026-09-22 | Shipped AI-014. An open task stores a stated quantity in bags or square feet. Home and the job warn when installed field quantity is ahead of that remainder, without dollars or margin |
 | 1.22 | 2026-09-21 | The home exception queue keeps a transcript while another sentence can still be saved. AI-014 stays blocked until tasks store a stated quantity |
 | 1.21 | 2026-09-21 | A transcript record skips a product mention that is not a request, and a later sentence can still be saved or confirmed after the earlier sentence is dismissed. A new task is proposed only when that work is not already open. A spoken pin confirm checks the mark fields. AI-014 stays blocked until tasks store a stated quantity |

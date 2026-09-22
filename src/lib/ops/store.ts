@@ -32,6 +32,7 @@ import {
   memberships,
   opportunities,
   organizations,
+  priceBookItems,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
@@ -57,6 +58,7 @@ import {
   captureDemoProjectScheduleBaseline,
   addDemoJobTask,
   addDemoJobToProject,
+  addDemoPriceBookItem,
   addDemoSite,
   addDemoUser,
   addDemoJobVoiceNote,
@@ -90,6 +92,7 @@ import {
   getDemoJobVoiceNote,
   getDemoJobVoiceNoteDownload,
   getDemoOpportunity,
+  getDemoAuthorizedOpportunity,
   getDemoProject,
   getDemoSite,
   listDemoCompanies,
@@ -115,6 +118,7 @@ import {
   listDemoJobTasks,
   listDemoProjectJobTasks,
   listDemoPortfolioSchedule,
+  listDemoPriceBookItems,
   listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
@@ -152,6 +156,7 @@ import {
   updateDemoJobFieldNote,
   updateDemoJobTask,
   updateDemoOpportunity,
+  updateDemoPriceBookItem,
   updateDemoProject,
   updateDemoSite,
   updateDemoUser,
@@ -160,6 +165,7 @@ import {
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
+import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import {
   clearJobDocumentBytes,
   getStoredJobDocumentBytes,
@@ -225,6 +231,7 @@ export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
+export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type UserEventRow = typeof userEvents.$inferSelect;
@@ -1216,6 +1223,26 @@ export async function getOpportunity(id: string): Promise<OpportunityRow | null>
   return rows[0] ?? null;
 }
 
+export async function getAuthorizedOpportunity(
+  organizationId: string,
+  opportunityId: string,
+): Promise<OpportunityRow | null> {
+  if (isDemoOpsStore()) {
+    return getDemoAuthorizedOpportunity(organizationId, opportunityId);
+  }
+  const rows = await getDb()
+    .select()
+    .from(opportunities)
+    .where(
+      and(
+        eq(opportunities.id, opportunityId),
+        eq(opportunities.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getRequestCrmRecords(
   request: EstimateRequestRow,
 ): Promise<RequestCrmRecords> {
@@ -1251,10 +1278,14 @@ export async function convertRequestToCrm(args: {
   if (args.input.linkCompanyId && !company) {
     return { ok: false, error: "The selected company could not be found." };
   }
+  if (company && company.organizationId !== request.organizationId) {
+    return { ok: false, error: "That company is outside this organization." };
+  }
   if (!company) {
     const rows = await db
       .insert(companies)
       .values({
+        organizationId: request.organizationId,
         name: args.input.companyName,
         email: args.input.email,
         phone: args.input.phone || null,
@@ -1277,6 +1308,7 @@ export async function convertRequestToCrm(args: {
     const rows = await db
       .insert(contacts)
       .values({
+        organizationId: company.organizationId,
         companyId: company.id,
         firstName: args.input.firstName,
         lastName: args.input.lastName,
@@ -1311,6 +1343,7 @@ export async function convertRequestToCrm(args: {
     const rows = await db
       .insert(sites)
       .values({
+        organizationId: company.organizationId,
         companyId: company.id,
         name: args.input.siteName,
         city: args.input.city,
@@ -1325,6 +1358,7 @@ export async function convertRequestToCrm(args: {
   const opportunityRows = await db
     .insert(opportunities)
     .values({
+      organizationId: company.organizationId,
       companyId: company.id,
       contactId: contact.id,
       siteId: site.id,
@@ -1923,6 +1957,7 @@ export async function convertOpportunityToProject(args: {
   const projectRows = await db
     .insert(projects)
     .values({
+      organizationId: opportunity.organizationId,
       companyId: opportunity.companyId,
       siteId: opportunity.siteId,
       opportunityId: opportunity.id,
@@ -1938,6 +1973,7 @@ export async function convertOpportunityToProject(args: {
   const jobRows = await db
     .insert(jobs)
     .values({
+      organizationId: opportunity.organizationId,
       projectId: project.id,
       companyId: opportunity.companyId,
       siteId: opportunity.siteId,
@@ -1997,6 +2033,7 @@ export async function addJobToProject(args: {
   const rows = await db
     .insert(jobs)
     .values({
+      organizationId: project.organizationId,
       projectId: project.id,
       companyId: project.companyId,
       siteId: project.siteId,
@@ -3047,7 +3084,8 @@ export async function recordUploadedJobDocument(args: {
   pathname: string;
 }): Promise<JobDocumentRow | null> {
   if (isDemoOpsStore()) return null;
-  if (!(await getJob(args.jobId))) return null;
+  const job = await getJob(args.jobId);
+  if (!job) return null;
   if (args.input.workAreaId) {
     const areas = await listWorkAreas(args.jobId);
     if (!areas.some((area) => area.id === args.input.workAreaId)) return null;
@@ -3092,6 +3130,7 @@ export async function recordUploadedJobDocument(args: {
     .insert(jobDocuments)
     .values({
       id: documentId,
+      organizationId: job.organizationId,
       jobId: args.jobId,
       workAreaId: args.input.workAreaId,
       filename: args.input.filename,
@@ -4098,7 +4137,10 @@ export async function getJobVoiceNoteDownload(
 export async function addCompany(input: CompanyInput): Promise<CompanyRow> {
   if (isDemoOpsStore()) return addDemoCompany(input);
   const db = getDb();
-  const rows = await db.insert(companies).values(input).returning();
+  const rows = await db
+    .insert(companies)
+    .values({ ...input, organizationId: STRONG_FOAM_ORGANIZATION_ID })
+    .returning();
   if (!rows[0]) throw new Error("The company could not be saved.");
   return rows[0];
 }
@@ -4153,11 +4195,16 @@ export async function addContact(args: {
   input: ContactInput;
 }): Promise<ContactRow | null> {
   if (isDemoOpsStore()) return addDemoContact(args);
-  if (!(await getCompany(args.companyId))) return null;
+  const company = await getCompany(args.companyId);
+  if (!company) return null;
   const db = getDb();
   const rows = await db
     .insert(contacts)
-    .values({ companyId: args.companyId, ...args.input })
+    .values({
+      companyId: args.companyId,
+      organizationId: company.organizationId,
+      ...args.input,
+    })
     .returning();
   return rows[0] ?? null;
 }
@@ -4188,11 +4235,16 @@ export async function addSite(args: {
   input: SiteInput;
 }): Promise<SiteRow | null> {
   if (isDemoOpsStore()) return addDemoSite(args);
-  if (!(await getCompany(args.companyId))) return null;
+  const company = await getCompany(args.companyId);
+  if (!company) return null;
   const db = getDb();
   const rows = await db
     .insert(sites)
-    .values({ companyId: args.companyId, ...args.input })
+    .values({
+      companyId: args.companyId,
+      organizationId: company.organizationId,
+      ...args.input,
+    })
     .returning();
   return rows[0] ?? null;
 }
@@ -4845,4 +4897,48 @@ export async function deleteEstimateRequestComment(args: {
     payload: { commentId: comment.id },
   });
   return comment;
+}
+
+export async function listPriceBookItems(
+  filters: PriceBookListFilters = {},
+): Promise<PriceBookItemRow[]> {
+  if (isDemoOpsStore()) return listDemoPriceBookItems(filters);
+  const db = getDb();
+  const query = filters.q?.trim();
+  const conditions = [];
+  if (!filters.includeInactive) conditions.push(eq(priceBookItems.active, true));
+  if (filters.trade) conditions.push(eq(priceBookItems.trade, filters.trade));
+  if (query) conditions.push(ilike(priceBookItems.name, like(query)));
+  return db
+    .select()
+    .from(priceBookItems)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(priceBookItems.trade, priceBookItems.name);
+}
+
+export async function addPriceBookItem(
+  input: PriceBookItemInput & { createdBy: string },
+): Promise<PriceBookItemRow> {
+  if (isDemoOpsStore()) return addDemoPriceBookItem(input);
+  const db = getDb();
+  const rows = await db
+    .insert(priceBookItems)
+    .values({ ...input, organizationId: STRONG_FOAM_ORGANIZATION_ID })
+    .returning();
+  if (!rows[0]) throw new Error("The price-book item could not be saved.");
+  return rows[0];
+}
+
+export async function updatePriceBookItem(
+  id: string,
+  input: PriceBookItemInput,
+): Promise<PriceBookItemRow | null> {
+  if (isDemoOpsStore()) return updateDemoPriceBookItem(id, input);
+  const db = getDb();
+  const rows = await db
+    .update(priceBookItems)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(priceBookItems.id, id))
+    .returning();
+  return rows[0] ?? null;
 }

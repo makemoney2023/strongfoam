@@ -21,6 +21,7 @@ import {
   projectScheduleBaselines,
   projects,
   scheduleCalendarExceptions,
+  priceBookItems,
   scheduleCalendars,
   sites,
   userEvents,
@@ -58,6 +59,7 @@ export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
+export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -178,6 +180,7 @@ export function demoEstimateRequests(): EstimateRequestRow[] {
   return [
     {
       id: "11111111-1111-4111-8111-111111111111",
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 2 * 60 * 60 * 1000),
       updatedAt: new Date(now - 2 * 60 * 60 * 1000),
       status: "qualified",
@@ -218,6 +221,7 @@ export function demoEstimateRequests(): EstimateRequestRow[] {
     },
     {
       id: "22222222-2222-4222-8222-222222222222",
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 26 * 60 * 60 * 1000),
       updatedAt: new Date(now - 26 * 60 * 60 * 1000),
       status: "secondary",
@@ -261,6 +265,7 @@ export function demoCompanies(): CompanyRow[] {
   return [
     {
       id: "66666666-6666-4666-8666-666666666666",
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       name: "Acme Construction Ltd",
@@ -276,6 +281,7 @@ export function demoContacts(): ContactRow[] {
   return [
     {
       id: "77777777-7777-4777-8777-777777777777",
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -292,6 +298,7 @@ export function demoSites(): SiteRow[] {
   return [
     {
       id: "88888888-8888-4888-8888-888888888888",
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -306,6 +313,7 @@ export function demoOpportunities(): OpportunityRow[] {
   return [
     {
       id: DEMO_OPPORTUNITY_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 10 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -327,6 +335,7 @@ export function demoProjects(): ProjectRow[] {
   return [
     {
       id: DEMO_PROJECT_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -340,6 +349,7 @@ export function demoProjects(): ProjectRow[] {
     },
     {
       id: DEMO_SECOND_PROJECT_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-7),
       updatedAt: demoDate(-1),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -353,6 +363,7 @@ export function demoProjects(): ProjectRow[] {
     },
     {
       id: DEMO_EMPTY_PROJECT_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-6),
       updatedAt: demoDate(-2),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -366,6 +377,7 @@ export function demoProjects(): ProjectRow[] {
     },
     {
       id: DEMO_CLOSED_PROJECT_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-30),
       updatedAt: demoDate(-4),
       companyId: "66666666-6666-4666-8666-666666666666",
@@ -384,6 +396,7 @@ export function demoJobs(): JobRow[] {
   return [
     {
       id: DEMO_JOB_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 8 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
       projectId: DEMO_PROJECT_ID,
@@ -402,6 +415,7 @@ export function demoJobs(): JobRow[] {
     },
     {
       id: DEMO_SECOND_JOB_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-7),
       updatedAt: demoDate(-1),
       projectId: DEMO_SECOND_PROJECT_ID,
@@ -420,6 +434,7 @@ export function demoJobs(): JobRow[] {
     },
     {
       id: DEMO_BLOCKED_JOB_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-5),
       updatedAt: demoDate(-1),
       projectId: DEMO_SECOND_PROJECT_ID,
@@ -438,6 +453,7 @@ export function demoJobs(): JobRow[] {
     },
     {
       id: DEMO_CLOSED_JOB_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: demoDate(-30),
       updatedAt: demoDate(-4),
       projectId: DEMO_CLOSED_PROJECT_ID,
@@ -812,6 +828,7 @@ export function demoJobDocuments(): JobDocumentRow[] {
   return [
     {
       id: DEMO_PLAN_DOCUMENT_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
       createdAt: new Date(now - 4 * 24 * 60 * 60 * 1000),
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
@@ -990,6 +1007,84 @@ export function demoEstimateComments(): EstimateRequestComment[] {
       createdAt: new Date(now - 70 * 60 * 1000),
       actor: "estimating@strongfoam.com",
       body: "@alex drawings look complete except the north elevation.",
+    },
+  ];
+}
+
+export function demoPriceBookItems(): PriceBookItemRow[] {
+  const createdAt = demoDate(-30);
+  return [
+    {
+      id: "11111111-1111-4111-8111-111111111101",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Closed-cell spray foam",
+      unit: "bags",
+      unitPriceCents: 18500,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111102",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Open-cell spray foam",
+      unit: "bags",
+      unitPriceCents: 9200,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111103",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "fireproofing",
+      name: "Cementitious fireproofing",
+      unit: "sq_ft",
+      unitPriceCents: 450,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111104",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "intumescent",
+      name: "Intumescent coating",
+      unit: "sq_ft",
+      unitPriceCents: 875,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111105",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "avb",
+      name: "Air and vapor barrier",
+      unit: "sq_ft",
+      unitPriceCents: 320,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111106",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Legacy sample kit",
+      unit: "each",
+      unitPriceCents: 0,
+      active: false,
+      createdBy: DEMO_ADMIN_EMAIL,
     },
   ];
 }

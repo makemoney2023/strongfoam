@@ -105,14 +105,14 @@ export function CommandPalette() {
           <DialogHeader>
             <DialogTitle>Search</DialogTitle>
             <DialogDescription>
-              Jump to a company, request, project, or job. Recent records appear
+              Jump to a company, request, project, job, or price-book item. Recent records appear
               when the box is empty.
             </DialogDescription>
           </DialogHeader>
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search companies, contacts, requests, jobs…"
+            placeholder="Search companies, contacts, requests, jobs, price book…"
             className="h-11"
             aria-controls={listId}
             aria-autocomplete="list"

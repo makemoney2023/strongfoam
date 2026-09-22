@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { site } from "@/content/site";
 import {
+  BookOpenIcon,
   BriefcaseBusinessIcon,
   Building2Icon,
   ClipboardListIcon,
@@ -35,6 +36,7 @@ const nav = [
   { title: "Requests", href: "/app/requests", icon: ClipboardListIcon },
   { title: "Companies", href: "/app/companies", icon: Building2Icon },
   { title: "Opportunities", href: "/app/opportunities", icon: BriefcaseBusinessIcon },
+  { title: "Price book", href: "/app/price-book", icon: BookOpenIcon },
   { title: "Projects", href: "/app/projects", icon: FolderKanbanIcon },
   { title: "Jobs", href: "/app/jobs", icon: HammerIcon },
   { title: "Field", href: "/field", icon: HardHatIcon },

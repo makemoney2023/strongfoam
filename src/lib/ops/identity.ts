@@ -22,6 +22,26 @@ export const MEMBERSHIP_ROLE_LABELS: Record<MembershipRole, string> = {
 export const FIELD_MEMBERSHIP_ROLES = ["field_lead", "field_worker"] as const;
 export const OFFICE_MEMBERSHIP_ROLES = ["administrator", "office"] as const;
 
+export const COMMERCIAL_PERMISSIONS = [
+  "estimate.read",
+  "estimate.edit",
+  "estimate.approve",
+  "proposal.deliver",
+  "estimate.convert",
+] as const;
+
+export type CommercialPermission = (typeof COMMERCIAL_PERMISSIONS)[number];
+
+export const COMMERCIAL_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly CommercialPermission[]
+> = {
+  administrator: COMMERCIAL_PERMISSIONS,
+  office: ["estimate.read", "estimate.edit"],
+  field_lead: [],
+  field_worker: [],
+};
+
 export const JOB_ASSIGNMENT_ROLES = ["foreman", "technician"] as const;
 export type JobAssignmentRole = (typeof JOB_ASSIGNMENT_ROLES)[number];
 

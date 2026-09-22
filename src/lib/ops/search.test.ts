@@ -8,6 +8,13 @@ describe("ops search", () => {
     expect(hits.every((hit) => hit.href.startsWith("/app/"))).toBe(true);
   });
 
+  it("finds a price-book item by name", async () => {
+    const hits = await searchOps("closed-cell", 12);
+    expect(hits.some((hit) => hit.kind === "price_book" && hit.href.includes("#item-"))).toBe(
+      true,
+    );
+  });
+
   it("returns nothing for an empty query", async () => {
     expect(await searchOps("   ")).toEqual([]);
   });

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyPassword } from "@/lib/ops/credentials";
 import {
   isOfficeMembershipRole,
+  STRONG_FOAM_ORGANIZATION_ID,
   type UserIdentity,
 } from "@/lib/ops/identity";
 import {
@@ -190,6 +191,16 @@ export async function authenticateOpsCredentials(
     return null;
   }
   return { kind: "legacy", email };
+}
+
+export function organizationIdForOpsSession(session: {
+  role: string;
+  organizationId?: string;
+}): string {
+  if (session.role === "estimator" || !session.organizationId) {
+    return STRONG_FOAM_ORGANIZATION_ID;
+  }
+  return session.organizationId;
 }
 
 export function canManageUsers(

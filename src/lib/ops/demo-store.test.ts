@@ -161,6 +161,7 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
     offset: number,
   ): ProjectRow => ({
     id,
+    organizationId: "00000000-0000-4000-8000-000000000001",
     createdAt: new Date(createdAt.getTime() + offset),
     updatedAt,
     companyId: null,
@@ -201,6 +202,7 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
 
   const job = (id: string, projectId: string): JobRow => ({
     id,
+    organizationId: "00000000-0000-4000-8000-000000000001",
     createdAt,
     updatedAt,
     projectId,
@@ -408,6 +410,7 @@ function boundProject(
 ): ProjectRow {
   return {
     id,
+    organizationId: "00000000-0000-4000-8000-000000000001",
     createdAt: BOUND_CREATED_AT,
     updatedAt: BOUND_CREATED_AT,
     companyId: null,
@@ -1656,6 +1659,7 @@ describe("portfolio Schedule store", () => {
     );
     state.jobsList.push({
       id: boundUuid(0x92, 1),
+      organizationId: "00000000-0000-4000-8000-000000000001",
       createdAt: BOUND_CREATED_AT,
       updatedAt: BOUND_CREATED_AT,
       projectId: boundUuid(0x91, 251),
@@ -1690,6 +1694,7 @@ describe("portfolio Schedule store", () => {
     state.jobsList.push(
       ...Array.from({ length: 2_001 }, (_, index): JobRow => ({
         id: boundUuid(0x94, index + 1),
+        organizationId: "00000000-0000-4000-8000-000000000001",
         createdAt: new Date(BOUND_CREATED_AT.getTime() + index),
         updatedAt: BOUND_CREATED_AT,
         projectId,
@@ -1720,6 +1725,7 @@ describe("portfolio Schedule store", () => {
     state.projects.push(boundProject(projectId, "Task bound project"));
     state.jobsList.push({
       id: jobId,
+      organizationId: "00000000-0000-4000-8000-000000000001",
       createdAt: BOUND_CREATED_AT,
       updatedAt: BOUND_CREATED_AT,
       projectId,
@@ -1811,6 +1817,7 @@ describe("portfolio Schedule store", () => {
     state.projects.push(boundProject(projectId, "Dependency bound project"));
     state.jobsList.push({
       id: jobId,
+      organizationId: "00000000-0000-4000-8000-000000000001",
       createdAt: BOUND_CREATED_AT,
       updatedAt: BOUND_CREATED_AT,
       projectId,
