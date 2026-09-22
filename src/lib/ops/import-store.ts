@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
@@ -323,9 +323,15 @@ async function getPostgresBatch(
     .where(and(
       eq(dataImportRows.organizationId, organizationId),
       eq(dataImportRows.batchId, batchId),
-    ))
-    .orderBy(dataImportRows.rowNumber);
-  const storedRows = options?.rowLimit ? await rowQuery.limit(options.rowLimit) : await rowQuery;
+    ));
+  const storedRows = options?.rowLimit
+    ? await rowQuery
+      .orderBy(
+        sql`case when ${dataImportRows.status} in ('error', 'conflict') then 0 else 1 end`,
+        asc(dataImportRows.rowNumber),
+      )
+      .limit(options.rowLimit)
+    : await rowQuery.orderBy(asc(dataImportRows.rowNumber));
   return {
     id: batch.id,
     organizationId: batch.organizationId,
@@ -360,81 +366,124 @@ async function getPostgresBatch(
   };
 }
 
-async function savePostgresUpload(
-  input: Parameters<ImportRepository["saveUpload"]>[0],
-): ReturnType<ImportRepository["saveUpload"]> {
-  importScopeClause("batches", input.organizationId);
-  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+const INSERT_CHUNK = 200;
+
+async function insertInChunks<T>(rows: T[], write: (chunk: T[]) => Promise<unknown>) {
+  for (let index = 0; index < rows.length; index += INSERT_CHUNK) {
+    await write(rows.slice(index, index + INSERT_CHUNK));
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; cause?: { code?: string } };
+  return candidate.code === "23505" || candidate.cause?.code === "23505";
+}
+
+async function findUploadByHash(
+  organizationId: string,
+  sha256: string,
+): Promise<{ ok: true; batch: ImportBatchDetail; duplicate: true } | { ok: false; error: string } | null> {
   const db = getDb();
   const existing = await db
     .select({ id: dataImportBatches.id })
     .from(dataImportBatches)
     .where(and(
-      eq(dataImportBatches.organizationId, input.organizationId),
+      eq(dataImportBatches.organizationId, organizationId),
       eq(dataImportBatches.idempotencyKey, sha256),
     ));
-  if (existing[0]) {
-    const batch = await getPostgresBatch(input.organizationId, existing[0].id);
-    if (!batch) return { ok: false, error: "That import could not be found." };
-    return { ok: true, batch, duplicate: true };
-  }
+  if (!existing[0]) return null;
+  const batch = await getPostgresBatch(organizationId, existing[0].id);
+  if (!batch) return { ok: false, error: "That import could not be found." };
+  return { ok: true, batch, duplicate: true };
+}
+
+async function savePostgresUpload(
+  input: Parameters<ImportRepository["saveUpload"]>[0],
+): ReturnType<ImportRepository["saveUpload"]> {
+  importScopeClause("batches", input.organizationId);
+  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+  const existing = await findUploadByHash(input.organizationId, sha256);
+  if (existing) return existing;
   const staged = stageImportFile({
     bytes: input.bytes,
     filename: input.filename,
     entityType: input.entityType,
   });
   if (!staged.ok) return staged;
-  const inserted = await db
-    .insert(dataImportBatches)
-    .values({
-      organizationId: input.organizationId,
-      createdBy: input.actor,
-      filename: input.filename,
-      contentType: input.contentType || "application/octet-stream",
-      byteSize: input.bytes.length,
-      sha256,
-      idempotencyKey: sha256,
-      status: staged.value.status,
-      previewHash: staged.value.previewHash,
-      durable: false,
-      summary: staged.value.summary,
-      fileBytes: input.bytes,
-    })
-    .returning({ id: dataImportBatches.id });
-  const batchId = inserted[0]?.id;
-  if (!batchId) return { ok: false, error: "The import could not be saved." };
-  if (staged.value.sheets.length) {
-    await db.insert(dataImportSheets).values(staged.value.sheets.map((sheet) => ({
-      batchId,
-      organizationId: input.organizationId,
-      sheetName: sheet.name,
-      entityType: sheet.entityType,
-      rowCount: sheet.rowCount,
-      headers: sheet.headers,
-    })));
+  const db = getDb();
+  let batchId = "";
+  try {
+    batchId = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(dataImportBatches)
+        .values({
+          organizationId: input.organizationId,
+          createdBy: input.actor,
+          filename: input.filename,
+          contentType: input.contentType || "application/octet-stream",
+          byteSize: input.bytes.length,
+          sha256,
+          idempotencyKey: sha256,
+          status: staged.value.status,
+          previewHash: staged.value.previewHash,
+          durable: false,
+          summary: staged.value.summary,
+          fileBytes: input.bytes,
+        })
+        .returning({ id: dataImportBatches.id });
+      const id = inserted[0]?.id;
+      if (!id) throw new Error("The import could not be saved.");
+      if (staged.value.sheets.length) {
+        await insertInChunks(
+          staged.value.sheets.map((sheet) => ({
+            batchId: id,
+            organizationId: input.organizationId,
+            sheetName: sheet.name,
+            entityType: sheet.entityType,
+            rowCount: sheet.rowCount,
+            headers: sheet.headers,
+          })),
+          (chunk) => tx.insert(dataImportSheets).values(chunk),
+        );
+      }
+      if (staged.value.rows.length) {
+        await insertInChunks(
+          staged.value.rows.map((row) => ({
+            batchId: id,
+            organizationId: input.organizationId,
+            sheetName: row.sheetName,
+            rowNumber: row.rowNumber,
+            entityType: row.entityType,
+            sourceKey: row.sourceKey,
+            status: row.status,
+            operation: "create" as const,
+            values: row.values,
+            messages: row.messages,
+          })),
+          (chunk) => tx.insert(dataImportRows).values(chunk),
+        );
+      }
+      await tx.insert(dataImportEvents).values({
+        batchId: id,
+        organizationId: input.organizationId,
+        actor: input.actor,
+        kind: "uploaded",
+        summary: `Staged ${input.filename}.`,
+        payload: { sha256, status: staged.value.status },
+      });
+      return id;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      const duplicate = await findUploadByHash(input.organizationId, sha256);
+      if (duplicate) return duplicate;
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "The import could not be saved.",
+    };
   }
-  if (staged.value.rows.length) {
-    await db.insert(dataImportRows).values(staged.value.rows.map((row) => ({
-      batchId,
-      organizationId: input.organizationId,
-      sheetName: row.sheetName,
-      rowNumber: row.rowNumber,
-      entityType: row.entityType,
-      sourceKey: row.sourceKey,
-      status: row.status,
-      operation: "create" as const,
-      values: row.values,
-      messages: row.messages,
-    })));
-  }
-  await db.insert(dataImportEvents).values({
-    batchId,
-    organizationId: input.organizationId,
-    actor: input.actor,
-    kind: "uploaded",
-    summary: `Staged ${input.filename}.`,
-    payload: { sha256, status: staged.value.status },
-  });
   const batch = await getPostgresBatch(input.organizationId, batchId);
   if (!batch) return { ok: false, error: "The import could not be saved." };
   return { ok: true, batch, duplicate: false };
@@ -712,17 +761,15 @@ async function writeImport(
   actor: string,
   writes: ImportWrite,
 ) {
-  if (writes.companies.length) {
-    await tx.insert(companies).values(writes.companies.map((company) => ({
-      id: company.id,
-      organizationId,
-      name: company.name,
-      email: company.email,
-      phone: company.phone,
-      city: company.city,
-      province: company.province,
-    })));
-  }
+  await insertInChunks(writes.companies.map((company) => ({
+    id: company.id,
+    organizationId,
+    name: company.name,
+    email: company.email,
+    phone: company.phone,
+    city: company.city,
+    province: company.province,
+  })), (chunk) => tx.insert(companies).values(chunk));
   for (const company of writes.companyUpdates) {
     await tx.update(companies).set({
       email: company.email,
@@ -732,150 +779,124 @@ async function writeImport(
       updatedAt: new Date(),
     }).where(and(eq(companies.id, company.id), eq(companies.organizationId, organizationId)));
   }
-  if (writes.contacts.length) {
-    await tx.insert(contacts).values(writes.contacts.map((contact) => ({
-      id: contact.id,
-      organizationId,
-      companyId: contact.companyId,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      phone: contact.phone,
-      role: contact.role,
-    })));
-  }
-  if (writes.sites.length) {
-    await tx.insert(sites).values(writes.sites.map((site) => ({
-      id: site.id,
-      organizationId,
-      companyId: site.companyId,
-      name: site.name,
-      city: site.city,
-      province: site.province,
-      addressLine: site.addressLine,
-      postalCode: site.postalCode,
-    })));
-  }
-  if (writes.users.length) {
-    await tx.insert(users).values(writes.users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      passwordHash: user.passwordHash,
-      active: false,
-      createdBy: actor,
-    })));
-  }
-  if (writes.memberships.length) {
-    await tx.insert(memberships).values(writes.memberships.map((membership) => ({
-      id: membership.id,
-      organizationId,
-      userId: membership.userId,
-      role: membership.role,
-      active: false,
-    })));
-  }
-  if (writes.priceItems.length) {
-    await tx.insert(priceBookItems).values(writes.priceItems.map((item) => ({
-      id: item.id,
-      organizationId,
-      trade: item.trade,
-      name: item.name,
-      unit: item.unit,
-      unitPriceCents: item.unitPriceCents,
-      itemCode: item.itemCode,
-      itemKind: item.itemKind,
-      supplier: item.supplier,
-      unitCostCents: item.unitCostCents,
-      active: true,
-      createdBy: actor,
-    })));
-  }
-  if (writes.priceVersions.length) {
-    await tx.insert(priceBookItemVersions).values(writes.priceVersions.map((version) => ({
-      id: version.id,
-      organizationId,
-      itemId: version.itemId,
-      versionNumber: version.versionNumber,
-      trade: version.trade,
-      description: version.description,
-      unit: version.unit,
-      unitPriceCents: version.unitPriceCents,
-      unitCostCents: version.unitCostCents,
-      status: "draft" as const,
-      createdBy: actor,
-      contentHash: version.contentHash,
-    })));
-  }
-  if (writes.opportunities.length) {
-    await tx.insert(opportunities).values(writes.opportunities.map((opportunity) => ({
-      id: opportunity.id,
-      organizationId,
-      name: opportunity.name,
-      companyId: opportunity.companyId,
-      contactId: opportunity.contactId,
-      siteId: opportunity.siteId,
-      stage: opportunity.stage,
-      services: opportunity.services,
-    })));
-  }
-  if (writes.projects.length) {
-    await tx.insert(projects).values(writes.projects.map((project) => ({
-      id: project.id,
-      organizationId,
-      name: project.name,
-      companyId: project.companyId,
-      siteId: project.siteId,
-      opportunityId: project.opportunityId,
-      status: project.status,
-    })));
-  }
-  if (writes.jobs.length) {
-    await tx.insert(jobs).values(writes.jobs.map((job) => ({
-      id: job.id,
-      organizationId,
-      name: job.name,
-      projectId: job.projectId,
-      companyId: job.companyId,
-      siteId: job.siteId,
-      opportunityId: job.opportunityId,
-      status: job.status,
-      scope: null,
-      services: job.services,
-    })));
-  }
-  if (writes.assignments.length) {
-    await tx.insert(jobAssignments).values(writes.assignments.map((assignment) => ({
-      id: assignment.id,
-      jobId: assignment.jobId,
-      userId: assignment.userId,
-      role: assignment.role,
-      createdBy: actor,
-    })));
-  }
-  if (writes.workAreas.length) {
-    await tx.insert(workAreas).values(writes.workAreas.map((area) => ({
-      id: area.id,
-      jobId: area.jobId,
-      name: area.name,
-    })));
-  }
-  if (writes.tasks.length) {
-    await tx.insert(jobTasks).values(writes.tasks.map((task) => ({
-      id: task.id,
-      jobId: task.jobId,
-      workAreaId: task.workAreaId,
-      title: task.title,
-      createdBy: actor,
-    })));
-  }
-  if (writes.crosswalk.length) {
-    await tx.insert(externalRecordKeys).values(writes.crosswalk.map((key) => ({
-      organizationId,
-      sourceSystem: "spreadsheet",
-      entityType: key.entityType as ImportEntityType,
-      sourceKey: key.sourceKey,
-      targetId: key.targetId,
-    })));
-  }
+  await insertInChunks(writes.contacts.map((contact) => ({
+    id: contact.id,
+    organizationId,
+    companyId: contact.companyId,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phone: contact.phone,
+    role: contact.role,
+  })), (chunk) => tx.insert(contacts).values(chunk));
+  await insertInChunks(writes.sites.map((site) => ({
+    id: site.id,
+    organizationId,
+    companyId: site.companyId,
+    name: site.name,
+    city: site.city,
+    province: site.province,
+    addressLine: site.addressLine,
+    postalCode: site.postalCode,
+  })), (chunk) => tx.insert(sites).values(chunk));
+  await insertInChunks(writes.users.map((user) => ({
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    passwordHash: user.passwordHash,
+    active: false,
+    createdBy: actor,
+  })), (chunk) => tx.insert(users).values(chunk));
+  await insertInChunks(writes.memberships.map((membership) => ({
+    id: membership.id,
+    organizationId,
+    userId: membership.userId,
+    role: membership.role,
+    active: false,
+  })), (chunk) => tx.insert(memberships).values(chunk));
+  await insertInChunks(writes.priceItems.map((item) => ({
+    id: item.id,
+    organizationId,
+    trade: item.trade,
+    name: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    itemCode: item.itemCode,
+    itemKind: item.itemKind,
+    supplier: item.supplier,
+    unitCostCents: item.unitCostCents,
+    active: true,
+    createdBy: actor,
+  })), (chunk) => tx.insert(priceBookItems).values(chunk));
+  await insertInChunks(writes.priceVersions.map((version) => ({
+    id: version.id,
+    organizationId,
+    itemId: version.itemId,
+    versionNumber: version.versionNumber,
+    trade: version.trade,
+    description: version.description,
+    unit: version.unit,
+    unitPriceCents: version.unitPriceCents,
+    unitCostCents: version.unitCostCents,
+    status: "draft" as const,
+    createdBy: actor,
+    contentHash: version.contentHash,
+  })), (chunk) => tx.insert(priceBookItemVersions).values(chunk));
+  await insertInChunks(writes.opportunities.map((opportunity) => ({
+    id: opportunity.id,
+    organizationId,
+    name: opportunity.name,
+    companyId: opportunity.companyId,
+    contactId: opportunity.contactId,
+    siteId: opportunity.siteId,
+    stage: opportunity.stage,
+    services: opportunity.services,
+  })), (chunk) => tx.insert(opportunities).values(chunk));
+  await insertInChunks(writes.projects.map((project) => ({
+    id: project.id,
+    organizationId,
+    name: project.name,
+    companyId: project.companyId,
+    siteId: project.siteId,
+    opportunityId: project.opportunityId,
+    status: project.status,
+  })), (chunk) => tx.insert(projects).values(chunk));
+  await insertInChunks(writes.jobs.map((job) => ({
+    id: job.id,
+    organizationId,
+    name: job.name,
+    projectId: job.projectId,
+    companyId: job.companyId,
+    siteId: job.siteId,
+    opportunityId: job.opportunityId,
+    status: job.status,
+    scope: null,
+    services: job.services,
+  })), (chunk) => tx.insert(jobs).values(chunk));
+  await insertInChunks(writes.assignments.map((assignment) => ({
+    id: assignment.id,
+    jobId: assignment.jobId,
+    userId: assignment.userId,
+    role: assignment.role,
+    createdBy: actor,
+  })), (chunk) => tx.insert(jobAssignments).values(chunk));
+  await insertInChunks(writes.workAreas.map((area) => ({
+    id: area.id,
+    jobId: area.jobId,
+    name: area.name,
+  })), (chunk) => tx.insert(workAreas).values(chunk));
+  await insertInChunks(writes.tasks.map((task) => ({
+    id: task.id,
+    jobId: task.jobId,
+    workAreaId: task.workAreaId,
+    title: task.title,
+    createdBy: actor,
+  })), (chunk) => tx.insert(jobTasks).values(chunk));
+  await insertInChunks(writes.crosswalk.map((key) => ({
+    organizationId,
+    sourceSystem: "spreadsheet",
+    entityType: key.entityType as ImportEntityType,
+    sourceKey: key.sourceKey,
+    targetId: key.targetId,
+  })), (chunk) => tx.insert(externalRecordKeys).values(chunk));
 }
