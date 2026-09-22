@@ -90,6 +90,10 @@ import {
   addDemoPriceBookItem,
   approveDemoPriceBookRevision,
   createDemoEstimateVersion,
+  getDemoEstimate,
+  listDemoEstimateCitations,
+  listDemoEstimateGraphs,
+  listDemoEstimates,
   listDemoPriceBookVersions,
   saveDemoPriceBookDraft,
   updateDemoEstimateLine,
@@ -211,7 +215,9 @@ import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-b
 import { priceRevisionContentHash } from "@/lib/ops/price-book";
 import {
   estimateRecords,
+  nextEstimateNumber,
   prepareEstimateVersion,
+  rehydrateEstimateVersion,
   type EstimateVersionDraft,
 } from "@/lib/ops/estimates";
 import {
@@ -5699,12 +5705,16 @@ export async function createEstimateVersion(draft: EstimateVersionDraft) {
   const records = estimateRecords(prepared.version, createdAt);
   const estimate = existingEstimates[0];
   if (!estimate) {
+    const numbers = await db
+      .select({ number: estimates.number })
+      .from(estimates)
+      .where(eq(estimates.organizationId, draft.organizationId));
     await db.insert(estimates).values({
       id: draft.estimateId,
       organizationId: draft.organizationId,
       opportunityId: draft.opportunityId,
-      number: `EST-${existingEstimates.length + 1001}`,
-      title: "Estimate",
+      number: nextEstimateNumber(numbers.map((row) => row.number)),
+      title: draft.title?.trim() || "Estimate",
       createdBy: draft.createdBy,
       currentVersionId: null,
     });
@@ -5724,4 +5734,160 @@ export async function createEstimateVersion(draft: EstimateVersionDraft) {
     .set({ currentVersionId: prepared.version.versionId, updatedAt: createdAt })
     .where(eq(estimates.id, draft.estimateId));
   return { ok: true as const, version: prepared.version };
+}
+
+export async function listEstimates(organizationId: string, opportunityId?: string) {
+  if (isDemoOpsStore()) {
+    return listDemoEstimates(organizationId).filter(
+      (estimate) => !opportunityId || estimate.opportunityId === opportunityId,
+    );
+  }
+  const conditions = [eq(estimates.organizationId, organizationId)];
+  if (opportunityId) conditions.push(eq(estimates.opportunityId, opportunityId));
+  return getDb()
+    .select()
+    .from(estimates)
+    .where(and(...conditions))
+    .orderBy(estimates.createdAt);
+}
+
+export async function getEstimate(estimateId: string) {
+  if (isDemoOpsStore()) return getDemoEstimate(estimateId);
+  const rows = await getDb()
+    .select()
+    .from(estimates)
+    .where(eq(estimates.id, estimateId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listEstimateGraphs(estimateId: string) {
+  if (isDemoOpsStore()) return listDemoEstimateGraphs(estimateId);
+  const db = getDb();
+  const estimate = await getEstimate(estimateId);
+  if (!estimate) return [];
+  const versions = await db
+    .select()
+    .from(estimateVersions)
+    .where(eq(estimateVersions.estimateId, estimateId))
+    .orderBy(estimateVersions.versionNumber);
+  if (!versions.length) return [];
+  const versionIds = versions.map((version) => version.id);
+  const [clauses, alternates, lines, packages] = await Promise.all([
+    db.select().from(estimateClauses).where(inArray(estimateClauses.estimateVersionId, versionIds)),
+    db
+      .select()
+      .from(estimateAlternates)
+      .where(inArray(estimateAlternates.estimateVersionId, versionIds)),
+    db.select().from(estimateLines).where(inArray(estimateLines.estimateVersionId, versionIds)),
+    db
+      .select()
+      .from(estimateJobPackages)
+      .where(inArray(estimateJobPackages.estimateVersionId, versionIds)),
+  ]);
+  const packageIds = packages.map((pkg) => pkg.id);
+  const lineIds = lines.map((line) => line.id);
+  const [workAreas, tasks, sources] = await Promise.all([
+    packageIds.length
+      ? db
+          .select()
+          .from(estimateJobWorkAreas)
+          .where(inArray(estimateJobWorkAreas.packageId, packageIds))
+      : Promise.resolve([]),
+    packageIds.length
+      ? db.select().from(estimateJobTasks).where(inArray(estimateJobTasks.packageId, packageIds))
+      : Promise.resolve([]),
+    lineIds.length
+      ? db.select().from(estimateLineSources).where(inArray(estimateLineSources.lineId, lineIds))
+      : Promise.resolve([]),
+  ]);
+  return versions.map((version) =>
+    rehydrateEstimateVersion({
+      opportunityId: estimate.opportunityId,
+      version,
+      clauses: clauses
+        .filter((clause) => clause.estimateVersionId === version.id)
+        .map((clause) => ({
+          id: clause.id,
+          kind: clause.kind as "inclusion" | "exclusion" | "assumption",
+          text: clause.text,
+          sortOrder: clause.sortOrder,
+        })),
+      alternates: alternates
+        .filter((alternate) => alternate.estimateVersionId === version.id)
+        .map((alternate) => ({
+          id: alternate.id,
+          name: alternate.name,
+          description: alternate.description,
+          included: alternate.included,
+          sortOrder: alternate.sortOrder,
+        })),
+      lines: lines
+        .filter((line) => line.estimateVersionId === version.id)
+        .map((line) => ({
+          id: line.id,
+          sortOrder: line.sortOrder,
+          category: line.category as "labor" | "material" | "equipment" | "subcontractor" | "allowance",
+          description: line.description,
+          trade: line.trade,
+          location: line.location,
+          method: line.method as "unit" | "fixed" | "percent",
+          quantity: line.quantity,
+          unit: line.unit,
+          unitPriceCents: line.unitPriceCents,
+          basisPoints: line.basisPoints,
+          basisCategories: (line.basisCategories ?? []) as Array<
+            "labor" | "material" | "equipment" | "subcontractor" | "allowance"
+          >,
+          taxable: line.taxable,
+          alternateId: line.alternateId,
+          priceBookItemId: line.priceBookItemId,
+          priceBookVersionId: line.priceBookVersionId,
+          lineTotalCents: line.lineTotalCents,
+        })),
+      sources: sources.filter((source) =>
+        lines.some((line) => line.id === source.lineId && line.estimateVersionId === version.id),
+      ),
+      packages: packages
+        .filter((pkg) => pkg.estimateVersionId === version.id)
+        .map((pkg) => ({
+          id: pkg.id,
+          name: pkg.name,
+          trade: pkg.trade,
+          scope: pkg.scope,
+          sortOrder: pkg.sortOrder,
+        })),
+      workAreas,
+      tasks,
+    }),
+  );
+}
+
+export async function listEstimateCitations(organizationId: string) {
+  if (isDemoOpsStore()) return listDemoEstimateCitations(organizationId);
+  const db = getDb();
+  const chunks = await db
+    .select()
+    .from(documentChunks)
+    .where(eq(documentChunks.organizationId, organizationId));
+  const pageIds = chunks.map((chunk) => chunk.pageId);
+  const pages = pageIds.length
+    ? await db.select().from(documentPages).where(inArray(documentPages.id, pageIds))
+    : [];
+  return chunks.flatMap((chunk) => {
+    const page = pages.find((item) => item.id === chunk.pageId);
+    if (!page) return [];
+    return [
+      {
+        id: chunk.id,
+        organizationId: chunk.organizationId,
+        documentVersionId: chunk.documentVersionId,
+        pageNumber: page.pageNumber,
+        contentHash: chunk.contentHash,
+        startOffset: chunk.startOffset,
+        endOffset: chunk.endOffset,
+        sheetLabel: page.sheetLabel,
+      },
+    ];
+  });
 }

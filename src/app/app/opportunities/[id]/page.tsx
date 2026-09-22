@@ -40,6 +40,7 @@ import {
   getProject,
   getSite,
   listBidPackage,
+  listEstimates,
   listJobs,
 } from "@/lib/ops/store";
 import {
@@ -49,6 +50,7 @@ import {
   PROJECT_TYPE_LABELS,
 } from "@/lib/ops/workflow";
 import { removeOpportunity, saveOpportunity } from "../actions";
+import { createOpportunityEstimate } from "./estimates/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +81,10 @@ export default async function OpportunityDetailPage({
   const bidPackage =
     readAccess.ok && opportunity.organizationId === readAccess.organizationId
       ? await listBidPackage(readAccess.organizationId, opportunity.id)
+      : [];
+  const estimates =
+    readAccess.ok && opportunity.organizationId === readAccess.organizationId
+      ? await listEstimates(readAccess.organizationId, opportunity.id)
       : [];
   const storageMode = isDemoOpsStore()
     ? "demo"
@@ -230,6 +236,43 @@ export default async function OpportunityDetailPage({
           storageMode={storageMode}
           canUpload={editAccess.ok}
         />
+      ) : null}
+
+      {readAccess.ok ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Estimates</CardTitle>
+            <CardDescription>Each save creates a new version. It does not create a job.</CardDescription>
+            {editAccess.ok ? (
+              <CardAction>
+                <ActionForm action={createOpportunityEstimate}>
+                  <input type="hidden" name="opportunityId" value={opportunity.id} />
+                  <SubmitButton variant="default" className="min-h-11" pendingLabel="Creating…">
+                    Create estimate
+                  </SubmitButton>
+                </ActionForm>
+              </CardAction>
+            ) : null}
+          </CardHeader>
+          <CardContent>
+            {estimates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No estimates yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {estimates.map((estimate) => (
+                  <li key={estimate.id}>
+                    <Link
+                      href={`/app/opportunities/${opportunity.id}/estimates/${estimate.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {estimate.number} · {estimate.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       ) : null}
 
       <Card>

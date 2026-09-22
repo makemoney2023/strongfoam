@@ -72,6 +72,7 @@ export type EstimateVersionDraft = {
   estimateId: string;
   opportunityId: string;
   createdBy: string;
+  title?: string;
   versionId?: string;
   overheadBasisPoints: number;
   markupBasisPoints: number;
@@ -205,6 +206,14 @@ function sortValue(value: unknown): unknown {
     );
   }
   return value;
+}
+
+export function nextEstimateNumber(numbers: string[]): string {
+  const max = numbers.reduce((highest, number) => {
+    const match = /^EST-(\d+)$/.exec(number);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 1000);
+  return `EST-${max + 1}`;
 }
 
 export function estimateContentHash(content: unknown): string {
@@ -669,6 +678,104 @@ export function estimateRecords(version: PreparedEstimateVersion, createdAt: Dat
       contentHash: source.contentHash,
       startOffset: source.startOffset,
       endOffset: source.endOffset,
+    })),
+  };
+}
+
+export function rehydrateEstimateVersion(input: {
+  opportunityId: string;
+  version: {
+    id: string;
+    organizationId: string;
+    estimateId: string;
+    versionNumber: number;
+    createdBy: string;
+    overheadBasisPoints: number;
+    markupBasisPoints: number;
+    taxBasisPoints: number;
+    calculationOrder: string;
+    baseSubtotalCents: number;
+    alternateTotalCents: number;
+    overheadCents: number;
+    markupCents: number;
+    taxCents: number;
+    totalCents: number;
+    contentHash: string;
+  };
+  clauses: PreparedEstimateVersion["clauses"];
+  alternates: Array<{
+    id: string;
+    name: string;
+    description: string;
+    included: boolean;
+    sortOrder: number;
+  }>;
+  lines: Array<Omit<PreparedEstimateLine, "alternateKey" | "includedInTotal">>;
+  sources: PreparedEstimateVersion["sources"];
+  packages: Array<{
+    id: string;
+    name: string;
+    trade: string;
+    scope: string;
+    sortOrder: number;
+  }>;
+  workAreas: Array<{
+    id: string;
+    packageId: string;
+    name: string;
+    kind: string;
+    sortOrder: number;
+  }>;
+  tasks: Array<{
+    id: string;
+    packageId: string;
+    workAreaId: string | null;
+    title: string;
+    sortOrder: number;
+  }>;
+}): PreparedEstimateVersion {
+  const alternates = input.alternates.map((alternate) => ({ ...alternate, key: alternate.id }));
+  const included = new Set(alternates.filter((alternate) => alternate.included).map((alternate) => alternate.id));
+  return {
+    organizationId: input.version.organizationId,
+    estimateId: input.version.estimateId,
+    opportunityId: input.opportunityId,
+    versionId: input.version.id,
+    versionNumber: input.version.versionNumber,
+    createdBy: input.version.createdBy,
+    overheadBasisPoints: input.version.overheadBasisPoints,
+    markupBasisPoints: input.version.markupBasisPoints,
+    taxBasisPoints: input.version.taxBasisPoints,
+    calculationOrder: input.version.calculationOrder,
+    baseSubtotalCents: input.version.baseSubtotalCents,
+    alternateTotalCents: input.version.alternateTotalCents,
+    overheadCents: input.version.overheadCents,
+    markupCents: input.version.markupCents,
+    taxCents: input.version.taxCents,
+    totalCents: input.version.totalCents,
+    contentHash: input.version.contentHash,
+    clauses: input.clauses,
+    alternates,
+    lines: input.lines.map((line) => ({
+      ...line,
+      alternateKey: line.alternateId,
+      includedInTotal: !line.alternateId || included.has(line.alternateId),
+    })),
+    sources: input.sources,
+    jobPackages: input.packages.map((pkg) => ({
+      ...pkg,
+      key: pkg.id,
+      workAreas: input.workAreas
+        .filter((area) => area.packageId === pkg.id)
+        .map((area) => ({ ...area, key: area.id })),
+      tasks: input.tasks
+        .filter((task) => task.packageId === pkg.id)
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          workAreaId: task.workAreaId,
+          sortOrder: task.sortOrder,
+        })),
     })),
   };
 }

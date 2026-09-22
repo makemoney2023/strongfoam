@@ -147,6 +147,7 @@ import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-b
 import { priceRevisionContentHash } from "@/lib/ops/price-book";
 import {
   estimateRecords,
+  nextEstimateNumber,
   prepareEstimateVersion,
   rejectEstimateContentMutation,
   type EstimateVersionDraft,
@@ -4381,9 +4382,24 @@ function demoCitationChunks() {
         contentHash: chunk.contentHash,
         startOffset: chunk.startOffset,
         endOffset: chunk.endOffset,
+        sheetLabel: page.sheetLabel,
       },
     ];
   });
+}
+
+export function listDemoEstimateCitations(organizationId: string) {
+  return demoCitationChunks().filter((chunk) => chunk.organizationId === organizationId);
+}
+
+export function listDemoEstimates(organizationId?: string): EstimateRow[] {
+  return getDemoState().estimates.filter(
+    (estimate) => !organizationId || estimate.organizationId === organizationId,
+  );
+}
+
+export function getDemoEstimate(estimateId: string): EstimateRow | null {
+  return getDemoState().estimates.find((estimate) => estimate.id === estimateId) ?? null;
 }
 
 export function listDemoEstimateGraphs(estimateId?: string): PreparedEstimateVersion[] {
@@ -4419,8 +4435,8 @@ export function createDemoEstimateVersion(
       opportunityId: draft.opportunityId,
       createdAt,
       updatedAt: createdAt,
-      number: `EST-${state.estimates.length + 1001}`,
-      title: "Estimate",
+      number: nextEstimateNumber(state.estimates.map((item) => item.number)),
+      title: draft.title?.trim() || "Estimate",
       createdBy: draft.createdBy,
       currentVersionId: prepared.version.versionId,
     });

@@ -1,11 +1,13 @@
 import { formatJobNumber, JOB_STATUS_LABELS } from "@/lib/ops/jobs";
 import { matchesQuery } from "@/lib/ops/filters";
+import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import {
   listCompanies,
   listContacts,
   listEstimateRequests,
   listJobs,
   listOpportunities,
+  listEstimates,
   listPriceBookItems,
   listProjects,
 } from "@/lib/ops/store";
@@ -24,7 +26,8 @@ export type SearchHitKind =
   | "opportunity"
   | "project"
   | "job"
-  | "price_book";
+  | "price_book"
+  | "estimate";
 
 export type SearchHit = {
   kind: SearchHitKind;
@@ -42,13 +45,14 @@ export const SEARCH_KIND_LABELS: Record<SearchHitKind, string> = {
   project: "Project",
   job: "Job",
   price_book: "Price book",
+  estimate: "Estimate",
 };
 
 export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> {
   const q = query.trim();
   if (q.length < 1) return [];
 
-  const [companies, contacts, requests, opportunities, projects, jobs, priceBook] =
+  const [companies, contacts, requests, opportunities, projects, jobs, priceBook, estimates] =
     await Promise.all([
       listCompanies({ q }),
       listContacts(),
@@ -57,6 +61,7 @@ export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> 
       listProjects({ q }),
       listJobs({ q }),
       listPriceBookItems({ q, includeInactive: true }),
+      listEstimates(STRONG_FOAM_ORGANIZATION_ID),
     ]);
 
   const hits: SearchHit[] = [];
@@ -147,6 +152,23 @@ export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> 
       href: `/app/price-book#item-${item.id}`,
       title: item.name,
       subtitle: `${priceBookTradeLabel(item.trade)} · ${priceBookUnitLabel(item.unit)} · ${formatUnitPrice(item.unitPriceCents)}`,
+    });
+  }
+
+  for (const estimate of estimates) {
+    const opportunity = opportunities.find((item) => item.id === estimate.opportunityId);
+    const company = companies.find((item) => item.id === opportunity?.companyId);
+    if (
+      !matchesQuery(q, [estimate.title, estimate.number, opportunity?.name, company?.name])
+    ) {
+      continue;
+    }
+    hits.push({
+      kind: "estimate",
+      id: estimate.id,
+      href: `/app/opportunities/${estimate.opportunityId}/estimates/${estimate.id}`,
+      title: estimate.title,
+      subtitle: [estimate.number, opportunity?.name, company?.name].filter(Boolean).join(" · "),
     });
   }
 

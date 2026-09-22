@@ -38,6 +38,7 @@ export function recordRecentItem(item: RecentItem): void {
 }
 
 export function kindFromPath(pathname: string): SearchHitKind | null {
+  if (/^\/app\/opportunities\/[^/]+\/estimates\/[^/]+/.test(pathname)) return "estimate";
   if (pathname.startsWith("/app/companies/")) return "company";
   if (pathname.startsWith("/app/requests/")) return "request";
   if (pathname.startsWith("/app/opportunities/")) return "opportunity";
