@@ -1364,6 +1364,8 @@ export function convertDemoRequestToCrm(args: {
       name: args.input.siteName,
       city: args.input.city,
       province: args.input.province,
+      addressLine: null,
+      postalCode: null,
     };
     sites.unshift(site);
     created.site = true;
@@ -2976,6 +2978,8 @@ export function addDemoSite(args: {
     createdAt: now,
     updatedAt: now,
     companyId: args.companyId,
+    addressLine: null,
+    postalCode: null,
     ...args.input,
   };
   sites.unshift(site);
@@ -3936,6 +3940,10 @@ export function addDemoPriceBookItem(
     createdAt: now,
     updatedAt: now,
     currentApprovedVersionId: null,
+    itemCode: null,
+    itemKind: null,
+    supplier: null,
+    unitCostCents: null,
     ...input,
   };
   priceBookVersions.push({
@@ -3948,6 +3956,7 @@ export function addDemoPriceBookItem(
     description: item.name,
     unit: item.unit,
     unitPriceCents: item.unitPriceCents,
+    unitCostCents: null,
     status: "draft",
     effectiveAt: null,
     createdBy: item.createdBy,
@@ -4034,6 +4043,7 @@ export function saveDemoPriceBookDraft(args: {
     description: args.description,
     unit: args.unit,
     unitPriceCents: args.unitPriceCents,
+    unitCostCents: null,
     status: "draft",
     effectiveAt: null,
     createdBy: args.createdBy,

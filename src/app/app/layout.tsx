@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/ops/app-shell";
 import { canManageUsers, getOpsSession } from "@/lib/ops/auth";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
+import { resolveImportAccess } from "@/lib/ops/import-authorization";
 
 export default async function OpsLayout({
   children,
@@ -18,6 +19,7 @@ export default async function OpsLayout({
       email={session.email}
       demo={isDemoOpsStore()}
       canManageUsers={canManageUsers(session)}
+      canPrepareImports={resolveImportAccess(session, "data.import.prepare").ok}
     >
       {children}
     </AppShell>

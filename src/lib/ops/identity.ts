@@ -42,6 +42,23 @@ export const COMMERCIAL_ROLE_PERMISSIONS: Record<
   field_worker: [],
 };
 
+export const DATA_IMPORT_PERMISSIONS = [
+  "data.import.prepare",
+  "data.import.commit",
+] as const;
+
+export type DataImportPermission = (typeof DATA_IMPORT_PERMISSIONS)[number];
+
+export const DATA_IMPORT_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly DataImportPermission[]
+> = {
+  administrator: DATA_IMPORT_PERMISSIONS,
+  office: ["data.import.prepare"],
+  field_lead: [],
+  field_worker: [],
+};
+
 export const JOB_ASSIGNMENT_ROLES = ["foreman", "technician"] as const;
 export type JobAssignmentRole = (typeof JOB_ASSIGNMENT_ROLES)[number];
 

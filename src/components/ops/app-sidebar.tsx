@@ -9,6 +9,7 @@ import {
   BriefcaseBusinessIcon,
   Building2Icon,
   ClipboardListIcon,
+  FileSpreadsheetIcon,
   FolderKanbanIcon,
   HammerIcon,
   HardHatIcon,
@@ -45,18 +46,23 @@ const nav = [
 export function AppSidebar({
   email,
   canManageUsers,
+  canPrepareImports,
 }: {
   email: string;
   canManageUsers: boolean;
+  canPrepareImports: boolean;
 }) {
   const pathname = usePathname();
-  const items = canManageUsers
-    ? [
-        ...nav.slice(0, -1),
-        { title: "Users", href: "/app/users", icon: UsersRoundIcon },
-        nav.at(-1)!,
-      ]
-    : nav;
+  const items = [
+    ...nav.slice(0, -1),
+    ...(canPrepareImports
+      ? [{ title: "Import", href: "/app/imports", icon: FileSpreadsheetIcon }]
+      : []),
+    ...(canManageUsers
+      ? [{ title: "Users", href: "/app/users", icon: UsersRoundIcon }]
+      : []),
+    nav.at(-1)!,
+  ];
 
   return (
     <Sidebar>

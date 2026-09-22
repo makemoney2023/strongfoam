@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   boolean,
+  customType,
   date,
   foreignKey,
   index,
@@ -9,6 +10,7 @@ import {
   integer,
   jsonb,
   numeric,
+  pgSchema,
   pgTable,
   text,
   timestamp,
@@ -126,6 +128,8 @@ export const sites = pgTable(
   name: text("name").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
+  addressLine: text("address_line"),
+  postalCode: text("postal_code"),
   },
   (table) => [index("sites_organization_idx").on(table.organizationId)],
 );
@@ -834,6 +838,10 @@ export const priceBookItems = pgTable(
     name: text("name").notNull(),
     unit: text("unit").notNull(),
     unitPriceCents: integer("unit_price_cents").notNull(),
+    itemCode: text("item_code"),
+    itemKind: text("item_kind"),
+    supplier: text("supplier"),
+    unitCostCents: integer("unit_cost_cents"),
     active: boolean("active").notNull().default(true),
     createdBy: text("created_by").notNull(),
     currentApprovedVersionId: uuid("current_approved_version_id"),
@@ -851,6 +859,17 @@ export const priceBookItems = pgTable(
       "price_book_items_price_valid",
       sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
     ),
+    check(
+      "price_book_items_kind_valid",
+      sql`${table.itemKind} IS NULL OR ${table.itemKind} IN ('material', 'labour', 'equipment')`,
+    ),
+    check(
+      "price_book_items_cost_valid",
+      sql`${table.unitCostCents} IS NULL OR (${table.unitCostCents} >= 0 AND ${table.unitCostCents} <= 100000000)`,
+    ),
+    uniqueIndex("price_book_items_org_item_code_unique")
+      .on(table.organizationId, table.itemCode)
+      .where(sql`${table.itemCode} IS NOT NULL`),
     index("price_book_items_organization_idx").on(table.organizationId),
     index("price_book_items_trade_name_idx").on(table.trade, table.name),
   ],
@@ -874,6 +893,7 @@ export const priceBookItemVersions = pgTable(
     description: text("description").notNull(),
     unit: text("unit").notNull(),
     unitPriceCents: integer("unit_price_cents").notNull(),
+    unitCostCents: integer("unit_cost_cents"),
     status: text("status").notNull().default("draft"),
     effectiveAt: timestamp("effective_at", { withTimezone: true }),
     createdBy: text("created_by").notNull(),
@@ -901,6 +921,10 @@ export const priceBookItemVersions = pgTable(
     check(
       "price_book_item_versions_price_valid",
       sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
+    ),
+    check(
+      "price_book_item_versions_cost_valid",
+      sql`${table.unitCostCents} IS NULL OR (${table.unitCostCents} >= 0 AND ${table.unitCostCents} <= 100000000)`,
     ),
     index("price_book_item_versions_item_idx").on(
       table.organizationId,
@@ -1802,6 +1826,155 @@ export const aiToolExecutions = pgTable(
 export type EstimateConversionRow = typeof estimateConversions.$inferSelect;
 export type ProjectBudgetRow = typeof projectBudgets.$inferSelect;
 export type ProjectBudgetLineRow = typeof projectBudgetLines.$inferSelect;
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const privateSchema = pgSchema("private");
+
+export const dataImportBatches = privateSchema.table(
+  "data_import_batches",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    sha256: text("sha256").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status").notNull(),
+    revision: integer("revision").notNull().default(1),
+    previewHash: text("preview_hash"),
+    durable: boolean("durable").notNull().default(false),
+    summary: jsonb("summary").notNull(),
+    fileBytes: bytea("file_bytes"),
+  },
+  (table) => [
+    unique("data_import_batches_org_idempotency_unique").on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    check(
+      "data_import_batches_status_valid",
+      sql`${table.status} IN ('uploaded', 'analyzing', 'needs_mapping', 'invalid', 'ready', 'commit_queued', 'importing', 'completed', 'failed', 'cancelled')`,
+    ),
+    index("data_import_batches_org_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
+export const dataImportSheets = privateSchema.table(
+  "data_import_sheets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => dataImportBatches.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
+    sheetName: text("sheet_name").notNull(),
+    entityType: text("entity_type"),
+    rowCount: integer("row_count").notNull(),
+    headers: jsonb("headers").notNull(),
+  },
+  (table) => [
+    unique("data_import_sheets_batch_name_unique").on(table.batchId, table.sheetName),
+    index("data_import_sheets_org_idx").on(table.organizationId),
+  ],
+);
+
+export const dataImportRows = privateSchema.table(
+  "data_import_rows",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => dataImportBatches.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
+    sheetName: text("sheet_name").notNull(),
+    rowNumber: integer("row_number").notNull(),
+    entityType: text("entity_type").notNull(),
+    sourceKey: text("source_key").notNull(),
+    status: text("status").notNull(),
+    operation: text("operation").notNull().default("create"),
+    values: jsonb("values").notNull(),
+    messages: jsonb("messages").notNull(),
+    targetId: uuid("target_id"),
+  },
+  (table) => [
+    unique("data_import_rows_batch_row_unique").on(
+      table.batchId,
+      table.sheetName,
+      table.rowNumber,
+    ),
+    index("data_import_rows_org_idx").on(table.organizationId, table.batchId),
+  ],
+);
+
+export const dataImportMappingProfiles = privateSchema.table(
+  "data_import_mapping_profiles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    name: text("name").notNull(),
+    entityType: text("entity_type").notNull(),
+    headerSignature: text("header_signature").notNull(),
+    mapping: jsonb("mapping").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("data_import_profiles_signature_unique").on(
+      table.organizationId,
+      table.entityType,
+      table.headerSignature,
+    ),
+  ],
+);
+
+export const externalRecordKeys = privateSchema.table(
+  "external_record_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    sourceSystem: text("source_system").notNull(),
+    entityType: text("entity_type").notNull(),
+    sourceKey: text("source_key").notNull(),
+    targetId: uuid("target_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("external_record_keys_unique").on(
+      table.organizationId,
+      table.sourceSystem,
+      table.entityType,
+      table.sourceKey,
+    ),
+    index("external_record_keys_org_idx").on(table.organizationId),
+  ],
+);
+
+export const dataImportEvents = privateSchema.table(
+  "data_import_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => dataImportBatches.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    actor: text("actor").notNull(),
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull(),
+    payload: jsonb("payload").notNull(),
+  },
+  (table) => [index("data_import_events_org_idx").on(table.organizationId, table.batchId)],
+);
 
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",

@@ -183,6 +183,27 @@
       "when": 1758432000000,
       "tag": "0025_commercial_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1758433000000,
+      "tag": "0026_data_import_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1758434000000,
+      "tag": "0027_price_book_cost_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1758435000000,
+      "tag": "0028_import_domain_keys",
+      "breakpoints": true
     }
   ]
 }

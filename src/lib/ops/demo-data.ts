@@ -345,6 +345,8 @@ export function demoSites(): SiteRow[] {
       name: "Waterloo yard",
       city: "Waterloo",
       province: "ON",
+      addressLine: null,
+      postalCode: null,
     },
   ];
 }
@@ -1149,6 +1151,10 @@ export function demoPriceBookItems(): PriceBookItemRow[] {
     },
   ].map((item) => ({
     ...item,
+    itemCode: null,
+    itemKind: null,
+    supplier: null,
+    unitCostCents: null,
     currentApprovedVersionId: priceBookVersionId(item.id),
   }));
 }
@@ -1164,6 +1170,7 @@ export function demoPriceBookVersions(): PriceBookItemVersionRow[] {
     description: item.name,
     unit: item.unit,
     unitPriceCents: item.unitPriceCents,
+    unitCostCents: null,
     status: "approved",
     effectiveAt: item.createdAt,
     createdBy: item.createdBy,

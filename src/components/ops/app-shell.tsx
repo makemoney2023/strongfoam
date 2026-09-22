@@ -17,11 +17,13 @@ export function AppShell({
   email,
   demo,
   canManageUsers,
+  canPrepareImports,
   children,
 }: {
   email: string;
   demo: boolean;
   canManageUsers: boolean;
+  canPrepareImports: boolean;
   children: ReactNode;
 }) {
   return (
@@ -33,7 +35,11 @@ export function AppShell({
         >
           Skip to main content
         </a>
-        <AppSidebar email={email} canManageUsers={canManageUsers} />
+        <AppSidebar
+          email={email}
+          canManageUsers={canManageUsers}
+          canPrepareImports={canPrepareImports}
+        />
         <SidebarInset id="ops-main-content" tabIndex={-1}>
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger className="size-11 md:size-8" />
