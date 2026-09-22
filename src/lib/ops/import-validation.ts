@@ -270,14 +270,26 @@ const ENTITY_HEADER_ALIASES: Partial<Record<ImportEntityType, Record<string, str
 };
 
 function detectEntity(sheet: WorkbookSheet): ImportEntityType | null {
-  const alias = SHEET_ALIASES[normalizeKey(sheet.name)];
+  const key = normalizeKey(sheet.name);
+  const alias = SHEET_ALIASES[key];
   if (alias) return alias;
+  const prefixed = Object.entries(SHEET_ALIASES)
+    .filter(
+      ([aliasKey]) =>
+        aliasKey.length >= 4 && (key.startsWith(aliasKey) || key.endsWith(aliasKey)),
+    )
+    .sort((left, right) => right[0].length - left[0].length)[0];
+  if (prefixed) return prefixed[1];
   const fields = new Set(
     headerLabels(sheet).map((header) => HEADER_ALIASES[normalizeKey(header)] ?? ""),
   );
   if (fields.has("unit_price") || fields.has("unit_price_cents")) return "price_book_item";
   if (fields.has("display_name")) return "workforce_user";
   if (fields.has("first_name")) return "contact";
+  if (fields.has("company_name") || fields.has("address_line") || fields.has("postal_code")) {
+    if (fields.has("address_line") || fields.has("postal_code")) return "site";
+    return "company";
+  }
   return null;
 }
 

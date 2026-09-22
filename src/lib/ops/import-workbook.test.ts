@@ -80,6 +80,18 @@ describe("import staging", () => {
     expect(previewHash([reordered])).toBe(previewHash([base]));
   });
 
+  it("recognizes a company export whose file name only starts with companies", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("Company,Email,City,Province\nHarbour Header Co,office@harbour-header.example,Winnipeg,MB\n"),
+      filename: "companies-header.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.sheets[0]?.entityType).toBe("company");
+    expect(staged.value.rows[0]?.values.name).toBe("Harbour Header Co");
+    expect(staged.value.status).not.toBe("needs_mapping");
+  });
+
   it("maps a Company column to the company name", () => {
     const staged = stageImportFile({
       bytes: Buffer.from("Company,Email,City,Province\nHarbour Import Co,office@harbour.test,Winnipeg,MB\n"),
