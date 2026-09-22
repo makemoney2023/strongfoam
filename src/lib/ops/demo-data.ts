@@ -1,6 +1,22 @@
+import { createHash } from "node:crypto";
 import {
   companies,
   contacts,
+  documentChunks,
+  documentExtractions,
+  documentLinks,
+  documentPages,
+  documentVersions,
+  documents,
+  estimateAlternates,
+  estimateClauses,
+  estimateJobPackages,
+  estimateJobTasks,
+  estimateJobWorkAreas,
+  estimateLineSources,
+  estimateLines,
+  estimateVersions,
+  estimates,
   estimateRequestComments,
   estimateRequestEvents,
   estimateRequestTasks,
@@ -22,12 +38,15 @@ import {
   projects,
   scheduleCalendarExceptions,
   priceBookItems,
+  priceBookItemVersions,
   scheduleCalendars,
   sites,
   userEvents,
   users,
   workAreas,
 } from "@/db/schema";
+import { priceRevisionContentHash } from "@/lib/ops/price-book";
+import { estimateRecords, prepareEstimateVersion } from "@/lib/ops/estimates";
 
 export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
@@ -60,6 +79,22 @@ export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
 export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
+export type PriceBookItemVersionRow = typeof priceBookItemVersions.$inferSelect;
+export type EstimateRow = typeof estimates.$inferSelect;
+export type EstimateVersionRow = typeof estimateVersions.$inferSelect;
+export type EstimateLineRow = typeof estimateLines.$inferSelect;
+export type EstimateClauseRow = typeof estimateClauses.$inferSelect;
+export type EstimateAlternateRow = typeof estimateAlternates.$inferSelect;
+export type EstimateJobPackageRow = typeof estimateJobPackages.$inferSelect;
+export type EstimateJobWorkAreaRow = typeof estimateJobWorkAreas.$inferSelect;
+export type EstimateJobTaskRow = typeof estimateJobTasks.$inferSelect;
+export type EstimateLineSourceRow = typeof estimateLineSources.$inferSelect;
+export type DocumentRow = typeof documents.$inferSelect;
+export type DocumentVersionRow = typeof documentVersions.$inferSelect;
+export type DocumentLinkRow = typeof documentLinks.$inferSelect;
+export type DocumentExtractionRow = typeof documentExtractions.$inferSelect;
+export type DocumentPageRow = typeof documentPages.$inferSelect;
+export type DocumentChunkRow = typeof documentChunks.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -73,6 +108,10 @@ export const DEMO_PLAN_ASSIGNED_ANNOTATION_ID =
   "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb2";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
 export const DEMO_OPEN_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999991";
+export const DEMO_ESTIMATE_ID = "22222222-2222-4222-8222-222222222201";
+export const DEMO_ESTIMATE_VERSION_ID = "22222222-2222-4222-8222-222222222211";
+export const DEMO_ESTIMATE_DOCUMENT_VERSION_ID = "33333333-3333-4333-8333-333333333302";
+export const DEMO_ESTIMATE_CHUNK_ID = "33333333-3333-4333-8333-333333333304";
 export const DEMO_SCHEDULE_NOW = "2026-09-19T12:00:00.000Z";
 export const DEMO_ADMIN_USER_ID = "10101010-1010-4010-8010-101010101010";
 export const DEMO_ADMIN_EMAIL = "admin@strongfoam.demo";
@@ -1029,6 +1068,10 @@ export function demoEstimateComments(): EstimateRequestComment[] {
   ];
 }
 
+export function priceBookVersionId(itemId: string): string {
+  return itemId.replace("11111111110", "11111111120");
+}
+
 export function demoPriceBookItems(): PriceBookItemRow[] {
   const createdAt = demoDate(-30);
   return [
@@ -1104,5 +1147,317 @@ export function demoPriceBookItems(): PriceBookItemRow[] {
       active: false,
       createdBy: DEMO_ADMIN_EMAIL,
     },
-  ];
+  ].map((item) => ({
+    ...item,
+    currentApprovedVersionId: priceBookVersionId(item.id),
+  }));
+}
+
+export function demoPriceBookVersions(): PriceBookItemVersionRow[] {
+  return demoPriceBookItems().map((item) => ({
+    id: item.currentApprovedVersionId ?? priceBookVersionId(item.id),
+    organizationId: item.organizationId,
+    itemId: item.id,
+    versionNumber: 1,
+    createdAt: item.createdAt,
+    trade: item.trade,
+    description: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    status: "approved",
+    effectiveAt: item.createdAt,
+    createdBy: item.createdBy,
+    approvedBy: item.createdBy,
+    approvedAt: item.createdAt,
+    contentHash: priceRevisionContentHash({
+      itemId: item.id,
+      versionNumber: 1,
+      trade: item.trade,
+      description: item.name,
+      unit: item.unit,
+      unitPriceCents: item.unitPriceCents,
+    }),
+  }));
+}
+
+const DEMO_ESTIMATE_TEXT = "Sheet A-201 podium plan closed cell";
+
+export function demoEstimateCitationHash(): string {
+  return createHash("sha256").update(DEMO_ESTIMATE_TEXT).digest("hex");
+}
+
+export function demoEstimateSeed(createdAt = demoDate(-2)) {
+  const citationHash = demoEstimateCitationHash();
+  const closedCell = demoPriceBookVersions().find(
+    (version) => version.itemId === "11111111-1111-4111-8111-111111111101",
+  );
+  const avb = demoPriceBookVersions().find(
+    (version) => version.itemId === "11111111-1111-4111-8111-111111111105",
+  );
+  if (!closedCell || !avb) throw new Error("Demo price revisions are missing.");
+  const prepared = prepareEstimateVersion(
+    {
+      organizationId: DEMO_ORGANIZATION_ID,
+      estimateId: DEMO_ESTIMATE_ID,
+      opportunityId: DEMO_OPEN_OPPORTUNITY_ID,
+      createdBy: DEMO_ADMIN_EMAIL,
+      versionId: DEMO_ESTIMATE_VERSION_ID,
+      overheadBasisPoints: 0,
+      markupBasisPoints: 1000,
+      taxBasisPoints: 1300,
+      clauses: [
+        {
+          id: "22222222-2222-4222-8222-222222222231",
+          kind: "inclusion",
+          text: "Closed-cell at the podium",
+          sortOrder: 0,
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222232",
+          kind: "exclusion",
+          text: "Interior finishes",
+          sortOrder: 1,
+        },
+      ],
+      alternates: [
+        {
+          id: "22222222-2222-4222-8222-222222222241",
+          key: "intumescent",
+          name: "Intumescent upgrade",
+          description: "Add intumescent coating at the podium",
+          included: false,
+          sortOrder: 0,
+        },
+      ],
+      lines: [
+        {
+          id: "22222222-2222-4222-8222-222222222221",
+          sortOrder: 0,
+          category: "material",
+          description: "Closed-cell spray foam",
+          trade: "spray-foam",
+          location: "Podium",
+          method: "unit",
+          quantity: "2.5000",
+          unit: "bags",
+          unitPriceCents: null,
+          basisPoints: null,
+          basisCategories: [],
+          taxable: true,
+          alternateKey: null,
+          priceBookItemId: closedCell.itemId,
+          priceBookVersionId: closedCell.id,
+          sources: [
+            {
+              id: "22222222-2222-4222-8222-222222222271",
+              documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+              pageNumber: 1,
+              sheetLabel: "A-201",
+              chunkId: DEMO_ESTIMATE_CHUNK_ID,
+              contentHash: citationHash,
+              startOffset: 0,
+              endOffset: DEMO_ESTIMATE_TEXT.length,
+            },
+          ],
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          sortOrder: 1,
+          category: "material",
+          description: "Air and vapor barrier",
+          trade: "avb",
+          location: "North elevation",
+          method: "unit",
+          quantity: "100.0000",
+          unit: "sq_ft",
+          unitPriceCents: null,
+          basisPoints: null,
+          basisCategories: [],
+          taxable: true,
+          alternateKey: null,
+          priceBookItemId: avb.itemId,
+          priceBookVersionId: avb.id,
+          sources: [],
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222223",
+          sortOrder: 2,
+          category: "material",
+          description: "Intumescent coating",
+          trade: "intumescent",
+          location: "Podium",
+          method: "fixed",
+          quantity: null,
+          unit: null,
+          unitPriceCents: 25000,
+          basisPoints: null,
+          basisCategories: [],
+          taxable: false,
+          alternateKey: "intumescent",
+          priceBookItemId: null,
+          priceBookVersionId: null,
+          sources: [],
+        },
+      ],
+      jobPackages: [
+        {
+          id: "22222222-2222-4222-8222-222222222251",
+          key: "podium",
+          name: "Podium closed-cell spray foam",
+          trade: "spray-foam",
+          scope: "Podium closed-cell",
+          sortOrder: 0,
+          workAreas: [
+            {
+              id: "22222222-2222-4222-8222-222222222252",
+              key: "podium-area",
+              name: "Podium",
+              kind: "area",
+              sortOrder: 0,
+            },
+          ],
+          tasks: [
+            {
+              id: "22222222-2222-4222-8222-222222222253",
+              title: "Mask podium",
+              workAreaKey: "podium-area",
+              sortOrder: 0,
+            },
+          ],
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222261",
+          key: "avb",
+          name: "North elevation AVB",
+          trade: "avb",
+          scope: "North elevation barrier",
+          sortOrder: 1,
+          workAreas: [
+            {
+              id: "22222222-2222-4222-8222-222222222262",
+              key: "north",
+              name: "North elevation",
+              kind: "area",
+              sortOrder: 0,
+            },
+          ],
+          tasks: [
+            {
+              id: "22222222-2222-4222-8222-222222222263",
+              title: "Install AVB",
+              workAreaKey: "north",
+              sortOrder: 0,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      revisions: [closedCell, avb].map((version) => ({
+        id: version.id,
+        itemId: version.itemId,
+        organizationId: version.organizationId,
+        status: version.status,
+        active: true,
+        trade: version.trade,
+        description: version.description,
+        unit: version.unit,
+        unitPriceCents: version.unitPriceCents,
+      })),
+      citations: [
+        {
+          id: DEMO_ESTIMATE_CHUNK_ID,
+          organizationId: DEMO_ORGANIZATION_ID,
+          documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+          pageNumber: 1,
+          contentHash: citationHash,
+          startOffset: 0,
+          endOffset: DEMO_ESTIMATE_TEXT.length,
+        },
+      ],
+      existingVersionNumbers: [],
+    },
+  );
+  if (!prepared.ok) throw new Error(prepared.error);
+  return {
+    graph: prepared.version,
+    records: estimateRecords(prepared.version, createdAt),
+    estimate: {
+      id: DEMO_ESTIMATE_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
+      opportunityId: DEMO_OPEN_OPPORTUNITY_ID,
+      createdAt,
+      updatedAt: createdAt,
+      number: "EST-1001",
+      title: "Harbour bid package",
+      createdBy: DEMO_ADMIN_EMAIL,
+      currentVersionId: DEMO_ESTIMATE_VERSION_ID,
+    },
+    document: {
+      id: "33333333-3333-4333-8333-333333333301",
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt,
+      title: "Harbour podium plan",
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    documentVersion: {
+      id: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
+      documentId: "33333333-3333-4333-8333-333333333301",
+      versionNumber: 1,
+      createdAt,
+      filename: "harbour-podium.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 1200,
+      pathname: `opportunities/${DEMO_ORGANIZATION_ID}/${DEMO_OPEN_OPPORTUNITY_ID}/harbour-podium.pdf`,
+      sha256: citationHash,
+      status: "clean",
+      kind: "plan",
+      revisionLabel: "Rev A",
+      uploadedBy: DEMO_ADMIN_EMAIL,
+    },
+    extraction: {
+      id: "33333333-3333-4333-8333-333333333303",
+      organizationId: DEMO_ORGANIZATION_ID,
+      documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+      status: "ready",
+      provider: null,
+      model: null,
+      pageProgress: 1,
+      pageCount: 1,
+      error: null,
+      createdAt,
+      updatedAt: createdAt,
+    },
+    page: {
+      id: "33333333-3333-4333-8333-333333333305",
+      organizationId: DEMO_ORGANIZATION_ID,
+      documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+      extractionId: "33333333-3333-4333-8333-333333333303",
+      pageNumber: 1,
+      sheetLabel: "A-201",
+      machineText: DEMO_ESTIMATE_TEXT,
+      correctedText: null,
+    },
+    chunk: {
+      id: DEMO_ESTIMATE_CHUNK_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
+      documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+      pageId: "33333333-3333-4333-8333-333333333305",
+      startOffset: 0,
+      endOffset: DEMO_ESTIMATE_TEXT.length,
+      contentHash: citationHash,
+      text: DEMO_ESTIMATE_TEXT,
+      bbox: null,
+    },
+    link: {
+      id: "33333333-3333-4333-8333-333333333306",
+      organizationId: DEMO_ORGANIZATION_ID,
+      documentVersionId: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+      entityType: "estimate",
+      entityId: DEMO_ESTIMATE_ID,
+      purpose: "estimate-source",
+      createdAt,
+    },
+  };
 }

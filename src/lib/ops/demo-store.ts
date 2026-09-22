@@ -29,6 +29,9 @@ import {
   demoOpportunities,
   demoOrganizations,
   demoPriceBookItems,
+  demoPriceBookVersions,
+  demoEstimateSeed,
+  DEMO_ESTIMATE_CHUNK_ID,
   demoProjectScheduleBaselineItems,
   demoProjectScheduleBaselines,
   demoProjects,
@@ -57,6 +60,16 @@ import {
   type OpportunityRow,
   type OrganizationRow,
   type PriceBookItemRow,
+  type PriceBookItemVersionRow,
+  type EstimateRow,
+  type EstimateVersionRow,
+  type EstimateLineRow,
+  type EstimateClauseRow,
+  type EstimateAlternateRow,
+  type EstimateJobPackageRow,
+  type EstimateJobWorkAreaRow,
+  type EstimateJobTaskRow,
+  type EstimateLineSourceRow,
   type ProjectRow,
   type ProjectScheduleBaselineItemRow,
   type ProjectScheduleBaselineRow,
@@ -131,6 +144,14 @@ import {
   setBidDocumentBytes,
 } from "@/lib/ops/bid-document-bytes";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
+import { priceRevisionContentHash } from "@/lib/ops/price-book";
+import {
+  estimateRecords,
+  prepareEstimateVersion,
+  rejectEstimateContentMutation,
+  type EstimateVersionDraft,
+  type PreparedEstimateVersion,
+} from "@/lib/ops/estimates";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import {
   STRONG_FOAM_ORGANIZATION_ID,
@@ -200,6 +221,17 @@ type DemoOpsState = {
   jobFieldNotes: JobFieldNoteRow[];
   jobVoiceNotes: JobVoiceNoteRow[];
   priceBookItems: PriceBookItemRow[];
+  priceBookVersions: PriceBookItemVersionRow[];
+  estimates: EstimateRow[];
+  estimateVersions: EstimateVersionRow[];
+  estimateLines: EstimateLineRow[];
+  estimateClauses: EstimateClauseRow[];
+  estimateAlternates: EstimateAlternateRow[];
+  estimateJobPackages: EstimateJobPackageRow[];
+  estimateJobWorkAreas: EstimateJobWorkAreaRow[];
+  estimateJobTasks: EstimateJobTaskRow[];
+  estimateLineSources: EstimateLineSourceRow[];
+  estimateGraphs: PreparedEstimateVersion[];
   auditEvents: AuditEventRow[];
   bidDocuments: DocumentRow[];
   bidDocumentVersions: DocumentVersionRow[];
@@ -217,6 +249,7 @@ function getDemoState(): DemoOpsState {
     __strongfoamDemoOps?: DemoOpsState;
   };
   if (!globalForDemo.__strongfoamDemoOps) {
+    const seeded = demoEstimateSeed();
     globalForDemo.__strongfoamDemoOps = {
       requests: demoEstimateRequests(),
       events: demoEstimateEvents(),
@@ -246,13 +279,24 @@ function getDemoState(): DemoOpsState {
       jobFieldNotes: demoJobFieldNotes(),
       jobVoiceNotes: demoJobVoiceNotes(),
       priceBookItems: demoPriceBookItems(),
+      priceBookVersions: demoPriceBookVersions(),
+      estimates: [seeded.estimate],
+      estimateVersions: [seeded.records.version],
+      estimateLines: seeded.records.lines,
+      estimateClauses: seeded.records.clauses,
+      estimateAlternates: seeded.records.alternates,
+      estimateJobPackages: seeded.records.jobPackages,
+      estimateJobWorkAreas: seeded.records.workAreas,
+      estimateJobTasks: seeded.records.tasks,
+      estimateLineSources: seeded.records.sources,
+      estimateGraphs: [seeded.graph],
       auditEvents: [],
-      bidDocuments: [],
-      bidDocumentVersions: [],
-      bidDocumentLinks: [],
-      bidDocumentExtractions: [],
-      bidDocumentPages: [],
-      bidDocumentChunks: [],
+      bidDocuments: [seeded.document],
+      bidDocumentVersions: [seeded.documentVersion],
+      bidDocumentLinks: [seeded.link],
+      bidDocumentExtractions: [seeded.extraction],
+      bidDocumentPages: [seeded.page],
+      bidDocumentChunks: [seeded.chunk],
       bidBackgroundJobs: [],
     };
     seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
@@ -286,6 +330,9 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.priceBookItems) {
     globalForDemo.__strongfoamDemoOps.priceBookItems = demoPriceBookItems();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.priceBookVersions) {
+    globalForDemo.__strongfoamDemoOps.priceBookVersions = demoPriceBookVersions();
   }
   if (!globalForDemo.__strongfoamDemoOps.auditEvents) {
     globalForDemo.__strongfoamDemoOps.auditEvents = [];
@@ -328,6 +375,31 @@ function getDemoState(): DemoOpsState {
   }
   seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   seedDemoVoiceBytes(globalForDemo.__strongfoamDemoOps);
+  if (!globalForDemo.__strongfoamDemoOps.estimates) {
+    const seeded = demoEstimateSeed();
+    globalForDemo.__strongfoamDemoOps.estimates = [seeded.estimate];
+    globalForDemo.__strongfoamDemoOps.estimateVersions = [seeded.records.version];
+    globalForDemo.__strongfoamDemoOps.estimateLines = seeded.records.lines;
+    globalForDemo.__strongfoamDemoOps.estimateClauses = seeded.records.clauses;
+    globalForDemo.__strongfoamDemoOps.estimateAlternates = seeded.records.alternates;
+    globalForDemo.__strongfoamDemoOps.estimateJobPackages = seeded.records.jobPackages;
+    globalForDemo.__strongfoamDemoOps.estimateJobWorkAreas = seeded.records.workAreas;
+    globalForDemo.__strongfoamDemoOps.estimateJobTasks = seeded.records.tasks;
+    globalForDemo.__strongfoamDemoOps.estimateLineSources = seeded.records.sources;
+    globalForDemo.__strongfoamDemoOps.estimateGraphs = [seeded.graph];
+    if (
+      !globalForDemo.__strongfoamDemoOps.bidDocumentChunks.some(
+        (chunk) => chunk.id === DEMO_ESTIMATE_CHUNK_ID,
+      )
+    ) {
+      globalForDemo.__strongfoamDemoOps.bidDocuments.push(seeded.document);
+      globalForDemo.__strongfoamDemoOps.bidDocumentVersions.push(seeded.documentVersion);
+      globalForDemo.__strongfoamDemoOps.bidDocumentLinks.push(seeded.link);
+      globalForDemo.__strongfoamDemoOps.bidDocumentExtractions.push(seeded.extraction);
+      globalForDemo.__strongfoamDemoOps.bidDocumentPages.push(seeded.page);
+      globalForDemo.__strongfoamDemoOps.bidDocumentChunks.push(seeded.chunk);
+    }
+  }
   return globalForDemo.__strongfoamDemoOps;
 }
 
@@ -382,6 +454,7 @@ const {
   jobFieldNotes,
   jobVoiceNotes,
   priceBookItems,
+  priceBookVersions,
 } = getDemoState();
 
 const PORTFOLIO_PROJECT_LIMIT = 250;
@@ -3766,8 +3839,33 @@ export function addDemoPriceBookItem(
     organizationId: STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     updatedAt: now,
+    currentApprovedVersionId: null,
     ...input,
   };
+  priceBookVersions.push({
+    id: crypto.randomUUID(),
+    organizationId: item.organizationId,
+    itemId: item.id,
+    versionNumber: 1,
+    createdAt: now,
+    trade: item.trade,
+    description: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    status: "draft",
+    effectiveAt: null,
+    createdBy: item.createdBy,
+    approvedBy: null,
+    approvedAt: null,
+    contentHash: priceRevisionContentHash({
+      itemId: item.id,
+      versionNumber: 1,
+      trade: item.trade,
+      description: item.name,
+      unit: item.unit,
+      unitPriceCents: item.unitPriceCents,
+    }),
+  });
   priceBookItems.unshift(item);
   return item;
 }
@@ -3780,6 +3878,100 @@ export function updateDemoPriceBookItem(
   if (!item) return null;
   Object.assign(item, input, { updatedAt: new Date() });
   return item;
+}
+
+export function listDemoPriceBookVersions(itemId?: string): PriceBookItemVersionRow[] {
+  return priceBookVersions
+    .filter((version) => !itemId || version.itemId === itemId)
+    .sort((a, b) => a.versionNumber - b.versionNumber || a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+function nextDemoPriceVersion(itemId: string): number {
+  return (
+    priceBookVersions
+      .filter((version) => version.itemId === itemId)
+      .reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1
+  );
+}
+
+export function saveDemoPriceBookDraft(args: {
+  itemId: string;
+  trade: PriceBookItemInput["trade"];
+  description: string;
+  unit: PriceBookItemInput["unit"];
+  unitPriceCents: number;
+  createdBy: string;
+}): PriceBookItemVersionRow | null {
+  const item = priceBookItems.find((entry) => entry.id === args.itemId);
+  if (!item || item.organizationId !== STRONG_FOAM_ORGANIZATION_ID) return null;
+  const existing = priceBookVersions.find(
+    (version) => version.itemId === args.itemId && version.status === "draft",
+  );
+  const versionNumber = existing?.versionNumber ?? nextDemoPriceVersion(args.itemId);
+  const contentHash = priceRevisionContentHash({
+    itemId: args.itemId,
+    versionNumber,
+    trade: args.trade,
+    description: args.description,
+    unit: args.unit,
+    unitPriceCents: args.unitPriceCents,
+  });
+  if (existing) {
+    if (existing.status === "approved") return null;
+    Object.assign(existing, {
+      trade: args.trade,
+      description: args.description,
+      unit: args.unit,
+      unitPriceCents: args.unitPriceCents,
+      createdBy: args.createdBy,
+      contentHash,
+    });
+    return existing;
+  }
+  const draft: PriceBookItemVersionRow = {
+    id: crypto.randomUUID(),
+    organizationId: item.organizationId,
+    itemId: args.itemId,
+    versionNumber,
+    createdAt: new Date(),
+    trade: args.trade,
+    description: args.description,
+    unit: args.unit,
+    unitPriceCents: args.unitPriceCents,
+    status: "draft",
+    effectiveAt: null,
+    createdBy: args.createdBy,
+    approvedBy: null,
+    approvedAt: null,
+    contentHash,
+  };
+  priceBookVersions.push(draft);
+  return draft;
+}
+
+export function approveDemoPriceBookRevision(args: {
+  itemId: string;
+  versionId: string;
+  approver: string;
+}): { ok: true; revision: PriceBookItemVersionRow } | { ok: false; error: string } {
+  const item = priceBookItems.find((entry) => entry.id === args.itemId);
+  const revision = priceBookVersions.find(
+    (version) => version.id === args.versionId && version.itemId === args.itemId,
+  );
+  if (!item || !revision) return { ok: false, error: "That price revision could not be found." };
+  if (revision.status === "approved") return { ok: false, error: "immutable" };
+  const approvedAt = new Date();
+  revision.status = "approved";
+  revision.approvedBy = args.approver;
+  revision.approvedAt = approvedAt;
+  revision.effectiveAt = approvedAt;
+  item.currentApprovedVersionId = revision.id;
+  item.trade = revision.trade;
+  item.name = revision.description;
+  item.unit = revision.unit;
+  item.unitPriceCents = revision.unitPriceCents;
+  item.updatedAt = approvedAt;
+  return { ok: true, revision };
 }
 
 export function appendDemoAuditEvent(event: AuditEventRow): AuditEventRow {
@@ -4156,6 +4348,99 @@ export function getDemoBidDocumentDownload(
   const bytes = getStoredBidDocumentBytes(match.version.id);
   if (!bytes) return null;
   return { version: match.version, bytes };
+}
+
+function demoPriceRevisions() {
+  const state = getDemoState();
+  return state.priceBookVersions
+    .filter((version) => version.status === "approved")
+    .map((version) => ({
+      id: version.id,
+      itemId: version.itemId,
+      organizationId: version.organizationId,
+      status: version.status,
+      active: state.priceBookItems.find((item) => item.id === version.itemId)?.active ?? false,
+      trade: version.trade,
+      description: version.description,
+      unit: version.unit,
+      unitPriceCents: version.unitPriceCents,
+    }));
+}
+
+function demoCitationChunks() {
+  const state = getDemoState();
+  return state.bidDocumentChunks.flatMap((chunk) => {
+    const page = state.bidDocumentPages.find((item) => item.id === chunk.pageId);
+    if (!page) return [];
+    return [
+      {
+        id: chunk.id,
+        organizationId: chunk.organizationId,
+        documentVersionId: chunk.documentVersionId,
+        pageNumber: page.pageNumber,
+        contentHash: chunk.contentHash,
+        startOffset: chunk.startOffset,
+        endOffset: chunk.endOffset,
+      },
+    ];
+  });
+}
+
+export function listDemoEstimateGraphs(estimateId?: string): PreparedEstimateVersion[] {
+  const graphs = getDemoState().estimateGraphs;
+  return estimateId ? graphs.filter((graph) => graph.estimateId === estimateId) : graphs;
+}
+
+export function updateDemoEstimateLine(): { ok: false; error: "immutable" } {
+  return rejectEstimateContentMutation();
+}
+
+export function createDemoEstimateVersion(
+  draft: EstimateVersionDraft,
+): { ok: true; version: PreparedEstimateVersion } | { ok: false; error: string } {
+  const state = getDemoState();
+  const projectsBefore = state.projects.length;
+  const jobsBefore = state.jobsList.length;
+  const prepared = prepareEstimateVersion(draft, {
+    revisions: demoPriceRevisions(),
+    citations: demoCitationChunks(),
+    existingVersionNumbers: state.estimateVersions
+      .filter((version) => version.estimateId === draft.estimateId)
+      .map((version) => version.versionNumber),
+  });
+  if (!prepared.ok) return prepared;
+  const createdAt = new Date();
+  const records = estimateRecords(prepared.version, createdAt);
+  const estimate = state.estimates.find((item) => item.id === draft.estimateId);
+  if (!estimate) {
+    state.estimates.push({
+      id: draft.estimateId,
+      organizationId: draft.organizationId,
+      opportunityId: draft.opportunityId,
+      createdAt,
+      updatedAt: createdAt,
+      number: `EST-${state.estimates.length + 1001}`,
+      title: "Estimate",
+      createdBy: draft.createdBy,
+      currentVersionId: prepared.version.versionId,
+    });
+  } else {
+    estimate.currentVersionId = prepared.version.versionId;
+    estimate.updatedAt = createdAt;
+  }
+  state.estimateVersions.push(records.version);
+  state.estimateLines.push(...records.lines);
+  state.estimateClauses.push(...records.clauses);
+  state.estimateAlternates.push(...records.alternates);
+  state.estimateJobPackages.push(...records.jobPackages);
+  state.estimateJobWorkAreas.push(...records.workAreas);
+  state.estimateJobTasks.push(...records.tasks);
+  state.estimateLineSources.push(...records.sources);
+  state.estimateGraphs.push(prepared.version);
+  if (state.projects.length !== projectsBefore || state.jobsList.length !== jobsBefore) {
+    throw new Error("Creating an estimate version must not create a project or job.");
+  }
+  return { ok: true, version: prepared.version };
 }
 
 export type { VoiceTranscriptStatus };

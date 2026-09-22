@@ -8,6 +8,7 @@ import {
   doublePrecision,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -835,6 +836,7 @@ export const priceBookItems = pgTable(
     unitPriceCents: integer("unit_price_cents").notNull(),
     active: boolean("active").notNull().default(true),
     createdBy: text("created_by").notNull(),
+    currentApprovedVersionId: uuid("current_approved_version_id"),
   },
   (table) => [
     check(
@@ -853,6 +855,299 @@ export const priceBookItems = pgTable(
     index("price_book_items_trade_name_idx").on(table.trade, table.name),
   ],
 );
+
+export const priceBookItemVersions = pgTable(
+  "price_book_item_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => priceBookItems.id),
+    versionNumber: integer("version_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    trade: text("trade").notNull(),
+    description: text("description").notNull(),
+    unit: text("unit").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    status: text("status").notNull().default("draft"),
+    effectiveAt: timestamp("effective_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    contentHash: text("content_hash").notNull(),
+  },
+  (table) => [
+    unique("price_book_item_versions_item_version_unique").on(
+      table.itemId,
+      table.versionNumber,
+    ),
+    check(
+      "price_book_item_versions_status_valid",
+      sql`${table.status} IN ('draft', 'approved')`,
+    ),
+    check(
+      "price_book_item_versions_trade_valid",
+      sql`${table.trade} IN ('spray-foam', 'fireproofing', 'intumescent', 'avb', 'spf-roofing')`,
+    ),
+    check(
+      "price_book_item_versions_unit_valid",
+      sql`${table.unit} IN ('bags', 'sq_ft', 'hour', 'each')`,
+    ),
+    check(
+      "price_book_item_versions_price_valid",
+      sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
+    ),
+    index("price_book_item_versions_item_idx").on(
+      table.organizationId,
+      table.itemId,
+    ),
+  ],
+);
+
+export type PriceBookItemVersionRow = typeof priceBookItemVersions.$inferSelect;
+
+export const estimates = pgTable(
+  "estimates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    opportunityId: uuid("opportunity_id")
+      .notNull()
+      .references(() => opportunities.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    number: text("number").notNull(),
+    title: text("title").notNull(),
+    createdBy: text("created_by").notNull(),
+    currentVersionId: uuid("current_version_id"),
+  },
+  (table) => [
+    unique("estimates_organization_number_unique").on(table.organizationId, table.number),
+    index("estimates_opportunity_idx").on(table.organizationId, table.opportunityId),
+  ],
+);
+
+export const estimateVersions = pgTable(
+  "estimate_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateId: uuid("estimate_id")
+      .notNull()
+      .references(() => estimates.id),
+    versionNumber: integer("version_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdBy: text("created_by").notNull(),
+    overheadBasisPoints: integer("overhead_basis_points").notNull(),
+    markupBasisPoints: integer("markup_basis_points").notNull(),
+    taxBasisPoints: integer("tax_basis_points").notNull(),
+    calculationOrder: text("calculation_order").notNull(),
+    baseSubtotalCents: integer("base_subtotal_cents").notNull(),
+    alternateTotalCents: integer("alternate_total_cents").notNull(),
+    overheadCents: integer("overhead_cents").notNull(),
+    markupCents: integer("markup_cents").notNull(),
+    taxCents: integer("tax_cents").notNull(),
+    totalCents: integer("total_cents").notNull(),
+    contentHash: text("content_hash").notNull(),
+  },
+  (table) => [
+    unique("estimate_versions_number_unique").on(table.estimateId, table.versionNumber),
+    index("estimate_versions_estimate_idx").on(table.organizationId, table.estimateId),
+  ],
+);
+
+export const estimateAlternates = pgTable(
+  "estimate_alternates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    included: boolean("included").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    index("estimate_alternates_version_idx").on(table.organizationId, table.estimateVersionId),
+  ],
+);
+
+export const estimateLines = pgTable(
+  "estimate_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    sortOrder: integer("sort_order").notNull(),
+    category: text("category").notNull(),
+    description: text("description").notNull(),
+    trade: text("trade").notNull(),
+    location: text("location"),
+    method: text("method").notNull(),
+    quantity: numeric("quantity", { precision: 14, scale: 4 }),
+    unit: text("unit"),
+    unitPriceCents: integer("unit_price_cents"),
+    basisPoints: integer("basis_points"),
+    basisCategories: jsonb("basis_categories").$type<string[]>().notNull(),
+    taxable: boolean("taxable").notNull(),
+    alternateId: uuid("alternate_id").references(() => estimateAlternates.id),
+    priceBookItemId: uuid("price_book_item_id").references(() => priceBookItems.id),
+    priceBookVersionId: uuid("price_book_version_id").references(() => priceBookItemVersions.id),
+    lineTotalCents: integer("line_total_cents").notNull(),
+  },
+  (table) => [
+    check(
+      "estimate_lines_category_valid",
+      sql`${table.category} IN ('labor', 'material', 'equipment', 'subcontractor', 'allowance')`,
+    ),
+    check(
+      "estimate_lines_method_valid",
+      sql`${table.method} IN ('unit', 'fixed', 'percent')`,
+    ),
+    index("estimate_lines_version_idx").on(table.organizationId, table.estimateVersionId),
+  ],
+);
+
+export const estimateClauses = pgTable(
+  "estimate_clauses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    kind: text("kind").notNull(),
+    text: text("text").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    check(
+      "estimate_clauses_kind_valid",
+      sql`${table.kind} IN ('inclusion', 'exclusion', 'assumption')`,
+    ),
+    index("estimate_clauses_version_idx").on(table.organizationId, table.estimateVersionId),
+  ],
+);
+
+export const estimateJobPackages = pgTable(
+  "estimate_job_packages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    estimateVersionId: uuid("estimate_version_id")
+      .notNull()
+      .references(() => estimateVersions.id),
+    name: text("name").notNull(),
+    trade: text("trade").notNull(),
+    scope: text("scope").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    index("estimate_job_packages_version_idx").on(table.organizationId, table.estimateVersionId),
+  ],
+);
+
+export const estimateJobWorkAreas = pgTable(
+  "estimate_job_work_areas",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => estimateJobPackages.id),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    index("estimate_job_work_areas_package_idx").on(table.organizationId, table.packageId),
+  ],
+);
+
+export const estimateJobTasks = pgTable(
+  "estimate_job_tasks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => estimateJobPackages.id),
+    workAreaId: uuid("work_area_id").references(() => estimateJobWorkAreas.id),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (table) => [
+    index("estimate_job_tasks_package_idx").on(table.organizationId, table.packageId),
+  ],
+);
+
+export const estimateLineSources = pgTable(
+  "estimate_line_sources",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    lineId: uuid("line_id")
+      .notNull()
+      .references(() => estimateLines.id),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    pageNumber: integer("page_number").notNull(),
+    sheetLabel: text("sheet_label"),
+    chunkId: uuid("chunk_id")
+      .notNull()
+      .references(() => documentChunks.id),
+    contentHash: text("content_hash").notNull(),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull(),
+  },
+  (table) => [
+    index("estimate_line_sources_line_idx").on(table.organizationId, table.lineId),
+  ],
+);
+
+export type EstimateRow = typeof estimates.$inferSelect;
+export type EstimateVersionRow = typeof estimateVersions.$inferSelect;
+export type EstimateLineRow = typeof estimateLines.$inferSelect;
+export type EstimateClauseRow = typeof estimateClauses.$inferSelect;
+export type EstimateAlternateRow = typeof estimateAlternates.$inferSelect;
+export type EstimateJobPackageRow = typeof estimateJobPackages.$inferSelect;
+export type EstimateJobWorkAreaRow = typeof estimateJobWorkAreas.$inferSelect;
+export type EstimateJobTaskRow = typeof estimateJobTasks.$inferSelect;
+export type EstimateLineSourceRow = typeof estimateLineSources.$inferSelect;
 
 export const auditEvents = pgTable(
   "audit_events",

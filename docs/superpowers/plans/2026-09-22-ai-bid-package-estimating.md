@@ -592,7 +592,7 @@ Commit message: `Extract cited bid-package pages durably.`
 - Create: `drizzle/0021_price_book_versions.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Extend tests before changing schema**
+- [x] **Step 1: Extend tests before changing schema**
 
 Assert:
 
@@ -605,13 +605,13 @@ expect(updateApprovedRevision(v1)).toEqual({ ok: false, error: "immutable" });
 expect(listApprovedPriceRevisions(retiredItem.id)).toContainEqual(v1);
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/price-book.test.ts
 ```
 
-- [ ] **Step 3: Add immutable revision schema and backfill**
+- [x] **Step 3: Add immutable revision schema and backfill**
 
 Create `price_book_item_versions` with organization, item, version number,
 trade, description, unit, unit price cents, status, effective timestamps,
@@ -619,13 +619,13 @@ creator, approver, approval timestamp, and content hash. Backfill each current
 item as approved version 1. Add `current_approved_version_id` to the logical
 item.
 
-- [ ] **Step 4: Split draft and approval actions**
+- [x] **Step 4: Split draft and approval actions**
 
 Office users create a draft revision. Administrators approve it. Estimate
 queries return only active approved revisions. Retiring a logical item hides it
 from new estimates and does not invalidate old revision references.
 
-- [ ] **Step 5: Run checks and browser-verify**
+- [x] **Step 5: Run checks and browser-verify**
 
 ```bash
 npx vitest run src/lib/ops/price-book.test.ts src/lib/ops/search.test.ts
@@ -636,7 +636,7 @@ npm test
 Create a revision, approve it as admin, retire the item, and confirm both
 approved revisions remain readable.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `Preserve approved price-book revisions.`
 
@@ -654,7 +654,7 @@ Commit message: `Preserve approved price-book revisions.`
 - Create: `drizzle/0022_estimates.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Write exact financial vector tests**
+- [x] **Step 1: Write exact financial vector tests**
 
 Cover decimal quantity, fixed line, percentage adjustment, tax, allowance,
 excluded alternate, included alternate, and half-up rounding:
@@ -668,13 +668,13 @@ expect(calculateBasisPoints(1, 5000)).toBe(1);
 Assert negative quantity, excessive precision, unknown price revision, and
 client-supplied line total fail.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/estimate-calculator.test.ts src/lib/ops/estimates.test.ts
 ```
 
-- [ ] **Step 3: Implement the calculator**
+- [x] **Step 3: Implement the calculator**
 
 Use parsed decimal strings, integer cents, and explicit half-up rounding.
 Export:
@@ -693,14 +693,14 @@ calculateEstimate(input: EstimateCalculationInput): {
 
 Ignore any totals in request/model input.
 
-- [ ] **Step 4: Add immutable estimate schema**
+- [x] **Step 4: Add immutable estimate schema**
 
 Create the estimate, version, line, clause, alternate, job package, work area,
 task, and source tables from the design. Content tables expose insert/select
 only. Canonical JSON sorts rows by stable sort order and IDs; SHA-256 produces
 `content_hash`.
 
-- [ ] **Step 5: Implement create-next-version and deterministic diff**
+- [x] **Step 5: Implement create-next-version and deterministic diff**
 
 `createEstimateVersion` validates every selected price revision and citation,
 calculates totals, inserts all content in one transaction, and assigns the next
@@ -708,13 +708,13 @@ version while locking the estimate container. `compareEstimateVersions`
 returns added/removed/changed lines, clauses, alternates, job packages, and
 totals.
 
-- [ ] **Step 6: Add demo parity and tests**
+- [x] **Step 6: Add demo parity and tests**
 
 Demo fixtures contain a spray-foam line, AVB line, inclusion, exclusion,
 alternate, two job packages, and citations. Attempting to mutate version
 content must fail in both stores.
 
-- [ ] **Step 7: Run checks and commit**
+- [x] **Step 7: Run checks and commit**
 
 ```bash
 npx vitest run src/lib/ops/estimate-calculator.test.ts src/lib/ops/estimates.test.ts src/lib/ops/demo-store.test.ts
