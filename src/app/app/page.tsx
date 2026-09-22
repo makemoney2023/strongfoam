@@ -30,6 +30,9 @@ import {
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
 import { getOpsSession } from "@/lib/ops/auth";
+import { resolveImportAccess } from "@/lib/ops/import-authorization";
+import { listImportHomeExceptions } from "@/lib/ops/import-attention";
+import { listImportAttention } from "@/lib/ops/import-store";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import {
@@ -154,6 +157,11 @@ export default async function OpsHomePage() {
     listHomeExceptionSource(),
   ]);
 
+  const importAccess = resolveImportAccess(session, "data.import.prepare");
+  const importAttention = importAccess.ok
+    ? await listImportAttention(importAccess.organizationId)
+    : { batches: [], deadLetters: [] };
+  const importExceptions = listImportHomeExceptions(importAttention);
   const opsNow = getOpsNow();
   const summary = buildHomeSummary(
     { requests, opportunities, projects, jobs },
@@ -332,6 +340,36 @@ export default async function OpsHomePage() {
           </ul>
         )}
       </section>
+
+      {importAccess.ok ? (
+        <section aria-labelledby="import-exceptions-heading" className="space-y-3">
+          <div>
+            <h2 id="import-exceptions-heading" className="text-lg font-semibold">
+              Import exceptions
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Failed imports, dead-letter import jobs, price drafts awaiting approval, and workforce accounts awaiting activation.
+            </p>
+          </div>
+          {importExceptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No import exceptions.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {importExceptions.map((exception) => (
+                <li key={`${exception.kind}-${exception.href}-${exception.label}`}>
+                  <Link
+                    href={exception.href}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{exception.label}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
         <Card>

@@ -45,12 +45,19 @@ function isSensitiveKey(key: string): boolean {
   if (normalized === "filebytes" || normalized.endsWith("filebytes")) {
     return true;
   }
+  if (normalized.includes("signedurl")) return true;
+  if (normalized === "values" || normalized === "rowvalues") return true;
   return false;
+}
+
+function looksLikeSignedStorageUrl(value: string): boolean {
+  return /\/storage\/v1\/object\/sign\//i.test(value) || /[?&]token=/i.test(value);
 }
 
 function redactValue(value: unknown): unknown {
   if (typeof Buffer !== "undefined" && Buffer.isBuffer(value)) return REDACTED;
   if (value instanceof Uint8Array) return REDACTED;
+  if (typeof value === "string" && looksLikeSignedStorageUrl(value)) return REDACTED;
   if (Array.isArray(value)) return value.map((item) => redactValue(item));
   if (value && typeof value === "object") {
     return redactAuditPayload(value as Record<string, unknown>);

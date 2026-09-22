@@ -130,6 +130,34 @@ is missing. Supabase project credentials stay outside this repository.
 records a heartbeat, and stops cleanly on SIGTERM. It does not serve the Next.js
 app.
 
+Import Center staging lives in the Postgres `private` schema (`data_import_batches`,
+including `file_bytes`, plus sheets, rows, events, and crosswalks). Apply migrations
+through `0028_import_domain_keys.sql` before a durable import. Runtime traffic uses
+`DATABASE_URL`, the worker uses `WORKER_DATABASE_URL`, and migrations use `DIRECT_URL`.
+Those three credentials must differ in production. If a private `data-imports` Storage
+bucket is configured, it stays private: no public listing and no cross-organization
+object list.
+
+The worker job `data-import.retain` clears source bytes and normalized row values.
+Cancelled batches lose the source file immediately. Failed batches lose it after 7
+days. Completed batches lose it after 30 days. Normalized row values are cleared
+after 90 days. The batch summary, source keys, and events stay. A later retention
+run does not fail when the source is already gone. Dead-letter jobs of kind
+`data-import.analyze`, `data-import.commit`, or `data-import.retain` show on Home
+for staff who can prepare imports, with failed batches, completed price drafts, and
+inactive imported users. Retry a dead letter from the worker queue after the cause
+is fixed; do not re-upload a completed batch to force a retry.
+
+`npm run import:verify-environment` prints pass/fail JSON for a staging or production
+checklist. It does not open a database connection and does not print credentials.
+Set `IMPORT_VERIFY_TARGET` to `staging` or `production`, `IMPORT_DATABASE_LABEL` to
+that same word, `IMPORT_WORKER_CLAIMED=1` after the worker claims a probe job, and
+`IMPORT_BACKUP_CONFIRMED=1` before a production cutover. Leave
+`IMPORT_RUNTIME_MATCHES_MIGRATION`, `IMPORT_BUCKET_PUBLIC`,
+`IMPORT_ROLLBACK_LEFT_PROBE`, and `IMPORT_EXPOSED_SCHEMAS` unset when those checks
+pass. Rehearse the cutover on staging before production. See
+`docs/runbooks/data-import-cutover.md`.
+
 Voice notes store audio privately (demo memory, production Blob). Transcription
 runs after save: a demo stub in `OPS_DEMO`, Deepgram Nova-3 (`en-US`) when
 `DEEPGRAM_API_KEY` is set, otherwise an empty machine transcript so the user can

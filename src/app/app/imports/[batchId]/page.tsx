@@ -93,7 +93,13 @@ export default async function ImportBatchPage({
           ))}
         </ul>
       </Card>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={`/api/ops/imports/${batch.id}/report`}
+          className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium underline underline-offset-4"
+        >
+          Download reconciliation
+        </a>
         {canCommit && batch.status === "ready" ? (
           <ActionForm action={commitImport}>
             <input type="hidden" name="batchId" value={batch.id} />

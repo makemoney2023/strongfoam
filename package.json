@@ -14,6 +14,7 @@
     "media:sync": "node scripts/sync-public-media.mjs",
     "start": "next start",
     "worker": "tsx src/worker/index.ts",
+    "import:verify-environment": "tsx scripts/verify-import-environment.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

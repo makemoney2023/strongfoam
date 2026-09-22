@@ -1,9 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
   contacts,
+  backgroundJobs,
   dataImportBatches,
   dataImportEvents,
   dataImportRows,
@@ -36,6 +37,8 @@ import {
   type ImportBatchStatus,
   type ImportEntityType,
 } from "@/lib/ops/import-contract";
+import type { ImportAttentionBatch, ImportDeadLetter } from "@/lib/ops/import-attention";
+import { applyImportRetention } from "@/lib/ops/import-retention";
 import { hashPassword } from "@/lib/ops/credentials";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import {
@@ -90,9 +93,18 @@ export type ImportRepository = {
     batchId: string;
     actor: string;
   }): Promise<{ ok: true; batch: ImportBatchDetail } | { ok: false; error: string }>;
+  listAttention(organizationId: string): Promise<{
+    batches: ImportAttentionBatch[];
+    deadLetters: ImportDeadLetter[];
+  }>;
+  retainDue(organizationId: string, now: Date): Promise<void>;
 };
 
-type MemoryBatch = ImportBatchDetail & { idempotencyKey: string };
+type MemoryBatch = ImportBatchDetail & {
+  idempotencyKey: string;
+  updatedAt: Date;
+  hasSource: boolean;
+};
 
 export function createMemoryImportStore(initialDomain = emptyImportDomain()): ImportRepository & {
   domain: ImportDomain;
@@ -143,6 +155,8 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
         previewHash: staged.value.previewHash,
         sha256,
         idempotencyKey: sha256,
+        updatedAt: new Date(),
+        hasSource: true,
         sheets: staged.value.sheets,
         rows: staged.value.rows.map((row) => ({ ...row, operation: null, targetId: null })),
       };
@@ -181,6 +195,7 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
       batch.status = state.status;
       batch.revision = state.revision;
       batch.durable = input.durable;
+      batch.updatedAt = new Date();
       return { ok: true, batch, already: false };
     },
     async cancel(input) {
@@ -196,19 +211,51 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
         );
         batch.status = state.status;
         batch.revision = state.revision;
+        batch.updatedAt = new Date();
       } catch {
         return { ok: false, error: "This import can no longer be cancelled." };
       }
       return { ok: true, batch };
     },
+    async listAttention(organizationId) {
+      return attentionFromBatches(batches.filter((batch) => batch.organizationId === organizationId));
+    },
+    async retainDue(organizationId, now) {
+      const owned = batches
+        .filter((batch) => batch.organizationId === organizationId)
+        .map((batch) => ({
+          id: batch.id,
+          status: batch.status,
+          updatedAt: batch.updatedAt,
+          hasSource: batch.hasSource,
+          hasNormalized: batch.rows.some((row) => Object.keys(row.values).length > 0),
+          batch,
+        }));
+      await applyImportRetention(owned, now, async (subject, plan) => {
+        if (plan.deleteSource) subject.batch.hasSource = false;
+        if (plan.deleteNormalized) {
+          for (const row of subject.batch.rows) row.values = {};
+        }
+      });
+    },
   };
   return store;
 }
 
-const memoryStore = createMemoryImportStore();
+function memoryImportStore(): ReturnType<typeof createMemoryImportStore> {
+  // Server actions and route handlers can load separate module copies.
+  // Keep staged imports on globalThis so the reconciliation download can read them.
+  const globalForImport = globalThis as typeof globalThis & {
+    __strongfoamImportStore?: ReturnType<typeof createMemoryImportStore>;
+  };
+  if (!globalForImport.__strongfoamImportStore) {
+    globalForImport.__strongfoamImportStore = createMemoryImportStore();
+  }
+  return globalForImport.__strongfoamImportStore;
+}
 
 export function getImportRepository(): ImportRepository {
-  return isDemoOpsStore() ? memoryStore : postgresImportRepository;
+  return isDemoOpsStore() ? memoryImportStore() : postgresImportRepository;
 }
 
 const postgresImportRepository: ImportRepository = {
@@ -217,7 +264,190 @@ const postgresImportRepository: ImportRepository = {
   saveUpload: savePostgresUpload,
   commit: commitPostgresBatch,
   cancel: cancelPostgresBatch,
+  listAttention: listPostgresAttention,
+  retainDue: retainPostgresImports,
 };
+
+const IMPORT_DEAD_LETTER_KINDS = [
+  "data-import.analyze",
+  "data-import.commit",
+  "data-import.retain",
+] as const;
+
+function sqlBoolean(value: unknown): boolean {
+  return value === true || value === "t" || value === "true";
+}
+
+async function listPostgresAttention(organizationId: string) {
+  importScopeClause("batches", organizationId);
+  const db = getDb();
+  const batches = await db
+    .select({
+      id: dataImportBatches.id,
+      filename: dataImportBatches.filename,
+      status: dataImportBatches.status,
+    })
+    .from(dataImportBatches)
+    .where(eq(dataImportBatches.organizationId, organizationId));
+  const counts = await db
+    .select({
+      batchId: dataImportRows.batchId,
+      entityType: dataImportRows.entityType,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(dataImportRows)
+    .where(
+      and(
+        eq(dataImportRows.organizationId, organizationId),
+        inArray(dataImportRows.entityType, ["price_book_item", "workforce_user"]),
+      ),
+    )
+    .groupBy(dataImportRows.batchId, dataImportRows.entityType);
+  const byBatch = new Map<string, { price: number; users: number }>();
+  for (const row of counts) {
+    const current = byBatch.get(row.batchId) ?? { price: 0, users: 0 };
+    const total = Number(row.total);
+    if (row.entityType === "price_book_item") current.price += total;
+    if (row.entityType === "workforce_user") current.users += total;
+    byBatch.set(row.batchId, current);
+  }
+  const jobs = await db
+    .select({
+      id: backgroundJobs.id,
+      kind: backgroundJobs.kind,
+      batchId: backgroundJobs.aggregateId,
+    })
+    .from(backgroundJobs)
+    .where(
+      and(
+        eq(backgroundJobs.organizationId, organizationId),
+        eq(backgroundJobs.status, "dead_letter"),
+        inArray(backgroundJobs.kind, [...IMPORT_DEAD_LETTER_KINDS]),
+      ),
+    );
+  return {
+    batches: batches.flatMap((batch) => {
+      const counted = byBatch.get(batch.id) ?? { price: 0, users: 0 };
+      const priceDraftCount = batch.status === "completed" ? counted.price : 0;
+      const inactiveUserCount = batch.status === "completed" ? counted.users : 0;
+      if (batch.status !== "failed" && priceDraftCount === 0 && inactiveUserCount === 0) {
+        return [];
+      }
+      return [{
+        id: batch.id,
+        filename: batch.filename,
+        status: batch.status,
+        priceDraftCount,
+        inactiveUserCount,
+      }];
+    }),
+    deadLetters: jobs.map((job) => ({
+      id: job.id,
+      kind: job.kind,
+      batchId: job.batchId,
+    })),
+  };
+}
+
+async function retainPostgresImports(organizationId: string, now: Date) {
+  importScopeClause("batches", organizationId);
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: dataImportBatches.id,
+      status: dataImportBatches.status,
+      updatedAt: dataImportBatches.updatedAt,
+      hasSource: sql<boolean>`(${dataImportBatches.fileBytes} is not null)`,
+      hasNormalized: sql<boolean>`exists (
+        select 1 from ${dataImportRows}
+        where ${dataImportRows.batchId} = ${dataImportBatches.id}
+          and ${dataImportRows.organizationId} = ${organizationId}
+          and ${dataImportRows.values} <> '{}'::jsonb
+      )`,
+    })
+    .from(dataImportBatches)
+    .where(eq(dataImportBatches.organizationId, organizationId));
+  const subjects = rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    updatedAt: row.updatedAt,
+    hasSource: sqlBoolean(row.hasSource),
+    hasNormalized: sqlBoolean(row.hasNormalized),
+  }));
+  await applyImportRetention(subjects, now, async (subject, plan) => {
+    if (plan.deleteSource) {
+      await db
+        .update(dataImportBatches)
+        .set({ fileBytes: null })
+        .where(and(
+          eq(dataImportBatches.organizationId, organizationId),
+          eq(dataImportBatches.id, subject.id),
+        ));
+      await db.insert(dataImportEvents).values({
+        batchId: subject.id,
+        organizationId,
+        actor: "worker",
+        kind: "retention",
+        summary: "Removed the staged source file.",
+        payload: { removed: "source" },
+      });
+    }
+    if (plan.deleteNormalized) {
+      await db
+        .update(dataImportRows)
+        .set({ values: {} })
+        .where(and(
+          eq(dataImportRows.organizationId, organizationId),
+          eq(dataImportRows.batchId, subject.id),
+        ));
+      await db.insert(dataImportEvents).values({
+        batchId: subject.id,
+        organizationId,
+        actor: "worker",
+        kind: "retention",
+        summary: "Cleared normalized row values.",
+        payload: { removed: "normalized" },
+      });
+    }
+  });
+}
+
+function attentionFromBatches(batches: MemoryBatch[]): {
+  batches: ImportAttentionBatch[];
+  deadLetters: ImportDeadLetter[];
+} {
+  return {
+    batches: batches.flatMap((batch) => {
+      const priceDraftCount =
+        batch.status === "completed"
+          ? batch.rows.filter((row) => row.entityType === "price_book_item").length
+          : 0;
+      const inactiveUserCount =
+        batch.status === "completed"
+          ? batch.rows.filter((row) => row.entityType === "workforce_user").length
+          : 0;
+      if (batch.status !== "failed" && priceDraftCount === 0 && inactiveUserCount === 0) {
+        return [];
+      }
+      return [{
+        id: batch.id,
+        filename: batch.filename,
+        status: batch.status,
+        priceDraftCount,
+        inactiveUserCount,
+      }];
+    }),
+    deadLetters: [],
+  };
+}
+
+export async function listImportAttention(organizationId: string) {
+  return getImportRepository().listAttention(organizationId);
+}
+
+export async function retainDueImports(organizationId: string, now = new Date()) {
+  await getImportRepository().retainDue(organizationId, now);
+}
 
 function summaryOf(batch: ImportBatchDetail): ImportBatchSummary {
   return {
