@@ -1,3 +1,4 @@
+import type { JobTaskInput } from "@/lib/ops/job-workspace";
 import { DEFAULT_WORKING_CALENDAR } from "@/lib/ops/project-schedule-planning";
 import {
   isTaskCommandKind,
@@ -45,9 +46,17 @@ function taskInput(
     plannedStartAt: Date | null;
     plannedEndAt: Date | null;
     workAreaId: string | null;
+    statedQuantity: number | null;
+    statedUnit: string | null;
   },
   dueAt: Date | null,
-) {
+): JobTaskInput {
+  const statedUnit: JobTaskInput["statedUnit"] =
+    task.statedUnit === "bags"
+      ? "bags"
+      : task.statedUnit === "sq_ft"
+        ? "sq_ft"
+        : null;
   return {
     title: task.title,
     assignee: task.assignee,
@@ -56,6 +65,8 @@ function taskInput(
     plannedStartAt: task.plannedStartAt,
     plannedEndAt: task.plannedEndAt,
     workAreaId: task.workAreaId,
+    statedQuantity: task.statedQuantity,
+    statedUnit,
   };
 }
 

@@ -175,6 +175,8 @@ function rawTask(
     plannedEndAt: new Date("2026-09-14T12:00:00.000Z"),
     completedAt: null,
     status: "open",
+    statedQuantity: null,
+    statedUnit: null,
     createdBy: "scheduler@example.com",
     ...overrides,
   };

@@ -95,6 +95,7 @@ import {
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import { statedTaskWrite } from "@/lib/ops/quantity-pace";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import {
   STRONG_FOAM_ORGANIZATION_ID,
@@ -1468,8 +1469,11 @@ export function listDemoHomeExceptionSource(): {
     status: string;
     dueAt: Date | null;
     plannedEndAt: Date | null;
+    statedQuantity: number | null;
+    statedUnit: string | null;
   }>;
   fieldNotes: Array<{ jobId: string; kind: string; createdAt: Date }>;
+  quantities: Array<{ jobId: string; quantity: number | null; unit: string | null }>;
   voiceNotes: Array<{
     id: string;
     jobId: string;
@@ -1499,6 +1503,8 @@ export function listDemoHomeExceptionSource(): {
         status: task.status,
         dueAt: task.dueAt,
         plannedEndAt: task.plannedEndAt,
+        statedQuantity: task.statedQuantity,
+        statedUnit: task.statedUnit,
       })),
     fieldNotes: jobFieldNotes
       .filter((note) => note.kind === "daily_report")
@@ -1506,6 +1512,13 @@ export function listDemoHomeExceptionSource(): {
         jobId: note.jobId,
         kind: note.kind,
         createdAt: note.createdAt,
+      })),
+    quantities: jobFieldNotes
+      .filter((note) => note.kind === "quantity")
+      .map((note) => ({
+        jobId: note.jobId,
+        quantity: note.quantity,
+        unit: note.unit,
       })),
     voiceNotes: jobVoiceNotes
       .filter((note) => note.status === "failed" || note.status === "completed")
@@ -2347,6 +2360,10 @@ export function addDemoJobTask(args: {
     plannedEndAt: args.input.plannedEndAt,
     completedAt: null,
     status: "open",
+    ...(statedTaskWrite(args.input) ?? {
+      statedQuantity: null,
+      statedUnit: null,
+    }),
     createdBy: args.actor,
   };
   jobTasks.unshift(task);
@@ -2914,6 +2931,11 @@ export function updateDemoJobTask(args: {
   task.plannedStartAt = args.input.plannedStartAt;
   task.plannedEndAt = args.input.plannedEndAt;
   task.workAreaId = args.input.workAreaId;
+  const stated = statedTaskWrite(args.input);
+  if (stated) {
+    task.statedQuantity = stated.statedQuantity;
+    task.statedUnit = stated.statedUnit;
+  }
   task.updatedAt = args.restoredUpdatedAt ?? new Date();
   recordJobEvent({
     jobId: args.jobId,

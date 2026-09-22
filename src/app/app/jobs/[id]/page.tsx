@@ -61,6 +61,11 @@ import {
 } from "@/lib/ops/field-workspace";
 import { buildMaterialPickList } from "@/lib/ops/material-pick-list";
 import {
+  formatStatedQuantity,
+  listQuantityPaceWarnings,
+  quantityPaceLabel,
+} from "@/lib/ops/quantity-pace";
+import {
   acceptedScheduleDiffNoteId,
   proposeScheduleDiff,
 } from "@/lib/ops/schedule-diff";
@@ -203,6 +208,7 @@ export default async function JobDetailPage({
     assignments,
     fieldUsers,
     materialNotes,
+    quantityNotes,
     scheduleNotes,
     projectTasks,
     projectDependencies,
@@ -223,6 +229,7 @@ export default async function JobDetailPage({
       listJobAssignments(job.id),
       listActiveFieldUsers(),
       listJobFieldNotes(job.id, { kind: "material_request" }),
+      listJobFieldNotes(job.id, { kind: "quantity" }),
       job.projectId ? listJobFieldNotes(job.id) : Promise.resolve([]),
       job.projectId ? listProjectJobTasks(job.projectId) : Promise.resolve(null),
       job.projectId
@@ -234,6 +241,11 @@ export default async function JobDetailPage({
       listJobTasks(job.id),
     ]);
 
+  const paceWarnings = listQuantityPaceWarnings({
+    jobs: [{ id: job.id, name: job.name }],
+    tasks: commandTasks,
+    quantities: quantityNotes,
+  });
   const returnTo = `/app/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
@@ -820,6 +832,11 @@ export default async function JobDetailPage({
               </CardAction>
             </CardHeader>
             <CardContent>
+              {paceWarnings.map((warning) => (
+                <p key={warning.unit} className="mb-4 text-sm" role="status">
+                  {quantityPaceLabel(warning, { includeJob: false })}
+                </p>
+              ))}
               {tasks.length > 0 ? (
                 <Progress
                   value={taskProgress}
@@ -874,6 +891,10 @@ export default async function JobDetailPage({
                           <p className="text-sm text-muted-foreground">
                             {task.assignee ?? "Unassigned"}
                             {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
+                            {task.status !== "done" &&
+                            formatStatedQuantity(task.statedQuantity, task.statedUnit)
+                              ? ` · ${formatStatedQuantity(task.statedQuantity, task.statedUnit)}`
+                              : ""}
                             {task.dueAt ? ` · due ${task.dueAt.toLocaleString("en-CA")}` : ""}
                           </p>
                         </div>
@@ -913,6 +934,8 @@ export default async function JobDetailPage({
                                   task.plannedEndAt,
                                 ),
                                 workAreaId: task.workAreaId,
+                                statedQuantity: task.statedQuantity,
+                                statedUnit: task.statedUnit,
                               }}
                             />
                             <div className="sm:col-span-2">

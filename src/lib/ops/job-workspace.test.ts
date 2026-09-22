@@ -67,6 +67,27 @@ describe("job workspace parsers", () => {
     if (!parsed.ok) return;
     expect(parsed.value.plannedStartAt).toBeInstanceOf(Date);
     expect(parsed.value.plannedEndAt).toBeInstanceOf(Date);
+    expect(parsed.value.statedQuantity).toBeNull();
+    expect(parsed.value.statedUnit).toBeNull();
+  });
+
+  it("stores a stated quantity in bags or square feet", () => {
+    const parsed = parseJobTaskInput({
+      title: "Install closed-cell",
+      statedQuantity: "40",
+      statedUnit: "bags",
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.statedQuantity).toBe(40);
+    expect(parsed.value.statedUnit).toBe("bags");
+    expect(
+      parseJobTaskInput({
+        title: "Install closed-cell",
+        statedQuantity: "40",
+        statedUnit: "hours",
+      }),
+    ).toMatchObject({ ok: false, field: "statedUnit" });
   });
 
   it("rejects task planned completion before planned start", () => {
