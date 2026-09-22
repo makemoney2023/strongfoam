@@ -1,4 +1,9 @@
-import type { AuditEventRow } from "@/db/schema";
+import type {
+  AuditEventRow,
+  DocumentLinkRow,
+  DocumentRow,
+  DocumentVersionRow,
+} from "@/db/schema";
 import {
   demoCompanies,
   demoContacts,
@@ -99,6 +104,17 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import { statedTaskWrite } from "@/lib/ops/quantity-pace";
+import {
+  BACKGROUND_JOB_ATTEMPT_LIMIT,
+  enqueueBackgroundJob,
+  type BackgroundJob,
+} from "@/lib/ops/background-jobs";
+import type { BidDocumentInput } from "@/lib/ops/commercial-documents";
+import { nextDocumentVersion } from "@/lib/ops/commercial-documents";
+import {
+  getStoredBidDocumentBytes,
+  setBidDocumentBytes,
+} from "@/lib/ops/bid-document-bytes";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import {
@@ -170,6 +186,10 @@ type DemoOpsState = {
   jobVoiceNotes: JobVoiceNoteRow[];
   priceBookItems: PriceBookItemRow[];
   auditEvents: AuditEventRow[];
+  bidDocuments: DocumentRow[];
+  bidDocumentVersions: DocumentVersionRow[];
+  bidDocumentLinks: DocumentLinkRow[];
+  bidBackgroundJobs: BackgroundJob[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -209,6 +229,10 @@ function getDemoState(): DemoOpsState {
       jobVoiceNotes: demoJobVoiceNotes(),
       priceBookItems: demoPriceBookItems(),
       auditEvents: [],
+      bidDocuments: [],
+      bidDocumentVersions: [],
+      bidDocumentLinks: [],
+      bidBackgroundJobs: [],
     };
     seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
@@ -244,6 +268,15 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.auditEvents) {
     globalForDemo.__strongfoamDemoOps.auditEvents = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.bidDocuments) {
+    globalForDemo.__strongfoamDemoOps.bidDocuments = [];
+    globalForDemo.__strongfoamDemoOps.bidDocumentVersions = [];
+    globalForDemo.__strongfoamDemoOps.bidDocumentLinks = [];
+    globalForDemo.__strongfoamDemoOps.bidBackgroundJobs = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.bidBackgroundJobs) {
+    globalForDemo.__strongfoamDemoOps.bidBackgroundJobs = [];
   }
   for (const record of [
     ...globalForDemo.__strongfoamDemoOps.requests,
@@ -3726,6 +3759,173 @@ export function updateDemoPriceBookItem(
 export function appendDemoAuditEvent(event: AuditEventRow): AuditEventRow {
   getDemoState().auditEvents.unshift(event);
   return event;
+}
+
+export type BidPackageItem = {
+  document: DocumentRow;
+  version: DocumentVersionRow;
+};
+
+export function listDemoBidPackage(
+  organizationId: string,
+  opportunityId: string,
+): BidPackageItem[] {
+  const state = getDemoState();
+  return state.bidDocumentLinks
+    .filter(
+      (link) =>
+        link.organizationId === organizationId &&
+        link.entityType === "opportunity" &&
+        link.entityId === opportunityId &&
+        link.purpose === "bid-package",
+    )
+    .flatMap((link) => {
+      const version = state.bidDocumentVersions.find(
+        (item) =>
+          item.id === link.documentVersionId &&
+          item.organizationId === organizationId,
+      );
+      const document = version
+        ? state.bidDocuments.find((item) => item.id === version.documentId)
+        : null;
+      return version && document ? [{ document, version }] : [];
+    })
+    .sort((a, b) => b.version.createdAt.getTime() - a.version.createdAt.getTime());
+}
+
+export function recordDemoQuarantinedBidDocument(args: {
+  organizationId: string;
+  opportunityId: string;
+  documentId: string | null;
+  actor: string;
+  input: BidDocumentInput;
+  pathname: string;
+  bytes?: Uint8Array;
+}): { documentId: string; versionId: string } | null {
+  const opportunity = getDemoOpportunity(args.opportunityId);
+  if (!opportunity || opportunity.organizationId !== args.organizationId) return null;
+  const state = getDemoState();
+  const existingPath = state.bidDocumentVersions.find(
+    (version) => version.pathname === args.pathname,
+  );
+  if (existingPath) {
+    return { documentId: existingPath.documentId, versionId: existingPath.id };
+  }
+
+  const now = new Date();
+  let document = args.documentId
+    ? (state.bidDocuments.find(
+        (item) =>
+          item.id === args.documentId && item.organizationId === args.organizationId,
+      ) ?? null)
+    : null;
+  if (args.documentId && !document) return null;
+  if (!document) {
+    document = {
+      id: crypto.randomUUID(),
+      organizationId: args.organizationId,
+      createdAt: now,
+      title: args.input.filename,
+      createdBy: args.actor,
+    };
+    state.bidDocuments.unshift(document);
+  }
+
+  const version: DocumentVersionRow = {
+    id: crypto.randomUUID(),
+    organizationId: args.organizationId,
+    documentId: document.id,
+    versionNumber: nextDocumentVersion(
+      state.bidDocumentVersions.filter((item) => item.documentId === document.id),
+    ),
+    createdAt: now,
+    filename: args.input.filename,
+    contentType: args.input.contentType,
+    sizeBytes: args.input.sizeBytes,
+    pathname: args.pathname,
+    sha256: null,
+    status: "quarantined",
+    kind: args.input.kind,
+    revisionLabel: args.input.revisionLabel,
+    uploadedBy: args.actor,
+  };
+  state.bidDocumentVersions.unshift(version);
+  state.bidDocumentLinks.unshift({
+    id: crypto.randomUUID(),
+    organizationId: args.organizationId,
+    documentVersionId: version.id,
+    entityType: "opportunity",
+    entityId: args.opportunityId,
+    purpose: "bid-package",
+    createdAt: now,
+  });
+  enqueueBackgroundJob(state.bidBackgroundJobs, {
+    id: crypto.randomUUID(),
+    organizationId: args.organizationId,
+    kind: "document.scan",
+    aggregateType: "document_version",
+    aggregateId: version.id,
+    idempotencyKey: `document.scan:${version.id}`,
+    status: "queued",
+    attempts: 0,
+    maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+    checkpoint: null,
+    lockedBy: null,
+    nextRunAt: null,
+    payload: {
+      documentVersionId: version.id,
+      opportunityId: args.opportunityId,
+    },
+    lastError: null,
+  });
+  if (args.bytes) setBidDocumentBytes(version.id, args.bytes);
+  return { documentId: document.id, versionId: version.id };
+}
+
+export function retryDemoBidDocumentScan(args: {
+  organizationId: string;
+  opportunityId: string;
+  versionId: string;
+}): { ok: true } | { ok: false; error: string } {
+  const listed = listDemoBidPackage(args.organizationId, args.opportunityId);
+  if (!listed.some((item) => item.version.id === args.versionId)) {
+    return { ok: false, error: "That bid document could not be found." };
+  }
+  const state = getDemoState();
+  enqueueBackgroundJob(state.bidBackgroundJobs, {
+    id: crypto.randomUUID(),
+    organizationId: args.organizationId,
+    kind: "document.scan",
+    aggregateType: "document_version",
+    aggregateId: args.versionId,
+    idempotencyKey: `document.scan:${args.versionId}`,
+    status: "queued",
+    attempts: 0,
+    maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+    checkpoint: null,
+    lockedBy: null,
+    nextRunAt: null,
+    payload: {
+      documentVersionId: args.versionId,
+      opportunityId: args.opportunityId,
+    },
+    lastError: null,
+  });
+  return { ok: true };
+}
+
+export function getDemoBidDocumentDownload(
+  organizationId: string,
+  opportunityId: string,
+  versionId: string,
+): { version: DocumentVersionRow; bytes: Uint8Array } | null {
+  const match = listDemoBidPackage(organizationId, opportunityId).find(
+    (item) => item.version.id === versionId,
+  );
+  if (!match) return null;
+  const bytes = getStoredBidDocumentBytes(match.version.id);
+  if (!bytes) return null;
+  return { version: match.version, bytes };
 }
 
 export type { VoiceTranscriptStatus };

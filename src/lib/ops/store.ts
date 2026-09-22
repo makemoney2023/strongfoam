@@ -21,6 +21,11 @@ import {
   estimateRequestTasks,
   jobAssignments,
   jobDocuments,
+  documentLinks,
+  documentVersions,
+  documents,
+  outboxEvents,
+  backgroundJobs,
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
@@ -93,6 +98,10 @@ import {
   getDemoJobVoiceNoteDownload,
   getDemoOpportunity,
   getDemoAuthorizedOpportunity,
+  getDemoBidDocumentDownload,
+  listDemoBidPackage,
+  recordDemoQuarantinedBidDocument,
+  retryDemoBidDocumentScan,
   getDemoProject,
   getDemoSite,
   listDemoCompanies,
@@ -164,6 +173,8 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import { BACKGROUND_JOB_ATTEMPT_LIMIT } from "@/lib/ops/background-jobs";
+import { nextDocumentVersion, type BidDocumentInput } from "@/lib/ops/commercial-documents";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import {
@@ -1241,6 +1252,228 @@ export async function getAuthorizedOpportunity(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+export type BidPackageItem = {
+  document: typeof documents.$inferSelect;
+  version: typeof documentVersions.$inferSelect;
+};
+
+export async function listBidPackage(
+  organizationId: string,
+  opportunityId: string,
+): Promise<BidPackageItem[]> {
+  if (isDemoOpsStore()) return listDemoBidPackage(organizationId, opportunityId);
+  const rows = await getDb()
+    .select({ document: documents, version: documentVersions })
+    .from(documentLinks)
+    .innerJoin(
+      documentVersions,
+      eq(documentLinks.documentVersionId, documentVersions.id),
+    )
+    .innerJoin(documents, eq(documentVersions.documentId, documents.id))
+    .where(
+      and(
+        eq(documentLinks.organizationId, organizationId),
+        eq(documentLinks.entityType, "opportunity"),
+        eq(documentLinks.entityId, opportunityId),
+        eq(documentLinks.purpose, "bid-package"),
+      ),
+    )
+    .orderBy(desc(documentVersions.createdAt));
+  return rows;
+}
+
+export async function recordQuarantinedBidDocument(args: {
+  organizationId: string;
+  opportunityId: string;
+  documentId: string | null;
+  actor: string;
+  input: BidDocumentInput;
+  pathname: string;
+  bytes?: Uint8Array;
+}): Promise<{ documentId: string; versionId: string } | null> {
+  if (isDemoOpsStore()) return recordDemoQuarantinedBidDocument(args);
+  const opportunity = await getAuthorizedOpportunity(
+    args.organizationId,
+    args.opportunityId,
+  );
+  if (!opportunity) return null;
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.pathname, args.pathname))
+    .limit(1);
+  if (existing[0]) {
+    return { documentId: existing[0].documentId, versionId: existing[0].id };
+  }
+
+  let documentId = args.documentId;
+  if (documentId) {
+    const found = await db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.organizationId, args.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!found[0]) return null;
+  } else {
+    documentId = crypto.randomUUID();
+    await db.insert(documents).values({
+      id: documentId,
+      organizationId: args.organizationId,
+      title: args.input.filename,
+      createdBy: args.actor,
+    });
+  }
+
+  const siblings = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.documentId, documentId));
+  const versionId = crypto.randomUUID();
+  await db.batch([
+    db.insert(documentVersions).values({
+      id: versionId,
+      organizationId: args.organizationId,
+      documentId,
+      versionNumber: nextDocumentVersion(siblings),
+      filename: args.input.filename,
+      contentType: args.input.contentType,
+      sizeBytes: args.input.sizeBytes,
+      pathname: args.pathname,
+      sha256: null,
+      status: "quarantined",
+      kind: args.input.kind,
+      revisionLabel: args.input.revisionLabel,
+      uploadedBy: args.actor,
+    }),
+    db.insert(documentLinks).values({
+      organizationId: args.organizationId,
+      documentVersionId: versionId,
+      entityType: "opportunity",
+      entityId: args.opportunityId,
+      purpose: "bid-package",
+    }),
+    db.insert(outboxEvents).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: versionId,
+      idempotencyKey: `document.scan:${versionId}`,
+      payload: {
+        documentVersionId: versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+    db.insert(backgroundJobs).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: versionId,
+      idempotencyKey: `document.scan:${versionId}`,
+      status: "queued",
+      attempts: 0,
+      maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+      payload: {
+        documentVersionId: versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+  ]);
+  return { documentId, versionId };
+}
+
+export async function retryBidDocumentScan(args: {
+  organizationId: string;
+  opportunityId: string;
+  versionId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return retryDemoBidDocumentScan(args);
+  const listed = await listBidPackage(args.organizationId, args.opportunityId);
+  if (!listed.some((item) => item.version.id === args.versionId)) {
+    return { ok: false, error: "That bid document could not be found." };
+  }
+  const db = getDb();
+  await db.batch([
+    db.insert(outboxEvents).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: args.versionId,
+      idempotencyKey: `document.scan:${args.versionId}`,
+      payload: {
+        documentVersionId: args.versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+    db.insert(backgroundJobs).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: args.versionId,
+      idempotencyKey: `document.scan:${args.versionId}`,
+      status: "queued",
+      attempts: 0,
+      maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+      payload: {
+        documentVersionId: args.versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+  ]);
+  return { ok: true };
+}
+
+export async function getBidDocumentDownload(
+  organizationId: string,
+  opportunityId: string,
+  versionId: string,
+): Promise<
+  | {
+      filename: string;
+      contentType: string;
+      kind: "bytes";
+      bytes: Uint8Array;
+    }
+  | {
+      filename: string;
+      contentType: string;
+      kind: "redirect";
+      url: string;
+    }
+  | null
+> {
+  if (isDemoOpsStore()) {
+    const result = getDemoBidDocumentDownload(
+      organizationId,
+      opportunityId,
+      versionId,
+    );
+    if (!result) return null;
+    return {
+      filename: result.version.filename,
+      contentType: result.version.contentType,
+      kind: "bytes",
+      bytes: result.bytes,
+    };
+  }
+  const match = (await listBidPackage(organizationId, opportunityId)).find(
+    (item) => item.version.id === versionId,
+  );
+  if (!match) return null;
+  const { resolveFileUrl } = await import("@/lib/leads/adapters");
+  return {
+    filename: match.version.filename,
+    contentType: match.version.contentType,
+    kind: "redirect",
+    url: await resolveFileUrl(match.version.pathname, 5 * 60 * 1000),
+  };
 }
 
 export async function getRequestCrmRecords(

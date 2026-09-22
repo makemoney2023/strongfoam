@@ -2,6 +2,7 @@ import { PencilIcon, Trash2Icon, TrophyIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ConvertWonWorkForm } from "@/app/app/jobs/convert-form";
+import { BidPackagePanel } from "@/components/ops/bid-package-panel";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { ActionForm } from "@/components/ops/action-form";
 import { EmptyState } from "@/components/ops/empty-state";
@@ -22,7 +23,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getOpsSession } from "@/lib/ops/auth";
+import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { OPPORTUNITY_LABELS, OPPORTUNITY_STAGES } from "@/lib/ops/crm";
+import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import {
   canConvertWonWork,
   draftJobFromOpportunity,
@@ -36,6 +39,7 @@ import {
   getOpportunity,
   getProject,
   getSite,
+  listBidPackage,
   listJobs,
 } from "@/lib/ops/store";
 import {
@@ -53,7 +57,8 @@ export default async function OpportunityDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await getOpsSession())) {
+  const session = await getOpsSession();
+  if (!session) {
     redirect("/app/login");
   }
 
@@ -69,6 +74,17 @@ export default async function OpportunityDetailPage({
     opportunity.projectId ? getProject(opportunity.projectId) : null,
   ]);
   const projectJobs = project ? await listJobs({ projectId: project.id }) : [];
+  const readAccess = resolveCommercialAccess(session, "estimate.read");
+  const editAccess = resolveCommercialAccess(session, "estimate.edit");
+  const bidPackage =
+    readAccess.ok && opportunity.organizationId === readAccess.organizationId
+      ? await listBidPackage(readAccess.organizationId, opportunity.id)
+      : [];
+  const storageMode = isDemoOpsStore()
+    ? "demo"
+    : process.env.BLOB_READ_WRITE_TOKEN
+      ? "blob"
+      : "unavailable";
   const canConvert =
     !opportunity.projectId &&
     canConvertWonWork({
@@ -205,6 +221,16 @@ export default async function OpportunityDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {readAccess.ok ? (
+        <BidPackagePanel
+          opportunityId={opportunity.id}
+          organizationId={readAccess.organizationId}
+          items={bidPackage}
+          storageMode={storageMode}
+          canUpload={editAccess.ok}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>
