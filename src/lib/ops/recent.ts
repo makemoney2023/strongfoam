@@ -43,6 +43,7 @@ export function kindFromPath(pathname: string): SearchHitKind | null {
   if (pathname.startsWith("/app/opportunities/")) return "opportunity";
   if (pathname.startsWith("/app/projects/")) return "project";
   if (pathname.startsWith("/app/jobs/")) return "job";
+  if (pathname.startsWith("/app/price-book")) return "price_book";
   if (pathname.startsWith("/app/field/jobs/")) return "job";
   return null;
 }

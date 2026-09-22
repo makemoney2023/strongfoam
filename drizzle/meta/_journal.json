@@ -120,6 +120,13 @@
       "when": 1758414000000,
       "tag": "0016_task_stated_quantity",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1758416000000,
+      "tag": "0017_price_book_items",
+      "breakpoints": true
     }
   ]
 }

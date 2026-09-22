@@ -6,8 +6,10 @@ import {
   listEstimateRequests,
   listJobs,
   listOpportunities,
+  listPriceBookItems,
   listProjects,
 } from "@/lib/ops/store";
+import { formatUnitPrice, priceBookTradeLabel, priceBookUnitLabel } from "@/lib/ops/price-book";
 import {
   formatCompany,
   formatFullName,
@@ -21,7 +23,8 @@ export type SearchHitKind =
   | "request"
   | "opportunity"
   | "project"
-  | "job";
+  | "job"
+  | "price_book";
 
 export type SearchHit = {
   kind: SearchHitKind;
@@ -38,13 +41,14 @@ export const SEARCH_KIND_LABELS: Record<SearchHitKind, string> = {
   opportunity: "Opportunity",
   project: "Project",
   job: "Job",
+  price_book: "Price book",
 };
 
 export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> {
   const q = query.trim();
   if (q.length < 1) return [];
 
-  const [companies, contacts, requests, opportunities, projects, jobs] =
+  const [companies, contacts, requests, opportunities, projects, jobs, priceBook] =
     await Promise.all([
       listCompanies({ q }),
       listContacts(),
@@ -52,6 +56,7 @@ export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> 
       listOpportunities({ q }),
       listProjects({ q }),
       listJobs({ q }),
+      listPriceBookItems({ q, includeInactive: true }),
     ]);
 
   const hits: SearchHit[] = [];
@@ -132,6 +137,16 @@ export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> 
       subtitle: `${formatJobNumber(job.id)} · ${
         JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] ?? job.status
       }`,
+    });
+  }
+
+  for (const item of priceBook) {
+    hits.push({
+      kind: "price_book",
+      id: item.id,
+      href: `/app/price-book#item-${item.id}`,
+      title: item.name,
+      subtitle: `${priceBookTradeLabel(item.trade)} · ${priceBookUnitLabel(item.unit)} · ${formatUnitPrice(item.unitPriceCents)}`,
     });
   }
 

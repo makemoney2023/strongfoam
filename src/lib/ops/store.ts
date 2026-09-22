@@ -32,6 +32,7 @@ import {
   memberships,
   opportunities,
   organizations,
+  priceBookItems,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
@@ -57,6 +58,7 @@ import {
   captureDemoProjectScheduleBaseline,
   addDemoJobTask,
   addDemoJobToProject,
+  addDemoPriceBookItem,
   addDemoSite,
   addDemoUser,
   addDemoJobVoiceNote,
@@ -115,6 +117,7 @@ import {
   listDemoJobTasks,
   listDemoProjectJobTasks,
   listDemoPortfolioSchedule,
+  listDemoPriceBookItems,
   listDemoProjectTaskDependencies,
   listDemoJobs,
   listDemoOpportunities,
@@ -152,6 +155,7 @@ import {
   updateDemoJobFieldNote,
   updateDemoJobTask,
   updateDemoOpportunity,
+  updateDemoPriceBookItem,
   updateDemoProject,
   updateDemoSite,
   updateDemoUser,
@@ -160,6 +164,7 @@ import {
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
+import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import {
   clearJobDocumentBytes,
   getStoredJobDocumentBytes,
@@ -225,6 +230,7 @@ export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
 export type EstimateRequestTask = typeof estimateRequestTasks.$inferSelect;
 export type EstimateRequestComment = typeof estimateRequestComments.$inferSelect;
 export type CompanyRow = typeof companies.$inferSelect;
+export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type UserEventRow = typeof userEvents.$inferSelect;
@@ -4845,4 +4851,45 @@ export async function deleteEstimateRequestComment(args: {
     payload: { commentId: comment.id },
   });
   return comment;
+}
+
+export async function listPriceBookItems(
+  filters: PriceBookListFilters = {},
+): Promise<PriceBookItemRow[]> {
+  if (isDemoOpsStore()) return listDemoPriceBookItems(filters);
+  const db = getDb();
+  const query = filters.q?.trim();
+  const conditions = [];
+  if (!filters.includeInactive) conditions.push(eq(priceBookItems.active, true));
+  if (filters.trade) conditions.push(eq(priceBookItems.trade, filters.trade));
+  if (query) conditions.push(ilike(priceBookItems.name, like(query)));
+  return db
+    .select()
+    .from(priceBookItems)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(priceBookItems.trade, priceBookItems.name);
+}
+
+export async function addPriceBookItem(
+  input: PriceBookItemInput & { createdBy: string },
+): Promise<PriceBookItemRow> {
+  if (isDemoOpsStore()) return addDemoPriceBookItem(input);
+  const db = getDb();
+  const rows = await db.insert(priceBookItems).values(input).returning();
+  if (!rows[0]) throw new Error("The price-book item could not be saved.");
+  return rows[0];
+}
+
+export async function updatePriceBookItem(
+  id: string,
+  input: PriceBookItemInput,
+): Promise<PriceBookItemRow | null> {
+  if (isDemoOpsStore()) return updateDemoPriceBookItem(id, input);
+  const db = getDb();
+  const rows = await db
+    .update(priceBookItems)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(priceBookItems.id, id))
+    .returning();
+  return rows[0] ?? null;
 }

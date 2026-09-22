@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.23
+**Version:** 1.24
 **Created:** 2026-09-18
 **Last updated:** 2026-09-22
 
@@ -103,7 +103,10 @@ will be written (AI-004, AI-011).
 An open task can store a stated quantity in bags or square feet. Home and the
 job warn when installed field quantities of that unit are ahead of the amount
 still stated on open tasks (AI-014). The warning does not state dollars,
-margin, or a price. AI-016 through AI-026 remain specified and
+margin, or a price. Office users keep a price book of reusable unit prices
+by trade, in bags, square feet, hours, or each. A retired item stays in the
+book. Assemblies, scope templates, estimate versions, proposals, and approvals
+are not stored yet. AI-016 through AI-026 remain specified and
 are not built. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
 
@@ -583,7 +586,9 @@ subcontractor, overhead, markup, tax, alternates, allowances, inclusions, and
 exclusions.
 
 **QTE-003:** Reusable price-book items, assemblies, and scope templates must be
-available by trade.
+available by trade. Price-book items are stored with a trade, name, unit, and
+Canadian-dollar unit price, and an item can be retired without deleting it.
+Assemblies and scope templates are not stored yet.
 
 **QTE-004:** Authorized users must be able to compare revisions and require
 internal approval based on configurable thresholds.
@@ -1578,7 +1583,7 @@ These boundaries apply to every ID:
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
 | AI-014 | Quantity pace warning | A | Shipped | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
-| AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
+| AI-016 | Request scope outline | B | Not built | Price-book items exist. The outline is not built |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
 | AI-018 | Walkthrough scope lines | B | Blocked | QTE-002, QTE-003, and section 17.1 assembly fields |
 | AI-019 | Change-order draft | B | Blocked | QTE-007; a person sets the price |
@@ -1847,6 +1852,8 @@ policy and human review.
 ### Commercial and operational expansion
 
 1. Add estimate versions, line items, price books, proposals, and approvals.
+   Price-book items are stored. Assemblies, scope templates, estimate versions,
+   line items, proposals, and approvals are still open.
 2. Add change orders and project budgets.
 3. Then allow commercial AI drafts: scope outline (AI-016), revision
    explanation (AI-017), walkthrough scope lines (AI-018), and change-order
@@ -1950,11 +1957,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Let a dismissed transcript sentence stay unwritten while the next sentence can be confirmed | Office staff can record the request they want without first saving a higher-ranked sentence |
 | 2026-09-21 | Keep a transcript in the exception queue while a sentence can still be saved | One saved sentence must not hide a different request from the home queue |
 | 2026-09-22 | Store a stated quantity in bags or square feet on an open task and warn when installed quantity is ahead of that remainder | Quantity pace uses field quantities only. It does not state dollars, margin, or a price. A due-date command leaves the stated quantity in place |
+| 2026-09-22 | Store reusable price-book items by trade before estimate versions | Estimators need a unit price they can reuse. An item can be retired without deleting it. Assemblies, templates, versions, proposals, and approvals stay out of this slice |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.24 | 2026-09-22 | Shipped price-book items by trade, with a Canadian-dollar unit price and a retired state. Assemblies, scope templates, estimate versions, proposals, and approvals remain open. AI-016 can start from the item book and is not built |
 | 1.23 | 2026-09-22 | Shipped AI-014. An open task stores a stated quantity in bags or square feet. Home and the job warn when installed field quantity is ahead of that remainder, without dollars or margin |
 | 1.22 | 2026-09-21 | The home exception queue keeps a transcript while another sentence can still be saved. AI-014 stays blocked until tasks store a stated quantity |
 | 1.21 | 2026-09-21 | A transcript record skips a product mention that is not a request, and a later sentence can still be saved or confirmed after the earlier sentence is dismissed. A new task is proposed only when that work is not already open. A spoken pin confirm checks the mark fields. AI-014 stays blocked until tasks store a stated quantity |

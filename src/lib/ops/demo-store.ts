@@ -19,6 +19,7 @@ import {
   demoMemberships,
   demoOpportunities,
   demoOrganizations,
+  demoPriceBookItems,
   demoProjectScheduleBaselineItems,
   demoProjectScheduleBaselines,
   demoProjects,
@@ -46,6 +47,7 @@ import {
   type MembershipRow,
   type OpportunityRow,
   type OrganizationRow,
+  type PriceBookItemRow,
   type ProjectRow,
   type ProjectScheduleBaselineItemRow,
   type ProjectScheduleBaselineRow,
@@ -96,6 +98,7 @@ import {
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
 import { statedTaskWrite } from "@/lib/ops/quantity-pace";
+import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import {
   STRONG_FOAM_ORGANIZATION_ID,
@@ -164,6 +167,7 @@ type DemoOpsState = {
   jobPlanAnnotations: JobPlanAnnotationRow[];
   jobFieldNotes: JobFieldNoteRow[];
   jobVoiceNotes: JobVoiceNoteRow[];
+  priceBookItems: PriceBookItemRow[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -201,6 +205,7 @@ function getDemoState(): DemoOpsState {
       jobPlanAnnotations: demoJobPlanAnnotations(),
       jobFieldNotes: demoJobFieldNotes(),
       jobVoiceNotes: demoJobVoiceNotes(),
+      priceBookItems: demoPriceBookItems(),
     };
     seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
@@ -230,6 +235,9 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.jobVoiceNotes) {
     globalForDemo.__strongfoamDemoOps.jobVoiceNotes = demoJobVoiceNotes();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.priceBookItems) {
+    globalForDemo.__strongfoamDemoOps.priceBookItems = demoPriceBookItems();
   }
   for (const document of globalForDemo.__strongfoamDemoOps.jobDocuments) {
     document.sheetKey ??= "";
@@ -295,6 +303,7 @@ const {
   jobPlanAnnotations,
   jobFieldNotes,
   jobVoiceNotes,
+  priceBookItems,
 } = getDemoState();
 
 const PORTFOLIO_PROJECT_LIMIT = 250;
@@ -3621,6 +3630,47 @@ export function getDemoJobVoiceNoteDownload(
   const bytes = getStoredVoiceNoteBytes(note.id);
   if (!bytes) return null;
   return { note, bytes };
+}
+
+export function listDemoPriceBookItems(
+  filters: PriceBookListFilters = {},
+): PriceBookItemRow[] {
+  const query = filters.q?.trim().toLowerCase();
+  return priceBookItems
+    .filter((item) => {
+      if (!filters.includeInactive && !item.active) return false;
+      if (filters.trade && item.trade !== filters.trade) return false;
+      if (!query) return true;
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.trade.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => a.trade.localeCompare(b.trade) || a.name.localeCompare(b.name));
+}
+
+export function addDemoPriceBookItem(
+  input: PriceBookItemInput & { createdBy: string },
+): PriceBookItemRow {
+  const now = new Date();
+  const item: PriceBookItemRow = {
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  priceBookItems.unshift(item);
+  return item;
+}
+
+export function updateDemoPriceBookItem(
+  id: string,
+  input: PriceBookItemInput,
+): PriceBookItemRow | null {
+  const item = priceBookItems.find((entry) => entry.id === id);
+  if (!item) return null;
+  Object.assign(item, input, { updatedAt: new Date() });
+  return item;
 }
 
 export type { VoiceTranscriptStatus };

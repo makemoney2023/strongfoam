@@ -21,6 +21,7 @@ import {
   projectScheduleBaselines,
   projects,
   scheduleCalendarExceptions,
+  priceBookItems,
   scheduleCalendars,
   sites,
   userEvents,
@@ -58,6 +59,7 @@ export type JobDocumentRow = typeof jobDocuments.$inferSelect;
 export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
+export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -990,6 +992,78 @@ export function demoEstimateComments(): EstimateRequestComment[] {
       createdAt: new Date(now - 70 * 60 * 1000),
       actor: "estimating@strongfoam.com",
       body: "@alex drawings look complete except the north elevation.",
+    },
+  ];
+}
+
+export function demoPriceBookItems(): PriceBookItemRow[] {
+  const createdAt = demoDate(-30);
+  return [
+    {
+      id: "11111111-1111-4111-8111-111111111101",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Closed-cell spray foam",
+      unit: "bags",
+      unitPriceCents: 18500,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111102",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Open-cell spray foam",
+      unit: "bags",
+      unitPriceCents: 9200,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111103",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "fireproofing",
+      name: "Cementitious fireproofing",
+      unit: "sq_ft",
+      unitPriceCents: 450,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111104",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "intumescent",
+      name: "Intumescent coating",
+      unit: "sq_ft",
+      unitPriceCents: 875,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111105",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "avb",
+      name: "Air and vapor barrier",
+      unit: "sq_ft",
+      unitPriceCents: 320,
+      active: true,
+      createdBy: DEMO_ADMIN_EMAIL,
+    },
+    {
+      id: "11111111-1111-4111-8111-111111111106",
+      createdAt,
+      updatedAt: createdAt,
+      trade: "spray-foam",
+      name: "Legacy sample kit",
+      unit: "each",
+      unitPriceCents: 0,
+      active: false,
+      createdBy: DEMO_ADMIN_EMAIL,
     },
   ];
 }

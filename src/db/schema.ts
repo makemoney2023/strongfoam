@@ -761,6 +761,40 @@ export const estimateRequestEvents = pgTable("estimate_request_events", {
   payload: jsonb("payload").notNull(),
 });
 
+export const priceBookItems = pgTable(
+  "price_book_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    trade: text("trade").notNull(),
+    name: text("name").notNull(),
+    unit: text("unit").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [
+    check(
+      "price_book_items_trade_valid",
+      sql`${table.trade} IN ('spray-foam', 'fireproofing', 'intumescent', 'avb', 'spf-roofing')`,
+    ),
+    check(
+      "price_book_items_unit_valid",
+      sql`${table.unit} IN ('bags', 'sq_ft', 'hour', 'each')`,
+    ),
+    check(
+      "price_book_items_price_valid",
+      sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
+    ),
+    index("price_book_items_trade_name_idx").on(table.trade, table.name),
+  ],
+);
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {
