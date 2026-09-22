@@ -1,11 +1,11 @@
 # AI Bid Package, Estimating, and Job Creation — Design Specification
 
-**Date:** 2026-09-22  
-**Product:** Strong Foam Operations Platform  
-**Status:** Proposed, implementation-ready  
+**Date:** 2026-09-22
+**Product:** Strong Foam Operations Platform
+**Status:** Proposed, implementation-ready
 **PRD requirements:** EST-006, EST-008, EST-010, JOB-001 through JOB-003,
 QTE-001 through QTE-006, BID-001 through BID-015, DOC-002 through DOC-004,
-AI-016 through AI-018, RT-004 through RT-006  
+AI-016 through AI-018, RT-004 through RT-006
 **Primary surfaces:** `/app/opportunities/[id]`,
 `/app/opportunities/[id]/estimates/[estimateId]`, signed proposal review
 
