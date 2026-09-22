@@ -11,38 +11,18 @@ import {
 } from "@/lib/ops/store";
 import { formatUnitPrice, priceBookTradeLabel, priceBookUnitLabel } from "@/lib/ops/price-book";
 import {
+  SEARCH_KIND_LABELS,
+  type SearchHit,
+  type SearchHitKind,
+} from "@/lib/ops/search-hits";
+import {
   formatCompany,
   formatFullName,
   formatRequestNumber,
   WORKFLOW_LABELS,
 } from "@/lib/ops/workflow";
 
-export type SearchHitKind =
-  | "company"
-  | "contact"
-  | "request"
-  | "opportunity"
-  | "project"
-  | "job"
-  | "price_book";
-
-export type SearchHit = {
-  kind: SearchHitKind;
-  id: string;
-  href: string;
-  title: string;
-  subtitle: string;
-};
-
-export const SEARCH_KIND_LABELS: Record<SearchHitKind, string> = {
-  company: "Company",
-  contact: "Contact",
-  request: "Request",
-  opportunity: "Opportunity",
-  project: "Project",
-  job: "Job",
-  price_book: "Price book",
-};
+export { SEARCH_KIND_LABELS, type SearchHit, type SearchHitKind };
 
 export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> {
   const q = query.trim();

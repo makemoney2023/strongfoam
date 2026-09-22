@@ -1418,8 +1418,8 @@ export async function recordQuarantinedBidDocument(args: {
     .from(documentVersions)
     .where(eq(documentVersions.documentId, documentId));
   const versionId = crypto.randomUUID();
-  await db.batch([
-    db.insert(documentVersions).values({
+  await db.transaction(async (tx) => {
+    await tx.insert(documentVersions).values({
       id: versionId,
       organizationId: args.organizationId,
       documentId,
@@ -1433,15 +1433,15 @@ export async function recordQuarantinedBidDocument(args: {
       kind: args.input.kind,
       revisionLabel: args.input.revisionLabel,
       uploadedBy: args.actor,
-    }),
-    db.insert(documentLinks).values({
+    });
+    await tx.insert(documentLinks).values({
       organizationId: args.organizationId,
       documentVersionId: versionId,
       entityType: "opportunity",
       entityId: args.opportunityId,
       purpose: "bid-package",
-    }),
-    db.insert(outboxEvents).values({
+    });
+    await tx.insert(outboxEvents).values({
       organizationId: args.organizationId,
       kind: "document.scan",
       aggregateType: "document_version",
@@ -1451,8 +1451,8 @@ export async function recordQuarantinedBidDocument(args: {
         documentVersionId: versionId,
         opportunityId: args.opportunityId,
       },
-    }).onConflictDoNothing(),
-    db.insert(backgroundJobs).values({
+    }).onConflictDoNothing();
+    await tx.insert(backgroundJobs).values({
       organizationId: args.organizationId,
       kind: "document.scan",
       aggregateType: "document_version",
@@ -1465,8 +1465,8 @@ export async function recordQuarantinedBidDocument(args: {
         documentVersionId: versionId,
         opportunityId: args.opportunityId,
       },
-    }).onConflictDoNothing(),
-  ]);
+    }).onConflictDoNothing();
+  });
   return { documentId, versionId };
 }
 
@@ -1481,8 +1481,8 @@ export async function retryBidDocumentScan(args: {
     return { ok: false, error: "That bid document could not be found." };
   }
   const db = getDb();
-  await db.batch([
-    db.insert(outboxEvents).values({
+  await db.transaction(async (tx) => {
+    await tx.insert(outboxEvents).values({
       organizationId: args.organizationId,
       kind: "document.scan",
       aggregateType: "document_version",
@@ -1492,8 +1492,8 @@ export async function retryBidDocumentScan(args: {
         documentVersionId: args.versionId,
         opportunityId: args.opportunityId,
       },
-    }).onConflictDoNothing(),
-    db.insert(backgroundJobs).values({
+    }).onConflictDoNothing();
+    await tx.insert(backgroundJobs).values({
       organizationId: args.organizationId,
       kind: "document.scan",
       aggregateType: "document_version",
@@ -1506,8 +1506,8 @@ export async function retryBidDocumentScan(args: {
         documentVersionId: args.versionId,
         opportunityId: args.opportunityId,
       },
-    }).onConflictDoNothing(),
-  ]);
+    }).onConflictDoNothing();
+  });
   return { ok: true };
 }
 
@@ -3126,15 +3126,12 @@ export async function captureProjectScheduleBaseline(args: {
       dueAt: task.dueAt,
     })),
   ];
-  const headerQuery = db.insert(projectScheduleBaselines).values(baseline);
-  if (items.length > 0) {
-    await db.batch([
-      headerQuery,
-      db.insert(projectScheduleBaselineItems).values(items),
-    ]);
-  } else {
-    await db.batch([headerQuery]);
-  }
+  await db.transaction(async (tx) => {
+    await tx.insert(projectScheduleBaselines).values(baseline);
+    if (items.length > 0) {
+      await tx.insert(projectScheduleBaselineItems).values(items);
+    }
+  });
   return { ok: true, baseline, items };
 }
 
@@ -3635,36 +3632,33 @@ export async function recordUploadedJobDocument(args: {
     versionNumber = previous.versionNumber + 1;
   }
 
-  const insertDocument = db
-    .insert(jobDocuments)
-    .values({
-      id: documentId,
-      organizationId: job.organizationId,
-      jobId: args.jobId,
-      workAreaId: args.input.workAreaId,
-      filename: args.input.filename,
-      contentType: args.input.contentType,
-      sizeBytes: args.input.sizeBytes,
-      pathname: args.pathname,
-      storage: "blob",
-      kind: args.input.kind,
-      uploadedBy: args.actor,
-      sheetKey,
-      versionNumber,
-      replacesDocumentId,
-    })
-    .onConflictDoNothing({ target: jobDocuments.pathname });
-  if (previousDocumentId) {
-    await db.batch([
-      db
+  await db.transaction(async (tx) => {
+    if (previousDocumentId) {
+      await tx
         .update(jobDocuments)
         .set({ sheetKey, supersededAt: new Date() })
-        .where(eq(jobDocuments.id, previousDocumentId)),
-      insertDocument,
-    ]);
-  } else {
-    await insertDocument;
-  }
+        .where(eq(jobDocuments.id, previousDocumentId));
+    }
+    await tx
+      .insert(jobDocuments)
+      .values({
+        id: documentId,
+        organizationId: job.organizationId,
+        jobId: args.jobId,
+        workAreaId: args.input.workAreaId,
+        filename: args.input.filename,
+        contentType: args.input.contentType,
+        sizeBytes: args.input.sizeBytes,
+        pathname: args.pathname,
+        storage: "blob",
+        kind: args.input.kind,
+        uploadedBy: args.actor,
+        sheetKey,
+        versionNumber,
+        replacesDocumentId,
+      })
+      .onConflictDoNothing({ target: jobDocuments.pathname });
+  });
   const document = (
     await db
       .select()

@@ -1,4 +1,4 @@
-import type { SearchHitKind } from "@/lib/ops/search";
+import type { SearchHitKind } from "@/lib/ops/search-hits";
 
 export type RecentItem = {
   href: string;
