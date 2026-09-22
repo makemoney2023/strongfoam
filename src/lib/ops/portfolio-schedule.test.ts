@@ -131,6 +131,8 @@ function rawProject(
     projectManager: "Alex Rivera",
     scheduleCalendarId: null,
     ...overrides,
+    organizationId:
+      overrides.organizationId ?? "00000000-0000-4000-8000-000000000001",
   };
 }
 
@@ -155,6 +157,8 @@ function rawJob(
     plannedEndAt: new Date("2026-09-15T12:00:00.000Z"),
     blockerNote: null,
     ...overrides,
+    organizationId:
+      overrides.organizationId ?? "00000000-0000-4000-8000-000000000001",
   };
 }
 

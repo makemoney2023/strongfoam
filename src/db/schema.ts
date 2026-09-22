@@ -16,8 +16,13 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const leads = pgTable("leads", {
+export const leads = pgTable(
+  "leads",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -54,10 +59,17 @@ export const leads = pgTable("leads", {
   contactId: uuid("contact_id"),
   siteId: uuid("site_id"),
   opportunityId: uuid("opportunity_id"),
-});
+  },
+  (table) => [index("leads_organization_idx").on(table.organizationId)],
+);
 
-export const companies = pgTable("companies", {
+export const companies = pgTable(
+  "companies",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -69,10 +81,17 @@ export const companies = pgTable("companies", {
   phone: text("phone"),
   city: text("city"),
   province: text("province"),
-});
+  },
+  (table) => [index("companies_organization_idx").on(table.organizationId)],
+);
 
-export const contacts = pgTable("contacts", {
+export const contacts = pgTable(
+  "contacts",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -85,10 +104,17 @@ export const contacts = pgTable("contacts", {
   email: text("email").notNull(),
   phone: text("phone").notNull(),
   role: text("role"),
-});
+  },
+  (table) => [index("contacts_organization_idx").on(table.organizationId)],
+);
 
-export const sites = pgTable("sites", {
+export const sites = pgTable(
+  "sites",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -99,10 +125,17 @@ export const sites = pgTable("sites", {
   name: text("name").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
-});
+  },
+  (table) => [index("sites_organization_idx").on(table.organizationId)],
+);
 
-export const opportunities = pgTable("opportunities", {
+export const opportunities = pgTable(
+  "opportunities",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -120,7 +153,11 @@ export const opportunities = pgTable("opportunities", {
   services: text("services").array().notNull(),
   projectType: text("project_type"),
   projectId: uuid("project_id"),
-});
+  },
+  (table) => [
+    index("opportunities_organization_idx").on(table.organizationId),
+  ],
+);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -255,8 +292,13 @@ export const scheduleCalendarExceptions = pgTable(
   ],
 );
 
-export const projects = pgTable("projects", {
+export const projects = pgTable(
+  "projects",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -273,10 +315,17 @@ export const projects = pgTable("projects", {
   scheduleCalendarId: uuid("schedule_calendar_id").references(
     () => scheduleCalendars.id,
   ),
-});
+  },
+  (table) => [index("projects_organization_idx").on(table.organizationId)],
+);
 
-export const jobs = pgTable("jobs", {
+export const jobs = pgTable(
+  "jobs",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -296,7 +345,9 @@ export const jobs = pgTable("jobs", {
   plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
   plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
   blockerNote: text("blocker_note"),
-});
+  },
+  (table) => [index("jobs_organization_idx").on(table.organizationId)],
+);
 
 export const jobEvents = pgTable("job_events", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -507,6 +558,9 @@ export const jobDocuments = pgTable(
   "job_documents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -537,6 +591,7 @@ export const jobDocuments = pgTable(
       foreignColumns: [table.id],
       name: "job_documents_replaces_document_fk",
     }).onDelete("set null"),
+    index("job_documents_organization_idx").on(table.organizationId),
     index("job_documents_job_current_plan_idx").on(
       table.jobId,
       table.kind,
@@ -765,6 +820,9 @@ export const priceBookItems = pgTable(
   "price_book_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -791,9 +849,47 @@ export const priceBookItems = pgTable(
       "price_book_items_price_valid",
       sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
     ),
+    index("price_book_items_organization_idx").on(table.organizationId),
     index("price_book_items_trade_name_idx").on(table.trade, table.name),
   ],
 );
+
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    actor: text("actor").notNull(),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    result: text("result").notNull(),
+    correlationId: uuid("correlation_id").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  },
+  (table) => [
+    check(
+      "audit_events_result_valid",
+      sql`${table.result} IN ('success', 'denied', 'failure')`,
+    ),
+    index("audit_events_organization_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("audit_events_entity_idx").on(
+      table.organizationId,
+      table.entityType,
+      table.entityId,
+    ),
+  ],
+);
+
+export type AuditEventRow = typeof auditEvents.$inferSelect;
 
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",

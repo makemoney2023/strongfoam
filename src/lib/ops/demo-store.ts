@@ -1,3 +1,4 @@
+import type { AuditEventRow } from "@/db/schema";
 import {
   demoCompanies,
   demoContacts,
@@ -168,6 +169,7 @@ type DemoOpsState = {
   jobFieldNotes: JobFieldNoteRow[];
   jobVoiceNotes: JobVoiceNoteRow[];
   priceBookItems: PriceBookItemRow[];
+  auditEvents: AuditEventRow[];
 };
 
 function getDemoState(): DemoOpsState {
@@ -206,6 +208,7 @@ function getDemoState(): DemoOpsState {
       jobFieldNotes: demoJobFieldNotes(),
       jobVoiceNotes: demoJobVoiceNotes(),
       priceBookItems: demoPriceBookItems(),
+      auditEvents: [],
     };
     seedDemoPlanBytes(globalForDemo.__strongfoamDemoOps);
   } else if (!globalForDemo.__strongfoamDemoOps.jobFieldNotes) {
@@ -238,6 +241,22 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.priceBookItems) {
     globalForDemo.__strongfoamDemoOps.priceBookItems = demoPriceBookItems();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.auditEvents) {
+    globalForDemo.__strongfoamDemoOps.auditEvents = [];
+  }
+  for (const record of [
+    ...globalForDemo.__strongfoamDemoOps.requests,
+    ...globalForDemo.__strongfoamDemoOps.companies,
+    ...globalForDemo.__strongfoamDemoOps.contacts,
+    ...globalForDemo.__strongfoamDemoOps.sites,
+    ...globalForDemo.__strongfoamDemoOps.opportunities,
+    ...globalForDemo.__strongfoamDemoOps.projects,
+    ...globalForDemo.__strongfoamDemoOps.jobsList,
+    ...globalForDemo.__strongfoamDemoOps.jobDocuments,
+    ...globalForDemo.__strongfoamDemoOps.priceBookItems,
+  ]) {
+    record.organizationId ??= STRONG_FOAM_ORGANIZATION_ID;
   }
   for (const document of globalForDemo.__strongfoamDemoOps.jobDocuments) {
     document.sheetKey ??= "";
@@ -1015,6 +1034,15 @@ export function getDemoOpportunity(id: string): OpportunityRow | null {
   return opportunities.find((opportunity) => opportunity.id === id) ?? null;
 }
 
+export function getDemoAuthorizedOpportunity(
+  organizationId: string,
+  opportunityId: string,
+): OpportunityRow | null {
+  const opportunity = getDemoOpportunity(opportunityId);
+  if (!opportunity || opportunity.organizationId !== organizationId) return null;
+  return opportunity;
+}
+
 export function convertDemoRequestToCrm(args: {
   leadId: string;
   actor: string;
@@ -1055,9 +1083,17 @@ export function convertDemoRequestToCrm(args: {
   const now = new Date();
   const created = { company: false, contact: false, site: false };
 
+  if (company && company.organizationId !== request.organizationId) {
+    return {
+      ok: false,
+      error: "That company is outside this organization.",
+    };
+  }
+
   if (!company) {
     company = {
       id: crypto.randomUUID(),
+      organizationId: request.organizationId,
       createdAt: now,
       updatedAt: now,
       name: args.input.companyName,
@@ -1073,6 +1109,7 @@ export function convertDemoRequestToCrm(args: {
   if (!contact) {
     contact = {
       id: crypto.randomUUID(),
+      organizationId: company.organizationId,
       createdAt: now,
       updatedAt: now,
       companyId: company.id,
@@ -1099,6 +1136,7 @@ export function convertDemoRequestToCrm(args: {
   if (!site) {
     site = {
       id: crypto.randomUUID(),
+      organizationId: company.organizationId,
       createdAt: now,
       updatedAt: now,
       companyId: company.id,
@@ -1112,6 +1150,7 @@ export function convertDemoRequestToCrm(args: {
 
   const opportunity: OpportunityRow = {
     id: crypto.randomUUID(),
+    organizationId: company.organizationId,
     createdAt: now,
     updatedAt: now,
     companyId: company.id,
@@ -1582,6 +1621,7 @@ export function convertDemoOpportunityToProject(args: {
   const now = new Date();
   const project: ProjectRow = {
     id: crypto.randomUUID(),
+    organizationId: opportunity.organizationId,
     createdAt: now,
     updatedAt: now,
     companyId: opportunity.companyId,
@@ -1600,6 +1640,7 @@ export function convertDemoOpportunityToProject(args: {
 
   const job: JobRow = {
     id: crypto.randomUUID(),
+    organizationId: opportunity.organizationId,
     createdAt: now,
     updatedAt: now,
     projectId: project.id,
@@ -1650,6 +1691,7 @@ export function addDemoJobToProject(args: {
   const now = new Date();
   const job: JobRow = {
     id: crypto.randomUUID(),
+    organizationId: project.organizationId,
     createdAt: now,
     updatedAt: now,
     projectId: project.id,
@@ -2491,8 +2533,10 @@ export function addDemoJobDocument(args: {
     versionNumber = previous.versionNumber + 1;
     replacesDocumentId = previous.id;
   }
+  const job = getDemoJob(args.jobId);
   const document: JobDocumentRow = {
     id,
+    organizationId: job?.organizationId ?? STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     jobId: args.jobId,
     workAreaId: args.input.workAreaId,
@@ -2619,6 +2663,7 @@ export function addDemoCompany(input: CompanyInput): CompanyRow {
   const now = new Date();
   const company: CompanyRow = {
     id: crypto.randomUUID(),
+    organizationId: STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     updatedAt: now,
     ...input,
@@ -2663,8 +2708,10 @@ export function addDemoContact(args: {
 }): ContactRow | null {
   if (!getDemoCompany(args.companyId)) return null;
   const now = new Date();
+  const company = getDemoCompany(args.companyId);
   const contact: ContactRow = {
     id: crypto.randomUUID(),
+    organizationId: company?.organizationId ?? STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     updatedAt: now,
     companyId: args.companyId,
@@ -2692,10 +2739,12 @@ export function addDemoSite(args: {
   companyId: string;
   input: SiteInput;
 }): SiteRow | null {
-  if (!getDemoCompany(args.companyId)) return null;
+  const company = getDemoCompany(args.companyId);
+  if (!company) return null;
   const now = new Date();
   const site: SiteRow = {
     id: crypto.randomUUID(),
+    organizationId: company.organizationId,
     createdAt: now,
     updatedAt: now,
     companyId: args.companyId,
@@ -3655,6 +3704,7 @@ export function addDemoPriceBookItem(
   const now = new Date();
   const item: PriceBookItemRow = {
     id: crypto.randomUUID(),
+    organizationId: STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     updatedAt: now,
     ...input,
@@ -3671,6 +3721,11 @@ export function updateDemoPriceBookItem(
   if (!item) return null;
   Object.assign(item, input, { updatedAt: new Date() });
   return item;
+}
+
+export function appendDemoAuditEvent(event: AuditEventRow): AuditEventRow {
+  getDemoState().auditEvents.unshift(event);
+  return event;
 }
 
 export type { VoiceTranscriptStatus };

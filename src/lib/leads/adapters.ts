@@ -1,6 +1,7 @@
 import { issueSignedToken, presignUrl } from "@vercel/blob";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { getDb } from "@/db";
+import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import { calendlyUnmatchedEvents, leads } from "@/db/schema";
 import type { CalendlyLeadStore } from "@/lib/leads/calendly";
 import type { LeadStore, Mailer, StoredLead } from "@/lib/leads/create-lead";
@@ -88,6 +89,7 @@ export function buildLeadInsertValues(
 ): typeof leads.$inferInsert {
   const payload = lead.payload as LeadPayload;
   return {
+    organizationId: STRONG_FOAM_ORGANIZATION_ID,
     status: lead.status,
     bookingStatus: lead.bookingStatus,
     notifyStatus: lead.notifyStatus,

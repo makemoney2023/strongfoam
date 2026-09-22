@@ -74,8 +74,9 @@ Production operations requirements:
   before revision writes, `0014_job_voice_notes.sql` before serving voice-note
   code,   `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
   and text marks, `0016_task_stated_quantity.sql` before storing a stated
-  task quantity in bags or square feet, and `0017_price_book_items.sql` before
-  storing price-book items. The current Vercel Hobby deploy still uses the in-memory
+  task quantity in bags or square feet, `0017_price_book_items.sql` before
+  storing price-book items, and `0018_organization_scope_audit.sql` before
+  organization-scoped commercial writes. The current Vercel Hobby deploy still uses the in-memory
   demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
   Postgres is attached.
 

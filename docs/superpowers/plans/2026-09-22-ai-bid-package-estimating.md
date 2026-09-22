@@ -201,7 +201,7 @@ contract migration.
 - Create: `drizzle/0018_organization_scope_audit.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Write failing authorization tests**
+- [x] **Step 1: Write failing authorization tests**
 
 Cover:
 
@@ -218,7 +218,7 @@ expect(assertSameOrganization("org-a", "org-b").ok).toBe(false);
 Also assert that a legacy estimator session resolves only to
 `STRONG_FOAM_ORGANIZATION_ID` and cannot pass an organization from form data.
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
 Run:
 
@@ -228,7 +228,7 @@ npx vitest run src/lib/ops/commercial-authorization.test.ts
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 3: Add explicit permissions**
+- [x] **Step 3: Add explicit permissions**
 
 Use:
 
@@ -252,7 +252,7 @@ const ROLE_PERMISSIONS = {
 All server actions call the permission function; UI visibility is not an
 authorization check.
 
-- [ ] **Step 4: Add organization scope and audit schema**
+- [x] **Step 4: Add organization scope and audit schema**
 
 Migration `0018` must:
 
@@ -274,13 +274,13 @@ export async function getAuthorizedOpportunity(
 ): Promise<OpportunityRow | null>;
 ```
 
-- [ ] **Step 5: Make audit writes append-only**
+- [x] **Step 5: Make audit writes append-only**
 
 `recordAuditEvent` accepts only inserts. Ordinary store code exposes no update
 or delete function for `audit_events`. Redact signed tokens, file bytes, raw
 document text, provider keys, and passwords before insert.
 
-- [ ] **Step 6: Run focused and full checks**
+- [x] **Step 6: Run focused and full checks**
 
 ```bash
 npx vitest run src/lib/ops/commercial-authorization.test.ts src/lib/ops/auth.test.ts
@@ -290,7 +290,7 @@ npm test
 
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit message: `Scope commercial records and audit to an organization.`
 
