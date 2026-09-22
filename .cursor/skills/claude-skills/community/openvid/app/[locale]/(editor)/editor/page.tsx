@@ -1035,8 +1035,12 @@ export default function Editor() {
     const pathname = usePathname();
     const router = useRouter();
 
+    // Local walkthrough installs set this so MP4 export does not require Supabase OAuth.
+    const allowLocalExport =
+        process.env.NEXT_PUBLIC_OPENVID_ALLOW_LOCAL_EXPORT === "true";
+
     const handleExport = useCallback((quality: ExportQuality) => {
-        if (!authUser) {
+        if (!authUser && !allowLocalExport) {
             savePendingExport(quality);
             router.replace({
                 pathname: "/login",
@@ -1082,7 +1086,7 @@ export default function Editor() {
         }).finally(() => {
             isExportingRef.current = false;
         });
-    }, [videoBlob, selectedWallpaper, trimRange, muteOriginalAudio, videoHasAudioTrack, audioTracks, uploadedAudios, masterVolume, videoClips, globalSpeed, exportVideo, setIsPlaying, authUser, router, locale, pathname]);
+    }, [videoBlob, selectedWallpaper, trimRange, muteOriginalAudio, videoHasAudioTrack, audioTracks, uploadedAudios, masterVolume, videoClips, globalSpeed, exportVideo, setIsPlaying, authUser, allowLocalExport, router, locale, pathname]);
 
     const handleExportRef = useRef(handleExport);
     useEffect(() => {
