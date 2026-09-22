@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDatabaseConfig } from "@/db/config";
+import { parseAppDatabaseConfig, parseDatabaseConfig } from "@/db/config";
 
 const SECRET = "postgres://app-user:super-secret-password@db.internal:6543/strongfoam";
 
@@ -42,6 +42,28 @@ describe("parseDatabaseConfig", () => {
         directUrl: "postgres://app",
       },
     });
+  });
+
+  it("lets the application connect with only DATABASE_URL", () => {
+    expect(
+      parseAppDatabaseConfig({
+        NODE_ENV: "production",
+        DATABASE_URL: SECRET,
+      }),
+    ).toEqual({ ok: true, value: { appUrl: SECRET } });
+
+    const missing = parseAppDatabaseConfig({ NODE_ENV: "production" });
+    expect(missing).toEqual({ ok: false, error: "DATABASE_URL is not set" });
+
+    const invalid = parseAppDatabaseConfig({
+      NODE_ENV: "production",
+      DATABASE_URL: "https://db.internal/strongfoam",
+    });
+    expect(invalid).toEqual({
+      ok: false,
+      error: "DATABASE_URL is not a PostgreSQL connection string",
+    });
+    if (!invalid.ok) expect(invalid.error).not.toContain("db.internal");
   });
 
   it("fails closed in production without echoing secrets", () => {

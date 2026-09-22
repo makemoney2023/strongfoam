@@ -23,6 +23,17 @@ function readUrl(
   return trimmed.length ? trimmed : null;
 }
 
+export function parseAppDatabaseConfig(
+  env: DatabaseEnv,
+): { ok: true; value: { appUrl: string } } | { ok: false; error: string } {
+  const appUrl = readUrl(env, "DATABASE_URL");
+  if (!appUrl) return { ok: false, error: "DATABASE_URL is not set" };
+  if (!POSTGRES_URL.test(appUrl)) {
+    return { ok: false, error: "DATABASE_URL is not a PostgreSQL connection string" };
+  }
+  return { ok: true, value: { appUrl } };
+}
+
 export function parseDatabaseConfig(
   env: DatabaseEnv,
 ): { ok: true; value: DatabaseConfig } | { ok: false; error: string } {

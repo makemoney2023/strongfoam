@@ -1,10 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@/db/schema";
-import { parseDatabaseConfig } from "@/db/config";
+import { parseAppDatabaseConfig } from "@/db/config";
 
 function createDb() {
-  const config = parseDatabaseConfig(process.env);
+  const config = parseAppDatabaseConfig(process.env);
   if (!config.ok) throw new Error(config.error);
   // Supabase's transaction pooler rejects named prepared statements.
   const client = postgres(config.value.appUrl, {
