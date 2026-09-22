@@ -181,7 +181,8 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0029_change_orders.sql` before using change orders,
+Apply migrations through `0030_dispatches.sql` before using day dispatch, and
+through `0029_change_orders.sql` before using change orders,
 and through `0025_commercial_ai.sql` before enabling the commercial flags.
 Run the worker as a Render background service with `npm run worker`. Bid files
 stay in private Blob storage and remain quarantined until the scanner marks
@@ -196,6 +197,15 @@ Approval writes one budget effect. The revised project total is the original
 estimate budget plus approved effects, and the approved schedule-impact days are
 summed beside it. Task dates are not moved. Draft and pending orders show on Home
 for people who can read change orders.
+
+Day dispatch is a separate board from job assignments. Office staff schedule or
+cancel one active field member on one job for one date. Cancelling keeps the
+row, and scheduling that same job, person, and date again marks it scheduled.
+Two jobs for the same person on the same day are allowed and shown on the
+board and on Home. Home also lists active jobs with nobody scheduled that day.
+The field landing shows that person's scheduled rows for the Toronto working
+day, and a scheduled row lets them open the job that day. Task dates, time
+entry, purchase orders, inspections, and closeout are unchanged.
 
 To roll a capability back, set its flag to `0` and redeploy the web service.
 In-flight worker jobs can finish, and they cannot start a new AI draft, proposal

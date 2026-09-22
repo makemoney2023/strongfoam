@@ -29,8 +29,12 @@ import {
   countOperationsExceptions,
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import { listUnapprovedChangeOrders } from "@/lib/ops/change-order-store";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
+import { buildDispatchDay, DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
+import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
+import { listDispatches } from "@/lib/ops/dispatch-store";
 import { getOpsSession, organizationIdForOpsSession } from "@/lib/ops/auth";
 import { resolveImportAccess } from "@/lib/ops/import-authorization";
 import { listImportHomeExceptions } from "@/lib/ops/import-attention";
@@ -54,6 +58,7 @@ import {
   listOpportunities,
   listPortfolioSchedule,
   listProjects,
+  listUsers,
 } from "@/lib/ops/store";
 import {
   WORKFLOW_LABELS,
@@ -159,6 +164,24 @@ export default async function OpsHomePage() {
     listHomeExceptionSource(),
   ]);
 
+  const opsNow = getOpsNow();
+  const dispatchAccess = resolveDispatchAccess(session, "dispatch.read");
+  const dispatchDate = workingDayLabel(opsNow, DISPATCH_TIME_ZONE);
+  const [dayDispatches, dispatchPeople] = dispatchAccess.ok
+    ? await Promise.all([
+        listDispatches(dispatchAccess.organizationId, dispatchDate),
+        listUsers(),
+      ])
+    : [[], []];
+  const dispatchDay = dispatchAccess.ok
+    ? buildDispatchDay({
+        organizationId: dispatchAccess.organizationId,
+        jobs,
+        people: dispatchPeople,
+        dispatches: dayDispatches,
+      })
+    : null;
+  const undispatchedPreview = dispatchDay?.undispatched.slice(0, 8) ?? [];
   const changeOrderAccess = resolveCommercialAccess(session, "change_order.read");
   const unapprovedChangeOrders = changeOrderAccess.ok
     ? await listUnapprovedChangeOrders(changeOrderAccess.organizationId)
@@ -168,7 +191,6 @@ export default async function OpsHomePage() {
     ? await listImportAttention(importAccess.organizationId)
     : { batches: [], deadLetters: [] };
   const importExceptions = listImportHomeExceptions(importAttention);
-  const opsNow = getOpsNow();
   const summary = buildHomeSummary(
     { requests, opportunities, projects, jobs },
     opsNow.getTime(),
@@ -348,6 +370,54 @@ export default async function OpsHomePage() {
           </ul>
         )}
       </section>
+
+      {dispatchDay ? (
+        <section aria-labelledby="dispatch-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="dispatch-attention-heading" className="text-lg font-semibold">
+              Dispatch
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Active jobs with no one scheduled today, and people booked on more than one job.
+            </p>
+          </div>
+          {dispatchDay.doubleBooked.length === 0 && undispatchedPreview.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Every active job has a dispatch today.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {dispatchDay.doubleBooked.map((person) => (
+                <li key={`double-${person.userId}`}>
+                  <Link
+                    href={`/app/dispatch?date=${dispatchDate}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>
+                      {person.displayName} is scheduled on {person.jobNames.length} jobs
+                    </span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+              {undispatchedPreview.map((job) => (
+                <li key={`open-${job.id}`}>
+                  <Link
+                    href={`/app/dispatch?date=${dispatchDate}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{job.name} has no dispatch today</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {dispatchDay.undispatched.length > undispatchedPreview.length ? (
+            <p className="text-sm text-muted-foreground">
+              {dispatchDay.undispatched.length} jobs have no dispatch. Showing {undispatchedPreview.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {importAccess.ok ? (
         <section aria-labelledby="import-exceptions-heading" className="space-y-3">

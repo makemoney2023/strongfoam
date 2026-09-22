@@ -217,6 +217,9 @@ import type {
   PortfolioScheduleStoreResult,
   ProjectListFilters,
 } from "@/lib/ops/store";
+import { scheduledDispatchGrantsJobAccess } from "@/lib/ops/dispatch-access";
+import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import { isWorkflowStatus } from "@/lib/ops/workflow";
 
@@ -941,10 +944,7 @@ export function removeDemoJobAssignment(args: {
   return view;
 }
 
-export function canDemoFieldUserAccessJob(
-  userId: string,
-  jobId: string,
-): boolean {
+function demoFieldAssignmentAccess(userId: string, jobId: string): boolean {
   return (
     jobAssignments.some(
       (assignment) =>
@@ -952,6 +952,20 @@ export function canDemoFieldUserAccessJob(
     ) ||
     jobTasks.some(
       (task) => task.assigneeUserId === userId && task.jobId === jobId,
+    )
+  );
+}
+
+export function canDemoFieldUserAccessJob(
+  userId: string,
+  jobId: string,
+): boolean {
+  return (
+    demoFieldAssignmentAccess(userId, jobId) ||
+    scheduledDispatchGrantsJobAccess(
+      userId,
+      jobId,
+      workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE),
     )
   );
 }
@@ -1626,7 +1640,7 @@ export function listDemoJobs(filters: JobListFilters = {}): JobRow[] {
       if (filters.companyId && job.companyId !== filters.companyId) return false;
       if (
         filters.fieldUserId &&
-        !canDemoFieldUserAccessJob(filters.fieldUserId, job.id)
+        !demoFieldAssignmentAccess(filters.fieldUserId, job.id)
       ) {
         return false;
       }

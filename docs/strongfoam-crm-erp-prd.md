@@ -719,7 +719,8 @@ auditable evidence. Field users must not receive commercial access.
 Future operational releases should provide:
 
 - Project milestones and dependencies.
-- Calendar, dispatch board, crew capacity, and scheduling.
+- Calendar, dispatch board, crew capacity, and scheduling. The day dispatch
+  board in section 16.2 is the first slice. Crew capacity remains future work.
 - Daily field reports and weather/site conditions.
 - Labor time and production quantities.
 - Material requests, purchase orders, receipts, and delivery tickets.
@@ -936,6 +937,41 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
   chart.
 - The 375px layout keeps row labels readable and makes the timeline
   horizontally scrollable without shrinking touch targets.
+
+### 16.2 Day dispatch
+
+A dispatch places one active field member on one job for one work date. It
+does not replace the durable job assignment, move the schedule, or recommend
+a crew. Time, purchase orders, equipment, inspections, and closeout stay
+future work.
+
+**DSP-001:** An office user can open a Dispatch board for one work date. The
+default date is the working day in America/Toronto.
+
+**DSP-002:** A dispatch stores the job, the field member, the work date, an
+optional note, and a status of scheduled or cancelled. Job assignments remain
+a separate record.
+
+**DSP-003:** One organization has one row for the same job, person, and date.
+Cancelling keeps that row. Scheduling the same triple again returns it to
+scheduled instead of creating a second row.
+
+**DSP-004:** The same person may be scheduled on two jobs the same day. The
+board and Home show that double booking. The save is not refused.
+
+**DSP-005:** A closed job cannot be dispatched. The person must be an active
+field member of the organization.
+
+**DSP-006:** Administrators and office users can schedule and cancel. Field
+users can read only their own scheduled rows for the working day on the field
+landing. The query enforces that scope. A scheduled dispatch for that day
+also lets the field member open that job. A cancelled dispatch does not.
+
+**DSP-007:** Home shows active jobs with no scheduled dispatch that day, and
+people scheduled on more than one job, to users who can read dispatch.
+
+**DSP-008:** Schedule and cancel write an audit event for the session
+organization.
 
 ## 17. Trade-specific requirements
 
@@ -1884,7 +1920,7 @@ These boundaries apply to every ID:
 | AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
 | AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
 | AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Render worker and pgvector |
-| AI-023 | Dispatch recommendation | C | Blocked | Crew records and capacity |
+| AI-023 | Dispatch recommendation | C | Blocked | Day dispatch exists. Crew capacity and the recommendation are not built |
 | AI-024 | Photo deficiency proposal | C | Later | Evaluation set required by section 24.8 |
 | AI-025 | Warranty and inbound email triage | C | Later | Customer portal or inbound mailbox |
 | AI-026 | Cost variance explanation | C | Blocked | Accounting system chosen in open decision 6 |
@@ -1964,9 +2000,11 @@ those fields. Publishing the packet to a customer waits on portal policy.
 retrieval under section 24.5. Audio binaries are not embedded. Interactive
 summaries in Release A do not require embeddings.
 
-**AI-023:** After crew capacity exists, the agent may recommend a person for
-an open task and present the assignment as an exact diff. Overlap warnings
-that already exist on the schedule remain the source for conflicts.
+**AI-023:** A person can schedule a field member on a job for one day. After
+crew capacity exists, the agent may recommend a person for an open task and
+present the assignment as an exact diff. Overlap warnings that already exist
+on the schedule remain the source for conflicts. The recommendation is not
+built.
 
 **AI-024:** After an evaluation set exists, a photo may produce a proposed
 deficiency attached to a plan region. A person files or discards it. The
@@ -2214,7 +2252,12 @@ policy and human review.
    project total and records the schedule-impact days. Task dates stay put.
    Draft and pending orders appear on Home. AI-019 drafts are not built).
 8. Add dispatch, time, materials, equipment, inspections, and closeout, then
-   the closeout packet (AI-021) and dispatch recommendation (AI-023).
+   the closeout packet (AI-021) and dispatch recommendation (AI-023). Day
+   dispatch is done: an office user schedules or cancels one field member on
+   one job for one date, a cancelled row stays as evidence, a second job the
+   same day is shown as a double booking, Home lists active jobs with no
+   dispatch, and the field landing shows that person's rows. Time, purchase
+   orders, equipment, inspections, closeout, AI-021, and AI-023 are not built.
 9. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
 10. Add customer and subcontractor portals if validated, then warranty triage
@@ -2329,11 +2372,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Import existing Strong Foam spreadsheets through a reviewed Supabase Import Center rather than direct database writes | Private staging, stable source keys, deterministic validation, human conflict resolution, administrator commit, one transaction, inactive workforce identities, draft price revisions, and reconciliation make the migration repeatable and auditable |
 | 2026-09-22 | Gate commercial AI separately from manual estimates, proposals, and conversion | Office staff can keep estimating while AI stays off. Production AI requires passed workflow checks, a fresh worker heartbeat, residency-approved scanner and models, evaluation rejections, and cost and rate limits |
 | 2026-09-22 | Record a change order on the project before drafting one from a voice note | QTE-007 needs scope, price, schedule impact, status, approval evidence, and a budget effect. Approval uses the existing second-approver rule. The revised total adds approved effects to the original budget. Schedule-impact days are recorded and do not move tasks. AI-019 stays unbuilt |
+| 2026-09-22 | Schedule a person on a job for one day before recommending a crew | DSP-001 through DSP-008 record who is sent where. Cancelling keeps the row. Two jobs on the same day stay visible. Job assignments, task dates, time, purchase orders, inspections, closeout, and AI-023 stay unchanged |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.29 | 2026-09-22 | Shipped DSP-001 through DSP-008 day dispatch. Office users schedule or cancel a field member on a job for one date. The same slot revives instead of duplicating. Double bookings stay visible on the board and Home. Field users see only their own scheduled rows, and that row opens the job for the working day. Time, purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.28 | 2026-09-22 | Shipped QTE-007 change orders: scope, price, schedule-impact days, status, administrator approval evidence, and one budget effect on the revised project total. Task dates are not moved. AI-019 remains unbuilt |
 | 1.27 | 2026-09-22 | Added organization-scoped commercial rollout flags and Home links for failed scan, extraction, proposal, and conversion jobs. Commercial AI stays off until workflow checks, a healthy worker heartbeat, residency-approved providers, the evaluation suite, and cost and rate limits are in place |
 | 1.26 | 2026-09-22 | Added IMP-001 through IMP-030 for the Supabase Data Import Center: private XLSX/CSV staging, malware/archive checks, mapping profiles, deterministic validation, source-key crosswalks, administrator-only transactional commit, price-book product codes and costs, inactive workforce import, linked customer/project/job import, reconciliation, retention, and production cutover |

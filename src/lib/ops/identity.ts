@@ -45,6 +45,20 @@ export const COMMERCIAL_ROLE_PERMISSIONS: Record<
   field_worker: [],
 };
 
+export const DISPATCH_PERMISSIONS = ["dispatch.read", "dispatch.edit"] as const;
+
+export type DispatchPermission = (typeof DISPATCH_PERMISSIONS)[number];
+
+export const DISPATCH_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly DispatchPermission[]
+> = {
+  administrator: DISPATCH_PERMISSIONS,
+  office: DISPATCH_PERMISSIONS,
+  field_lead: ["dispatch.read"],
+  field_worker: ["dispatch.read"],
+};
+
 export const DATA_IMPORT_PERMISSIONS = [
   "data.import.prepare",
   "data.import.commit",

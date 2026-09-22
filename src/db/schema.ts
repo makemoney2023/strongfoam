@@ -395,6 +395,45 @@ export const jobAssignments = pgTable(
   ],
 );
 
+export const dispatches = pgTable(
+  "dispatches",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    workDate: date("work_date", { mode: "string" }).notNull(),
+    status: text("status").notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("dispatches_slot_unique").on(
+      table.organizationId,
+      table.jobId,
+      table.userId,
+      table.workDate,
+    ),
+    check(
+      "dispatches_status_valid",
+      sql`${table.status} IN ('scheduled', 'cancelled')`,
+    ),
+    index("dispatches_day_idx").on(table.organizationId, table.workDate),
+  ],
+);
+
 export const workAreas = pgTable(
   "work_areas",
   {
@@ -1916,6 +1955,7 @@ export type ProjectBudgetLineRow = typeof projectBudgetLines.$inferSelect;
 export type ChangeOrderRow = typeof changeOrders.$inferSelect;
 export type ChangeOrderApprovalRow = typeof changeOrderApprovals.$inferSelect;
 export type ChangeOrderBudgetEffectRow = typeof changeOrderBudgetEffects.$inferSelect;
+export type DispatchRow = typeof dispatches.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

@@ -9,10 +9,14 @@ import { StatusBadge } from "@/components/ops/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
+import { DISPATCH_TIME_ZONE, dispatchesVisibleToUser } from "@/lib/ops/dispatch";
+import { listDispatches } from "@/lib/ops/dispatch-store";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { isFieldActiveJobStatus } from "@/lib/ops/field-workspace";
 import { JOB_STATUS_LABELS, JOB_STATUSES, formatJobNumber } from "@/lib/ops/jobs";
-import { getCompany, getSite, listJobs, listJobTasks } from "@/lib/ops/store";
+import { getOpsNow } from "@/lib/ops/ops-now";
+import { getCompany, getJob, getSite, listJobs, listJobTasks } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +30,20 @@ export default async function FieldLandingPage({
   if (!session) redirect("/field/login");
 
   const params = await searchParams;
+  const workDate = workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE);
+  const ownDispatches = dispatchesVisibleToUser(
+    await listDispatches(session.organizationId, workDate, session.userId),
+    session.userId,
+  );
+  const dispatchedToday = (
+    await Promise.all(
+      ownDispatches.map(async (dispatch) => {
+        const job = await getJob(dispatch.jobId);
+        if (!job || job.organizationId !== session.organizationId) return null;
+        return { dispatch, job };
+      }),
+    )
+  ).filter((row): row is NonNullable<typeof row> => Boolean(row));
   const jobs = await listJobs({
     status: params.status,
     from: params.from,
@@ -52,8 +70,42 @@ export default async function FieldLandingPage({
       <RealtimeRefresh url="/api/field/events" />
       <PageHeader
         title="Field"
-        description="Today's assignments, site details, and the work still open on active jobs."
+        description="Today's dispatch, assignments, site details, and the work still open on active jobs."
       />
+
+      <section aria-labelledby="dispatched-today-heading" className="space-y-3">
+        <h2 id="dispatched-today-heading" className="text-lg font-semibold">
+          Dispatched today
+        </h2>
+        {dispatchedToday.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No dispatch for today.</p>
+        ) : (
+          <ul className="space-y-3">
+            {dispatchedToday.map(({ dispatch, job }) => (
+              <li key={dispatch.id}>
+                <Card>
+                  <CardHeader className="gap-2">
+                    <CardTitle>{job.name}</CardTitle>
+                    <CardDescription>
+                      {formatJobNumber(job.id)}
+                      {dispatch.note ? ` · ${dispatch.note}` : ""}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      nativeButton={false}
+                      render={<Link href={`/field/jobs/${job.id}`} />}
+                      className="min-h-11 w-full sm:w-auto"
+                    >
+                      Open field job
+                    </Button>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ListFilters>
         <div className="space-y-2">

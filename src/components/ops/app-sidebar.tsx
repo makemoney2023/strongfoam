@@ -11,6 +11,7 @@ import {
   ClipboardListIcon,
   FileSpreadsheetIcon,
   FolderKanbanIcon,
+  CalendarDaysIcon,
   HammerIcon,
   HardHatIcon,
   HouseIcon,
@@ -40,6 +41,7 @@ const nav = [
   { title: "Price book", href: "/app/price-book", icon: BookOpenIcon },
   { title: "Projects", href: "/app/projects", icon: FolderKanbanIcon },
   { title: "Jobs", href: "/app/jobs", icon: HammerIcon },
+  { title: "Dispatch", href: "/app/dispatch", icon: CalendarDaysIcon },
   { title: "Field", href: "/field", icon: HardHatIcon },
 ];
 

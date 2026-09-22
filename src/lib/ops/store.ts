@@ -21,6 +21,7 @@ import {
   estimateRequestEvents,
   estimateRequestTasks,
   jobAssignments,
+  dispatches,
   jobDocuments,
   aiCitations,
   aiProposals,
@@ -328,6 +329,9 @@ import {
   type UserListItem,
   type UserUpdateInput,
 } from "@/lib/ops/identity";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
+import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import {
   validateDependencyAddition,
   validateDependencyDates,
@@ -2432,7 +2436,8 @@ export async function canFieldUserAccessJob(
 ): Promise<boolean> {
   if (isDemoOpsStore()) return canDemoFieldUserAccessJob(userId, jobId);
   const db = getDb();
-  const [direct, task] = await Promise.all([
+  const workDate = workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE);
+  const [direct, task, dispatched] = await Promise.all([
     db
       .select({ id: jobAssignments.id })
       .from(jobAssignments)
@@ -2453,8 +2458,21 @@ export async function canFieldUserAccessJob(
         ),
       )
       .limit(1),
+    db
+      .select({ id: dispatches.id })
+      .from(dispatches)
+      .where(
+        and(
+          eq(dispatches.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+          eq(dispatches.userId, userId),
+          eq(dispatches.jobId, jobId),
+          eq(dispatches.workDate, workDate),
+          eq(dispatches.status, "scheduled"),
+        ),
+      )
+      .limit(1),
   ]);
-  return direct.length > 0 || task.length > 0;
+  return direct.length > 0 || task.length > 0 || dispatched.length > 0;
 }
 
 export async function canFieldUserAccessTask(
