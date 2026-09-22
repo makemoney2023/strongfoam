@@ -2,6 +2,10 @@ import { FIELD_ACTIVE_JOB_STATUSES } from "@/lib/ops/field-workspace";
 import { PORTFOLIO_SCHEDULE_WIDGETS } from "@/lib/ops/portfolio-schedule-query";
 import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import {
+  listQuantityPaceWarnings,
+  quantityPaceLabel,
+} from "@/lib/ops/quantity-pace";
+import {
   listTranscriptRecords,
   savedTranscriptSelections,
 } from "@/lib/ops/transcript-record";
@@ -12,6 +16,7 @@ export const OPERATIONS_EXCEPTION_KINDS = [
   "blocked_job",
   "overdue_task",
   "unextracted_voice_note",
+  "quantity_pace",
 ] as const;
 
 export type OperationsExceptionKind = (typeof OPERATIONS_EXCEPTION_KINDS)[number];
@@ -38,6 +43,14 @@ export type ExceptionTask = {
   status: string;
   dueAt: Date | null;
   plannedEndAt: Date | null;
+  statedQuantity?: number | null;
+  statedUnit?: string | null;
+};
+
+export type ExceptionQuantity = {
+  jobId: string;
+  quantity: number | null;
+  unit: string | null;
 };
 
 export type ExceptionFieldNote = {
@@ -105,6 +118,7 @@ export function listOperationsExceptions(
     jobs: ExceptionJob[];
     tasks: ExceptionTask[];
     fieldNotes: ExceptionFieldNote[];
+    quantities?: ExceptionQuantity[];
     voiceNotes: ExceptionVoiceNote[];
     events: ExceptionEvent[];
   },
@@ -179,6 +193,19 @@ export function listOperationsExceptions(
       label: `Overdue: ${task.title}`,
       href: PORTFOLIO_SCHEDULE_WIDGETS.overdueTasks.href,
       occurredAt: occurredAt.toISOString(),
+    });
+  }
+
+  for (const warning of listQuantityPaceWarnings({
+    jobs: input.jobs,
+    tasks: input.tasks,
+    quantities: input.quantities ?? [],
+  })) {
+    rows.push({
+      kind: "quantity_pace",
+      label: quantityPaceLabel(warning),
+      href: `/app/jobs/${warning.jobId}#tasks`,
+      occurredAt: input.now.toISOString(),
     });
   }
 

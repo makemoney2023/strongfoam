@@ -515,6 +515,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(3),
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "alex.rivera@strongfoam.com",
     },
     {
@@ -531,6 +533,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(6),
       completedAt: null,
       status: "open",
+      statedQuantity: 40,
+      statedUnit: "bags",
       createdBy: "alex.rivera@strongfoam.com",
     },
     {
@@ -547,6 +551,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(7),
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "alex.rivera@strongfoam.com",
     },
     {
@@ -563,6 +569,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: null,
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "alex.rivera@strongfoam.com",
     },
     {
@@ -579,6 +587,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: null,
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "alex.rivera@strongfoam.com",
     },
     {
@@ -595,6 +605,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(4),
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "jordan.patel@strongfoam.com",
     },
     {
@@ -611,6 +623,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(6),
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "jordan.patel@strongfoam.com",
     },
     {
@@ -627,6 +641,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: demoDate(7),
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "jordan.patel@strongfoam.com",
     },
     {
@@ -643,6 +659,8 @@ export function demoJobTasks(): JobTaskRow[] {
       plannedEndAt: null,
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "jordan.patel@strongfoam.com",
     },
   ];
@@ -915,6 +933,19 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       body: "Staging is complete. Start closed-cell at the podium deck after the morning safety talk.",
       quantity: null,
       unit: null,
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff01",
+      createdAt: new Date(now - 5 * 60 * 60 * 1000),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      annotationId: null,
+      kind: "quantity",
+      body: "Closed-cell installed on the podium deck.",
+      quantity: 48,
+      unit: "bags",
       createdBy: DEMO_FIELD_EMAIL,
     },
   ];

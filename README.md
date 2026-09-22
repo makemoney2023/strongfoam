@@ -72,8 +72,9 @@ Production operations requirements:
   Migration `0010_user_administration.sql` is required for revocable sessions
   and user lifecycle audit events. Apply `0013_plan_revision_integrity.sql`
   before revision writes, `0014_job_voice_notes.sql` before serving voice-note
-  code, and `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
-  and text marks. The current Vercel Hobby deploy still uses the in-memory
+  code,   `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
+  and text marks, and `0016_task_stated_quantity.sql` before storing a stated
+  task quantity in bags or square feet. The current Vercel Hobby deploy still uses the in-memory
   demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
   Postgres is attached.
 

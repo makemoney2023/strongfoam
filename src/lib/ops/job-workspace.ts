@@ -3,6 +3,10 @@ import {
   isAllowedUploadContentType,
 } from "@/lib/leads/uploads";
 import { parseTaskInput } from "@/lib/ops/collaboration";
+import {
+  parseStatedQuantity,
+  type StatedQuantityUnit,
+} from "@/lib/ops/quantity-pace";
 
 export const WORK_AREA_KINDS = [
   "area",
@@ -47,6 +51,8 @@ export type JobTaskInput = {
   plannedStartAt: Date | null;
   plannedEndAt: Date | null;
   workAreaId: string | null;
+  statedQuantity?: number | null;
+  statedUnit?: StatedQuantityUnit | null;
 };
 
 export type JobDocumentInput = {
@@ -169,6 +175,8 @@ export function parseJobTaskInput(input: {
   plannedStartAt?: string;
   plannedEndAt?: string;
   workAreaId?: string;
+  statedQuantity?: string | number | null;
+  statedUnit?: string | null;
 }): { ok: true; value: JobTaskInput } | { ok: false; error: string; field?: string } {
   const parsed = parseTaskInput({
     title: input.title,
@@ -236,6 +244,11 @@ export function parseJobTaskInput(input: {
   if (workAreaId && !isUuid(workAreaId)) {
     return { ok: false, error: "Choose a valid work area.", field: "workAreaId" };
   }
+  const stated = parseStatedQuantity({
+    statedQuantity: input.statedQuantity,
+    statedUnit: input.statedUnit,
+  });
+  if (!stated.ok) return stated;
   return {
     ok: true,
     value: {
@@ -244,6 +257,8 @@ export function parseJobTaskInput(input: {
       plannedStartAt,
       plannedEndAt,
       workAreaId,
+      statedQuantity: stated.statedQuantity,
+      statedUnit: stated.statedUnit,
     },
   };
 }

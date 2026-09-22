@@ -260,6 +260,8 @@ export async function addJobWorkspaceTask(formData: FormData): Promise<ActionSta
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
+    statedQuantity: String(formData.get("statedQuantity") ?? ""),
+    statedUnit: String(formData.get("statedUnit") ?? ""),
   });
   if (!jobId) return fail("/app/jobs", "Missing job.");
   if (!parsed.ok) return invalidFrom(parsed);
@@ -531,6 +533,8 @@ export async function saveJobWorkspaceTask(formData: FormData): Promise<ActionSt
     plannedStartAt: String(formData.get("plannedStartAt") ?? ""),
     plannedEndAt: String(formData.get("plannedEndAt") ?? ""),
     workAreaId: String(formData.get("workAreaId") ?? ""),
+    statedQuantity: String(formData.get("statedQuantity") ?? ""),
+    statedUnit: String(formData.get("statedUnit") ?? ""),
   });
   if (!jobId || !taskId) return fail(returnTo, "Missing task.");
   if (!parsed.ok) return invalidFrom(parsed);

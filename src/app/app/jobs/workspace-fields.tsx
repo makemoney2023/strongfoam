@@ -9,6 +9,7 @@ import {
   FIELD_QUANTITY_LABELS,
   FIELD_QUANTITY_UNITS,
 } from "@/lib/ops/field-workspace";
+import { STATED_QUANTITY_UNITS } from "@/lib/ops/quantity-pace";
 import {
   JOB_DOCUMENT_KINDS,
   JOB_DOCUMENT_LABELS,
@@ -84,6 +85,8 @@ export function TaskFields({
     plannedStartAt?: string;
     plannedEndAt?: string;
     workAreaId?: string | null;
+    statedQuantity?: number | null;
+    statedUnit?: string | null;
   };
 }) {
   const id = (field: string) => `${idPrefix}-${field}`;
@@ -164,6 +167,38 @@ export function TaskFields({
           defaultValue={defaults.plannedEndAt ?? ""}
         />
         <FieldError name="plannedEndAt" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("statedQuantity")}>Stated quantity</Label>
+        <Input
+          id={id("statedQuantity")}
+          name="statedQuantity"
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          className="h-11"
+          defaultValue={defaults.statedQuantity ?? ""}
+          placeholder="Bags or square feet still to install"
+        />
+        <FieldError name="statedQuantity" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("statedUnit")}>Quantity unit</Label>
+        <NativeSelect
+          id={id("statedUnit")}
+          name="statedUnit"
+          defaultValue={defaults.statedUnit ?? ""}
+          className="h-11"
+        >
+          <option value="">None</option>
+          {STATED_QUANTITY_UNITS.map((unit) => (
+            <option key={unit} value={unit}>
+              {unit === "bags" ? "Bags" : "Square feet"}
+            </option>
+          ))}
+        </NativeSelect>
+        <FieldError name="statedUnit" />
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor={id("workAreaId")}>Work area</Label>

@@ -77,6 +77,7 @@ import {
   updateDemoEstimateRequest,
   updateDemoJobDocument,
   updateDemoJobFieldNote,
+  updateDemoJobTask,
   updateDemoVoiceTranscript,
   updateDemoUser,
   updateDemoWorkArea,
@@ -236,6 +237,8 @@ function addPortfolioFixtures(state: DemoPortfolioState): void {
     plannedEndAt: null,
     completedAt: null,
     status: "open",
+    statedQuantity: null,
+    statedUnit: null,
     createdBy: "fixture@strongfoam.com",
   });
   state.jobTasks.push(
@@ -1336,6 +1339,7 @@ describe("workspace CRUD and filters", () => {
 
     expect(task?.plannedStartAt).toEqual(plannedStartAt);
     expect(task?.plannedEndAt).toEqual(plannedEndAt);
+    expect(task?.statedQuantity).toBeNull();
     const completed = setDemoJobTaskStatus({
       jobId: DEMO_JOB_ID,
       taskId: task?.id ?? "",
@@ -1350,6 +1354,41 @@ describe("workspace CRUD and filters", () => {
       status: "open",
     });
     expect(reopened?.completedAt).toBeNull();
+  });
+
+  it("keeps a stated quantity when a due-date update omits it", () => {
+    const task = addDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      actor: "estimating@strongfoam.com",
+      input: {
+        title: `Quantity ${crypto.randomUUID()}`,
+        assignee: null,
+        assigneeUserId: null,
+        dueAt: new Date("2026-09-20T12:00:00.000Z"),
+        plannedStartAt: null,
+        plannedEndAt: null,
+        workAreaId: null,
+        statedQuantity: 40,
+        statedUnit: "bags",
+      },
+    });
+    const updated = updateDemoJobTask({
+      jobId: DEMO_JOB_ID,
+      taskId: task?.id ?? "",
+      actor: "estimating@strongfoam.com",
+      input: {
+        title: task?.title ?? "",
+        assignee: null,
+        assigneeUserId: null,
+        dueAt: new Date("2026-09-21T12:00:00.000Z"),
+        plannedStartAt: null,
+        plannedEndAt: null,
+        workAreaId: null,
+      },
+    });
+    expect(updated?.statedQuantity).toBe(40);
+    expect(updated?.statedUnit).toBe("bags");
+    expect(updated?.dueAt).toEqual(new Date("2026-09-21T12:00:00.000Z"));
   });
 
   it("updates and deletes work areas and field notes", () => {
@@ -1712,6 +1751,8 @@ describe("portfolio Schedule store", () => {
         plannedEndAt: null,
         completedAt: null,
         status: "open",
+        statedQuantity: null,
+        statedUnit: null,
         createdBy: "bounds@strongfoam.com",
       })),
     );
@@ -1739,6 +1780,8 @@ describe("portfolio Schedule store", () => {
       plannedEndAt: null,
       completedAt: null,
       status: "open",
+      statedQuantity: null,
+      statedUnit: null,
       createdBy: "bounds@strongfoam.com",
     }));
     const dependencies: JobTaskDependencyRow[] = [];

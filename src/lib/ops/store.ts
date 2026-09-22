@@ -171,6 +171,7 @@ import {
   type JobTaskInput,
   type WorkAreaInput,
 } from "@/lib/ops/job-workspace";
+import { statedTaskWrite } from "@/lib/ops/quantity-pace";
 import type { FieldNoteInput } from "@/lib/ops/field-workspace";
 import {
   clearVoiceNoteBytes,
@@ -2934,6 +2935,10 @@ export async function addJobTask(args: {
       plannedStartAt: args.input.plannedStartAt,
       plannedEndAt: args.input.plannedEndAt,
       status: "open",
+      ...(statedTaskWrite(args.input) ?? {
+        statedQuantity: null,
+        statedUnit: null,
+      }),
       createdBy: args.actor,
     })
     .returning();
@@ -3551,7 +3556,7 @@ export async function listHomeExceptionSource() {
   if (isDemoOpsStore()) return listDemoHomeExceptionSource();
   const db = getDb();
   const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const [jobRows, taskRows, noteRows, voiceRows, eventRows, defaultCalendars] =
+  const [jobRows, taskRows, noteRows, quantityRows, voiceRows, eventRows, defaultCalendars] =
     await Promise.all([
     db
       .select({
@@ -3575,6 +3580,8 @@ export async function listHomeExceptionSource() {
         status: jobTasks.status,
         dueAt: jobTasks.dueAt,
         plannedEndAt: jobTasks.plannedEndAt,
+        statedQuantity: jobTasks.statedQuantity,
+        statedUnit: jobTasks.statedUnit,
       })
       .from(jobTasks)
       .where(ne(jobTasks.status, "done")),
@@ -3588,6 +3595,14 @@ export async function listHomeExceptionSource() {
       .where(
         and(eq(jobFieldNotes.kind, "daily_report"), gte(jobFieldNotes.createdAt, since)),
       ),
+    db
+      .select({
+        jobId: jobFieldNotes.jobId,
+        quantity: jobFieldNotes.quantity,
+        unit: jobFieldNotes.unit,
+      })
+      .from(jobFieldNotes)
+      .where(eq(jobFieldNotes.kind, "quantity")),
     db
       .select({
         id: jobVoiceNotes.id,
@@ -3624,6 +3639,7 @@ export async function listHomeExceptionSource() {
     })),
     tasks: taskRows,
     fieldNotes: noteRows,
+    quantities: quantityRows,
     voiceNotes: voiceRows,
     events: eventRows,
   };
@@ -4484,6 +4500,7 @@ export async function updateJobTask(args: {
       plannedStartAt: args.input.plannedStartAt,
       plannedEndAt: args.input.plannedEndAt,
       workAreaId: args.input.workAreaId,
+      ...statedTaskWrite(args.input),
       updatedAt: args.restoredUpdatedAt ?? new Date(),
     })
     .where(and(...conditions))

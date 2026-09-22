@@ -33,6 +33,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
+import { formatStatedQuantity } from "@/lib/ops/quantity-pace";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import {
@@ -389,6 +390,9 @@ export default async function FieldJobPage({
                     <p className="text-sm text-muted-foreground">
                       {task.assignee ?? "Unassigned"}
                       {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
+                      {formatStatedQuantity(task.statedQuantity, task.statedUnit)
+                        ? ` · ${formatStatedQuantity(task.statedQuantity, task.statedUnit)}`
+                        : ""}
                     </p>
                   </div>
                   <TaskStatusButton

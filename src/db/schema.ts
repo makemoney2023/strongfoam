@@ -384,6 +384,8 @@ export const jobTasks = pgTable(
     plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     status: text("status").notNull().default("open"),
+    statedQuantity: integer("stated_quantity"),
+    statedUnit: text("stated_unit"),
     createdBy: text("created_by").notNull(),
   },
   (table) => [
@@ -392,6 +394,17 @@ export const jobTasks = pgTable(
       foreignColumns: [workAreas.id, workAreas.jobId],
       name: "job_tasks_work_area_job_fk",
     }),
+    check(
+      "job_tasks_stated_quantity_valid",
+      sql`(
+        ${table.statedQuantity} IS NULL
+        AND ${table.statedUnit} IS NULL
+      ) OR (
+        ${table.statedQuantity} > 0
+        AND ${table.statedQuantity} <= 1000000
+        AND ${table.statedUnit} IN ('bags', 'sq_ft')
+      )`,
+    ),
     check(
       "job_tasks_planned_date_order",
       sql`${table.plannedStartAt} IS NULL

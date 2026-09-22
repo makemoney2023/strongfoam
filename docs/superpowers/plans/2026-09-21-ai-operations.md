@@ -192,7 +192,7 @@ Do not start these inside Release A.
 
 | Next plan | PRD | Starts after |
 |---|---|---|
-| Morning brief, speak onto the plan, schedule diff, quantity pace, pick list, deficiencies by sheet | AI-010, AI-011, AI-012, AI-014, AI-015, AI-020 | AI-010, AI-011, AI-012, AI-015, and AI-020 are shipped. AI-014 is blocked until an open task stores a stated quantity |
+| Morning brief, speak onto the plan, schedule diff, quantity pace, pick list, deficiencies by sheet | AI-010, AI-011, AI-012, AI-014, AI-015, AI-020 | Shipped. AI-014 compares installed bags or square feet with the quantity still stated on open tasks |
 | Reversible task commands | AI-003 | Shipped for status and a one-working-day due date, including chained undo and one-click complete |
 | Exact schedule diff | AI-012 | Accept writes the shown moves only. A later failure restores earlier moves. Bulk reassignment is still not a command |
 | Transcript record | AI-004 | One blocker, deficiency, material request, or new task from a completed transcript. A later sentence stays available, dismissing one sentence writes nothing, and the home queue keeps the note while a sentence remains. A daily report stays the AI-009 draft |

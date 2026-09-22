@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.22
+**Version:** 1.23
 **Created:** 2026-09-18
-**Last updated:** 2026-09-21
+**Last updated:** 2026-09-22
 
 ## 1. Purpose
 
@@ -100,8 +100,11 @@ writes nothing and the next sentence can be confirmed on its own. The home
 exception queue keeps that note until no sentence remains. A product name
 alone is not a material request. A spoken pin confirm checks the mark that
 will be written (AI-004, AI-011).
-AI-014 and AI-016 through AI-026 remain specified and
-are not built. AI-014 waits until an open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
+An open task can store a stated quantity in bags or square feet. Home and the
+job warn when installed field quantities of that unit are ahead of the amount
+still stated on open tasks (AI-014). The warning does not state dollars,
+margin, or a price. AI-016 through AI-026 remain specified and
+are not built. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
 
 ## 4. Product vision
@@ -1537,8 +1540,8 @@ deletable by ordinary application roles.
 ### 24.9 AI rollout
 
 1. Release A on current records: AI-008, AI-009, AI-010, AI-011, AI-012,
-   AI-013, AI-015, and AI-020 are shipped. Still open in Release A: AI-014.
-   AI-014 waits until an open task stores a stated quantity.
+   AI-013, AI-014, AI-015, and AI-020 are shipped. Release A on current
+   records is complete.
 2. Release B after the commercial records exist: AI-016 through AI-019 and
    AI-021. The agent drafts scope and quantity. A person sets price and
    approval.
@@ -1573,7 +1576,7 @@ These boundaries apply to every ID:
 | AI-011 | Speak onto the plan | A | Shipped | After AI-009 confirmation works |
 | AI-012 | Schedule diff from field truth | A | Shipped | After AI-011; uses the existing reschedule confirm |
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
-| AI-014 | Quantity pace warning | A | Blocked | Open tasks store a stated quantity in bags or sq ft |
+| AI-014 | Quantity pace warning | A | Shipped | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
 | AI-016 | Request scope outline | B | Blocked | QTE-003 price book |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
@@ -1823,8 +1826,10 @@ policy and human review.
    draft (AI-009), and the exception queue (AI-013) (done).
 2. Continue Release A: morning brief (AI-010, done), material pick list
    (AI-015, done), deficiencies by sheet (AI-020, done), speak onto the plan
-   (AI-011, done), and schedule diff (AI-012, done). Still open: quantity
-   pace (AI-014, blocked until tasks store a stated quantity).
+   (AI-011, done), schedule diff (AI-012, done), and quantity pace (AI-014,
+   done). An open task stores a stated quantity in bags or square feet. The
+   warning compares installed field quantities with that remainder and does
+   not state dollars.
 3. Add reversible direct task updates with confirmation and undo (done for
    status and a one-working-day due date, including one-click complete and
    chained undo while the task is otherwise unchanged). Description, priority,
@@ -1944,11 +1949,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Keep a later transcript sentence available after one record is saved, and check the pin fields on confirm | One extract must not hide a different request, and a pin confirm must not write a body the user did not see |
 | 2026-09-21 | Let a dismissed transcript sentence stay unwritten while the next sentence can be confirmed | Office staff can record the request they want without first saving a higher-ranked sentence |
 | 2026-09-21 | Keep a transcript in the exception queue while a sentence can still be saved | One saved sentence must not hide a different request from the home queue |
+| 2026-09-22 | Store a stated quantity in bags or square feet on an open task and warn when installed quantity is ahead of that remainder | Quantity pace uses field quantities only. It does not state dollars, margin, or a price. A due-date command leaves the stated quantity in place |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.23 | 2026-09-22 | Shipped AI-014. An open task stores a stated quantity in bags or square feet. Home and the job warn when installed field quantity is ahead of that remainder, without dollars or margin |
 | 1.22 | 2026-09-21 | The home exception queue keeps a transcript while another sentence can still be saved. AI-014 stays blocked until tasks store a stated quantity |
 | 1.21 | 2026-09-21 | A transcript record skips a product mention that is not a request, and a later sentence can still be saved or confirmed after the earlier sentence is dismissed. A new task is proposed only when that work is not already open. A spoken pin confirm checks the mark fields. AI-014 stays blocked until tasks store a stated quantity |
 | 1.20 | 2026-09-21 | A completed transcript can propose one blocker, deficiency, or material request. Confirm uses the existing voice extract. AI-014 stays blocked until tasks store a stated quantity |

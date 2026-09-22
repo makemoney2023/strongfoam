@@ -308,10 +308,10 @@ export default async function OpsHomePage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {exceptionTotal === 0
-              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract."
+              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, and installed quantities ahead of the amount still stated on open tasks."
               : exceptionTotal > operationsExceptions.length
                 ? `${exceptionTotal} to review. Showing the ${operationsExceptions.length} oldest.`
-                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes still to extract.`}
+                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, and installed quantities ahead of the amount still stated on open tasks.`}
           </p>
         </div>
         {operationsExceptions.length === 0 ? (

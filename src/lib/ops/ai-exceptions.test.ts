@@ -226,4 +226,39 @@ describe("operations exceptions", () => {
     expect(source.jobs.some((job) => job.id === DEMO_JOB_ID)).toBe(true);
     expect(rows.some((row) => row.href.includes(DEMO_JOB_ID))).toBe(true);
   });
+
+  it("warns when installed quantity is ahead of the stated remainder", () => {
+    const rows = listOperationsExceptions({
+      now: NOW,
+      jobs: [
+        {
+          id: "job-open",
+          name: "Podium",
+          status: "in_progress",
+          updatedAt: NOW,
+        },
+      ],
+      tasks: [
+        {
+          id: "task-1",
+          jobId: "job-open",
+          title: "Install closed-cell",
+          status: "open",
+          dueAt: null,
+          plannedEndAt: null,
+          statedQuantity: 40,
+          statedUnit: "bags",
+        },
+      ],
+      fieldNotes: [],
+      quantities: [{ jobId: "job-open", quantity: 48, unit: "bags" }],
+      voiceNotes: [],
+      events: [],
+    });
+    const pace = rows.find((row) => row.kind === "quantity_pace");
+    expect(pace?.href).toBe("/app/jobs/job-open#tasks");
+    expect(pace?.label).toBe(
+      "Quantity pace: 48 bags installed is ahead of 40 bags still stated on open tasks: Podium",
+    );
+  });
 });

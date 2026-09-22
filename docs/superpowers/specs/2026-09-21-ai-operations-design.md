@@ -184,9 +184,10 @@ exact effect.
 moves already allowed by the schedule validator. Accept calls the existing
 reschedule command. Reject leaves the schedule unchanged.
 
-**AI-014 Quantity pace.** Compare summed `bags` or `sq_ft` quantities on the
+**AI-014 Quantity pace.** Shipped. Compare summed `bags` or `sq_ft` quantities on the
 job with quantities stated on open tasks. Warn when installed quantity exceeds
-the stated remaining quantity. No currency.
+the stated remaining quantity. No currency. A due-date command does not clear
+the stated quantity.
 
 **AI-015 Material pick list.** Group open `material_request` notes by job and
 the request text. The result is a copyable draft. It does not create a
