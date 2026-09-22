@@ -737,19 +737,19 @@ Commit message: `Add immutable deterministic estimate versions.`
 - Modify: `src/lib/ops/search.ts`
 - Modify: `src/lib/ops/recent.ts`
 
-- [ ] **Step 1: Write action tests**
+- [x] **Step 1: Write action tests**
 
 Test unauthenticated, field, wrong organization, invalid price revision,
 client-supplied total, stale base version, successful new version, and discard.
 Successful save creates one version and no project/job.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/app/app/opportunities/[id]/estimates/actions.test.ts
 ```
 
-- [ ] **Step 3: Add estimate routes and editor**
+- [x] **Step 3: Add estimate routes and editor**
 
 Opportunity shows **Estimates** and **Create estimate**. The workspace has:
 
@@ -764,12 +764,12 @@ Opportunity shows **Estimates** and **Create estimate**. The workspace has:
 
 Each save says **Create version N**; no UI implies in-place editing.
 
-- [ ] **Step 4: Add search/recent integration**
+- [x] **Step 4: Add search/recent integration**
 
 Add `estimate` to `SearchHitKind`. Search title, estimate number, opportunity,
 and company. Recent item path recognizes the estimate route.
 
-- [ ] **Step 5: Run checks and browser-verify AI-off workflow**
+- [x] **Step 5: Run checks and browser-verify AI-off workflow**
 
 ```bash
 npx vitest run src/app/app/opportunities/[id]/estimates/actions.test.ts src/lib/ops/estimates.test.ts src/lib/ops/search.test.ts
@@ -780,7 +780,7 @@ npm test
 With gateway variables unset, create estimate v1, add a line and two job
 packages, create v2, compare v1/v2, and confirm no project/job exists.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `Add the manual estimate version workspace.`
 
