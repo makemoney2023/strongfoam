@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { PgBoss } from "pg-boss";
+import { parseDatabaseConfig } from "@/db/config";
 import { recordHeartbeat } from "@/lib/ops/background-jobs";
 import { handlers, type WorkerHandler } from "@/worker/registry";
 
@@ -53,11 +54,9 @@ export async function startWorker(
 }
 
 async function main(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not set");
-  }
-  const boss = new PgBoss(connectionString);
+  const config = parseDatabaseConfig(process.env);
+  if (!config.ok) throw new Error(config.error);
+  const boss = new PgBoss(config.value.workerUrl);
   const worker = await startWorker(boss);
   const shutdown = () => {
     worker.stop().then(

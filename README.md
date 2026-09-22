@@ -95,6 +95,8 @@ Environment names (values live in `.env.local`, never committed):
 
 ```
 DATABASE_URL
+WORKER_DATABASE_URL
+DIRECT_URL
 BLOB_READ_WRITE_TOKEN
 RESEND_API_KEY
 RESEND_FROM
@@ -118,9 +120,15 @@ VOICE_CONSENT_NOTICE
 WORKER_ID
 ```
 
+Application traffic uses `DATABASE_URL`, the Supabase pooled connection.
+`npm run worker` uses `WORKER_DATABASE_URL` for pg-boss and the outbox.
+`npm run db:migrate` uses `DIRECT_URL`. Outside production, the worker and
+migration URLs fall back to `DATABASE_URL`. Production fails closed when either
+is missing. Supabase project credentials stay outside this repository.
+
 `npm run worker` starts the Render background process. It claims pg-boss work,
-records a heartbeat, and stops cleanly on SIGTERM. It needs `DATABASE_URL` and
-does not serve the Next.js app.
+records a heartbeat, and stops cleanly on SIGTERM. It does not serve the Next.js
+app.
 
 Voice notes store audio privately (demo memory, production Blob). Transcription
 runs after save: a demo stub in `OPS_DEMO`, Deepgram Nova-3 (`en-US`) when

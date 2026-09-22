@@ -178,7 +178,7 @@ to treat it as selling price. Do not drop or rewrite approved revisions.
 - Modify: `.env.example`
 - Modify: `README.md`
 
-- [ ] **Step 1: Add failing database configuration tests**
+- [x] **Step 1: Add failing database configuration tests**
 
 Test that:
 
@@ -206,7 +206,7 @@ expect(
 
 Also assert secret values never appear in an error string.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/db/config.test.ts
@@ -214,7 +214,7 @@ npx vitest run src/db/config.test.ts
 
 Expected: FAIL because `src/db/config.ts` does not exist.
 
-- [ ] **Step 3: Install the latest transaction-capable driver**
+- [x] **Step 3: Install the latest transaction-capable driver**
 
 ```bash
 npm install postgres@latest
@@ -227,7 +227,7 @@ then remove it in this task with:
 npm uninstall @neondatabase/serverless
 ```
 
-- [ ] **Step 4: Implement validated connection configuration**
+- [x] **Step 4: Implement validated connection configuration**
 
 Export:
 
@@ -248,7 +248,7 @@ export function parseDatabaseConfig(
 `WORKER_DATABASE_URL` and `DIRECT_URL` may fall back to `DATABASE_URL` only in
 local development. Production fails closed when either is absent.
 
-- [ ] **Step 5: Replace the Neon HTTP Drizzle driver**
+- [x] **Step 5: Replace the Neon HTTP Drizzle driver**
 
 Use `postgres` with `drizzle-orm/postgres-js`. Configure the pooled application
 client with prepared statements disabled when required by the Supabase
@@ -257,13 +257,13 @@ transaction pooler. Export a transaction-capable `getDb()`.
 Update the Render worker to use `WORKER_DATABASE_URL` for pg-boss rather than
 `DATABASE_URL`.
 
-- [ ] **Step 6: Document environment and migration behavior**
+- [x] **Step 6: Document environment and migration behavior**
 
 Document that application traffic uses the pooler, workers use the
 worker-compatible URL, and migrations use `DIRECT_URL`. Supabase project
 credentials remain outside the repository.
 
-- [ ] **Step 7: Run checks**
+- [x] **Step 7: Run checks**
 
 ```bash
 npx vitest run src/db/config.test.ts src/app/app/users/actions.test.ts
@@ -273,7 +273,7 @@ npm test
 
 Expected: all tests pass, including existing transaction-backed user actions.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Commit message: `Connect transactional domain writes to Supabase Postgres.`
 
