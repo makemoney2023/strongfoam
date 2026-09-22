@@ -1880,7 +1880,7 @@ These boundaries apply to every ID:
 | AI-016 | Cited bid/request scope outline | B | Blocked | Durable bid documents, extraction, approved price revisions, and manual estimate versions |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
 | AI-018 | Bid-package/walkthrough scope lines | B | Blocked | BID-001 through BID-011 and section 17.1 assembly fields |
-| AI-019 | Change-order draft | B | Blocked | QTE-007; a person sets the price |
+| AI-019 | Change-order draft | B | Blocked | Change-order records exist. Voice, photo, and plan-pin drafts are not built; a person sets the price |
 | AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
 | AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
 | AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Render worker and pgvector |
@@ -2206,7 +2206,13 @@ policy and human review.
 6. Then allow cited commercial AI drafts: scope outline (AI-016), revision
    explanation (AI-017), bid-package/walkthrough scope lines (AI-018), and
    change-order drafts (AI-019). A person selects price and quantity.
-7. Add change orders under QTE-007 after initial estimate conversion is stable.
+7. Add change orders under QTE-007 after initial estimate conversion is stable
+   (done: a project change order stores scope, price, schedule-impact days, and
+   status. An administrator approves or rejects it, using the existing
+   second-approver threshold. Approval evidence is the actor, comment, and
+   content hash. An approved order adds one budget effect to the revised
+   project total and records the schedule-impact days. Task dates stay put.
+   Draft and pending orders appear on Home. AI-019 drafts are not built).
 8. Add dispatch, time, materials, equipment, inspections, and closeout, then
    the closeout packet (AI-021) and dispatch recommendation (AI-023).
 9. Add job costing and accounting integrations, then cost variance
@@ -2322,11 +2328,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Treat a bid package as private opportunity evidence before a job exists, and create operational records only after exact-version approval, customer acceptance, and internal conversion confirmation | Upload and AI draft must have no operational effect. Written quantities may be cited; geometric takeoff and generated prices remain out. Deterministic estimate versions, human price selection, and one atomic idempotent conversion preserve financial and job history |
 | 2026-09-22 | Import existing Strong Foam spreadsheets through a reviewed Supabase Import Center rather than direct database writes | Private staging, stable source keys, deterministic validation, human conflict resolution, administrator commit, one transaction, inactive workforce identities, draft price revisions, and reconciliation make the migration repeatable and auditable |
 | 2026-09-22 | Gate commercial AI separately from manual estimates, proposals, and conversion | Office staff can keep estimating while AI stays off. Production AI requires passed workflow checks, a fresh worker heartbeat, residency-approved scanner and models, evaluation rejections, and cost and rate limits |
+| 2026-09-22 | Record a change order on the project before drafting one from a voice note | QTE-007 needs scope, price, schedule impact, status, approval evidence, and a budget effect. Approval uses the existing second-approver rule. The revised total adds approved effects to the original budget. Schedule-impact days are recorded and do not move tasks. AI-019 stays unbuilt |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.28 | 2026-09-22 | Shipped QTE-007 change orders: scope, price, schedule-impact days, status, administrator approval evidence, and one budget effect on the revised project total. Task dates are not moved. AI-019 remains unbuilt |
 | 1.27 | 2026-09-22 | Added organization-scoped commercial rollout flags and Home links for failed scan, extraction, proposal, and conversion jobs. Commercial AI stays off until workflow checks, a healthy worker heartbeat, residency-approved providers, the evaluation suite, and cost and rate limits are in place |
 | 1.26 | 2026-09-22 | Added IMP-001 through IMP-030 for the Supabase Data Import Center: private XLSX/CSV staging, malware/archive checks, mapping profiles, deterministic validation, source-key crosswalks, administrator-only transactional commit, price-book product codes and costs, inactive workforce import, linked customer/project/job import, reconciliation, retention, and production cutover |
 | 1.25 | 2026-09-22 | Specified the governed bid-package-to-estimate-to-job workflow. Added pre-job private document versions, durable scan/extraction/OCR, citations, immutable price and estimate versions, deterministic calculation, exact approval/proposal/acceptance, atomic multi-job conversion, and the boundary against geometric takeoff or AI-generated pricing |

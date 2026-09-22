@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChangeOrderPanel } from "@/components/ops/change-order-panel";
 import { getOpsSession } from "@/lib/ops/auth";
+import { getProjectChangeOrderView } from "@/lib/ops/change-order-store";
+import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import {
   JOB_STATUS_LABELS,
   formatJobNumber,
@@ -59,14 +62,21 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ scheduleBaseline?: string }>;
 }) {
-  if (!(await getOpsSession())) {
+  const session = await getOpsSession();
+  if (!session) {
     redirect("/app/login");
   }
+  const changeOrderRead = resolveCommercialAccess(session, "change_order.read");
 
   const { id } = await params;
   const query = await searchParams;
   const project = await getProject(id);
   if (!project) notFound();
+  const canReadChangeOrders =
+    changeOrderRead.ok && project.organizationId === changeOrderRead.organizationId;
+  const changeOrderView = canReadChangeOrders
+    ? await getProjectChangeOrderView(changeOrderRead.organizationId, project.id)
+    : null;
 
   const [
     company,
@@ -322,6 +332,18 @@ export default async function ProjectDetailPage({
           </CardContent>
         </Card>
       </section>
+
+      {changeOrderView ? (
+        <ChangeOrderPanel
+          projectId={project.id}
+          orders={changeOrderView.orders}
+          approvals={changeOrderView.approvals}
+          effects={changeOrderView.effects}
+          budget={changeOrderView.budget}
+          canEdit={resolveCommercialAccess(session, "change_order.edit").ok}
+          canApprove={resolveCommercialAccess(session, "change_order.approve").ok}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

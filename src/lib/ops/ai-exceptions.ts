@@ -21,6 +21,7 @@ export const OPERATIONS_EXCEPTION_KINDS = [
   "failed_document_extraction",
   "failed_bid_proposal",
   "failed_estimate_conversion",
+  "unapproved_change_order",
 ] as const;
 
 const COMMERCIAL_DEAD_LETTER_KINDS = {
@@ -94,6 +95,14 @@ export type ExceptionBackgroundJob = {
   kind: string;
   status: string;
   payload: unknown;
+  updatedAt: Date;
+};
+
+export type ExceptionChangeOrder = {
+  id: string;
+  projectId: string;
+  number: string;
+  status: string;
   updatedAt: Date;
 };
 
@@ -194,6 +203,7 @@ export function listOperationsExceptions(
     voiceNotes: ExceptionVoiceNote[];
     events: ExceptionEvent[];
     backgroundJobs?: ExceptionBackgroundJob[];
+    changeOrders?: ExceptionChangeOrder[];
     viewerOrganizationId?: string;
   },
   limit = 8,
@@ -296,7 +306,21 @@ export function listOperationsExceptions(
     const row = commercialJobException(job, input.viewerOrganizationId);
     return row ? [row] : [];
   });
-  return [...limited, ...visiblePace, ...commercial].sort(byOccurredAt);
+  const changeOrders = (input.changeOrders ?? []).flatMap((order) => {
+    if (order.status !== "draft" && order.status !== "pending") return [];
+    if (!recordId(order.projectId) || !recordId(order.id)) return [];
+    const number = order.number.trim();
+    if (!number) return [];
+    return [
+      {
+        kind: "unapproved_change_order" as const,
+        label: `Unapproved change order ${number}`,
+        href: `/app/projects/${order.projectId}#change-orders`,
+        occurredAt: order.updatedAt.toISOString(),
+      },
+    ];
+  });
+  return [...limited, ...visiblePace, ...commercial, ...changeOrders].sort(byOccurredAt);
 }
 
 function byOccurredAt(a: OperationsException, b: OperationsException): number {

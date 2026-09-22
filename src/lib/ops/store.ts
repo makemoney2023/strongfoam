@@ -172,6 +172,7 @@ import {
   recordDemoQuarantinedBidDocument,
   retryDemoBidDocumentScan,
   getDemoProject,
+  getDemoProjectBudgetCents,
   getDemoSite,
   listDemoCompanies,
   listDemoContacts,
@@ -2204,6 +2205,24 @@ export async function getProject(id: string): Promise<ProjectRow | null> {
   const db = getDb();
   const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
   return rows[0] ?? null;
+}
+
+export async function getProjectBudgetCents(
+  organizationId: string,
+  projectId: string,
+): Promise<number | null> {
+  if (isDemoOpsStore()) return getDemoProjectBudgetCents(organizationId, projectId);
+  const rows = await getDb()
+    .select({ totalCents: projectBudgets.totalCents })
+    .from(projectBudgets)
+    .where(
+      and(
+        eq(projectBudgets.organizationId, organizationId),
+        eq(projectBudgets.projectId, projectId),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.totalCents ?? null;
 }
 
 export async function listJobs(filters: JobListFilters = {}): Promise<JobRow[]> {

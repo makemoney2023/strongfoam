@@ -28,6 +28,9 @@ export const COMMERCIAL_PERMISSIONS = [
   "estimate.approve",
   "proposal.deliver",
   "estimate.convert",
+  "change_order.read",
+  "change_order.edit",
+  "change_order.approve",
 ] as const;
 
 export type CommercialPermission = (typeof COMMERCIAL_PERMISSIONS)[number];
@@ -37,7 +40,7 @@ export const COMMERCIAL_ROLE_PERMISSIONS: Record<
   readonly CommercialPermission[]
 > = {
   administrator: COMMERCIAL_PERMISSIONS,
-  office: ["estimate.read", "estimate.edit"],
+  office: ["estimate.read", "estimate.edit", "change_order.read", "change_order.edit"],
   field_lead: [],
   field_worker: [],
 };

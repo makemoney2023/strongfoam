@@ -1727,6 +1727,93 @@ export const projectBudgetLines = pgTable(
   ],
 );
 
+export const changeOrders = pgTable(
+  "change_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    number: text("number").notNull(),
+    scope: text("scope").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    scheduleImpactDays: integer("schedule_impact_days").notNull(),
+    status: text("status").notNull(),
+    contentHash: text("content_hash").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("change_orders_project_number_unique").on(table.projectId, table.number),
+    check(
+      "change_orders_status_valid",
+      sql`${table.status} IN ('draft', 'pending', 'approved', 'rejected', 'void')`,
+    ),
+    index("change_orders_project_idx").on(table.organizationId, table.projectId),
+  ],
+);
+
+export const changeOrderApprovals = pgTable(
+  "change_order_approvals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    changeOrderId: uuid("change_order_id")
+      .notNull()
+      .references(() => changeOrders.id),
+    contentHash: text("content_hash").notNull(),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => commercialApprovalRules.id),
+    actorEmail: text("actor_email").notNull(),
+    decision: text("decision").notNull(),
+    comment: text("comment").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("change_order_approvals_actor_unique").on(table.changeOrderId, table.actorEmail),
+    check(
+      "change_order_approvals_decision_valid",
+      sql`${table.decision} IN ('approved', 'rejected')`,
+    ),
+    index("change_order_approvals_order_idx").on(table.organizationId, table.changeOrderId),
+  ],
+);
+
+export const changeOrderBudgetEffects = pgTable(
+  "change_order_budget_effects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    changeOrderId: uuid("change_order_id")
+      .notNull()
+      .references(() => changeOrders.id),
+    approvalId: uuid("approval_id")
+      .notNull()
+      .references(() => changeOrderApprovals.id),
+    contentHash: text("content_hash").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    scheduleImpactDays: integer("schedule_impact_days").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("change_order_budget_effects_order_unique").on(table.changeOrderId),
+    index("change_order_budget_effects_project_idx").on(table.organizationId, table.projectId),
+  ],
+);
+
 export const aiRuns = pgTable(
   "ai_runs",
   {
@@ -1826,6 +1913,9 @@ export const aiToolExecutions = pgTable(
 export type EstimateConversionRow = typeof estimateConversions.$inferSelect;
 export type ProjectBudgetRow = typeof projectBudgets.$inferSelect;
 export type ProjectBudgetLineRow = typeof projectBudgetLines.$inferSelect;
+export type ChangeOrderRow = typeof changeOrders.$inferSelect;
+export type ChangeOrderApprovalRow = typeof changeOrderApprovals.$inferSelect;
+export type ChangeOrderBudgetEffectRow = typeof changeOrderBudgetEffects.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

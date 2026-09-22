@@ -364,6 +364,42 @@ describe("operations exceptions", () => {
     ]);
   });
 
+  it("lists a draft or pending change order and skips an approved one", () => {
+    const projectId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const rows = listOperationsExceptions({
+      now: NOW,
+      jobs: [],
+      tasks: [],
+      fieldNotes: [],
+      voiceNotes: [],
+      events: [],
+      changeOrders: [
+        {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          projectId,
+          number: "CO-2",
+          status: "pending",
+          updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+        },
+        {
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          projectId,
+          number: "CO-1",
+          status: "approved",
+          updatedAt: new Date("2026-09-19T12:00:00.000Z"),
+        },
+      ],
+    });
+    expect(rows).toEqual([
+      {
+        kind: "unapproved_change_order",
+        label: "Unapproved change order CO-2",
+        href: `/app/projects/${projectId}#change-orders`,
+        occurredAt: "2026-09-20T12:00:00.000Z",
+      },
+    ]);
+  });
+
   it("keeps a commercial dead letter when older rows fill the list", () => {
     const jobs = Array.from({ length: 10 }, (_, index) => ({
       id: `job-${index}`,

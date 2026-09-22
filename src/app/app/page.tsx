@@ -29,6 +29,8 @@ import {
   countOperationsExceptions,
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
+import { listUnapprovedChangeOrders } from "@/lib/ops/change-order-store";
+import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { getOpsSession, organizationIdForOpsSession } from "@/lib/ops/auth";
 import { resolveImportAccess } from "@/lib/ops/import-authorization";
 import { listImportHomeExceptions } from "@/lib/ops/import-attention";
@@ -157,6 +159,10 @@ export default async function OpsHomePage() {
     listHomeExceptionSource(),
   ]);
 
+  const changeOrderAccess = resolveCommercialAccess(session, "change_order.read");
+  const unapprovedChangeOrders = changeOrderAccess.ok
+    ? await listUnapprovedChangeOrders(changeOrderAccess.organizationId)
+    : [];
   const importAccess = resolveImportAccess(session, "data.import.prepare");
   const importAttention = importAccess.ok
     ? await listImportAttention(importAccess.organizationId)
@@ -177,6 +183,7 @@ export default async function OpsHomePage() {
     ...exceptionSource,
     now: opsNow,
     viewerOrganizationId: organizationIdForOpsSession(session),
+    changeOrders: unapprovedChangeOrders,
   };
   const operationsExceptions = listOperationsExceptions(exceptionInput);
   const exceptionTotal = countOperationsExceptions(exceptionInput);
@@ -317,10 +324,10 @@ export default async function OpsHomePage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {exceptionTotal === 0
-              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, and failed scan, extraction, proposal, or conversion jobs."
+              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, failed scan, extraction, proposal, or conversion jobs, and unapproved change orders."
               : exceptionTotal > operationsExceptions.length
                 ? `${exceptionTotal} to review. Showing ${operationsExceptions.length}.`
-                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, and failed scan, extraction, proposal, or conversion jobs.`}
+                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, failed scan, extraction, proposal, or conversion jobs, and unapproved change orders.`}
           </p>
         </div>
         {operationsExceptions.length === 0 ? (

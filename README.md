@@ -181,11 +181,21 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0025_commercial_ai.sql` before enabling the flags.
+Apply migrations through `0029_change_orders.sql` before using change orders,
+and through `0025_commercial_ai.sql` before enabling the commercial flags.
 Run the worker as a Render background service with `npm run worker`. Bid files
 stay in private Blob storage and remain quarantined until the scanner marks
 them clean. A failed scan, extraction, proposal draft, or conversion publication
 appears on Home for that organization only.
+
+Change orders live on the project. Office staff can draft, edit, submit, and void
+them. An administrator approves or rejects a submitted order; the comment, actor,
+and content hash are the approval evidence. The existing commercial approval rule
+asks for a second administrator when the absolute price reaches its threshold.
+Approval writes one budget effect. The revised project total is the original
+estimate budget plus approved effects, and the approved schedule-impact days are
+summed beside it. Task dates are not moved. Draft and pending orders show on Home
+for people who can read change orders.
 
 To roll a capability back, set its flag to `0` and redeploy the web service.
 In-flight worker jobs can finish, and they cannot start a new AI draft, proposal

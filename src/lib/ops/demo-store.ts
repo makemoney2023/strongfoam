@@ -1609,6 +1609,16 @@ export function getDemoProject(id: string): ProjectRow | null {
   return projects.find((project) => project.id === id) ?? null;
 }
 
+export function getDemoProjectBudgetCents(
+  organizationId: string,
+  projectId: string,
+): number | null {
+  const budget = getDemoState().projectBudgets.find(
+    (item) => item.organizationId === organizationId && item.projectId === projectId,
+  );
+  return budget?.totalCents ?? null;
+}
+
 export function listDemoJobs(filters: JobListFilters = {}): JobRow[] {
   return jobsList
     .filter((job) => {
