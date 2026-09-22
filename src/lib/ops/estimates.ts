@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { BidEstimateProposal } from "@/lib/ops/commercial-ai";
 import {
   ESTIMATE_CALCULATION_ORDER,
   ESTIMATE_LINE_CATEGORIES,
@@ -777,5 +778,144 @@ export function rehydrateEstimateVersion(input: {
           sortOrder: task.sortOrder,
         })),
     })),
+  };
+}
+
+export function buildAppliedEstimateDraft(input: {
+  organizationId: string;
+  estimateOrganizationId: string;
+  estimateId: string;
+  opportunityId: string;
+  createdBy: string;
+  baseVersionNumber: number;
+  latestVersionNumber: number;
+  overheadBasisPoints: number;
+  markupBasisPoints: number;
+  taxBasisPoints: number;
+  proposal: BidEstimateProposal;
+  storedCitations: Array<{ chunkId: string; contentHash: string }>;
+  revisions: EstimatePriceRevision[];
+  selections: Array<{
+    kind: "line" | "package" | "inclusion" | "exclusion" | "alternate";
+    index: number;
+    quantity: string | null;
+    priceBookVersionId: string | null;
+  }>;
+}): { ok: true; draft: EstimateVersionDraft } | { ok: false; error: string } {
+  if (input.organizationId !== input.estimateOrganizationId) return { ok: false, error: "organization" };
+  if (input.baseVersionNumber !== input.latestVersionNumber) return { ok: false, error: "stale-version" };
+  const stored = new Map(input.storedCitations.map((citation) => [citation.chunkId, citation.contentHash]));
+  const clauses: EstimateVersionDraft["clauses"] = [];
+  const lines: EstimateLineDraft[] = [];
+  const jobPackages: EstimateVersionDraft["jobPackages"] = [];
+  const alternates: EstimateVersionDraft["alternates"] = [];
+  for (const selection of input.selections) {
+    if (selection.kind === "line") {
+      const line = input.proposal.lines[selection.index];
+      if (!line) return { ok: false, error: "line" };
+      for (const citation of line.citations) {
+        if (stored.get(citation.chunkId) !== citation.contentHash) {
+          return { ok: false, error: "citation" };
+        }
+      }
+      const revision = input.revisions.find(
+        (item) => item.id === selection.priceBookVersionId && item.organizationId === input.organizationId,
+      );
+      const confirmed = selection.quantity?.trim() || null;
+      if (!confirmed || !revision || revision.status !== "approved" || !revision.active) {
+        clauses.push({
+          kind: "assumption",
+          text: `Takeoff required: ${line.description}`,
+          sortOrder: clauses.length,
+        });
+        continue;
+      }
+      lines.push({
+        sortOrder: lines.length,
+        category: line.category,
+        description: line.description,
+        trade: revision.trade,
+        location: line.location,
+        method: "unit",
+        quantity: confirmed,
+        unit: revision.unit,
+        unitPriceCents: null,
+        basisPoints: null,
+        basisCategories: [],
+        taxable: true,
+        alternateKey: null,
+        priceBookItemId: revision.itemId,
+        priceBookVersionId: revision.id,
+        sources: line.citations.map((citation) => ({
+          documentVersionId: citation.documentVersionId,
+          pageNumber: citation.pageNumber,
+          sheetLabel: citation.sheetLabel,
+          chunkId: citation.chunkId,
+          contentHash: citation.contentHash,
+          startOffset: citation.startOffset,
+          endOffset: citation.endOffset,
+        })),
+      });
+    }
+    if (selection.kind === "package") {
+      const pkg = input.proposal.jobPackages[selection.index];
+      if (!pkg) return { ok: false, error: "line" };
+      const key = `package-${selection.index}`;
+      jobPackages.push({
+        key,
+        name: pkg.name,
+        trade: pkg.trade,
+        scope: pkg.scope,
+        sortOrder: jobPackages.length,
+        workAreas: pkg.workAreas.map((area, index) => ({
+          key: `${key}-area-${index}`,
+          name: area.name,
+          kind: area.kind,
+          sortOrder: index,
+        })),
+        tasks: pkg.tasks.map((task, index) => {
+          const areaIndex = pkg.workAreas.findIndex((area) => area.name === task.workAreaName);
+          return {
+            title: task.title,
+            workAreaKey: task.workAreaName && areaIndex >= 0 ? `${key}-area-${areaIndex}` : null,
+            sortOrder: index,
+          };
+        }),
+      });
+    }
+    if (selection.kind === "inclusion" || selection.kind === "exclusion") {
+      const clause = (selection.kind === "inclusion" ? input.proposal.inclusions : input.proposal.exclusions)[
+        selection.index
+      ];
+      if (!clause) return { ok: false, error: "line" };
+      clauses.push({ kind: selection.kind, text: clause.text, sortOrder: clauses.length });
+    }
+    if (selection.kind === "alternate") {
+      const alternate = input.proposal.alternates[selection.index];
+      if (!alternate) return { ok: false, error: "line" };
+      alternates.push({
+        key: `alternate-${selection.index}`,
+        name: alternate.name,
+        description: alternate.description,
+        included: false,
+        sortOrder: alternates.length,
+      });
+    }
+  }
+  return {
+    ok: true,
+    draft: {
+      organizationId: input.organizationId,
+      estimateId: input.estimateId,
+      opportunityId: input.opportunityId,
+      createdBy: input.createdBy,
+      overheadBasisPoints: input.overheadBasisPoints,
+      markupBasisPoints: input.markupBasisPoints,
+      taxBasisPoints: input.taxBasisPoints,
+      clauses,
+      alternates,
+      lines,
+      jobPackages,
+    },
   };
 }

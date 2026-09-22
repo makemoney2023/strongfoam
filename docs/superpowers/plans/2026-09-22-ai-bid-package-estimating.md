@@ -1127,7 +1127,7 @@ Commit message: `Generate strict cited bid estimate proposals.`
 - Modify: `src/app/app/opportunities/[id]/page.tsx`
 - Modify: `src/lib/ops/estimates.ts`
 
-- [ ] **Step 1: Write apply-action tests**
+- [x] **Step 1: Write apply-action tests**
 
 Assert dismissed proposal writes nothing. Applying a selected subset creates
 one new estimate version through the manual validator/calculator. Stale base
@@ -1135,20 +1135,20 @@ version, changed citation hash, retired price candidate, prohibited field, and
 wrong organization fail. Quantity without estimator confirmation remains
 unpriced and `Takeoff required`.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/app/app/opportunities/[id]/estimates/actions.test.ts
 ```
 
-- [ ] **Step 3: Add proposal review**
+- [x] **Step 3: Add proposal review**
 
 Render summary, job packages, lines, inclusions, exclusions, alternates, and
 questions with per-item selection. Citation opens original page and highlighted
 span. Candidate price revisions are radio choices requiring explicit user
 selection. Quantity is editable and displays source text.
 
-- [ ] **Step 4: Reuse the manual version command**
+- [x] **Step 4: Reuse the manual version command**
 
 `applyBidEstimateProposal` converts selected proposal items into the same
 `CreateEstimateVersionInput` used by the manual editor. It never inserts
@@ -1166,7 +1166,7 @@ In demo: draft, inspect page citations, dismiss with no write, draft again,
 apply selected items, select approved price revisions, create a new version,
 and confirm no project/job exists.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `Review AI bid suggestions before estimate writes.`
 

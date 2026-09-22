@@ -17,11 +17,15 @@ import {
   revokeProposal,
 } from "@/lib/ops/proposals";
 import { parseWorkspaceDraft } from "@/lib/ops/estimate-workspace";
-import { prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
+import { buildAppliedEstimateDraft, prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
 import {
   appendProposalEvent,
   convertAcceptedEstimate,
   createEstimateVersion,
+  dismissAiProposal,
+  enqueueCommercialDraft,
+  listAiProposals,
+  markAiProposalApplied,
   getAuthorizedOpportunity,
   getCompany,
   getEstimate,
@@ -57,6 +61,8 @@ const ERRORS: Record<string, string> = {
   expired: "This proposal has expired.",
   "already-has-project": "This opportunity already has a project.",
   "injected-task-failure": "Conversion rolled back.",
+  "stale-version": "That estimate version is stale. Reload the latest version.",
+  organization: "That record is outside this organization.",
 };
 
 function explain(error: string): string {
@@ -400,6 +406,114 @@ export async function convertAcceptedEstimateAction(formData: FormData): Promise
     `${estimatePath(estimate.opportunityId, estimate.id)}?converted=${converted.result.projectId}`,
     message,
   );
+}
+
+export async function draftBidEstimateAction(formData: FormData): Promise<ActionState> {
+  const access = await requireEditor();
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const fallback = estimateId
+    ? estimatePath(opportunityId, estimateId)
+    : opportunityPath(opportunityId);
+  if (!access.ok) return fail(fallback, access.error);
+  const selected = String(formData.get("selectedDocumentVersionIds") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const drafted = await enqueueCommercialDraft({
+    actor: { email: access.session.email, role: access.session.role, organizationId: access.organizationId },
+    organizationId: access.organizationId,
+    opportunityId,
+    mode: formData.get("mode") === "revision" ? "revision" : "new",
+    selectedDocumentVersionIds: selected,
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  if (!drafted.ok) return fail(fallback, explain(drafted.error));
+  revalidatePath(fallback);
+  return succeed(fallback, drafted.replayed ? "This draft was already requested." : "Estimate suggestions are ready for review.");
+}
+
+export async function dismissBidEstimateProposalAction(formData: FormData): Promise<ActionState> {
+  const access = await requireEditor();
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const estimate = estimateId ? await getEstimate(estimateId) : null;
+  const fallback = estimate ? estimatePath(estimate.opportunityId, estimate.id) : "/app/opportunities";
+  if (!access.ok) return fail(fallback, access.error);
+  if (!estimate) return fail(fallback, "That estimate could not be found.");
+  const before = (await listEstimateGraphs(estimate.id)).length;
+  const dismissed = await dismissAiProposal(String(formData.get("proposalId") ?? ""), access.organizationId);
+  if (!dismissed.ok) return fail(fallback, dismissed.error);
+  const after = (await listEstimateGraphs(estimate.id)).length;
+  if (after !== before) return fail(fallback, "Dismissing a suggestion must not change the estimate.");
+  revalidatePath(fallback);
+  return succeed(fallback, "Suggestion dismissed.");
+}
+
+export async function applyBidEstimateProposalAction(formData: FormData): Promise<ActionState> {
+  const access = await requireEditor();
+  const estimateId = String(formData.get("estimateId") ?? "");
+  const estimate = estimateId ? await getEstimate(estimateId) : null;
+  const fallback = estimate ? estimatePath(estimate.opportunityId, estimate.id) : "/app/opportunities";
+  if (!access.ok) return fail(fallback, access.error);
+  if (!estimate) return fail(fallback, "That estimate could not be found.");
+  const same = assertSameOrganization(access.organizationId, estimate.organizationId);
+  if (!same.ok) return fail(fallback, same.error);
+  const proposals = await listAiProposals(estimate.opportunityId);
+  const proposal = proposals.find((item) => item.id === String(formData.get("proposalId") ?? ""));
+  if (!proposal || proposal.status !== "proposed") {
+    return fail(fallback, "That suggestion could not be found.");
+  }
+  const graphs = await listEstimateGraphs(estimate.id);
+  const latest = graphs[graphs.length - 1];
+  if (!latest) return fail(fallback, "That estimate could not be found.");
+  const baseVersionNumber = Number(formData.get("baseVersionNumber"));
+  const selections: Array<{
+    kind: "line" | "package" | "inclusion" | "exclusion" | "alternate";
+    index: number;
+    quantity: string | null;
+    priceBookVersionId: string | null;
+  }> = [];
+  proposal.output.lines.forEach((_line, index) => {
+    if (formData.get(`line-${index}`) !== "on") return;
+    selections.push({
+      kind: "line",
+      index,
+      quantity: String(formData.get(`quantity-${index}`) ?? "").trim() || null,
+      priceBookVersionId: String(formData.get(`price-${index}`) ?? "").trim() || null,
+    });
+  });
+  proposal.output.jobPackages.forEach((_pkg, index) => {
+    if (formData.get(`package-${index}`) !== "on") return;
+    selections.push({ kind: "package", index, quantity: null, priceBookVersionId: null });
+  });
+  const citations = await listEstimateCitations(access.organizationId);
+  const revisions = await revisionContext(access.organizationId);
+  const applied = buildAppliedEstimateDraft({
+    organizationId: access.organizationId,
+    estimateOrganizationId: estimate.organizationId,
+    estimateId: estimate.id,
+    opportunityId: estimate.opportunityId,
+    createdBy: access.session.email,
+    baseVersionNumber,
+    latestVersionNumber: latest.versionNumber,
+    overheadBasisPoints: latest.overheadBasisPoints,
+    markupBasisPoints: latest.markupBasisPoints,
+    taxBasisPoints: latest.taxBasisPoints,
+    proposal: proposal.output,
+    storedCitations: citations.map((citation) => ({
+      chunkId: citation.id,
+      contentHash: citation.contentHash,
+    })),
+    revisions,
+    selections,
+  });
+  if (!applied.ok) return fail(fallback, explain(applied.error));
+  const created = await createEstimateVersion(applied.draft);
+  if (!created.ok) return fail(fallback, explain(created.error));
+  await markAiProposalApplied(proposal.id, access.organizationId);
+  const path = estimatePath(estimate.opportunityId, estimate.id, created.version.versionNumber);
+  revalidatePath(path);
+  return succeed(path, `Estimate version ${created.version.versionNumber} created from selected suggestions.`);
 }
 
 export async function discardEstimateDraft(formData: FormData): Promise<ActionState> {

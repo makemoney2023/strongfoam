@@ -122,7 +122,9 @@ import {
   convertDemoAcceptedEstimate,
   findDemoAcceptedEstimate,
   gatherDemoCommercialEvidence,
+  dismissDemoAiProposal,
   listDemoAiProposals,
+  markDemoAiProposalApplied,
   runDemoCommercialDraft,
   listDemoEntityDocumentVersionIds,
   listDemoEstimateConversions,
@@ -6630,6 +6632,38 @@ export async function runCommercialDraftJob(args: {
     if (memory.toolExecutions.length) await tx.insert(aiToolExecutions).values(memory.toolExecutions);
   });
   return recorded;
+}
+
+export async function dismissAiProposal(
+  proposalId: string,
+  organizationId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return dismissDemoAiProposal(proposalId, organizationId);
+  const rows = await getDb()
+    .update(aiProposals)
+    .set({ status: "dismissed" })
+    .where(and(eq(aiProposals.id, proposalId), eq(aiProposals.organizationId, organizationId)))
+    .returning();
+  return rows[0] ? { ok: true } : { ok: false, error: "That suggestion could not be found." };
+}
+
+export async function markAiProposalApplied(
+  proposalId: string,
+  organizationId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return markDemoAiProposalApplied(proposalId, organizationId);
+  const rows = await getDb()
+    .update(aiProposals)
+    .set({ status: "applied" })
+    .where(
+      and(
+        eq(aiProposals.id, proposalId),
+        eq(aiProposals.organizationId, organizationId),
+        eq(aiProposals.status, "proposed"),
+      ),
+    )
+    .returning();
+  return rows[0] ? { ok: true } : { ok: false, error: "That suggestion could not be found." };
 }
 
 export async function listAiProposals(opportunityId: string): Promise<AiProposalRecord[]> {

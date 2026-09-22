@@ -4739,6 +4739,32 @@ export async function runDemoCommercialDraft(args: {
   });
 }
 
+export function dismissDemoAiProposal(
+  proposalId: string,
+  organizationId: string,
+): { ok: true } | { ok: false; error: string } {
+  const proposal = getDemoState().aiProposals.find(
+    (item) => item.id === proposalId && item.organizationId === organizationId,
+  );
+  if (!proposal) return { ok: false, error: "That suggestion could not be found." };
+  if (proposal.status === "proposed") proposal.status = "dismissed";
+  return { ok: true };
+}
+
+export function markDemoAiProposalApplied(
+  proposalId: string,
+  organizationId: string,
+): { ok: true } | { ok: false; error: string } {
+  const proposal = getDemoState().aiProposals.find(
+    (item) => item.id === proposalId && item.organizationId === organizationId,
+  );
+  if (!proposal || proposal.status === "dismissed") {
+    return { ok: false, error: "That suggestion could not be found." };
+  }
+  proposal.status = "applied";
+  return { ok: true };
+}
+
 export function listDemoAiProposals(opportunityId: string): Array<AiProposalRecord & { output: BidEstimateProposal }> {
   return getDemoState().aiProposals.filter((item) => item.opportunityId === opportunityId);
 }

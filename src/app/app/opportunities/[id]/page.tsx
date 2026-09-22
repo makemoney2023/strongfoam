@@ -38,6 +38,8 @@ import {
   getEstimateRequest,
   findAcceptedEstimate,
   getOpportunity,
+  listAiProposals,
+  listEntityDocumentVersionIds,
   getProject,
   getSite,
   listBidPackage,
@@ -51,7 +53,7 @@ import {
   PROJECT_TYPE_LABELS,
 } from "@/lib/ops/workflow";
 import { removeOpportunity, saveOpportunity } from "../actions";
-import { createOpportunityEstimate } from "./estimates/actions";
+import { createOpportunityEstimate, draftBidEstimateAction } from "./estimates/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +94,18 @@ export default async function OpportunityDetailPage({
     : process.env.BLOB_READ_WRITE_TOKEN
       ? "blob"
       : "unavailable";
+  const sourceVersionIds =
+    editAccess.ok
+      ? [
+          ...new Set(
+            await listEntityDocumentVersionIds(editAccess.organizationId, [
+              opportunity.id,
+              ...estimates.map((estimate) => estimate.id),
+            ]),
+          ),
+        ]
+      : [];
+  const suggestionCount = editAccess.ok ? (await listAiProposals(opportunity.id)).length : 0;
   const acceptedEstimate = opportunity.projectId
     ? null
     : await findAcceptedEstimate(opportunity.id);
@@ -260,6 +274,21 @@ export default async function OpportunityDetailPage({
             ) : null}
           </CardHeader>
           <CardContent>
+            {editAccess.ok && estimates[0] && sourceVersionIds.length > 0 ? (
+              <ActionForm action={draftBidEstimateAction} className="mb-3">
+                <input type="hidden" name="opportunityId" value={opportunity.id} />
+                <input type="hidden" name="estimateId" value={estimates[0].id} />
+                <input type="hidden" name="selectedDocumentVersionIds" value={sourceVersionIds.join(",")} />
+                <input
+                  type="hidden"
+                  name="idempotencyKey"
+                  value={`commercial-ai:${opportunity.id}:${suggestionCount}`}
+                />
+                <SubmitButton variant="outline" className="min-h-11" pendingLabel="Drafting…">
+                  Draft suggestions
+                </SubmitButton>
+              </ActionForm>
+            ) : null}
             {estimates.length === 0 ? (
               <p className="text-sm text-muted-foreground">No estimates yet.</p>
             ) : (

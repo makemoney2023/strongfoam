@@ -23,16 +23,20 @@ import {
   createOpportunityEstimate,
   decideEstimateVersionAction,
   discardEstimateDraft,
+  dismissBidEstimateProposalAction,
+  draftBidEstimateAction,
   saveEstimateVersion,
 } from "@/app/app/opportunities/[id]/estimates/actions";
 import {
   DEMO_ADMIN_EMAIL,
   DEMO_ADMIN_USER_ID,
+  DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
   DEMO_ESTIMATE_ID,
   DEMO_OPEN_OPPORTUNITY_ID,
   priceBookVersionId,
 } from "@/lib/ops/demo-data";
 import {
+  listDemoAiProposals,
   listDemoEstimateApprovals,
   listDemoEstimateGraphs,
   listDemoEstimates,
@@ -281,5 +285,44 @@ describe("estimate workspace actions", () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]?.ruleId).not.toBe("browser-rule");
     expect(listDemoProjects()).toHaveLength(projects);
+  });
+
+  it("dismisses an AI suggestion without writing an estimate or a project", async () => {
+    getOpsSession.mockResolvedValue(fieldSession);
+    const denied = await draftBidEstimateAction(
+      form({
+        opportunityId: DEMO_OPEN_OPPORTUNITY_ID,
+        estimateId: DEMO_ESTIMATE_ID,
+        selectedDocumentVersionIds: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+        idempotencyKey: "field-cannot-draft",
+      }),
+    );
+    expect(denied.error).toBe("You do not have access to that commercial action.");
+
+    getOpsSession.mockResolvedValue(adminSession);
+    const versions = listDemoEstimateGraphs(DEMO_ESTIMATE_ID).length;
+    const projects = listDemoProjects().length;
+    const jobs = listDemoJobs().length;
+    const drafted = await draftBidEstimateAction(
+      form({
+        opportunityId: DEMO_OPEN_OPPORTUNITY_ID,
+        estimateId: DEMO_ESTIMATE_ID,
+        selectedDocumentVersionIds: DEMO_ESTIMATE_DOCUMENT_VERSION_ID,
+        idempotencyKey: "dismiss-suggestion",
+      }),
+    );
+    expect(drafted.notice?.kind).toBe("success");
+    const proposal = listDemoAiProposals(DEMO_OPEN_OPPORTUNITY_ID).find((item) => item.status === "proposed");
+    expect(proposal).toBeTruthy();
+    const dismissed = await dismissBidEstimateProposalAction(
+      form({
+        estimateId: DEMO_ESTIMATE_ID,
+        proposalId: proposal?.id ?? "",
+      }),
+    );
+    expect(dismissed.notice?.message).toBe("Suggestion dismissed.");
+    expect(listDemoEstimateGraphs(DEMO_ESTIMATE_ID)).toHaveLength(versions);
+    expect(listDemoProjects()).toHaveLength(projects);
+    expect(listDemoJobs()).toHaveLength(jobs);
   });
 });

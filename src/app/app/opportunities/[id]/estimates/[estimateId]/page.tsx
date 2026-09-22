@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BidEstimateProposalReview } from "@/components/ops/bid-estimate-proposal";
 import { EstimateApprovalPanel } from "@/components/ops/estimate-approval-panel";
 import { EstimateConversionPreview } from "@/components/ops/estimate-conversion-preview";
 import { ProposalPanel } from "@/components/ops/proposal-panel";
@@ -20,6 +21,7 @@ import {
   getEstimate,
   getEstimateAcceptance,
   getOpportunity,
+  listAiProposals,
   listCommercialApprovalRules,
   listEntityDocumentVersionIds,
   listEstimateApprovals,
@@ -153,6 +155,9 @@ export default async function EstimateWorkspacePage({
     estimate.id,
     estimate.opportunityId,
   ]);
+  const aiProposals = (await listAiProposals(estimate.opportunityId)).filter(
+    (item) => item.status === "proposed",
+  );
   const preview =
     acceptedVersion && opportunity
       ? buildEstimateConversionPreview({
@@ -265,6 +270,31 @@ export default async function EstimateWorkspacePage({
             canDeliver={canDeliver}
             proposals={proposalSummaries}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>AI suggestions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {aiProposals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No suggestions are waiting. Uploading a plan does not create an estimate.
+            </p>
+          ) : (
+            aiProposals.map((item) => (
+              <BidEstimateProposalReview
+                key={item.id}
+                estimateId={estimate.id}
+                proposalId={item.id}
+                proposal={item.output}
+                baseVersionNumber={latest.versionNumber}
+                revisions={revisions}
+                canEdit={canEdit}
+              />
+            ))
+          )}
         </CardContent>
       </Card>
 
