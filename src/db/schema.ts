@@ -1703,6 +1703,102 @@ export const projectBudgetLines = pgTable(
   ],
 );
 
+export const aiRuns = pgTable(
+  "ai_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    capabilityId: text("capability_id").notNull(),
+    provider: text("provider"),
+    model: text("model"),
+    promptTemplateVersion: text("prompt_template_version").notNull(),
+    responseSchemaVersion: text("response_schema_version").notNull(),
+    actorEmail: text("actor_email"),
+    service: text("service"),
+    contentHash: text("content_hash").notNull(),
+    selectedSourceIds: jsonb("selected_source_ids").$type<string[]>().notNull(),
+    status: text("status").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("ai_runs_idempotency_unique").on(table.organizationId, table.idempotencyKey),
+    check("ai_runs_capability_valid", sql`${table.capabilityId} IN ('AI-016', 'AI-018')`),
+    check("ai_runs_status_valid", sql`${table.status} IN ('completed', 'failed')`),
+    index("ai_runs_organization_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
+export const aiProposals = pgTable(
+  "ai_proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => aiRuns.id),
+    opportunityId: uuid("opportunity_id")
+      .notNull()
+      .references(() => opportunities.id),
+    contentHash: text("content_hash").notNull(),
+    output: jsonb("output").notNull(),
+    status: text("status").notNull().default("proposed"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("ai_proposals_run_unique").on(table.runId),
+    check("ai_proposals_status_valid", sql`${table.status} IN ('proposed', 'dismissed', 'applied')`),
+    index("ai_proposals_opportunity_idx").on(table.organizationId, table.opportunityId),
+  ],
+);
+
+export const aiCitations = pgTable(
+  "ai_citations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => aiProposals.id),
+    itemPath: text("item_path").notNull(),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    chunkId: uuid("chunk_id")
+      .notNull()
+      .references(() => documentChunks.id),
+    contentHash: text("content_hash").notNull(),
+    pageNumber: integer("page_number").notNull(),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull(),
+  },
+  (table) => [index("ai_citations_proposal_idx").on(table.organizationId, table.proposalId)],
+);
+
+export const aiToolExecutions = pgTable(
+  "ai_tool_executions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => aiRuns.id),
+    toolName: text("tool_name").notNull(),
+    status: text("status").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("ai_tool_executions_run_idx").on(table.organizationId, table.runId)],
+);
+
 export type EstimateConversionRow = typeof estimateConversions.$inferSelect;
 export type ProjectBudgetRow = typeof projectBudgets.$inferSelect;
 export type ProjectBudgetLineRow = typeof projectBudgetLines.$inferSelect;

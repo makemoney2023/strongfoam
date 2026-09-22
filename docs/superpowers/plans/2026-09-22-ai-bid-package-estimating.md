@@ -1062,7 +1062,7 @@ Commit message: `Build an authorized commercial AI evidence pack.`
 - Modify: `drizzle/meta/_journal.json`
 - Modify: `.env.example`
 
-- [ ] **Step 1: Write strict schema and policy tests**
+- [x] **Step 1: Write strict schema and policy tests**
 
 Use Zod `.strict()` objects. Test rejection for:
 
@@ -1078,13 +1078,13 @@ Use Zod `.strict()` objects. Test rejection for:
 Accepted fixtures contain only explicit written quantities and
 `manual_required`.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/commercial-ai.test.ts src/lib/ops/commercial-evaluation.test.ts
 ```
 
-- [ ] **Step 3: Add append-only AI schema**
+- [x] **Step 3: Add append-only AI schema**
 
 Create `ai_runs`, `ai_proposals`, `ai_citations`, and `ai_tool_executions`.
 Store capability ID (`AI-016` or `AI-018`), provider/model, prompt-template and
@@ -1092,7 +1092,7 @@ response-schema versions, actor/service, content hash, selected source IDs,
 usage/cost/latency, status, and redacted validated output. Store no
 chain-of-thought.
 
-- [ ] **Step 4: Implement the gateway adapter**
+- [x] **Step 4: Implement the gateway adapter**
 
 Use `AI_COMMERCIAL_MODEL`. System instructions state that document text is
 untrusted data, output must match `BidEstimateProposal`, written quantity must
@@ -1100,14 +1100,14 @@ be verbatim and cited, and prohibited financial/mutation fields are absent.
 Validate response, then validate every citation against the evidence pack
 before insert.
 
-- [ ] **Step 5: Run as a durable worker job**
+- [x] **Step 5: Run as a durable worker job**
 
 The server action inserts `commercial_ai.draft_requested` to the outbox.
 Worker writes run/proposal/citations or failure in one transaction. Retry uses
 the same idempotency key and never creates two proposals. Demo writes the
 documented deterministic proposal without a network call.
 
-- [ ] **Step 6: Run checks and commit**
+- [x] **Step 6: Run checks and commit**
 
 ```bash
 npx vitest run src/lib/ops/commercial-ai.test.ts src/lib/ops/commercial-evaluation.test.ts

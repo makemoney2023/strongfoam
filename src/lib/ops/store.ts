@@ -22,6 +22,10 @@ import {
   estimateRequestTasks,
   jobAssignments,
   jobDocuments,
+  aiCitations,
+  aiProposals,
+  aiRuns,
+  aiToolExecutions,
   documentChunks,
   documentExtractions,
   documentLinks,
@@ -118,6 +122,8 @@ import {
   convertDemoAcceptedEstimate,
   findDemoAcceptedEstimate,
   gatherDemoCommercialEvidence,
+  listDemoAiProposals,
+  runDemoCommercialDraft,
   listDemoEntityDocumentVersionIds,
   listDemoEstimateConversions,
   listDemoPriceBookVersions,
@@ -234,6 +240,18 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import {
+  commercialModelTransport,
+  recordCommercialDraft,
+  requestCommercialProposal,
+  type AiProposalRecord,
+  type BidEstimateProposal,
+  type DraftMemory,
+} from "@/lib/ops/commercial-ai";
+import {
+  assertSameOrganization,
+  resolveCommercialAccess,
+} from "@/lib/ops/commercial-authorization";
 import {
   buildCommercialEvidencePack,
   COMMERCIAL_EVIDENCE_BUDGET,
@@ -6468,6 +6486,165 @@ export async function getCommercialEvidencePack(args: {
     })),
   };
   return buildCommercialEvidencePack(args.actor, input);
+}
+
+export async function enqueueCommercialDraft(args: {
+  actor: {
+    email: string;
+    role: "administrator" | "office" | "field_lead" | "field_worker" | "estimator";
+    organizationId?: string;
+  };
+  organizationId: string;
+  opportunityId: string;
+  mode: "new" | "revision";
+  selectedDocumentVersionIds: string[];
+  idempotencyKey: string;
+}): Promise<{ ok: true; proposalId?: string; queued?: boolean; replayed: boolean } | { ok: false; error: string }> {
+  const access = resolveCommercialAccess(args.actor, "estimate.edit");
+  if (!access.ok) return access;
+  const same = assertSameOrganization(access.organizationId, args.organizationId);
+  if (!same.ok) return same;
+  if (isDemoOpsStore()) {
+    return runDemoCommercialDraft({ ...args, actor: { ...args.actor, organizationId: access.organizationId } });
+  }
+  await getDb().transaction(async (tx) => {
+    await tx
+      .insert(outboxEvents)
+      .values({
+        organizationId: args.organizationId,
+        kind: "commercial_ai.draft_requested",
+        aggregateType: "opportunity",
+        aggregateId: args.opportunityId,
+        idempotencyKey: args.idempotencyKey,
+        payload: {
+          opportunityId: args.opportunityId,
+          mode: args.mode,
+          selectedDocumentVersionIds: args.selectedDocumentVersionIds,
+          actorEmail: args.actor.email,
+        },
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(backgroundJobs)
+      .values({
+        organizationId: args.organizationId,
+        kind: "commercial_ai.draft",
+        aggregateType: "opportunity",
+        aggregateId: args.opportunityId,
+        idempotencyKey: args.idempotencyKey,
+        status: "queued",
+        attempts: 0,
+        maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+        payload: {
+          organizationId: args.organizationId,
+          opportunityId: args.opportunityId,
+          mode: args.mode,
+          selectedDocumentVersionIds: args.selectedDocumentVersionIds,
+          actorEmail: args.actor.email,
+          idempotencyKey: args.idempotencyKey,
+        },
+      })
+      .onConflictDoNothing();
+  });
+  return { ok: true, queued: true, replayed: false };
+}
+
+export async function runCommercialDraftJob(args: {
+  organizationId: string;
+  opportunityId: string;
+  actorEmail: string;
+  idempotencyKey: string;
+  selectedDocumentVersionIds: string[];
+  mode: "new" | "revision";
+}): Promise<{ ok: true; proposalId: string; replayed: boolean } | { ok: false; error: string }> {
+  if (!args.organizationId || !args.opportunityId || !args.idempotencyKey) {
+    return { ok: false, error: "commercial_ai.draft is missing its opportunity." };
+  }
+  if (isDemoOpsStore()) {
+    return runDemoCommercialDraft({
+      actor: {
+        email: args.actorEmail,
+        role: "administrator",
+        organizationId: args.organizationId,
+      },
+      ...args,
+    });
+  }
+  const db = getDb();
+  const existingRuns = await db
+    .select()
+    .from(aiRuns)
+    .where(
+      and(eq(aiRuns.organizationId, args.organizationId), eq(aiRuns.idempotencyKey, args.idempotencyKey)),
+    )
+    .limit(1);
+  const existing = existingRuns[0];
+  if (existing?.status === "completed") {
+    const proposals = await db
+      .select()
+      .from(aiProposals)
+      .where(eq(aiProposals.runId, existing.id))
+      .limit(1);
+    if (proposals[0]) return { ok: true, proposalId: proposals[0].id, replayed: true };
+  }
+  if (existing?.status === "failed") return { ok: false, error: existing.error ?? "invalid-proposal" };
+  const packed = await getCommercialEvidencePack({
+    actor: { email: args.actorEmail, role: "administrator", organizationId: args.organizationId },
+    organizationId: args.organizationId,
+    opportunityId: args.opportunityId,
+    mode: args.mode,
+    selectedDocumentVersionIds: args.selectedDocumentVersionIds,
+  });
+  if (!packed.ok) return packed;
+  const model = process.env.AI_COMMERCIAL_MODEL?.trim() || null;
+  const drafted = await requestCommercialProposal({
+    pack: packed.pack,
+    model,
+    transport: model ? (request) => commercialModelTransport(request) : undefined,
+  });
+  if (!drafted.ok) return drafted;
+  const memory: DraftMemory = { runs: [], proposals: [], citations: [], toolExecutions: [] };
+  const recorded = await recordCommercialDraft({
+    memory,
+    organizationId: args.organizationId,
+    opportunityId: args.opportunityId,
+    actorEmail: args.actorEmail,
+    idempotencyKey: args.idempotencyKey,
+    selectedSourceIds: args.selectedDocumentVersionIds,
+    pack: packed.pack,
+    proposal: drafted.proposal,
+    model: drafted.model,
+    provider: drafted.provider,
+  });
+  if (!recorded.ok || recorded.replayed) return recorded;
+  const run = memory.runs[0];
+  const proposal = memory.proposals[0];
+  if (!run || !proposal) return { ok: false, error: "invalid-proposal" };
+  await db.transaction(async (tx) => {
+    await tx.insert(aiRuns).values(run);
+    await tx.insert(aiProposals).values({
+      ...proposal,
+      output: proposal.output,
+    });
+    if (memory.citations.length) await tx.insert(aiCitations).values(memory.citations);
+    if (memory.toolExecutions.length) await tx.insert(aiToolExecutions).values(memory.toolExecutions);
+  });
+  return recorded;
+}
+
+export async function listAiProposals(opportunityId: string): Promise<AiProposalRecord[]> {
+  if (isDemoOpsStore()) return listDemoAiProposals(opportunityId);
+  const rows = await getDb().select().from(aiProposals).where(eq(aiProposals.opportunityId, opportunityId));
+  return rows.map((row) => ({
+    id: row.id,
+    organizationId: row.organizationId,
+    runId: row.runId,
+    opportunityId: row.opportunityId,
+    contentHash: row.contentHash,
+    output: row.output as BidEstimateProposal,
+    status: row.status as AiProposalRecord["status"],
+    createdAt: row.createdAt,
+  }));
 }
 
 export async function listEntityDocumentVersionIds(

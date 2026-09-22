@@ -1,4 +1,5 @@
 import { recordHeartbeat } from "@/lib/ops/background-jobs";
+import { handleDraftBidEstimate } from "@/worker/handlers/draft-bid-estimate";
 import {
   handleExtractDocument,
   handleScanDocument,
@@ -17,4 +18,5 @@ export const handlers: Record<string, WorkerHandler> = {
   },
   "document.scan": handleScanDocument,
   "document.extract": handleExtractDocument,
+  "commercial_ai.draft": handleDraftBidEstimate,
 };

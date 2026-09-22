@@ -176,6 +176,13 @@
       "when": 1758430000000,
       "tag": "0024_estimate_conversion",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1758432000000,
+      "tag": "0025_commercial_ai",
+      "breakpoints": true
     }
   ]
 }

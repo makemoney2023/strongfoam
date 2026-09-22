@@ -12,10 +12,20 @@ import {
   type ConversionResult,
 } from "@/lib/ops/estimate-conversion";
 import {
+  buildCommercialEvidencePack,
   COMMERCIAL_EVIDENCE_BUDGET,
   type CommercialEvidenceBudget,
   type CommercialEvidenceInput,
 } from "@/lib/ops/commercial-ai-evidence";
+import {
+  recordCommercialDraft,
+  requestCommercialProposal,
+  type AiCitationRecord,
+  type AiProposalRecord,
+  type AiRunRecord,
+  type AiToolExecutionRecord,
+  type BidEstimateProposal,
+} from "@/lib/ops/commercial-ai";
 import { evaluateApprovalRules } from "@/lib/ops/estimate-approvals";
 import type {
   AuditEventRow,
@@ -257,6 +267,10 @@ type DemoOpsState = {
   proposals: ProposalRecord[];
   proposalEvents: ProposalEvent[];
   estimateAcceptances: EstimateAcceptance[];
+  aiRuns: AiRunRecord[];
+  aiProposals: AiProposalRecord[];
+  aiCitations: AiCitationRecord[];
+  aiToolExecutions: AiToolExecutionRecord[];
   estimateConversions: ConversionResult[];
   projectBudgets: ConversionDraft["budgets"];
   projectBudgetLines: ConversionDraft["budgetLines"];
@@ -324,6 +338,10 @@ function getDemoState(): DemoOpsState {
       proposals: [],
       proposalEvents: [],
       estimateAcceptances: [],
+      aiRuns: [],
+      aiProposals: [],
+      aiCitations: [],
+      aiToolExecutions: [],
       estimateConversions: [],
       projectBudgets: [],
       projectBudgetLines: [],
@@ -380,6 +398,12 @@ function getDemoState(): DemoOpsState {
     globalForDemo.__strongfoamDemoOps.bidDocumentVersions = [];
     globalForDemo.__strongfoamDemoOps.bidDocumentLinks = [];
     globalForDemo.__strongfoamDemoOps.bidBackgroundJobs = [];
+  }
+  if (!globalForDemo.__strongfoamDemoOps.aiRuns) {
+    globalForDemo.__strongfoamDemoOps.aiRuns = [];
+    globalForDemo.__strongfoamDemoOps.aiProposals = [];
+    globalForDemo.__strongfoamDemoOps.aiCitations = [];
+    globalForDemo.__strongfoamDemoOps.aiToolExecutions = [];
   }
   if (!globalForDemo.__strongfoamDemoOps.bidDocumentExtractions) {
     globalForDemo.__strongfoamDemoOps.bidDocumentExtractions = [];
@@ -4675,6 +4699,48 @@ export function gatherDemoCommercialEvidence(args: {
       contentHash: revision.contentHash,
     })),
   };
+}
+
+export async function runDemoCommercialDraft(args: {
+  actor: {
+    email: string;
+    role: "administrator" | "office" | "field_lead" | "field_worker" | "estimator";
+    organizationId?: string;
+  };
+  organizationId: string;
+  opportunityId: string;
+  mode: "new" | "revision";
+  selectedDocumentVersionIds: string[];
+  idempotencyKey: string;
+}): Promise<{ ok: true; proposalId: string; replayed: boolean } | { ok: false; error: string }> {
+  const gathered = gatherDemoCommercialEvidence(args);
+  if (!gathered) return { ok: false, error: "That opportunity could not be found." };
+  const packed = buildCommercialEvidencePack(args.actor, gathered);
+  if (!packed.ok) return packed;
+  const drafted = await requestCommercialProposal({ pack: packed.pack });
+  if (!drafted.ok) return drafted;
+  const state = getDemoState();
+  return recordCommercialDraft({
+    memory: {
+      runs: state.aiRuns,
+      proposals: state.aiProposals,
+      citations: state.aiCitations,
+      toolExecutions: state.aiToolExecutions,
+    },
+    organizationId: args.organizationId,
+    opportunityId: args.opportunityId,
+    actorEmail: args.actor.email,
+    idempotencyKey: args.idempotencyKey,
+    selectedSourceIds: args.selectedDocumentVersionIds,
+    pack: packed.pack,
+    proposal: drafted.proposal,
+    model: null,
+    provider: drafted.provider,
+  });
+}
+
+export function listDemoAiProposals(opportunityId: string): Array<AiProposalRecord & { output: BidEstimateProposal }> {
+  return getDemoState().aiProposals.filter((item) => item.opportunityId === opportunityId);
 }
 
 export function listDemoEntityDocumentVersionIds(
