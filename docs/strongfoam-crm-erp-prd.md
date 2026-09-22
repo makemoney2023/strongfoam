@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.21
+**Version:** 1.22
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -96,7 +96,8 @@ undoable when nothing else edited the task. A field user can undo only their
 own change. A spoken pin confirm refuses when the shown sentence changed. A completed
 transcript can propose one blocker, deficiency, material request, or new task.
 Saving one sentence leaves a different sentence available. Dismissing a sentence
-writes nothing and the next sentence can be confirmed on its own. A product name
+writes nothing and the next sentence can be confirmed on its own. The home
+exception queue keeps that note until no sentence remains. A product name
 alone is not a material request. A spoken pin confirm checks the mark that
 will be written (AI-004, AI-011).
 AI-014 and AI-016 through AI-026 remain specified and
@@ -1389,6 +1390,7 @@ new task from the sentence that states it. Confirm saves that sentence through
 the existing voice extract. A blocker also marks the job blocked. Saving one
 sentence leaves a different sentence available. Dismissing a sentence writes
 nothing, and that later sentence can be confirmed without saving the first.
+The home exception queue keeps the note until no sentence remains.
 A manual extract, or an older
 extract that did not record its text, still closes the transcript. A product
 name alone is not a material request. A task is proposed only when the
@@ -1941,11 +1943,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Propose one blocker, deficiency, or material request from a completed transcript | The sentence is visible before the existing voice extract writes it. A task from the same transcript stays manual |
 | 2026-09-21 | Keep a later transcript sentence available after one record is saved, and check the pin fields on confirm | One extract must not hide a different request, and a pin confirm must not write a body the user did not see |
 | 2026-09-21 | Let a dismissed transcript sentence stay unwritten while the next sentence can be confirmed | Office staff can record the request they want without first saving a higher-ranked sentence |
+| 2026-09-21 | Keep a transcript in the exception queue while a sentence can still be saved | One saved sentence must not hide a different request from the home queue |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.22 | 2026-09-21 | The home exception queue keeps a transcript while another sentence can still be saved. AI-014 stays blocked until tasks store a stated quantity |
 | 1.21 | 2026-09-21 | A transcript record skips a product mention that is not a request, and a later sentence can still be saved or confirmed after the earlier sentence is dismissed. A new task is proposed only when that work is not already open. A spoken pin confirm checks the mark fields. AI-014 stays blocked until tasks store a stated quantity |
 | 1.20 | 2026-09-21 | A completed transcript can propose one blocker, deficiency, or material request. Confirm uses the existing voice extract. AI-014 stays blocked until tasks store a stated quantity |
 | 1.19 | 2026-09-21 | A schedule accept writes only the exact moves shown. If a later move fails, earlier moves are restored. AI-014 stays blocked until tasks store a stated quantity |

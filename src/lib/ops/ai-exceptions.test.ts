@@ -100,6 +100,46 @@ describe("operations exceptions", () => {
     ]);
     expect(rows.find((row) => row.kind === "missing_daily_log" && row.label.includes("Logged"))).toBeUndefined();
     expect(rows.find((row) => row.label.includes("done.webm"))).toBeUndefined();
+    const partial = listOperationsExceptions({
+      now: NOW,
+      jobs: [],
+      tasks: [{ id: "task-1", jobId: "job-open", title: "Tape windows", status: "open", dueAt: null, plannedEndAt: null }],
+      fieldNotes: [],
+      voiceNotes: [
+        {
+          id: "voice-partial",
+          jobId: "job-open",
+          status: "completed",
+          transcript: "Hold the south wall. Request more tape for the afternoon lift.",
+          filename: "partial.webm",
+          createdAt: new Date("2026-09-15T12:00:00.000Z"),
+        },
+        {
+          id: "voice-finished",
+          jobId: "job-open",
+          status: "completed",
+          transcript: "Hold the south wall.",
+          filename: "finished.webm",
+          createdAt: new Date("2026-09-15T11:00:00.000Z"),
+        },
+      ],
+      events: [
+        {
+          kind: "voice_note_extracted",
+          payload: { voiceNoteId: "voice-partial", selectedText: "Hold the south wall." },
+          createdAt: new Date("2026-09-15T12:30:00.000Z"),
+        },
+        {
+          kind: "voice_note_extracted",
+          payload: { voiceNoteId: "voice-finished", selectedText: "Hold the south wall." },
+          createdAt: new Date("2026-09-15T11:30:00.000Z"),
+        },
+      ],
+    });
+    expect(partial.find((row) => row.label.includes("partial.webm"))?.label).toBe(
+      "Remaining transcript: partial.webm",
+    );
+    expect(partial.find((row) => row.label.includes("finished.webm"))).toBeUndefined();
     expect(rows.find((row) => row.kind === "failed_transcription")?.href).toBe(
       "/app/jobs/job-open#voice-notes",
     );
