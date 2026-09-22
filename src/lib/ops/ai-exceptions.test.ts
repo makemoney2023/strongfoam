@@ -175,6 +175,38 @@ describe("operations exceptions", () => {
     expect(rows).toHaveLength(8);
   });
 
+  it("keeps a quantity pace warning when older rows fill the list", () => {
+    const jobs = Array.from({ length: 10 }, (_, index) => ({
+      id: `job-${index}`,
+      name: `Job ${index}`,
+      status: "in_progress",
+      updatedAt: new Date(NOW.getTime() - (index + 1) * 86_400_000),
+    }));
+    const rows = listOperationsExceptions({
+      now: NOW,
+      jobs,
+      tasks: [
+        {
+          id: "task-1",
+          jobId: "job-0",
+          title: "Install",
+          status: "open",
+          dueAt: null,
+          plannedEndAt: null,
+          statedQuantity: 40,
+          statedUnit: "bags",
+        },
+      ],
+      fieldNotes: [],
+      quantities: [{ jobId: "job-0", quantity: 48, unit: "bags" }],
+      voiceNotes: [],
+      events: [],
+    });
+    expect(rows.filter((row) => row.kind === "missing_daily_log")).toHaveLength(8);
+    expect(rows.some((row) => row.kind === "quantity_pace")).toBe(true);
+    expect(rows).toHaveLength(9);
+  });
+
   it("uses each job calendar for today's daily log", () => {
     const now = new Date("2026-09-19T12:00:00.000Z");
     const rows = listOperationsExceptions({

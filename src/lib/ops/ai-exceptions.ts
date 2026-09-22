@@ -196,22 +196,33 @@ export function listOperationsExceptions(
     });
   }
 
-  for (const warning of listQuantityPaceWarnings({
+  const paceRows = listQuantityPaceWarnings({
     jobs: input.jobs,
     tasks: input.tasks,
     quantities: input.quantities ?? [],
-  })) {
-    rows.push({
-      kind: "quantity_pace",
-      label: quantityPaceLabel(warning),
-      href: `/app/jobs/${warning.jobId}#tasks`,
-      occurredAt: input.now.toISOString(),
-    });
-  }
+  }).map((warning) => ({
+    kind: "quantity_pace" as const,
+    label: quantityPaceLabel(warning),
+    href: `/app/jobs/${warning.jobId}#tasks`,
+    occurredAt: input.now.toISOString(),
+  }));
 
-  return rows
-    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.label.localeCompare(b.label))
-    .slice(0, limit);
+  const ranked = rows.sort(
+    (a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.label.localeCompare(b.label),
+  );
+  const limited = ranked.slice(0, limit);
+  if (!Number.isFinite(limit)) return [...limited, ...paceRows].sort(byOccurredAt);
+  const visiblePace = paceRows.filter(
+    (pace) =>
+      !limited.some(
+        (row) => row.kind === pace.kind && row.href === pace.href && row.label === pace.label,
+      ),
+  );
+  return [...limited, ...visiblePace].sort(byOccurredAt);
+}
+
+function byOccurredAt(a: OperationsException, b: OperationsException): number {
+  return a.occurredAt.localeCompare(b.occurredAt) || a.label.localeCompare(b.label);
 }
 
 export function countOperationsExceptions(

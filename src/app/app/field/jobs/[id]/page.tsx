@@ -33,7 +33,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
-import { formatStatedQuantity } from "@/lib/ops/quantity-pace";
+import {
+  formatStatedQuantity,
+  listQuantityPaceWarnings,
+  quantityPaceLabel,
+} from "@/lib/ops/quantity-pace";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import {
@@ -185,6 +189,11 @@ export default async function FieldJobPage({
     plan: currentPlan
       ? { id: currentPlan.id, filename: currentPlan.filename }
       : null,
+  });
+  const paceWarnings = listQuantityPaceWarnings({
+    jobs: [{ id: job.id, name: job.name }],
+    tasks: briefTasks,
+    quantities: briefNotes.filter((note) => note.kind === "quantity"),
   });
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
@@ -374,6 +383,11 @@ export default async function FieldJobPage({
           </div>
         </CardHeader>
         <CardContent>
+          {paceWarnings.map((warning) => (
+            <p key={warning.unit} className="mb-4 text-sm" role="status">
+              {quantityPaceLabel(warning, { includeJob: false })}
+            </p>
+          ))}
           {tasks.length === 0 ? (
             <p className="text-sm text-muted-foreground">No tasks have been assigned yet.</p>
           ) : (
@@ -390,7 +404,8 @@ export default async function FieldJobPage({
                     <p className="text-sm text-muted-foreground">
                       {task.assignee ?? "Unassigned"}
                       {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
-                      {formatStatedQuantity(task.statedQuantity, task.statedUnit)
+                      {task.status !== "done" &&
+                      formatStatedQuantity(task.statedQuantity, task.statedUnit)
                         ? ` · ${formatStatedQuantity(task.statedQuantity, task.statedUnit)}`
                         : ""}
                     </p>

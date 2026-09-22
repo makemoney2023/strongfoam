@@ -940,7 +940,8 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       createdAt: new Date(now - 5 * 60 * 60 * 1000),
       jobId: DEMO_JOB_ID,
       workAreaId: DEMO_WORK_AREA_ID,
-      taskId: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      // Job-level quantity. A link to the dated install task would also propose a schedule slip.
+      taskId: null,
       annotationId: null,
       kind: "quantity",
       body: "Closed-cell installed on the podium deck.",

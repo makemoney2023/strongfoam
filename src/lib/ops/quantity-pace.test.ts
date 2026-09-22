@@ -116,6 +116,41 @@ describe("quantity pace", () => {
     ).toEqual([]);
   });
 
+  it("ignores non-positive stated and installed quantities", () => {
+    expect(
+      listQuantityPaceWarnings({
+        jobs: [job],
+        tasks: [
+          {
+            jobId: job.id,
+            status: "open",
+            statedQuantity: 0,
+            statedUnit: "bags",
+          },
+          {
+            jobId: job.id,
+            status: "open",
+            statedQuantity: 40,
+            statedUnit: "bags",
+          },
+        ],
+        quantities: [
+          { jobId: job.id, quantity: 0, unit: "bags" },
+          { jobId: job.id, quantity: -4, unit: "bags" },
+          { jobId: job.id, quantity: 48, unit: "bags" },
+        ],
+      }),
+    ).toEqual([
+      {
+        jobId: job.id,
+        jobName: job.name,
+        unit: "bags",
+        installed: 48,
+        statedRemaining: 40,
+      },
+    ]);
+  });
+
   it("stays quiet when no open task states a quantity", () => {
     expect(
       listQuantityPaceWarnings({

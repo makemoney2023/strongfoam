@@ -111,12 +111,19 @@ export function listQuantityPaceWarnings(input: {
     for (const unit of STATED_QUANTITY_UNITS) {
       const statedRemaining = input.tasks.reduce((sum, task) => {
         if (task.jobId !== job.id || task.status === "done") return sum;
-        if (task.statedUnit !== unit || task.statedQuantity == null) return sum;
+        if (task.statedUnit !== unit || task.statedQuantity == null || task.statedQuantity <= 0) {
+          return sum;
+        }
         return sum + task.statedQuantity;
       }, 0);
       if (statedRemaining <= 0) continue;
       const installed = input.quantities.reduce((sum, note) => {
-        if (note.jobId !== job.id || note.unit !== unit || note.quantity == null) {
+        if (
+          note.jobId !== job.id ||
+          note.unit !== unit ||
+          note.quantity == null ||
+          note.quantity <= 0
+        ) {
           return sum;
         }
         return sum + note.quantity;

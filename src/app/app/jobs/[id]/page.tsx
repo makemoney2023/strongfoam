@@ -891,7 +891,8 @@ export default async function JobDetailPage({
                           <p className="text-sm text-muted-foreground">
                             {task.assignee ?? "Unassigned"}
                             {areaName(task.workAreaId) ? ` · ${areaName(task.workAreaId)}` : ""}
-                            {formatStatedQuantity(task.statedQuantity, task.statedUnit)
+                            {task.status !== "done" &&
+                            formatStatedQuantity(task.statedQuantity, task.statedUnit)
                               ? ` · ${formatStatedQuantity(task.statedQuantity, task.statedUnit)}`
                               : ""}
                             {task.dueAt ? ` · due ${task.dueAt.toLocaleString("en-CA")}` : ""}
