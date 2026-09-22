@@ -167,6 +167,12 @@ export function ChangeOrderPanel({
                         Included in the revised budget.
                       </p>
                     ) : null}
+                    {order.status === "pending" &&
+                    decisions.some((decision) => decision.decision === "approved") ? (
+                      <p className="text-sm text-muted-foreground">
+                        Another administrator still needs to approve this.
+                      </p>
+                    ) : null}
                     {decisions.length ? (
                       <ul className="space-y-1 text-sm text-muted-foreground">
                         {decisions.map((decision) => (

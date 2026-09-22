@@ -210,8 +210,9 @@ export function evaluateChangeOrderApproval(input: {
   );
   const seen = new Set<string>();
   const approvals = current.filter((item) => {
-    if (item.decision !== "approved" || seen.has(item.actorEmail)) return false;
-    seen.add(item.actorEmail);
+    const actorEmail = item.actorEmail.trim().toLowerCase();
+    if (item.decision !== "approved" || seen.has(actorEmail)) return false;
+    seen.add(actorEmail);
     return true;
   });
   const rejections = current.filter((item) => item.decision === "rejected");
@@ -350,43 +351,46 @@ export function planChangeOrderDecision(input: {
   if (comment.length > 1_000) {
     return { ok: false, error: "Comment must be 1,000 characters or fewer." };
   }
+  const actorEmail = input.actor.email.trim().toLowerCase();
+  const prior = input.existing.find(
+    (item) =>
+      item.actorEmail.trim().toLowerCase() === actorEmail &&
+      item.changeOrderId === input.order.id,
+  );
+  if (
+    prior &&
+    prior.expiresAt > input.now &&
+    prior.contentHash === input.order.contentHash &&
+    prior.decision === input.decision &&
+    input.expectedHash === input.order.contentHash
+  ) {
+    return {
+      ok: true,
+      replayed: true,
+      order: input.order,
+      approval: prior,
+      budgetEffect: null,
+    };
+  }
+  if (prior && prior.expiresAt > input.now && input.order.status !== "pending") {
+    return { ok: false, error: "You already decided this change order." };
+  }
   if (input.order.status !== "pending") {
     return { ok: false, error: "Only a submitted change order can be decided." };
   }
   if (input.expectedHash !== input.order.contentHash) {
     return { ok: false, error: "This change order changed. Review it again before deciding." };
   }
-  const replay = input.existing.find(
-    (item) =>
-      item.actorEmail === input.actor.email &&
-      item.changeOrderId === input.order.id &&
-      item.contentHash === input.order.contentHash &&
-      item.decision === input.decision &&
-      item.expiresAt > input.now,
-  );
-  if (replay) {
-    return {
-      ok: true,
-      replayed: true,
-      order: input.order,
-      approval: replay,
-      budgetEffect: null,
-    };
+  if (prior && prior.expiresAt > input.now) {
+    return { ok: false, error: "You already decided this change order." };
   }
-  const conflict = input.existing.find(
-    (item) =>
-      item.actorEmail === input.actor.email &&
-      item.changeOrderId === input.order.id &&
-      item.expiresAt > input.now,
-  );
-  if (conflict) return { ok: false, error: "You already decided this change order." };
   const approval: ChangeOrderApproval = {
-    id: crypto.randomUUID(),
+    id: prior?.id ?? crypto.randomUUID(),
     organizationId: input.order.organizationId,
     changeOrderId: input.order.id,
     contentHash: input.order.contentHash,
     ruleId: approvalRule(input.order.organizationId, input.rules).id,
-    actorEmail: input.actor.email,
+    actorEmail,
     decision: input.decision,
     comment,
     expiresAt: new Date(input.now.getTime() + CHANGE_ORDER_DECISION_TTL_MS),

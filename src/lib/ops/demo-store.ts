@@ -4552,6 +4552,14 @@ export function listDemoApprovalRules(organizationId: string): CommercialApprova
   );
 }
 
+export function saveDemoApprovalRule(rule: CommercialApprovalRule): CommercialApprovalRule {
+  const state = getDemoState();
+  const index = state.approvalRules.findIndex((item) => item.id === rule.id);
+  if (index >= 0) state.approvalRules[index] = rule;
+  else state.approvalRules.push(rule);
+  return rule;
+}
+
 export function listDemoEstimateApprovals(estimateId: string): EstimateApproval[] {
   return getDemoState().estimateApprovals.filter((approval) => approval.estimateId === estimateId);
 }

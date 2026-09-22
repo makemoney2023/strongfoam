@@ -55,6 +55,7 @@ export async function updateProjectChangeOrder(formData: FormData): Promise<Acti
   if (!projectId || !changeOrderId) return fail("/app/projects", "Missing change order.");
   const result = await updateChangeOrderDraft({
     actor: actorFrom(session),
+    projectId,
     changeOrderId,
     scope: String(formData.get("scope") ?? ""),
     price: String(formData.get("price") ?? ""),
@@ -71,7 +72,11 @@ export async function submitProjectChangeOrder(formData: FormData): Promise<Acti
   const projectId = String(formData.get("projectId") ?? "");
   const changeOrderId = String(formData.get("changeOrderId") ?? "");
   if (!projectId || !changeOrderId) return fail("/app/projects", "Missing change order.");
-  const result = await submitChangeOrder({ actor: actorFrom(session), changeOrderId });
+  const result = await submitChangeOrder({
+    actor: actorFrom(session),
+    projectId,
+    changeOrderId,
+  });
   revalidatePath(`/app/projects/${projectId}`);
   revalidatePath("/app");
   if (!result.ok) return fail(projectPath(projectId), result.error);
@@ -83,7 +88,11 @@ export async function voidProjectChangeOrder(formData: FormData): Promise<Action
   const projectId = String(formData.get("projectId") ?? "");
   const changeOrderId = String(formData.get("changeOrderId") ?? "");
   if (!projectId || !changeOrderId) return fail("/app/projects", "Missing change order.");
-  const result = await voidChangeOrder({ actor: actorFrom(session), changeOrderId });
+  const result = await voidChangeOrder({
+    actor: actorFrom(session),
+    projectId,
+    changeOrderId,
+  });
   revalidatePath(`/app/projects/${projectId}`);
   revalidatePath("/app");
   if (!result.ok) return fail(projectPath(projectId), result.error);
@@ -101,6 +110,7 @@ export async function decideProjectChangeOrder(formData: FormData): Promise<Acti
   }
   const result = await decideChangeOrder({
     actor: actorFrom(session),
+    projectId,
     changeOrderId,
     expectedHash: String(formData.get("contentHash") ?? ""),
     decision,

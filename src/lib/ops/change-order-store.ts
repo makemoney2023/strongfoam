@@ -7,6 +7,8 @@ import {
 } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
+import { saveDemoApprovalRule } from "@/lib/ops/demo-store";
+import type { CommercialApprovalRule } from "@/lib/ops/estimate-approvals";
 import { isUuid } from "@/lib/ops/job-workspace";
 import {
   parseChangeOrderPrice,
@@ -25,6 +27,7 @@ import {
   CHANGE_ORDER_STATUSES,
 } from "@/lib/ops/change-orders";
 import type { CommercialActor } from "@/lib/ops/commercial-authorization";
+import { organizationIdForOpsSession } from "@/lib/ops/auth";
 import {
   getProject,
   getProjectBudgetCents,
@@ -231,37 +234,76 @@ function effectFromRow(
   };
 }
 
-async function saveOrder(order: ChangeOrder, previous?: ChangeOrder): Promise<void> {
+type WriteResult = "saved" | "stale" | "conflict";
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; cause?: { code?: string } };
+  return candidate.code === "23505" || candidate.cause?.code === "23505";
+}
+
+async function saveOrder(order: ChangeOrder, previous?: ChangeOrder): Promise<WriteResult> {
   if (isDemoOpsStore()) {
     const state = memory();
+    if (!previous) {
+      if (
+        state.orders.some(
+          (item) => item.projectId === order.projectId && item.number === order.number,
+        )
+      ) {
+        return "conflict";
+      }
+      state.orders.push(order);
+      return "saved";
+    }
     const index = state.orders.findIndex((item) => item.id === order.id);
-    if (index >= 0) state.orders[index] = order;
-    else state.orders.push(order);
-    return;
+    const stored = index >= 0 ? state.orders[index] : undefined;
+    if (
+      !stored ||
+      stored.status !== previous.status ||
+      stored.contentHash !== previous.contentHash
+    ) {
+      return "stale";
+    }
+    state.orders[index] = order;
+    return "saved";
   }
-  const db = getDb();
-  if (!previous) {
-    await db.insert(changeOrders).values(order);
-    return;
+  try {
+    const db = getDb();
+    if (!previous) {
+      await db.insert(changeOrders).values(order);
+      return "saved";
+    }
+    const updated = await db
+      .update(changeOrders)
+      .set({
+        scope: order.scope,
+        priceCents: order.priceCents,
+        scheduleImpactDays: order.scheduleImpactDays,
+        status: order.status,
+        contentHash: order.contentHash,
+        updatedAt: order.updatedAt,
+      })
+      .where(
+        and(
+          eq(changeOrders.id, order.id),
+          eq(changeOrders.organizationId, order.organizationId),
+          eq(changeOrders.status, previous.status),
+          eq(changeOrders.contentHash, previous.contentHash),
+        ),
+      )
+      .returning({ id: changeOrders.id });
+    return updated.length ? "saved" : "stale";
+  } catch (error) {
+    if (isUniqueViolation(error)) return "conflict";
+    throw error;
   }
-  await db
-    .update(changeOrders)
-    .set({
-      scope: order.scope,
-      priceCents: order.priceCents,
-      scheduleImpactDays: order.scheduleImpactDays,
-      status: order.status,
-      contentHash: order.contentHash,
-      updatedAt: order.updatedAt,
-    })
-    .where(
-      and(
-        eq(changeOrders.id, order.id),
-        eq(changeOrders.organizationId, order.organizationId),
-        eq(changeOrders.status, previous.status),
-        eq(changeOrders.contentHash, previous.contentHash),
-      ),
-    );
+}
+
+function writeError(result: WriteResult): string | null {
+  if (result === "saved") return null;
+  if (result === "conflict") return "Could not assign a change order number. Try again.";
+  return "This change order changed. Review it again.";
 }
 
 export async function createChangeOrder(input: {
@@ -280,36 +322,44 @@ export async function createChangeOrder(input: {
   if (!price.ok) return price;
   const days = parseScheduleImpactDays(input.scheduleImpactDays);
   if (!days.ok) return days;
-  const existing = await listChangeOrders(project.organizationId, project.id);
-  const planned = planChangeOrderDraft({
-    actor: input.actor,
-    project,
-    existingNumbers: existing.map((order) => order.number),
-    scope: scope.scope,
-    priceCents: price.cents,
-    scheduleImpactDays: days.days,
-    now: input.now ?? new Date(),
-  });
-  if (!planned.ok) return planned;
-  await saveOrder(planned.order);
-  await audit(input.actor, planned.order.organizationId, "change_order.create", planned.order.id, "success", {
-    number: planned.order.number,
-    priceCents: planned.order.priceCents,
-    scheduleImpactDays: planned.order.scheduleImpactDays,
-    contentHash: planned.order.contentHash,
-  });
-  return planned;
+  const now = input.now ?? new Date();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const existing = await listChangeOrders(project.organizationId, project.id);
+    const planned = planChangeOrderDraft({
+      actor: input.actor,
+      project,
+      existingNumbers: existing.map((order) => order.number),
+      scope: scope.scope,
+      priceCents: price.cents,
+      scheduleImpactDays: days.days,
+      now,
+    });
+    if (!planned.ok) return planned;
+    const written = await saveOrder(planned.order);
+    if (written === "conflict") continue;
+    const error = writeError(written);
+    if (error) return { ok: false, error };
+    await audit(input.actor, planned.order.organizationId, "change_order.create", planned.order.id, "success", {
+      number: planned.order.number,
+      priceCents: planned.order.priceCents,
+      scheduleImpactDays: planned.order.scheduleImpactDays,
+      contentHash: planned.order.contentHash,
+    });
+    return planned;
+  }
+  return { ok: false, error: "Could not assign a change order number. Try again." };
 }
 
 export async function updateChangeOrderDraft(input: {
   actor: Actor;
+  projectId: string;
   changeOrderId: string;
   scope: string;
   price: string;
   scheduleImpactDays: string;
   now?: Date;
 }): Promise<{ ok: true; order: ChangeOrder } | { ok: false; error: string }> {
-  const current = await findOrder(input.changeOrderId);
+  const current = await findOwnOrder(input.actor, input.changeOrderId, input.projectId);
   if (!current) return { ok: false, error: "That change order was not found." };
   const scope = parseChangeOrderScope(input.scope);
   if (!scope.ok) return scope;
@@ -326,7 +376,9 @@ export async function updateChangeOrderDraft(input: {
     now: input.now ?? new Date(),
   });
   if (!planned.ok) return planned;
-  await saveOrder(planned.order, current);
+  const written = await saveOrder(planned.order, current);
+  const error = writeError(written);
+  if (error) return { ok: false, error };
   await audit(input.actor, planned.order.organizationId, "change_order.update", planned.order.id, "success", {
     priceCents: planned.order.priceCents,
     scheduleImpactDays: planned.order.scheduleImpactDays,
@@ -337,10 +389,11 @@ export async function updateChangeOrderDraft(input: {
 
 export async function submitChangeOrder(input: {
   actor: Actor;
+  projectId: string;
   changeOrderId: string;
   now?: Date;
 }): Promise<{ ok: true; order: ChangeOrder } | { ok: false; error: string }> {
-  const current = await findOrder(input.changeOrderId);
+  const current = await findOwnOrder(input.actor, input.changeOrderId, input.projectId);
   if (!current) return { ok: false, error: "That change order was not found." };
   const planned = planChangeOrderSubmit({
     actor: input.actor,
@@ -348,7 +401,9 @@ export async function submitChangeOrder(input: {
     now: input.now ?? new Date(),
   });
   if (!planned.ok) return planned;
-  await saveOrder(planned.order, current);
+  const written = await saveOrder(planned.order, current);
+  const error = writeError(written);
+  if (error) return { ok: false, error };
   await audit(input.actor, planned.order.organizationId, "change_order.submit", planned.order.id, "success", {
     number: planned.order.number,
     contentHash: planned.order.contentHash,
@@ -358,10 +413,11 @@ export async function submitChangeOrder(input: {
 
 export async function voidChangeOrder(input: {
   actor: Actor;
+  projectId: string;
   changeOrderId: string;
   now?: Date;
 }): Promise<{ ok: true; order: ChangeOrder } | { ok: false; error: string }> {
-  const current = await findOrder(input.changeOrderId);
+  const current = await findOwnOrder(input.actor, input.changeOrderId, input.projectId);
   if (!current) return { ok: false, error: "That change order was not found." };
   const planned = planChangeOrderVoid({
     actor: input.actor,
@@ -369,7 +425,9 @@ export async function voidChangeOrder(input: {
     now: input.now ?? new Date(),
   });
   if (!planned.ok) return planned;
-  await saveOrder(planned.order, current);
+  const written = await saveOrder(planned.order, current);
+  const error = writeError(written);
+  if (error) return { ok: false, error };
   await audit(input.actor, planned.order.organizationId, "change_order.void", planned.order.id, "success", {
     number: planned.order.number,
   });
@@ -378,47 +436,66 @@ export async function voidChangeOrder(input: {
 
 export async function decideChangeOrder(input: {
   actor: Actor;
+  projectId: string;
   changeOrderId: string;
   expectedHash: string;
   decision: "approved" | "rejected";
   comment: string;
   now?: Date;
 }): Promise<{ ok: true; order: ChangeOrder } | { ok: false; error: string }> {
-  const current = await findOrder(input.changeOrderId);
+  const current = await findOwnOrder(input.actor, input.changeOrderId, input.projectId);
   if (!current) return { ok: false, error: "That change order was not found." };
-  const [rules, existing] = await Promise.all([
-    listCommercialApprovalRules(current.organizationId),
-    approvalsFor(current.id),
-  ]);
-  const planned = planChangeOrderDecision({
+  const rules = await rulesFor(current.organizationId);
+  const saved = await persistFreshDecision({
     actor: input.actor,
-    order: current,
+    orderId: current.id,
+    organizationId: current.organizationId,
     expectedHash: input.expectedHash,
     decision: input.decision,
     comment: input.comment,
     now: input.now ?? new Date(),
     rules,
-    existing,
   });
-  if (!planned.ok) return planned;
-  if (!isDemoOpsStore() && !planned.replayed && !isUuid(planned.approval.ruleId)) {
-    return { ok: false, error: "An approval rule is required before this decision can be saved." };
-  }
-  if (!planned.replayed) await persistDecision(current, planned);
+  if (!saved.ok) return saved;
   await audit(
     input.actor,
     current.organizationId,
-    planned.order.status === "rejected" ? "change_order.reject" : "change_order.approve",
+    saved.order.status === "rejected" ? "change_order.reject" : "change_order.approve",
     current.id,
     "success",
     {
       decision: input.decision,
-      status: planned.order.status,
-      contentHash: current.contentHash,
-      budgetEffect: Boolean(planned.budgetEffect),
+      status: saved.order.status,
+      contentHash: saved.order.contentHash,
+      budgetEffect: saved.budgetEffect,
     },
   );
-  return { ok: true, order: planned.order };
+  return { ok: true, order: saved.order };
+}
+
+async function findOwnOrder(
+  actor: Actor,
+  id: string,
+  projectId: string,
+): Promise<ChangeOrder | null> {
+  const order = await findOrder(id);
+  if (!order || order.projectId !== projectId) return null;
+  if (order.organizationId !== organizationIdForOpsSession(actor)) return null;
+  return order;
+}
+
+async function rulesFor(organizationId: string): Promise<CommercialApprovalRule[]> {
+  const rules = await listCommercialApprovalRules(organizationId);
+  if (rules.length || !isDemoOpsStore()) return rules;
+  return [
+    saveDemoApprovalRule({
+      id: crypto.randomUUID(),
+      organizationId,
+      name: "Administrator approval",
+      active: true,
+      secondApproverTotalCents: null,
+    }),
+  ];
 }
 
 async function findOrder(id: string): Promise<ChangeOrder | null> {
@@ -427,60 +504,169 @@ async function findOrder(id: string): Promise<ChangeOrder | null> {
   return rows[0] ? orderFromRow(rows[0]) : null;
 }
 
-async function approvalsFor(changeOrderId: string): Promise<ChangeOrderApproval[]> {
-  if (isDemoOpsStore()) {
-    return memory().approvals.filter((approval) => approval.changeOrderId === changeOrderId);
+async function persistFreshDecision(input: {
+  actor: Actor;
+  orderId: string;
+  organizationId: string;
+  expectedHash: string;
+  decision: "approved" | "rejected";
+  comment: string;
+  now: Date;
+  rules: CommercialApprovalRule[];
+}): Promise<{ ok: true; order: ChangeOrder; budgetEffect: boolean } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return writeDecision(input, memorySnapshot(input.orderId), applyMemoryDecision);
+  const db = getDb();
+  try {
+  return await db.transaction(async (tx) => {
+    const locked = await tx
+      .select()
+      .from(changeOrders)
+      .where(
+        and(eq(changeOrders.id, input.orderId), eq(changeOrders.organizationId, input.organizationId)),
+      )
+      .for("update")
+      .limit(1);
+    const order = locked[0] ? orderFromRow(locked[0]) : null;
+    if (!order) return { ok: false, error: "That change order was not found." };
+    const approvalRows = await tx
+      .select()
+      .from(changeOrderApprovals)
+      .where(eq(changeOrderApprovals.changeOrderId, order.id));
+    const effectRows = await tx
+      .select({ id: changeOrderBudgetEffects.id })
+      .from(changeOrderBudgetEffects)
+      .where(eq(changeOrderBudgetEffects.changeOrderId, order.id))
+      .limit(1);
+    return writeDecision(
+      input,
+      { order, approvals: approvalRows.map(approvalFromRow), hasEffect: effectRows.length > 0 },
+      async (planned) => {
+        const prior = approvalRows.find((row) => row.id === planned.approval.id);
+        if (prior) {
+          await tx
+            .update(changeOrderApprovals)
+            .set({
+              contentHash: planned.approval.contentHash,
+              ruleId: planned.approval.ruleId,
+              actorEmail: planned.approval.actorEmail,
+              decision: planned.approval.decision,
+              comment: planned.approval.comment,
+              expiresAt: planned.approval.expiresAt,
+            })
+            .where(eq(changeOrderApprovals.id, prior.id));
+        } else {
+          await tx.insert(changeOrderApprovals).values(planned.approval);
+        }
+        if (
+          planned.order.status !== order.status ||
+          planned.order.updatedAt.getTime() !== order.updatedAt.getTime()
+        ) {
+          const updated = await tx
+            .update(changeOrders)
+            .set({ status: planned.order.status, updatedAt: planned.order.updatedAt })
+            .where(
+              and(
+                eq(changeOrders.id, order.id),
+                eq(changeOrders.organizationId, order.organizationId),
+                eq(changeOrders.status, order.status),
+                eq(changeOrders.contentHash, order.contentHash),
+              ),
+            )
+            .returning({ id: changeOrders.id });
+          if (!updated.length) {
+            throw new Error("The change order changed before the decision was saved.");
+          }
+        }
+        if (planned.budgetEffect && !effectRows.length) {
+          await tx.insert(changeOrderBudgetEffects).values(planned.budgetEffect);
+        }
+      },
+    );
+  });
+  } catch (error) {
+    if (
+      isUniqueViolation(error) ||
+      (error instanceof Error &&
+        error.message === "The change order changed before the decision was saved.")
+    ) {
+      return { ok: false, error: "This change order changed. Review it again." };
+    }
+    throw error;
   }
-  const rows = await getDb()
-    .select()
-    .from(changeOrderApprovals)
-    .where(eq(changeOrderApprovals.changeOrderId, changeOrderId));
-  return rows.map(approvalFromRow);
 }
 
-async function persistDecision(
-  previous: ChangeOrder,
-  planned: {
+function memorySnapshot(orderId: string): {
+  order: ChangeOrder | null;
+  approvals: ChangeOrderApproval[];
+  hasEffect: boolean;
+} {
+  const state = memory();
+  return {
+    order: state.orders.find((item) => item.id === orderId) ?? null,
+    approvals: state.approvals.filter((item) => item.changeOrderId === orderId),
+    hasEffect: state.effects.some((item) => item.changeOrderId === orderId),
+  };
+}
+
+function applyMemoryDecision(planned: {
+  order: ChangeOrder;
+  approval: ChangeOrderApproval;
+  budgetEffect: ChangeOrderBudgetEffect | null;
+}): void {
+  const state = memory();
+  const approvalIndex = state.approvals.findIndex((item) => item.id === planned.approval.id);
+  if (approvalIndex >= 0) state.approvals[approvalIndex] = planned.approval;
+  else state.approvals.push(planned.approval);
+  const orderIndex = state.orders.findIndex((item) => item.id === planned.order.id);
+  if (orderIndex >= 0) state.orders[orderIndex] = planned.order;
+  if (
+    planned.budgetEffect &&
+    !state.effects.some((effect) => effect.changeOrderId === planned.order.id)
+  ) {
+    state.effects.push(planned.budgetEffect);
+  }
+}
+
+async function writeDecision(
+  input: {
+    actor: Actor;
+    expectedHash: string;
+    decision: "approved" | "rejected";
+    comment: string;
+    now: Date;
+    rules: CommercialApprovalRule[];
+  },
+  snapshot: {
+    order: ChangeOrder | null;
+    approvals: ChangeOrderApproval[];
+    hasEffect: boolean;
+  },
+  apply: (planned: {
     order: ChangeOrder;
     approval: ChangeOrderApproval;
     budgetEffect: ChangeOrderBudgetEffect | null;
-  },
-): Promise<void> {
-  if (isDemoOpsStore()) {
-    const state = memory();
-    if (!state.approvals.some((item) => item.id === planned.approval.id)) {
-      state.approvals.push(planned.approval);
-    }
-    const index = state.orders.findIndex((item) => item.id === planned.order.id);
-    if (index >= 0) state.orders[index] = planned.order;
-    if (
-      planned.budgetEffect &&
-      !state.effects.some((effect) => effect.changeOrderId === planned.order.id)
-    ) {
-      state.effects.push(planned.budgetEffect);
-    }
-    return;
-  }
-  const db = getDb();
-  await db.transaction(async (tx) => {
-    await tx.insert(changeOrderApprovals).values(planned.approval);
-    if (planned.order.status !== previous.status) {
-      const updated = await tx
-        .update(changeOrders)
-        .set({ status: planned.order.status, updatedAt: planned.order.updatedAt })
-        .where(
-          and(
-            eq(changeOrders.id, previous.id),
-            eq(changeOrders.organizationId, previous.organizationId),
-            eq(changeOrders.status, previous.status),
-            eq(changeOrders.contentHash, previous.contentHash),
-          ),
-        )
-        .returning({ id: changeOrders.id });
-      if (!updated.length) throw new Error("The change order changed before the decision was saved.");
-    }
-    if (planned.budgetEffect) {
-      await tx.insert(changeOrderBudgetEffects).values(planned.budgetEffect);
-    }
+  }) => Promise<void> | void,
+): Promise<{ ok: true; order: ChangeOrder; budgetEffect: boolean } | { ok: false; error: string }> {
+  if (!snapshot.order) return { ok: false, error: "That change order was not found." };
+  const planned = planChangeOrderDecision({
+    actor: input.actor,
+    order: snapshot.order,
+    expectedHash: input.expectedHash,
+    decision: input.decision,
+    comment: input.comment,
+    now: input.now,
+    rules: input.rules,
+    existing: snapshot.approvals,
   });
+  if (!planned.ok) return planned;
+  if (!planned.replayed && !isUuid(planned.approval.ruleId)) {
+    return { ok: false, error: "An approval rule is required before this decision can be saved." };
+  }
+  if (!planned.replayed) {
+    const effect =
+      planned.budgetEffect && !snapshot.hasEffect ? planned.budgetEffect : null;
+    await apply({ ...planned, budgetEffect: effect });
+    return { ok: true, order: planned.order, budgetEffect: Boolean(effect) };
+  }
+  return { ok: true, order: planned.order, budgetEffect: false };
 }

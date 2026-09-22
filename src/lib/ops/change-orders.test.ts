@@ -157,4 +157,58 @@ describe("change orders", () => {
     expect(rejected.order.status).toBe("rejected");
     expect(rejected.budgetEffect).toBeNull();
   });
+
+  it("treats a repeated decision as the same approver and replaces an expired one", () => {
+    const order = draft();
+    const rule: CommercialApprovalRule = {
+      id: "11111111-1111-4111-8111-111111111111",
+      organizationId: STRONG_FOAM_ORGANIZATION_ID,
+      name: "Two approvers",
+      active: true,
+      secondApproverTotalCents: 1,
+    };
+    const first = planChangeOrderDecision({
+      actor,
+      order,
+      expectedHash: order.contentHash,
+      decision: "approved",
+      comment: "First look.",
+      now,
+      rules: [rule],
+      existing: [],
+    });
+    if (!first.ok) throw new Error(first.error);
+    const repeated = planChangeOrderDecision({
+      actor: { ...actor, email: "Admin@StrongFoam.demo" },
+      order,
+      expectedHash: order.contentHash,
+      decision: "approved",
+      comment: "Again.",
+      now,
+      rules: [rule],
+      existing: [first.approval],
+    });
+    if (!repeated.ok) throw new Error(repeated.error);
+    expect(repeated.replayed).toBe(true);
+    expect(repeated.budgetEffect).toBeNull();
+    const expired = {
+      ...first.approval,
+      expiresAt: new Date(now.getTime() - 1_000),
+    };
+    const replaced = planChangeOrderDecision({
+      actor,
+      order,
+      expectedHash: order.contentHash,
+      decision: "approved",
+      comment: "Still valid.",
+      now,
+      rules: [rule],
+      existing: [expired],
+    });
+    if (!replaced.ok) throw new Error(replaced.error);
+    expect(replaced.replayed).toBe(false);
+    expect(replaced.approval.id).toBe(expired.id);
+    expect(replaced.order.status).toBe("pending");
+    expect(replaced.budgetEffect).toBeNull();
+  });
 });
