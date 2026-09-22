@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { getOpsSession, type OpsSession } from "@/lib/ops/auth";
 import { isOfficeMembershipRole } from "@/lib/ops/identity";
 import { parsePlanAnnotationInput, isCurrentPlanDocument } from "@/lib/ops/plan-markup";
-import { proposeSpokenPlanMark, type SpokenPlanProposal } from "@/lib/ops/spoken-plan-mark";
+import {
+  proposeSpokenPlanMark,
+  spokenPlanMarkMatches,
+  type SpokenPlanProposal,
+} from "@/lib/ops/spoken-plan-mark";
 import {
   acceptedScheduleDiffNoteId,
   applyApprovedScheduleMoves,
@@ -31,8 +35,8 @@ import {
   updateJobStatus,
 } from "@/lib/ops/store";
 import {
-  extractedVoiceNoteId,
-  proposeTranscriptRecord,
+  listTranscriptRecords,
+  savedTranscriptSelections,
   transcriptRecordMatches,
   type TranscriptRecordProposal,
 } from "@/lib/ops/transcript-record";
@@ -88,12 +92,27 @@ export async function confirmSpokenPlanMark(
   jobId: string,
   documentId: string,
   voiceNoteId: string,
-  expectedEffect: string,
+  approval: Pick<
+    SpokenPlanProposal,
+    | "documentId"
+    | "pageNumber"
+    | "x"
+    | "y"
+    | "kind"
+    | "status"
+    | "title"
+    | "body"
+    | "taskId"
+    | "effect"
+  >,
 ): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
   const session = await requireOfficeSession();
   const proposed = await spokenProposal(jobId, documentId, voiceNoteId);
   if (!proposed.ok) return proposed;
-  if (proposed.proposal.effect !== expectedEffect) {
+  if (
+    approval.documentId !== documentId ||
+    !spokenPlanMarkMatches(proposed.proposal, approval)
+  ) {
     return { ok: false, error: "That transcript changed. Refresh and try again." };
   }
   const parsed = parsePlanAnnotationInput(proposed.proposal);
@@ -191,26 +210,27 @@ export async function confirmTranscriptRecord(
   approval: TranscriptRecordProposal,
 ): Promise<{ ok: true; effect: string } | { ok: false; error: string }> {
   const session = await requireOfficeSession();
-  const [note, events] = await Promise.all([
+  const [note, events, tasks] = await Promise.all([
     getJobVoiceNote(jobId, approval.voiceNoteId),
     listJobEvents(jobId),
+    listJobTasks(jobId),
   ]);
   if (!note || note.status !== "completed" || !note.transcript?.trim()) {
     return { ok: false, error: "Choose a completed transcript." };
   }
-  const alreadyExtracted = events.some(
-    (event) => extractedVoiceNoteId(event) === note.id,
-  );
-  if (alreadyExtracted) {
+  const saved = savedTranscriptSelections(events, note.id);
+  if (saved.legacy || saved.texts.includes(approval.selectedText)) {
     return { ok: false, error: "That transcript was already turned into a record." };
   }
-  const proposal = proposeTranscriptRecord({
+  const proposal = listTranscriptRecords({
     voiceNoteId: note.id,
     filename: note.filename,
     transcript: note.transcript,
-    alreadyExtracted: false,
-  });
-  if (!proposal || !transcriptRecordMatches(proposal, approval)) {
+    savedTexts: saved.texts,
+    legacyExtracted: false,
+    tasks,
+  }).find((candidate) => transcriptRecordMatches(candidate, approval));
+  if (!proposal) {
     return { ok: false, error: "That transcript changed. Refresh and try again." };
   }
   const created = await extractJobVoiceNote({
@@ -222,14 +242,29 @@ export async function confirmTranscriptRecord(
   });
   if (!created.ok) return created;
   if (proposal.kind === "blocker") {
-    await updateJobStatus({
+    const blocked = await updateJobStatus({
       jobId,
       actor: session.email,
       status: "blocked",
       blockerNote: proposal.selectedText,
     });
+    refreshTranscriptRecord(jobId);
+    if (!blocked) {
+      return {
+        ok: false,
+        error: "The blocker was saved, but the job could not be marked blocked.",
+      };
+    }
+    return { ok: true, effect: proposal.effect };
   }
+  refreshTranscriptRecord(jobId);
+  return { ok: true, effect: proposal.effect };
+}
+
+function refreshTranscriptRecord(jobId: string) {
   revalidatePath(`/app/jobs/${jobId}`);
   revalidatePath("/app");
-  return { ok: true, effect: proposal.effect };
+  revalidatePath("/field");
+  revalidatePath(`/field/jobs/${jobId}`);
+  revalidatePath(`/app/field/jobs/${jobId}`);
 }

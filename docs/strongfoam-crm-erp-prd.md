@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.20
+**Version:** 1.21
 **Created:** 2026-09-18
 **Last updated:** 2026-09-21
 
@@ -94,8 +94,11 @@ change and apply it (AI-003). One-click complete and reopen record the same
 command. Undo restores the previous version, so an earlier command stays
 undoable when nothing else edited the task. A field user can undo only their
 own change. A spoken pin confirm refuses when the shown sentence changed. A completed
-transcript can propose one blocker, deficiency, or material request. Saving
-uses the existing voice extract, and a changed transcript is refused (AI-004).
+transcript can propose one blocker, deficiency, material request, or new task.
+Saving one sentence leaves a different sentence available. Dismissing a sentence
+writes nothing and the next sentence can be confirmed on its own. A product name
+alone is not a material request. A spoken pin confirm checks the mark that
+will be written (AI-004, AI-011).
 AI-014 and AI-016 through AI-026 remain specified and
 are not built. AI-014 waits until an open task stores a stated quantity. The target Supabase/Render deployment split, full permission matrix,
 crews, durable offline sync, and financial workflows remain to be completed.
@@ -1381,11 +1384,16 @@ checklist, and source-record link stay out until a task stores those fields.
 
 **AI-004:** The agent should convert notes or transcripts into proposed tasks,
 material requests, blockers, deficiencies, follow-ups, and daily reports.
-The first slice proposes one blocker, deficiency, or material request from
-the sentence that states it. Confirm saves that sentence through the existing
-voice extract. A blocker also marks the job blocked. Preview and dismiss
-write nothing. A changed or already extracted transcript is refused. A task
-or daily report from the same transcript stays a manual extract.
+A completed transcript proposes one blocker, deficiency, material request, or
+new task from the sentence that states it. Confirm saves that sentence through
+the existing voice extract. A blocker also marks the job blocked. Saving one
+sentence leaves a different sentence available. Dismissing a sentence writes
+nothing, and that later sentence can be confirmed without saving the first.
+A manual extract, or an older
+extract that did not record its text, still closes the transcript. A product
+name alone is not a material request. A task is proposed only when the
+sentence asks for work that is not already an open task. A daily report from
+the same transcript stays the daily-report draft.
 
 **AI-005:** The agent should draft customer communications, internal handoffs,
 estimate scopes, closeout summaries, and status updates. External communication
@@ -1824,8 +1832,9 @@ policy and human review.
    restores the earlier moves). Bulk reassignment stays out until that command
    exists.
 5. Propose one field record from a completed transcript (done for a blocker,
-   deficiency, or material request). A task or daily report from that
-   transcript stays a manual extract.
+   deficiency, material request, or new task). A later sentence can still be
+   saved, including after the earlier sentence is dismissed without a write.
+   A daily report from that transcript stays the daily-report draft.
 6. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
 
 ### Commercial and operational expansion
@@ -1930,11 +1939,14 @@ These decisions are required before their respective implementation stage:
 | 2026-09-21 | Restore the prior task version on undo, and refuse a schedule or pin confirm whose sentence changed | One undo must leave the previous command undoable. Accept and pin confirm must apply the sentence the user saw |
 | 2026-09-21 | Bind a schedule accept to every shown move and restore earlier moves if a later move fails | A multi-record slip must not leave the schedule half applied or apply dates the user did not approve |
 | 2026-09-21 | Propose one blocker, deficiency, or material request from a completed transcript | The sentence is visible before the existing voice extract writes it. A task from the same transcript stays manual |
+| 2026-09-21 | Keep a later transcript sentence available after one record is saved, and check the pin fields on confirm | One extract must not hide a different request, and a pin confirm must not write a body the user did not see |
+| 2026-09-21 | Let a dismissed transcript sentence stay unwritten while the next sentence can be confirmed | Office staff can record the request they want without first saving a higher-ranked sentence |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.21 | 2026-09-21 | A transcript record skips a product mention that is not a request, and a later sentence can still be saved or confirmed after the earlier sentence is dismissed. A new task is proposed only when that work is not already open. A spoken pin confirm checks the mark fields. AI-014 stays blocked until tasks store a stated quantity |
 | 1.20 | 2026-09-21 | A completed transcript can propose one blocker, deficiency, or material request. Confirm uses the existing voice extract. AI-014 stays blocked until tasks store a stated quantity |
 | 1.19 | 2026-09-21 | A schedule accept writes only the exact moves shown. If a later move fails, earlier moves are restored. AI-014 stays blocked until tasks store a stated quantity |
 | 1.18 | 2026-09-21 | Task undo walks back more than one command when nothing else edited the task. One-click office and field status changes are undoable. Schedule accept and spoken pin confirm refuse when the shown sentence changed. AI-014 stays blocked until tasks store a stated quantity |

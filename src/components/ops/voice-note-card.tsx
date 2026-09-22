@@ -125,6 +125,7 @@ export function VoiceNoteCard({
                 <div className="space-y-2">
                   <Label htmlFor={`transcript-${note.id}`}>Transcript</Label>
                   <Textarea
+                    key={`edit-${note.id}-${note.transcript ?? ""}`}
                     id={`transcript-${note.id}`}
                     name="transcript"
                     rows={5}
@@ -147,6 +148,7 @@ export function VoiceNoteCard({
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor={`selected-${note.id}`}>Create from this text</Label>
               <Textarea
+                key={`extract-${note.id}-${note.transcript ?? ""}`}
                 id={`selected-${note.id}`}
                 name="selectedText"
                 rows={3}

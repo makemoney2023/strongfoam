@@ -83,3 +83,33 @@ export function proposeSpokenPlanMark(input: {
     effect: `Place a pin titled "${title}" with status ${status.replaceAll("_", " ")} at the center of page 1, ${taskText}, and attach ${input.filename}.`,
   };
 }
+
+export function spokenPlanMarkMatches(
+  proposal: SpokenPlanProposal,
+  approval: Pick<
+    SpokenPlanProposal,
+    | "documentId"
+    | "pageNumber"
+    | "x"
+    | "y"
+    | "kind"
+    | "status"
+    | "title"
+    | "body"
+    | "taskId"
+    | "effect"
+  >,
+): boolean {
+  return (
+    proposal.documentId === approval.documentId &&
+    proposal.pageNumber === approval.pageNumber &&
+    proposal.x === approval.x &&
+    proposal.y === approval.y &&
+    proposal.kind === approval.kind &&
+    proposal.status === approval.status &&
+    proposal.title === approval.title &&
+    proposal.body === approval.body &&
+    proposal.taskId === approval.taskId &&
+    proposal.effect === approval.effect
+  );
+}

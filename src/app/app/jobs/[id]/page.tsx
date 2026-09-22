@@ -66,8 +66,8 @@ import {
 } from "@/lib/ops/schedule-diff";
 import { newestTaskCommand } from "@/lib/ops/task-command";
 import {
-  extractedVoiceNoteId,
-  proposeTranscriptRecord,
+  listTranscriptRecords,
+  savedTranscriptSelections,
 } from "@/lib/ops/transcript-record";
 import {
   JOB_STATUS_LABELS,
@@ -276,21 +276,17 @@ export default async function JobDetailPage({
           return proposal ? [proposal] : [];
         })
       : [];
-  const extractedVoiceNotes = new Set(
-    events.flatMap((event) => {
-      const voiceNoteId = extractedVoiceNoteId(event);
-      return voiceNoteId ? [voiceNoteId] : [];
-    }),
-  );
   const transcriptProposals = voiceNotes.flatMap((note) => {
     if (note.status !== "completed" || !note.transcript?.trim()) return [];
-    const proposal = proposeTranscriptRecord({
+    const saved = savedTranscriptSelections(events, note.id);
+    return listTranscriptRecords({
       voiceNoteId: note.id,
       filename: note.filename,
       transcript: note.transcript,
-      alreadyExtracted: extractedVoiceNotes.has(note.id),
+      savedTexts: saved.texts,
+      legacyExtracted: saved.legacy,
+      tasks: commandTasks,
     });
-    return proposal ? [proposal] : [];
   });
   const completedTasks = tasks.filter((task) => task.status === "done").length;
   const taskProgress =

@@ -3535,7 +3535,7 @@ export function extractDemoVoiceNote(args: {
       actor: args.actor,
       kind: "voice_note_extracted",
       summary: `voice note extracted: ${note.filename}`,
-      payload: { voiceNoteId: note.id },
+      payload: { voiceNoteId: note.id, kind: args.kind, selectedText: args.selectedText },
     });
     return { ok: true, created: "task" };
   }
@@ -3565,8 +3565,8 @@ export function extractDemoVoiceNote(args: {
     actor: args.actor,
     kind: "voice_note_extracted",
     summary: `voice note extracted: ${note.filename}`,
-    payload: { voiceNoteId: note.id },
-  });
+      payload: { voiceNoteId: note.id, kind: args.kind, selectedText: args.selectedText },
+    });
   return { ok: true, created: "field_note" };
 }
 

@@ -168,12 +168,18 @@ describe("plan voice and schedule diff actions", () => {
     });
     await expect(rejectScheduleDiff()).rejects.toThrow("REDIRECT:/app/login");
     await expect(
-      confirmSpokenPlanMark(
-        DEMO_JOB_ID,
-        DEMO_PLAN_DOCUMENT_ID,
-        DEMO_VOICE_NOTE_ID,
-        "unused",
-      ),
+      confirmSpokenPlanMark(DEMO_JOB_ID, DEMO_PLAN_DOCUMENT_ID, DEMO_VOICE_NOTE_ID, {
+        documentId: DEMO_PLAN_DOCUMENT_ID,
+        pageNumber: 1,
+        x: 0.5,
+        y: 0.5,
+        kind: "pin",
+        status: "planned",
+        title: "unused",
+        body: "unused",
+        taskId: null,
+        effect: "unused",
+      }),
     ).rejects.toThrow("REDIRECT:/app/login");
   });
 
@@ -194,7 +200,7 @@ describe("plan voice and schedule diff actions", () => {
       DEMO_JOB_ID,
       DEMO_PLAN_DOCUMENT_ID,
       DEMO_VOICE_NOTE_ID,
-      "Place a different pin.",
+      { ...preview.proposal, body: "A different transcript." },
     );
     expect(stale).toEqual({
       ok: false,
@@ -207,7 +213,7 @@ describe("plan voice and schedule diff actions", () => {
       DEMO_JOB_ID,
       DEMO_PLAN_DOCUMENT_ID,
       DEMO_VOICE_NOTE_ID,
-      preview.proposal.effect,
+      preview.proposal,
     );
     expect(result.ok).toBe(true);
     const after = listDemoJobPlanAnnotations(
