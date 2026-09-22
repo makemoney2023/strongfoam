@@ -29,7 +29,7 @@ import {
   countOperationsExceptions,
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
-import { getOpsSession } from "@/lib/ops/auth";
+import { getOpsSession, organizationIdForOpsSession } from "@/lib/ops/auth";
 import { buildHomeSummary, isOverdue } from "@/lib/ops/home";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import {
@@ -168,6 +168,7 @@ export default async function OpsHomePage() {
   const exceptionInput = {
     ...exceptionSource,
     now: opsNow,
+    viewerOrganizationId: organizationIdForOpsSession(session),
   };
   const operationsExceptions = listOperationsExceptions(exceptionInput);
   const exceptionTotal = countOperationsExceptions(exceptionInput);
@@ -308,10 +309,10 @@ export default async function OpsHomePage() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {exceptionTotal === 0
-              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, and installed quantities ahead of the amount still stated on open tasks."
+              ? "Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, and failed scan, extraction, proposal, or conversion jobs."
               : exceptionTotal > operationsExceptions.length
                 ? `${exceptionTotal} to review. Showing ${operationsExceptions.length}.`
-                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, and installed quantities ahead of the amount still stated on open tasks.`}
+                : `${exceptionTotal} to review. Missing daily logs, failed transcriptions, blocked jobs, overdue tasks, voice notes still to extract, installed quantities ahead of the amount still stated on open tasks, and failed scan, extraction, proposal, or conversion jobs.`}
           </p>
         </div>
         {operationsExceptions.length === 0 ? (

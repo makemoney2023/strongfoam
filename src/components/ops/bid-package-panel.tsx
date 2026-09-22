@@ -36,7 +36,7 @@ export function BidPackagePanel({
   canUpload?: boolean;
 }) {
   return (
-    <Card>
+    <Card id="bid-package">
       <CardHeader>
         <CardTitle>Bid package</CardTitle>
         <CardDescription>

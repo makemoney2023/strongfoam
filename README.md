@@ -115,6 +115,23 @@ OPS_DEMO
 DEEPGRAM_API_KEY
 AI_GATEWAY_API_KEY
 AI_GATEWAY_MODEL
+AI_DOCUMENT_MODEL
+AI_COMMERCIAL_MODEL
+CLAMAV_HOST
+CLAMAV_PORT
+COMMERCIAL_ESTIMATES_ENABLED
+BID_DOCUMENT_EXTRACTION_ENABLED
+COMMERCIAL_AI_ENABLED
+SIGNED_PROPOSALS_ENABLED
+ACCEPTED_ESTIMATE_CONVERSION_ENABLED
+COMMERCIAL_ORGANIZATION_IDS
+COMMERCIAL_FLAG_OVERRIDES
+COMMERCIAL_WORKFLOW_TESTS_PASSED
+COMMERCIAL_AI_EVALUATION_PASSED
+COMMERCIAL_DATA_RESIDENCY_APPROVED
+COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS
+COMMERCIAL_AI_RATE_LIMIT_PER_HOUR
+COMMERCIAL_HEARTBEAT_ORGANIZATION_ID
 VOICE_RETENTION_DAYS
 VOICE_CONSENT_NOTICE
 WORKER_ID
@@ -128,7 +145,54 @@ is missing. Supabase project credentials stay outside this repository.
 
 `npm run worker` starts the Render background process. It claims pg-boss work,
 records a heartbeat, and stops cleanly on SIGTERM. It does not serve the Next.js
-app.
+app. Every 15 seconds it stores a completed `worker-heartbeat` row for the
+Strong Foam organization. Commercial AI stays disabled until that heartbeat is
+newer than 60 seconds.
+
+## Commercial bid workflow
+
+Manual estimates, bid-package extraction, signed proposals, and accepted-estimate
+conversion can each be turned on without commercial AI. Outside production, and
+whenever `OPS_DEMO=1`, an unset flag leaves that capability available. In
+production, set the matching flag to `1`:
+
+```
+COMMERCIAL_ESTIMATES_ENABLED
+BID_DOCUMENT_EXTRACTION_ENABLED
+SIGNED_PROPOSALS_ENABLED
+ACCEPTED_ESTIMATE_CONVERSION_ENABLED
+COMMERCIAL_AI_ENABLED
+```
+
+`COMMERCIAL_ORGANIZATION_IDS` limits those flags to a comma-separated
+organization list. `COMMERCIAL_FLAG_OVERRIDES` is a JSON object keyed by
+organization id, then by flag name, when one organization needs a different
+value.
+
+Commercial AI stays off unless all of these are true:
+
+- `COMMERCIAL_AI_ENABLED=1`
+- `COMMERCIAL_WORKFLOW_TESTS_PASSED=estimates,approvals,proposals,conversion`
+- `COMMERCIAL_AI_EVALUATION_PASSED=geometry,price,prompt-injection,citation,cross-organization`
+- `COMMERCIAL_DATA_RESIDENCY_APPROVED=1`
+- `CLAMAV_HOST` and `CLAMAV_PORT` point at the scanner
+- `AI_DOCUMENT_MODEL` names the residency-approved extraction model
+- `AI_GATEWAY_API_KEY` and `AI_COMMERCIAL_MODEL` (or `AI_GATEWAY_MODEL`) are set
+- `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
+- the Render worker heartbeat for that organization is healthy
+
+Apply migrations through `0025_commercial_ai.sql` before enabling the flags.
+Run the worker as a Render background service with `npm run worker`. Bid files
+stay in private Blob storage and remain quarantined until the scanner marks
+them clean. A failed scan, extraction, proposal draft, or conversion publication
+appears on Home for that organization only.
+
+To roll a capability back, set its flag to `0` and redeploy the web service.
+In-flight worker jobs can finish, and they cannot start a new AI draft, proposal
+delivery, or conversion while the flag is off. Revoke a proposal review link
+from the estimate page; revocation blocks later views and decisions for that
+token. Do not delete estimate versions, approvals, or document versions to undo
+a rollout.
 
 Voice notes store audio privately (demo memory, production Blob). Transcription
 runs after save: a demo stub in `OPS_DEMO`, Deepgram Nova-3 (`en-US`) when

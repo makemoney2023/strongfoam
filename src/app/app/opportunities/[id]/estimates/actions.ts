@@ -10,6 +10,7 @@ import {
   resolveCommercialAccess,
 } from "@/lib/ops/commercial-authorization";
 import { formatUnitPrice } from "@/lib/ops/price-book";
+import { guardCommercialCapability } from "@/lib/ops/commercial-runtime";
 import { decideEstimateVersion } from "@/lib/ops/estimate-approvals";
 import {
   generateProposal,
@@ -91,6 +92,8 @@ export async function createOpportunityEstimate(formData: FormData): Promise<Act
   const opportunityId = String(formData.get("opportunityId") ?? "");
   const fallback = opportunityPath(opportunityId || "missing");
   if (!access.ok) return fail(fallback, access.error);
+  const estimatesFlag = await guardCommercialCapability("estimates", access.organizationId);
+  if (!estimatesFlag.ok) return fail(fallback, estimatesFlag.error);
   const opportunity = await getAuthorizedOpportunity(access.organizationId, opportunityId);
   if (!opportunity) return fail("/app/opportunities", "That record is outside this organization.");
   const estimateId = crypto.randomUUID();
@@ -144,6 +147,8 @@ export async function saveEstimateVersion(formData: FormData): Promise<ActionSta
     ? estimatePath(estimate.opportunityId, estimate.id)
     : "/app/opportunities";
   if (!access.ok) return fail(fallback, access.error);
+  const estimatesFlag = await guardCommercialCapability("estimates", access.organizationId);
+  if (!estimatesFlag.ok) return fail(fallback, estimatesFlag.error);
   if (!estimate) return fail(fallback, "That estimate could not be found.");
   const same = assertSameOrganization(access.organizationId, estimate.organizationId);
   if (!same.ok) return fail(fallback, same.error);
@@ -283,6 +288,8 @@ export async function generateProposalAction(formData: FormData): Promise<Action
     : "/app/opportunities";
   const access = resolveCommercialAccess(session, "proposal.deliver");
   if (!access.ok) return fail(fallback, access.error);
+  const proposalsFlag = await guardCommercialCapability("proposals", access.organizationId);
+  if (!proposalsFlag.ok) return fail(fallback, proposalsFlag.error);
   if (!estimate) return fail(fallback, "That estimate could not be found.");
   const same = assertSameOrganization(access.organizationId, estimate.organizationId);
   if (!same.ok) return fail(fallback, same.error);
@@ -332,6 +339,8 @@ export async function recordProposalDeliveryAction(formData: FormData): Promise<
     : "/app/opportunities";
   const access = resolveCommercialAccess(session, "proposal.deliver");
   if (!access.ok) return fail(fallback, access.error);
+  const proposalsFlag = await guardCommercialCapability("proposals", access.organizationId);
+  if (!proposalsFlag.ok) return fail(fallback, proposalsFlag.error);
   if (!proposal || !estimate) return fail(fallback, "That proposal could not be found.");
   const same = assertSameOrganization(access.organizationId, proposal.organizationId);
   if (!same.ok) return fail(fallback, same.error);
@@ -361,6 +370,8 @@ export async function revokeProposalAction(formData: FormData): Promise<ActionSt
     : "/app/opportunities";
   const access = resolveCommercialAccess(session, "proposal.deliver");
   if (!access.ok) return fail(fallback, access.error);
+  const proposalsFlag = await guardCommercialCapability("proposals", access.organizationId);
+  if (!proposalsFlag.ok) return fail(fallback, proposalsFlag.error);
   if (!proposal) return fail(fallback, "That proposal could not be found.");
   const same = assertSameOrganization(access.organizationId, proposal.organizationId);
   if (!same.ok) return fail(fallback, same.error);
@@ -386,6 +397,8 @@ export async function convertAcceptedEstimateAction(formData: FormData): Promise
     : "/app/opportunities";
   const access = resolveCommercialAccess(session, "estimate.convert");
   if (!access.ok) return fail(fallback, access.error);
+  const conversionFlag = await guardCommercialCapability("conversion", access.organizationId);
+  if (!conversionFlag.ok) return fail(fallback, conversionFlag.error);
   if (!estimate) return fail(fallback, "That estimate could not be found.");
   const same = assertSameOrganization(access.organizationId, estimate.organizationId);
   if (!same.ok) return fail(fallback, same.error);
@@ -416,6 +429,8 @@ export async function draftBidEstimateAction(formData: FormData): Promise<Action
     ? estimatePath(opportunityId, estimateId)
     : opportunityPath(opportunityId);
   if (!access.ok) return fail(fallback, access.error);
+  const aiFlag = await guardCommercialCapability("ai", access.organizationId);
+  if (!aiFlag.ok) return fail(fallback, aiFlag.error);
   const selected = String(formData.get("selectedDocumentVersionIds") ?? "")
     .split(",")
     .map((item) => item.trim())
@@ -460,6 +475,8 @@ export async function applyBidEstimateProposalAction(formData: FormData): Promis
   const estimate = estimateId ? await getEstimate(estimateId) : null;
   const fallback = estimate ? estimatePath(estimate.opportunityId, estimate.id) : "/app/opportunities";
   if (!access.ok) return fail(fallback, access.error);
+  const estimatesFlag = await guardCommercialCapability("estimates", access.organizationId);
+  if (!estimatesFlag.ok) return fail(fallback, estimatesFlag.error);
   if (!estimate) return fail(fallback, "That estimate could not be found.");
   const same = assertSameOrganization(access.organizationId, estimate.organizationId);
   if (!same.ok) return fail(fallback, same.error);

@@ -1731,6 +1731,16 @@ export function recordDemoAiJobEvent(args: {
   });
 }
 
+const demoWorkerHeartbeats = new Map<string, Date>();
+
+export function touchDemoWorkerHeartbeat(organizationId: string, at: Date): void {
+  demoWorkerHeartbeats.set(organizationId, at);
+}
+
+export function readDemoWorkerHeartbeat(organizationId: string): Date | null {
+  return demoWorkerHeartbeats.get(organizationId) ?? null;
+}
+
 export function listDemoHomeExceptionSource(): {
   jobs: Array<{ id: string; name: string; status: string; updatedAt: Date }>;
   tasks: Array<{
@@ -1754,7 +1764,16 @@ export function listDemoHomeExceptionSource(): {
     createdAt: Date;
   }>;
   events: Array<{ kind: string; payload: unknown; createdAt: Date }>;
+  backgroundJobs: Array<{
+    id: string;
+    organizationId: string;
+    kind: string;
+    status: string;
+    payload: unknown;
+    updatedAt: Date;
+  }>;
 } {
+  const state = getDemoState();
   return {
     jobs: jobsList.map((job) => ({
       id: job.id,
@@ -1807,6 +1826,16 @@ export function listDemoHomeExceptionSource(): {
         kind: event.kind,
         payload: event.payload,
         createdAt: event.createdAt,
+      })),
+    backgroundJobs: state.bidBackgroundJobs
+      .filter((job) => job.status === "dead_letter")
+      .map((job) => ({
+        id: job.id,
+        organizationId: job.organizationId,
+        kind: job.kind,
+        status: job.status,
+        payload: job.payload,
+        updatedAt: job.nextRunAt ?? new Date(0),
       })),
   };
 }

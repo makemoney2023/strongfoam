@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import { PgBoss } from "pg-boss";
 import { parseDatabaseConfig } from "@/db/config";
 import { recordHeartbeat } from "@/lib/ops/background-jobs";
+import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import { handlers, type WorkerHandler } from "@/worker/registry";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
@@ -25,7 +26,18 @@ export async function startWorker(
   await boss.start();
   let active = 0;
   const heartbeat = setInterval(() => {
-    recordHeartbeat(workerId, new Date(), active);
+    const recorded = recordHeartbeat(workerId, new Date(), active);
+    void import("@/lib/ops/store")
+      .then(({ touchWorkerHeartbeat }) =>
+        touchWorkerHeartbeat({
+          organizationId:
+            process.env.COMMERCIAL_HEARTBEAT_ORGANIZATION_ID?.trim() ||
+            STRONG_FOAM_ORGANIZATION_ID,
+          workerId,
+          at: recorded.at,
+        }),
+      )
+      .catch(() => undefined);
   }, 15_000);
   heartbeat.unref?.();
 

@@ -258,7 +258,7 @@ export default async function OpportunityDetailPage({
       ) : null}
 
       {readAccess.ok ? (
-        <Card>
+        <Card id="estimates">
           <CardHeader>
             <CardTitle>Estimates</CardTitle>
             <CardDescription>Each save creates a new version. It does not create a job.</CardDescription>

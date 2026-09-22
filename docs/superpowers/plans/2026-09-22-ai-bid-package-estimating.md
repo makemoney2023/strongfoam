@@ -1186,7 +1186,7 @@ Commit message: `Review AI bid suggestions before estimate writes.`
 - Modify: `README.md`
 - Modify: `docs/strongfoam-crm-erp-prd.md`
 
-- [ ] **Step 1: Write flag and exception tests**
+- [x] **Step 1: Write flag and exception tests**
 
 Flags are organization/capability scoped:
 
@@ -1202,13 +1202,13 @@ Manual estimates may be enabled while commercial AI is disabled. Home
 exceptions include failed/dead-letter scan, extraction, proposal, and
 conversion jobs with authorized links.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/commercial-flags.test.ts src/lib/ops/ai-exceptions.test.ts
 ```
 
-- [ ] **Step 3: Add production gates**
+- [x] **Step 3: Add production gates**
 
 Commercial AI cannot enable unless:
 
@@ -1219,14 +1219,14 @@ Commercial AI cannot enable unless:
   and cross-organization rejection case.
 - Cost and rate limits are configured.
 
-- [ ] **Step 4: Update operating documentation**
+- [x] **Step 4: Update operating documentation**
 
 Document migration order, worker command, Render background-worker service,
 scanner/OCR/gateway variables, Blob policy, retry/dead-letter runbook,
 proposal-token revocation, and rollback flags. Mark PRD requirements shipped
 only after their acceptance checks pass.
 
-- [ ] **Step 5: Run all automated checks**
+- [x] **Step 5: Run all automated checks**
 
 ```bash
 npm test
@@ -1237,7 +1237,7 @@ npm run build
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `Gate and observe the commercial bid workflow.`
 

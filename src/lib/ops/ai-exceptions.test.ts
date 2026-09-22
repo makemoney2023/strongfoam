@@ -293,4 +293,104 @@ describe("operations exceptions", () => {
       "Quantity pace: 48 bags installed is ahead of 40 bags still stated on open tasks: Podium",
     );
   });
+
+  it("links dead-letter commercial jobs for the viewer's organization", () => {
+    const opportunityId = "99999999-9999-4999-8999-999999999991";
+    const projectId = "88888888-8888-4888-8888-888888888881";
+    const rows = listOperationsExceptions({
+      now: NOW,
+      jobs: [],
+      tasks: [],
+      fieldNotes: [],
+      voiceNotes: [],
+      events: [],
+      viewerOrganizationId: "org-1",
+      backgroundJobs: [
+        {
+          id: "scan",
+          organizationId: "org-1",
+          kind: "document.scan",
+          status: "dead_letter",
+          payload: { opportunityId },
+          updatedAt: new Date("2026-09-18T12:00:00.000Z"),
+        },
+        {
+          id: "extract",
+          organizationId: "org-1",
+          kind: "document.extract",
+          status: "failed",
+          payload: { opportunityId },
+          updatedAt: new Date("2026-09-18T13:00:00.000Z"),
+        },
+        {
+          id: "draft",
+          organizationId: "org-1",
+          kind: "commercial_ai.draft",
+          status: "dead_letter",
+          payload: { opportunityId },
+          updatedAt: new Date("2026-09-18T14:00:00.000Z"),
+        },
+        {
+          id: "convert",
+          organizationId: "org-1",
+          kind: "estimate.converted",
+          status: "dead_letter",
+          payload: { projectId },
+          updatedAt: new Date("2026-09-18T15:00:00.000Z"),
+        },
+        {
+          id: "other-org",
+          organizationId: "org-2",
+          kind: "document.scan",
+          status: "dead_letter",
+          payload: { opportunityId },
+          updatedAt: new Date("2026-09-18T11:00:00.000Z"),
+        },
+        {
+          id: "queued",
+          organizationId: "org-1",
+          kind: "document.scan",
+          status: "queued",
+          payload: { opportunityId },
+          updatedAt: NOW,
+        },
+      ],
+    });
+    expect(rows.map((row) => [row.kind, row.href])).toEqual([
+      ["failed_document_scan", `/app/opportunities/${opportunityId}#bid-package`],
+      ["failed_document_extraction", `/app/opportunities/${opportunityId}#bid-package`],
+      ["failed_bid_proposal", `/app/opportunities/${opportunityId}#estimates`],
+      ["failed_estimate_conversion", `/app/projects/${projectId}`],
+    ]);
+  });
+
+  it("keeps a commercial dead letter when older rows fill the list", () => {
+    const jobs = Array.from({ length: 10 }, (_, index) => ({
+      id: `job-${index}`,
+      name: `Job ${index}`,
+      status: "in_progress",
+      updatedAt: new Date(NOW.getTime() - (index + 1) * 86_400_000),
+    }));
+    const rows = listOperationsExceptions({
+      now: NOW,
+      jobs,
+      tasks: [],
+      fieldNotes: [],
+      voiceNotes: [],
+      events: [],
+      viewerOrganizationId: "org-1",
+      backgroundJobs: [
+        {
+          id: "scan",
+          organizationId: "org-1",
+          kind: "document.scan",
+          status: "dead_letter",
+          payload: { opportunityId: "99999999-9999-4999-8999-999999999991" },
+          updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+        },
+      ],
+    });
+    expect(rows.some((row) => row.kind === "failed_document_scan")).toBe(true);
+    expect(rows.filter((row) => row.kind === "missing_daily_log")).toHaveLength(8);
+  });
 });

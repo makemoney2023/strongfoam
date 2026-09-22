@@ -6,6 +6,7 @@ import { fail, succeed } from "@/lib/ops/action-redirect";
 import { invalidFrom, type ActionState } from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
+import { guardCommercialCapability } from "@/lib/ops/commercial-runtime";
 import {
   hasAllowedBidDocumentSignature,
   MAX_BID_UPLOAD_FILES,
@@ -65,6 +66,8 @@ export async function uploadBidPackage(formData: FormData): Promise<ActionState>
     String(formData.get("organizationId") ?? ""),
   );
   if (!access.ok) return fail(path, access.error);
+  const extraction = await guardCommercialCapability("extraction", access.organizationId);
+  if (!extraction.ok) return fail(path, extraction.error);
   if (!isDemoOpsStore()) {
     return fail(
       path,
@@ -140,6 +143,8 @@ export async function retryBidDocumentScan(formData: FormData): Promise<ActionSt
   }
   const access = resolveCommercialAccess(session, "estimate.edit");
   if (!access.ok) return fail(path, access.error);
+  const extraction = await guardCommercialCapability("extraction", access.organizationId);
+  if (!extraction.ok) return fail(path, extraction.error);
   const result = await queueBidDocumentScan({
     organizationId: access.organizationId,
     opportunityId,
@@ -159,6 +164,8 @@ export async function processBidDocument(formData: FormData): Promise<ActionStat
   if (!opportunityId || !versionId) return fail(path, "Missing bid document.");
   const access = resolveCommercialAccess(session, "estimate.edit");
   if (!access.ok) return fail(path, access.error);
+  const extraction = await guardCommercialCapability("extraction", access.organizationId);
+  if (!extraction.ok) return fail(path, extraction.error);
   const result = await advanceBidDocument({
     organizationId: access.organizationId,
     opportunityId,

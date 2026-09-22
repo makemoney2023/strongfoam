@@ -189,6 +189,8 @@ import {
   listDemoJobEvents,
   listDemoJobEventsSince,
   listDemoHomeExceptionSource,
+  readDemoWorkerHeartbeat,
+  touchDemoWorkerHeartbeat,
   recordDemoAiJobEvent,
   recordDemoScheduleDiffAccepted,
   recordDemoTaskCommandEvent,
@@ -4179,7 +4181,7 @@ export async function listHomeExceptionSource() {
   if (isDemoOpsStore()) return listDemoHomeExceptionSource();
   const db = getDb();
   const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const [jobRows, taskRows, noteRows, quantityRows, voiceRows, eventRows, defaultCalendars] =
+  const [jobRows, taskRows, noteRows, quantityRows, voiceRows, eventRows, defaultCalendars, deadLetterRows] =
     await Promise.all([
     db
       .select({
@@ -4250,6 +4252,17 @@ export async function listHomeExceptionSource() {
       .from(scheduleCalendars)
       .where(eq(scheduleCalendars.isDefault, true))
       .limit(1),
+    db
+      .select({
+        id: backgroundJobs.id,
+        organizationId: backgroundJobs.organizationId,
+        kind: backgroundJobs.kind,
+        status: backgroundJobs.status,
+        payload: backgroundJobs.payload,
+        updatedAt: backgroundJobs.updatedAt,
+      })
+      .from(backgroundJobs)
+      .where(inArray(backgroundJobs.status, ["dead_letter", "failed"])),
   ]);
   const fallbackTimeZone = defaultCalendars[0]?.timeZone?.trim() || "America/Toronto";
   return {
@@ -4265,7 +4278,64 @@ export async function listHomeExceptionSource() {
     quantities: quantityRows,
     voiceNotes: voiceRows,
     events: eventRows,
+    backgroundJobs: deadLetterRows,
   };
+}
+
+export async function readWorkerHeartbeatAt(organizationId: string): Promise<Date | null> {
+  if (isDemoOpsStore()) return readDemoWorkerHeartbeat(organizationId);
+  const rows = await getDb()
+    .select({ updatedAt: backgroundJobs.updatedAt })
+    .from(backgroundJobs)
+    .where(
+      and(
+        eq(backgroundJobs.organizationId, organizationId),
+        eq(backgroundJobs.kind, "worker-heartbeat"),
+        eq(backgroundJobs.status, "completed"),
+      ),
+    )
+    .orderBy(desc(backgroundJobs.updatedAt))
+    .limit(1);
+  return rows[0]?.updatedAt ?? null;
+}
+
+export async function touchWorkerHeartbeat(args: {
+  organizationId: string;
+  workerId: string;
+  at?: Date;
+}): Promise<void> {
+  const at = args.at ?? new Date();
+  if (isDemoOpsStore()) {
+    touchDemoWorkerHeartbeat(args.organizationId, at);
+    return;
+  }
+  await getDb()
+    .insert(backgroundJobs)
+    .values({
+      organizationId: args.organizationId,
+      kind: "worker-heartbeat",
+      aggregateType: "worker",
+      aggregateId: args.organizationId,
+      idempotencyKey: `worker-heartbeat:${args.workerId}`,
+      status: "completed",
+      attempts: 1,
+      maxAttempts: 1,
+      checkpoint: null,
+      lockedBy: args.workerId,
+      nextRunAt: null,
+      payload: { workerId: args.workerId },
+      lastError: null,
+      updatedAt: at,
+    })
+    .onConflictDoUpdate({
+      target: [backgroundJobs.organizationId, backgroundJobs.idempotencyKey],
+      set: {
+        status: "completed",
+        lockedBy: args.workerId,
+        updatedAt: at,
+        lastError: null,
+      },
+    });
 }
 
 export async function listJobVoiceNotes(jobId: string): Promise<JobVoiceNoteRow[]> {

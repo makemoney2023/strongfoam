@@ -17,7 +17,21 @@ export const OPERATIONS_EXCEPTION_KINDS = [
   "overdue_task",
   "unextracted_voice_note",
   "quantity_pace",
+  "failed_document_scan",
+  "failed_document_extraction",
+  "failed_bid_proposal",
+  "failed_estimate_conversion",
 ] as const;
+
+const COMMERCIAL_DEAD_LETTER_KINDS = {
+  "document.scan": "failed_document_scan",
+  "document.extract": "failed_document_extraction",
+  "commercial_ai.draft": "failed_bid_proposal",
+  "estimate.converted": "failed_estimate_conversion",
+  "estimate.conversion": "failed_estimate_conversion",
+} as const;
+
+const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type OperationsExceptionKind = (typeof OPERATIONS_EXCEPTION_KINDS)[number];
 
@@ -74,6 +88,15 @@ export type ExceptionEvent = {
   createdAt: Date;
 };
 
+export type ExceptionBackgroundJob = {
+  id: string;
+  organizationId: string;
+  kind: string;
+  status: string;
+  payload: unknown;
+  updatedAt: Date;
+};
+
 const FIELD_ACTIVE = new Set<string>(FIELD_ACTIVE_JOB_STATUSES);
 
 function remainingTranscript(note: ExceptionVoiceNote, input: {
@@ -111,6 +134,55 @@ function jobTimeZone(job: ExceptionJob, fallback: string): string {
   return job.timeZone?.trim() || fallback;
 }
 
+function recordId(value: unknown): string | null {
+  return typeof value === "string" && RECORD_ID.test(value) ? value : null;
+}
+
+function payloadRecord(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
+  return payload as Record<string, unknown>;
+}
+
+export function commercialJobException(
+  job: ExceptionBackgroundJob,
+  viewerOrganizationId: string | undefined,
+): OperationsException | null {
+  if (!viewerOrganizationId || job.organizationId !== viewerOrganizationId) return null;
+  if (job.status !== "dead_letter" && job.status !== "failed") return null;
+  const kind =
+    COMMERCIAL_DEAD_LETTER_KINDS[job.kind as keyof typeof COMMERCIAL_DEAD_LETTER_KINDS];
+  if (!kind) return null;
+  const payload = payloadRecord(job.payload);
+  const opportunityId = recordId(payload.opportunityId);
+  const projectId = recordId(payload.projectId);
+  if (kind === "failed_estimate_conversion") {
+    const href = projectId
+      ? `/app/projects/${projectId}`
+      : opportunityId
+        ? `/app/opportunities/${opportunityId}`
+        : null;
+    if (!href) return null;
+    return {
+      kind,
+      label: "Failed estimate conversion",
+      href,
+      occurredAt: job.updatedAt.toISOString(),
+    };
+  }
+  if (!opportunityId) return null;
+  const href =
+    kind === "failed_bid_proposal"
+      ? `/app/opportunities/${opportunityId}#estimates`
+      : `/app/opportunities/${opportunityId}#bid-package`;
+  const label =
+    kind === "failed_document_scan"
+      ? "Failed document scan"
+      : kind === "failed_document_extraction"
+        ? "Failed document extraction"
+        : "Failed bid proposal";
+  return { kind, label, href, occurredAt: job.updatedAt.toISOString() };
+}
+
 export function listOperationsExceptions(
   input: {
     now: Date;
@@ -121,6 +193,8 @@ export function listOperationsExceptions(
     quantities?: ExceptionQuantity[];
     voiceNotes: ExceptionVoiceNote[];
     events: ExceptionEvent[];
+    backgroundJobs?: ExceptionBackgroundJob[];
+    viewerOrganizationId?: string;
   },
   limit = 8,
 ): OperationsException[] {
@@ -218,7 +292,11 @@ export function listOperationsExceptions(
         (row) => row.kind === pace.kind && row.href === pace.href && row.label === pace.label,
       ),
   );
-  return [...limited, ...visiblePace].sort(byOccurredAt);
+  const commercial = (input.backgroundJobs ?? []).flatMap((job) => {
+    const row = commercialJobException(job, input.viewerOrganizationId);
+    return row ? [row] : [];
+  });
+  return [...limited, ...visiblePace, ...commercial].sort(byOccurredAt);
 }
 
 function byOccurredAt(a: OperationsException, b: OperationsException): number {

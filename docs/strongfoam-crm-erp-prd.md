@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.26
+**Version:** 1.27
 **Created:** 2026-09-18
 **Last updated:** 2026-09-22
 
@@ -1626,6 +1626,27 @@ before financial workflows launch.
 - Use stable domain events for asynchronous work and integrations.
 - Version externally consumed API contracts.
 
+### 23.9 Commercial rollout controls
+
+Estimate versions, bid-document extraction, signed proposals, accepted-estimate
+conversion, and commercial AI each have an organization-scoped flag. Manual
+estimates can stay on while commercial AI is off. Commercial AI cannot turn on
+until manual estimate, approval, proposal, and conversion checks have passed,
+the Render worker heartbeat is healthy, the scanner and a data-residency-approved
+extraction model and gateway model are configured, the evaluation suite has
+rejected geometry, price, prompt injection, bad citations, and cross-organization
+output, and cost and rate limits are set.
+
+Failed or dead-letter scan, extraction, proposal, and conversion jobs appear on
+Home with a link to that organization's opportunity or project. Field sessions
+do not receive those links. Setting a flag to off stops new use of that
+capability. It does not delete versions, approvals, or documents. Proposal token
+revocation remains the way to stop an already issued review link.
+
+The operating steps, environment names, and rollback flags are in the repository
+README. These controls do not by themselves mark BID, QTE, or AI requirements
+shipped.
+
 ## 24. AI operations agent
 
 ### 24.1 Purpose
@@ -2300,11 +2321,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Store reusable price-book items by trade before estimate versions | Estimators need a unit price they can reuse. An item can be retired without deleting it. Assemblies, templates, versions, proposals, and approvals stay out of this slice |
 | 2026-09-22 | Treat a bid package as private opportunity evidence before a job exists, and create operational records only after exact-version approval, customer acceptance, and internal conversion confirmation | Upload and AI draft must have no operational effect. Written quantities may be cited; geometric takeoff and generated prices remain out. Deterministic estimate versions, human price selection, and one atomic idempotent conversion preserve financial and job history |
 | 2026-09-22 | Import existing Strong Foam spreadsheets through a reviewed Supabase Import Center rather than direct database writes | Private staging, stable source keys, deterministic validation, human conflict resolution, administrator commit, one transaction, inactive workforce identities, draft price revisions, and reconciliation make the migration repeatable and auditable |
+| 2026-09-22 | Gate commercial AI separately from manual estimates, proposals, and conversion | Office staff can keep estimating while AI stays off. Production AI requires passed workflow checks, a fresh worker heartbeat, residency-approved scanner and models, evaluation rejections, and cost and rate limits |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.27 | 2026-09-22 | Added organization-scoped commercial rollout flags and Home links for failed scan, extraction, proposal, and conversion jobs. Commercial AI stays off until workflow checks, a healthy worker heartbeat, residency-approved providers, the evaluation suite, and cost and rate limits are in place |
 | 1.26 | 2026-09-22 | Added IMP-001 through IMP-030 for the Supabase Data Import Center: private XLSX/CSV staging, malware/archive checks, mapping profiles, deterministic validation, source-key crosswalks, administrator-only transactional commit, price-book product codes and costs, inactive workforce import, linked customer/project/job import, reconciliation, retention, and production cutover |
 | 1.25 | 2026-09-22 | Specified the governed bid-package-to-estimate-to-job workflow. Added pre-job private document versions, durable scan/extraction/OCR, citations, immutable price and estimate versions, deterministic calculation, exact approval/proposal/acceptance, atomic multi-job conversion, and the boundary against geometric takeoff or AI-generated pricing |
 | 1.24 | 2026-09-22 | Shipped price-book items by trade, with a Canadian-dollar unit price and a retired state. Assemblies, scope templates, estimate versions, proposals, and approvals remain open. AI-016 can start from the item book and is not built |
