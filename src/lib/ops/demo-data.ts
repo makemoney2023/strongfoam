@@ -72,6 +72,7 @@ export const DEMO_PLAN_ANNOTATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb1";
 export const DEMO_PLAN_ASSIGNED_ANNOTATION_ID =
   "aaaaaaaa-aaaa-4aaa-8aaa-bbbbbbbbbbb2";
 export const DEMO_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999999";
+export const DEMO_OPEN_OPPORTUNITY_ID = "99999999-9999-4999-8999-999999999991";
 export const DEMO_SCHEDULE_NOW = "2026-09-19T12:00:00.000Z";
 export const DEMO_ADMIN_USER_ID = "10101010-1010-4010-8010-101010101010";
 export const DEMO_ADMIN_EMAIL = "admin@strongfoam.demo";
@@ -327,6 +328,23 @@ export function demoOpportunities(): OpportunityRow[] {
       services: ["spray-foam", "avb"],
       projectType: "commercial_ici",
       projectId: DEMO_PROJECT_ID,
+    },
+    {
+      id: DEMO_OPEN_OPPORTUNITY_ID,
+      organizationId: DEMO_ORGANIZATION_ID,
+      createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      companyId: "66666666-6666-4666-8666-666666666666",
+      contactId: "77777777-7777-4777-8777-777777777777",
+      siteId: "88888888-8888-4888-8888-888888888888",
+      sourceLeadId: null,
+      name: "Harbour bid package",
+      stage: "qualification",
+      owner: "Alex Rivera",
+      source: "referral",
+      services: ["spray-foam"],
+      projectType: "commercial_ici",
+      projectId: null,
     },
   ];
 }

@@ -410,7 +410,7 @@ Commit message: `Add durable outbox-backed worker execution.`
 - Create: `drizzle/0020_commercial_documents.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Write failing document-domain tests**
+- [x] **Step 1: Write failing document-domain tests**
 
 Cover kind validation, immutable revision numbering, allowed signatures,
 organization-bound links, duplicate SHA handling, and citation rejection:
@@ -423,20 +423,20 @@ expect(isOwnedOpportunityPath("org-a", "opp-a", validPath)).toBe(true);
 expect(isOwnedOpportunityPath("org-a", "opp-b", validPath)).toBe(false);
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/commercial-documents.test.ts
 ```
 
-- [ ] **Step 3: Add document schema**
+- [x] **Step 3: Add document schema**
 
 Create `documents`, `document_versions`, `document_links`,
 `document_extractions`, `document_pages`, and `document_chunks` exactly as
 defined in the design. A version starts `quarantined`. `document_versions`
 has a unique `(organization_id, sha256)` index after scan computes the hash.
 
-- [ ] **Step 4: Add direct upload callback**
+- [x] **Step 4: Add direct upload callback**
 
 Mirror the job upload route but bind the token to:
 
@@ -457,19 +457,19 @@ metadata, content type, and owned path. In one transaction it records the
 quarantined version and enqueues `document.scan`. If record creation fails, it
 deletes the orphaned Blob.
 
-- [ ] **Step 5: Add demo and opportunity UI parity**
+- [x] **Step 5: Add demo and opportunity UI parity**
 
 `BidPackageUploader` supports PDF/JPEG/PNG/WebP, 5 files, 25 MB each. The panel
 shows filename, kind, revision, uploader, scan/extraction status, retry, and
 private download. Demo bytes live in the existing in-memory byte-store pattern.
 
-- [ ] **Step 6: Add route and cross-organization tests**
+- [x] **Step 6: Add route and cross-organization tests**
 
 Assert unauthenticated, field, wrong organization, invalid path, missing
 opportunity, forged actor, oversize, and MIME mismatch all fail without a
 document row.
 
-- [ ] **Step 7: Run checks and browser-verify**
+- [x] **Step 7: Run checks and browser-verify**
 
 ```bash
 npx vitest run src/lib/ops/commercial-documents.test.ts src/app/api/ops/opportunity-uploads/route.test.ts
@@ -480,7 +480,7 @@ npm test
 In demo mode, upload a PDF to an opportunity with no project, refresh, and
 confirm no project or job was created.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Commit message: `Add private bid packages before job creation.`
 
@@ -500,7 +500,7 @@ Commit message: `Add private bid packages before job creation.`
 - Modify: `src/lib/ops/demo-store.ts`
 - Modify: `.env.example`
 
-- [ ] **Step 1: Write scanner and extraction tests**
+- [x] **Step 1: Write scanner and extraction tests**
 
 Fixtures cover:
 
@@ -512,13 +512,13 @@ Fixtures cover:
 - Human sheet-label/text correction preserving machine text.
 - Chunk boundary and content-hash stability.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/document-scanner.test.ts src/lib/ops/document-extraction.test.ts
 ```
 
-- [ ] **Step 3: Implement quarantine scan**
+- [x] **Step 3: Implement quarantine scan**
 
 `document-scanner.ts` exposes:
 
@@ -536,7 +536,7 @@ Production uses an authenticated private ClamAV service configured by
 `CLAMAV_HOST` and `CLAMAV_PORT`. If scanner configuration is absent outside
 demo, the version stays quarantined and extraction is not enqueued.
 
-- [ ] **Step 4: Implement PDF text and OCR**
+- [x] **Step 4: Implement PDF text and OCR**
 
 Use `pdfjs-dist` for embedded text. Pages below the configured text threshold
 render through `@napi-rs/canvas` and are sent to the model configured by
@@ -544,21 +544,21 @@ render through `@napi-rs/canvas` and are sent to the model configured by
 sheet label, and optional normalized bounding boxes. Validate page numbers and
 text length before insert.
 
-- [ ] **Step 5: Implement bounded chunks and citations**
+- [x] **Step 5: Implement bounded chunks and citations**
 
 Chunks are 800–1,500 characters, never cross a page, and retain page offsets
 and content hash. Export the exact `DocumentCitation` contract from the design.
 `validateDocumentCitation` checks authorization, organization, version, page,
 chunk, offsets, and hash.
 
-- [ ] **Step 6: Add worker handlers and UI**
+- [x] **Step 6: Add worker handlers and UI**
 
 `scan-document` transitions quarantined → clean/rejected and enqueues
 `document.extract` only when clean. `extract-document` checkpoints each page.
 The review component displays original page, machine text, correction, sheet
 label, and retry/error state.
 
-- [ ] **Step 7: Run checks and browser-verify**
+- [x] **Step 7: Run checks and browser-verify**
 
 ```bash
 npx vitest run src/lib/ops/document-scanner.test.ts src/lib/ops/document-extraction.test.ts
@@ -569,7 +569,7 @@ npm test
 Use demo fixtures to verify `Scanning → Extracting → Ready`, page citations,
 correction labels, failed retry, and no AI/provider network call in demo.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Commit message: `Extract cited bid-package pages durably.`
 

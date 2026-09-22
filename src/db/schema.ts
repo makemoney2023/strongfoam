@@ -988,6 +988,202 @@ export const deadLetterJobs = pgTable(
   ],
 );
 
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    title: text("title").notNull(),
+    createdBy: text("created_by").notNull(),
+  },
+  (table) => [index("documents_organization_idx").on(table.organizationId)],
+);
+
+export const documentVersions = pgTable(
+  "document_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id),
+    versionNumber: integer("version_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    pathname: text("pathname").notNull().unique(),
+    sha256: text("sha256"),
+    status: text("status").notNull().default("quarantined"),
+    kind: text("kind").notNull(),
+    revisionLabel: text("revision_label"),
+    uploadedBy: text("uploaded_by").notNull(),
+  },
+  (table) => [
+    unique("document_versions_document_version_unique").on(
+      table.documentId,
+      table.versionNumber,
+    ),
+    uniqueIndex("document_versions_organization_sha256_unique")
+      .on(table.organizationId, table.sha256)
+      .where(sql`${table.sha256} IS NOT NULL`),
+    check(
+      "document_versions_status_valid",
+      sql`${table.status} IN ('quarantined', 'clean', 'rejected')`,
+    ),
+    check(
+      "document_versions_kind_valid",
+      sql`${table.kind} IN ('plan', 'specification', 'addendum', 'schedule', 'photo', 'other')`,
+    ),
+    index("document_versions_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const documentLinks = pgTable(
+  "document_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    purpose: text("purpose").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("document_links_target_unique").on(
+      table.documentVersionId,
+      table.entityType,
+      table.entityId,
+      table.purpose,
+    ),
+    check(
+      "document_links_entity_type_valid",
+      sql`${table.entityType} IN ('request', 'opportunity', 'estimate', 'project', 'job')`,
+    ),
+    index("document_links_entity_idx").on(
+      table.organizationId,
+      table.entityType,
+      table.entityId,
+    ),
+  ],
+);
+
+export const documentExtractions = pgTable(
+  "document_extractions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    status: text("status").notNull().default("queued"),
+    provider: text("provider"),
+    model: text("model"),
+    pageProgress: integer("page_progress").notNull().default(0),
+    pageCount: integer("page_count"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "document_extractions_status_valid",
+      sql`${table.status} IN ('queued', 'running', 'ready', 'failed')`,
+    ),
+    index("document_extractions_version_idx").on(
+      table.organizationId,
+      table.documentVersionId,
+    ),
+  ],
+);
+
+export const documentPages = pgTable(
+  "document_pages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    extractionId: uuid("extraction_id")
+      .notNull()
+      .references(() => documentExtractions.id),
+    pageNumber: integer("page_number").notNull(),
+    sheetLabel: text("sheet_label"),
+    machineText: text("machine_text").notNull(),
+    correctedText: text("corrected_text"),
+  },
+  (table) => [
+    unique("document_pages_extraction_page_unique").on(
+      table.extractionId,
+      table.pageNumber,
+    ),
+  ],
+);
+
+export const documentChunks = pgTable(
+  "document_chunks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    documentVersionId: uuid("document_version_id")
+      .notNull()
+      .references(() => documentVersions.id),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => documentPages.id),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull(),
+    contentHash: text("content_hash").notNull(),
+    text: text("text").notNull(),
+    bbox: jsonb("bbox").$type<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>(),
+  },
+  (table) => [
+    index("document_chunks_version_idx").on(
+      table.organizationId,
+      table.documentVersionId,
+    ),
+  ],
+);
+
+export type DocumentRow = typeof documents.$inferSelect;
+export type DocumentVersionRow = typeof documentVersions.$inferSelect;
+export type DocumentLinkRow = typeof documentLinks.$inferSelect;
+export type DocumentExtractionRow = typeof documentExtractions.$inferSelect;
+export type DocumentPageRow = typeof documentPages.$inferSelect;
+export type DocumentChunkRow = typeof documentChunks.$inferSelect;
+
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",
   {

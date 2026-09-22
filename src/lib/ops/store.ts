@@ -12,6 +12,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { getDb } from "@/db";
 import {
   companies,
@@ -21,6 +22,14 @@ import {
   estimateRequestTasks,
   jobAssignments,
   jobDocuments,
+  documentChunks,
+  documentExtractions,
+  documentLinks,
+  documentPages,
+  documentVersions,
+  documents,
+  outboxEvents,
+  backgroundJobs,
   jobEvents,
   jobFieldNotes,
   jobPlanAnnotations,
@@ -44,6 +53,16 @@ import {
   workAreas,
 } from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
+import {
+  applyScanOutcome,
+  resolveMalwareScanner,
+} from "@/lib/ops/document-scanner";
+import {
+  bidDocumentProgress,
+  chunksForText,
+  extractEmbeddedPdfPages,
+  resolvePageText,
+} from "@/lib/ops/document-extraction";
 import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
   addDemoCompany,
@@ -93,6 +112,12 @@ import {
   getDemoJobVoiceNoteDownload,
   getDemoOpportunity,
   getDemoAuthorizedOpportunity,
+  correctDemoBidDocumentPage,
+  getDemoBidDocumentDownload,
+  listDemoBidPackage,
+  processDemoBidDocument,
+  recordDemoQuarantinedBidDocument,
+  retryDemoBidDocumentScan,
   getDemoProject,
   getDemoSite,
   listDemoCompanies,
@@ -164,6 +189,8 @@ import {
   upsertDemoScheduleCalendarException,
   isDemoOpsStore,
 } from "@/lib/ops/demo-store";
+import { BACKGROUND_JOB_ATTEMPT_LIMIT } from "@/lib/ops/background-jobs";
+import { nextDocumentVersion, type BidDocumentInput } from "@/lib/ops/commercial-documents";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
 import {
@@ -1241,6 +1268,467 @@ export async function getAuthorizedOpportunity(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+export type BidPackageItem = {
+  document: typeof documents.$inferSelect;
+  version: typeof documentVersions.$inferSelect;
+  extraction: typeof documentExtractions.$inferSelect | null;
+  pages: Array<typeof documentPages.$inferSelect>;
+  chunks: Array<typeof documentChunks.$inferSelect>;
+};
+
+export async function listBidPackage(
+  organizationId: string,
+  opportunityId: string,
+): Promise<BidPackageItem[]> {
+  if (isDemoOpsStore()) return listDemoBidPackage(organizationId, opportunityId);
+  const rows = await getDb()
+    .select({ document: documents, version: documentVersions })
+    .from(documentLinks)
+    .innerJoin(
+      documentVersions,
+      eq(documentLinks.documentVersionId, documentVersions.id),
+    )
+    .innerJoin(documents, eq(documentVersions.documentId, documents.id))
+    .where(
+      and(
+        eq(documentLinks.organizationId, organizationId),
+        eq(documentLinks.entityType, "opportunity"),
+        eq(documentLinks.entityId, opportunityId),
+        eq(documentLinks.purpose, "bid-package"),
+      ),
+    )
+    .orderBy(desc(documentVersions.createdAt));
+  if (rows.length === 0) return [];
+  const versionIds = rows.map((row) => row.version.id);
+  const db = getDb();
+  const [extractions, pages, chunks] = await Promise.all([
+    db
+      .select()
+      .from(documentExtractions)
+      .where(
+        and(
+          eq(documentExtractions.organizationId, organizationId),
+          inArray(documentExtractions.documentVersionId, versionIds),
+        ),
+      ),
+    db
+      .select()
+      .from(documentPages)
+      .where(
+        and(
+          eq(documentPages.organizationId, organizationId),
+          inArray(documentPages.documentVersionId, versionIds),
+        ),
+      ),
+    db
+      .select()
+      .from(documentChunks)
+      .where(
+        and(
+          eq(documentChunks.organizationId, organizationId),
+          inArray(documentChunks.documentVersionId, versionIds),
+        ),
+      ),
+  ]);
+  return rows.map((row) => ({
+    ...row,
+    extraction:
+      extractions.find((item) => item.documentVersionId === row.version.id) ??
+      null,
+    pages: pages
+      .filter((item) => item.documentVersionId === row.version.id)
+      .sort((a, b) => a.pageNumber - b.pageNumber),
+    chunks: chunks.filter((item) => item.documentVersionId === row.version.id),
+  }));
+}
+
+export async function recordQuarantinedBidDocument(args: {
+  organizationId: string;
+  opportunityId: string;
+  documentId: string | null;
+  actor: string;
+  input: BidDocumentInput;
+  pathname: string;
+  bytes?: Uint8Array;
+}): Promise<{ documentId: string; versionId: string } | null> {
+  if (isDemoOpsStore()) return recordDemoQuarantinedBidDocument(args);
+  const opportunity = await getAuthorizedOpportunity(
+    args.organizationId,
+    args.opportunityId,
+  );
+  if (!opportunity) return null;
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.pathname, args.pathname))
+    .limit(1);
+  if (existing[0]) {
+    return { documentId: existing[0].documentId, versionId: existing[0].id };
+  }
+
+  let documentId = args.documentId;
+  if (documentId) {
+    const found = await db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.id, documentId),
+          eq(documents.organizationId, args.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!found[0]) return null;
+  } else {
+    documentId = crypto.randomUUID();
+    await db.insert(documents).values({
+      id: documentId,
+      organizationId: args.organizationId,
+      title: args.input.filename,
+      createdBy: args.actor,
+    });
+  }
+
+  const siblings = await db
+    .select()
+    .from(documentVersions)
+    .where(eq(documentVersions.documentId, documentId));
+  const versionId = crypto.randomUUID();
+  await db.batch([
+    db.insert(documentVersions).values({
+      id: versionId,
+      organizationId: args.organizationId,
+      documentId,
+      versionNumber: nextDocumentVersion(siblings),
+      filename: args.input.filename,
+      contentType: args.input.contentType,
+      sizeBytes: args.input.sizeBytes,
+      pathname: args.pathname,
+      sha256: null,
+      status: "quarantined",
+      kind: args.input.kind,
+      revisionLabel: args.input.revisionLabel,
+      uploadedBy: args.actor,
+    }),
+    db.insert(documentLinks).values({
+      organizationId: args.organizationId,
+      documentVersionId: versionId,
+      entityType: "opportunity",
+      entityId: args.opportunityId,
+      purpose: "bid-package",
+    }),
+    db.insert(outboxEvents).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: versionId,
+      idempotencyKey: `document.scan:${versionId}`,
+      payload: {
+        documentVersionId: versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+    db.insert(backgroundJobs).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: versionId,
+      idempotencyKey: `document.scan:${versionId}`,
+      status: "queued",
+      attempts: 0,
+      maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+      payload: {
+        documentVersionId: versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+  ]);
+  return { documentId, versionId };
+}
+
+export async function retryBidDocumentScan(args: {
+  organizationId: string;
+  opportunityId: string;
+  versionId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return retryDemoBidDocumentScan(args);
+  const listed = await listBidPackage(args.organizationId, args.opportunityId);
+  if (!listed.some((item) => item.version.id === args.versionId)) {
+    return { ok: false, error: "That bid document could not be found." };
+  }
+  const db = getDb();
+  await db.batch([
+    db.insert(outboxEvents).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: args.versionId,
+      idempotencyKey: `document.scan:${args.versionId}`,
+      payload: {
+        documentVersionId: args.versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+    db.insert(backgroundJobs).values({
+      organizationId: args.organizationId,
+      kind: "document.scan",
+      aggregateType: "document_version",
+      aggregateId: args.versionId,
+      idempotencyKey: `document.scan:${args.versionId}`,
+      status: "queued",
+      attempts: 0,
+      maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+      payload: {
+        documentVersionId: args.versionId,
+        opportunityId: args.opportunityId,
+      },
+    }).onConflictDoNothing(),
+  ]);
+  return { ok: true };
+}
+
+async function readPrivateBidBytes(pathname: string): Promise<Uint8Array | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  const { get } = await import("@vercel/blob");
+  const result = await get(pathname, { access: "private", token });
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
+  return new Uint8Array(await new Response(result.stream).arrayBuffer());
+}
+
+export async function processBidDocument(
+  args: {
+    organizationId: string;
+    opportunityId: string;
+    versionId: string;
+  },
+  scanner?: import("@/lib/ops/document-scanner").MalwareScanner | null,
+): Promise<{ ok: true; progress: string } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return processDemoBidDocument(args);
+  const match = (await listBidPackage(args.organizationId, args.opportunityId)).find(
+    (item) => item.version.id === args.versionId,
+  );
+  if (!match) return { ok: false, error: "That bid document could not be found." };
+  if (match.version.status === "rejected") {
+    return { ok: false, error: "That file was rejected and cannot be extracted." };
+  }
+  const bytes = await readPrivateBidBytes(match.version.pathname);
+  if (!bytes) return { ok: false, error: "That file is no longer available." };
+  const db = getDb();
+  if (match.version.status === "quarantined") {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const duplicate = await db
+      .select({ id: documentVersions.id })
+      .from(documentVersions)
+      .where(
+        and(
+          eq(documentVersions.organizationId, args.organizationId),
+          eq(documentVersions.sha256, sha256),
+          ne(documentVersions.id, match.version.id),
+        ),
+      )
+      .limit(1);
+    const activeScanner =
+      scanner === undefined
+        ? resolveMalwareScanner({
+            OPS_DEMO: process.env.OPS_DEMO,
+            DATABASE_URL: process.env.DATABASE_URL,
+            CLAMAV_HOST: process.env.CLAMAV_HOST,
+            CLAMAV_PORT: process.env.CLAMAV_PORT,
+          })
+        : scanner;
+    const scanned = activeScanner
+      ? await activeScanner.scan(
+          (async function* () {
+            yield bytes;
+          })(),
+        )
+      : null;
+    const decision = applyScanOutcome(scanned, sha256, {
+      duplicate: Boolean(duplicate[0]),
+    });
+    if (decision.retry) {
+      return { ok: false, error: decision.reason ?? "The scan could not finish." };
+    }
+    await db
+      .update(documentVersions)
+      .set({ status: decision.status, sha256: decision.sha256 })
+      .where(eq(documentVersions.id, match.version.id));
+    if (decision.enqueueExtraction) {
+      await db.insert(documentExtractions).values({
+        organizationId: args.organizationId,
+        documentVersionId: match.version.id,
+        status: "queued",
+        pageProgress: 0,
+      });
+      await db
+        .insert(backgroundJobs)
+        .values({
+          organizationId: args.organizationId,
+          kind: "document.extract",
+          aggregateType: "document_version",
+          aggregateId: match.version.id,
+          idempotencyKey: `document.extract:${match.version.id}`,
+          status: "queued",
+          attempts: 0,
+          maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+          payload: {
+            documentVersionId: match.version.id,
+            opportunityId: args.opportunityId,
+          },
+        })
+        .onConflictDoNothing();
+    }
+    return {
+      ok: true,
+      progress: bidDocumentProgress({
+        versionStatus: decision.status,
+        extractionStatus: decision.enqueueExtraction ? "queued" : null,
+      }),
+    };
+  }
+  if (!match.extraction) {
+    return { ok: false, error: "That document is not ready to extract." };
+  }
+  if (match.extraction.status === "ready") return { ok: true, progress: "Ready" };
+  await db
+    .update(documentExtractions)
+    .set({ status: "running", updatedAt: new Date() })
+    .where(eq(documentExtractions.id, match.extraction.id));
+  const extracted = await extractEmbeddedPdfPages(bytes);
+  if (!extracted.ok) {
+    await db
+      .update(documentExtractions)
+      .set({ status: "failed", error: extracted.error, updatedAt: new Date() })
+      .where(eq(documentExtractions.id, match.extraction.id));
+    return { ok: true, progress: "Failed" };
+  }
+  for (const page of extracted.pages) {
+    if (page.pageNumber <= match.extraction.pageProgress) continue;
+    const resolved = await resolvePageText({
+      pageNumber: page.pageNumber,
+      embeddedText: page.text,
+      ocr: null,
+    });
+    const pageId = crypto.randomUUID();
+    await db.insert(documentPages).values({
+      id: pageId,
+      organizationId: args.organizationId,
+      documentVersionId: match.version.id,
+      extractionId: match.extraction.id,
+      pageNumber: page.pageNumber,
+      sheetLabel: resolved.sheetLabel,
+      machineText: resolved.text,
+    });
+    const chunks = chunksForText(resolved.text);
+    if (chunks.length > 0) {
+      await db.insert(documentChunks).values(
+        chunks.map((chunk) => ({
+          organizationId: args.organizationId,
+          documentVersionId: match.version.id,
+          pageId,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset,
+          contentHash: chunk.contentHash,
+          text: chunk.text,
+          bbox: resolved.bbox,
+        })),
+      );
+    }
+    await db
+      .update(documentExtractions)
+      .set({
+        pageProgress: page.pageNumber,
+        pageCount: extracted.pages.length,
+        provider: "pdfjs",
+        model: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(documentExtractions.id, match.extraction.id));
+  }
+  await db
+    .update(documentExtractions)
+    .set({ status: "ready", error: null, updatedAt: new Date() })
+    .where(eq(documentExtractions.id, match.extraction.id));
+  return { ok: true, progress: "Ready" };
+}
+
+export async function correctBidDocumentPage(args: {
+  organizationId: string;
+  opportunityId: string;
+  versionId: string;
+  pageId: string;
+  sheetLabel: string | null;
+  correctedText: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return correctDemoBidDocumentPage(args);
+  const match = (await listBidPackage(args.organizationId, args.opportunityId)).find(
+    (item) => item.version.id === args.versionId,
+  );
+  const page = match?.pages.find((item) => item.id === args.pageId);
+  if (!page) return { ok: false, error: "That page could not be found." };
+  await getDb()
+    .update(documentPages)
+    .set({
+      sheetLabel: args.sheetLabel,
+      correctedText: args.correctedText,
+    })
+    .where(
+      and(
+        eq(documentPages.id, page.id),
+        eq(documentPages.organizationId, args.organizationId),
+      ),
+    );
+  return { ok: true };
+}
+
+export async function getBidDocumentDownload(
+  organizationId: string,
+  opportunityId: string,
+  versionId: string,
+): Promise<
+  | {
+      filename: string;
+      contentType: string;
+      kind: "bytes";
+      bytes: Uint8Array;
+    }
+  | {
+      filename: string;
+      contentType: string;
+      kind: "redirect";
+      url: string;
+    }
+  | null
+> {
+  if (isDemoOpsStore()) {
+    const result = getDemoBidDocumentDownload(
+      organizationId,
+      opportunityId,
+      versionId,
+    );
+    if (!result) return null;
+    return {
+      filename: result.version.filename,
+      contentType: result.version.contentType,
+      kind: "bytes",
+      bytes: result.bytes,
+    };
+  }
+  const match = (await listBidPackage(organizationId, opportunityId)).find(
+    (item) => item.version.id === versionId,
+  );
+  if (!match) return null;
+  const { resolveFileUrl } = await import("@/lib/leads/adapters");
+  return {
+    filename: match.version.filename,
+    contentType: match.version.contentType,
+    kind: "redirect",
+    url: await resolveFileUrl(match.version.pathname, 5 * 60 * 1000),
+  };
 }
 
 export async function getRequestCrmRecords(
