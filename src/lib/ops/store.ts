@@ -12,6 +12,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { getDb } from "@/db";
 import {
   companies,
@@ -21,7 +22,10 @@ import {
   estimateRequestTasks,
   jobAssignments,
   jobDocuments,
+  documentChunks,
+  documentExtractions,
   documentLinks,
+  documentPages,
   documentVersions,
   documents,
   outboxEvents,
@@ -49,6 +53,16 @@ import {
   workAreas,
 } from "@/db/schema";
 import { signLeadId } from "@/lib/leads/hmac";
+import {
+  applyScanOutcome,
+  resolveMalwareScanner,
+} from "@/lib/ops/document-scanner";
+import {
+  bidDocumentProgress,
+  chunksForText,
+  extractEmbeddedPdfPages,
+  resolvePageText,
+} from "@/lib/ops/document-extraction";
 import type { CrmConversionInput } from "@/lib/ops/crm";
 import {
   addDemoCompany,
@@ -98,8 +112,10 @@ import {
   getDemoJobVoiceNoteDownload,
   getDemoOpportunity,
   getDemoAuthorizedOpportunity,
+  correctDemoBidDocumentPage,
   getDemoBidDocumentDownload,
   listDemoBidPackage,
+  processDemoBidDocument,
   recordDemoQuarantinedBidDocument,
   retryDemoBidDocumentScan,
   getDemoProject,
@@ -1257,6 +1273,9 @@ export async function getAuthorizedOpportunity(
 export type BidPackageItem = {
   document: typeof documents.$inferSelect;
   version: typeof documentVersions.$inferSelect;
+  extraction: typeof documentExtractions.$inferSelect | null;
+  pages: Array<typeof documentPages.$inferSelect>;
+  chunks: Array<typeof documentChunks.$inferSelect>;
 };
 
 export async function listBidPackage(
@@ -1281,7 +1300,48 @@ export async function listBidPackage(
       ),
     )
     .orderBy(desc(documentVersions.createdAt));
-  return rows;
+  if (rows.length === 0) return [];
+  const versionIds = rows.map((row) => row.version.id);
+  const db = getDb();
+  const [extractions, pages, chunks] = await Promise.all([
+    db
+      .select()
+      .from(documentExtractions)
+      .where(
+        and(
+          eq(documentExtractions.organizationId, organizationId),
+          inArray(documentExtractions.documentVersionId, versionIds),
+        ),
+      ),
+    db
+      .select()
+      .from(documentPages)
+      .where(
+        and(
+          eq(documentPages.organizationId, organizationId),
+          inArray(documentPages.documentVersionId, versionIds),
+        ),
+      ),
+    db
+      .select()
+      .from(documentChunks)
+      .where(
+        and(
+          eq(documentChunks.organizationId, organizationId),
+          inArray(documentChunks.documentVersionId, versionIds),
+        ),
+      ),
+  ]);
+  return rows.map((row) => ({
+    ...row,
+    extraction:
+      extractions.find((item) => item.documentVersionId === row.version.id) ??
+      null,
+    pages: pages
+      .filter((item) => item.documentVersionId === row.version.id)
+      .sort((a, b) => a.pageNumber - b.pageNumber),
+    chunks: chunks.filter((item) => item.documentVersionId === row.version.id),
+  }));
 }
 
 export async function recordQuarantinedBidDocument(args: {
@@ -1427,6 +1487,201 @@ export async function retryBidDocumentScan(args: {
       },
     }).onConflictDoNothing(),
   ]);
+  return { ok: true };
+}
+
+async function readPrivateBidBytes(pathname: string): Promise<Uint8Array | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  const { get } = await import("@vercel/blob");
+  const result = await get(pathname, { access: "private", token });
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
+  return new Uint8Array(await new Response(result.stream).arrayBuffer());
+}
+
+export async function processBidDocument(
+  args: {
+    organizationId: string;
+    opportunityId: string;
+    versionId: string;
+  },
+  scanner?: import("@/lib/ops/document-scanner").MalwareScanner | null,
+): Promise<{ ok: true; progress: string } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return processDemoBidDocument(args);
+  const match = (await listBidPackage(args.organizationId, args.opportunityId)).find(
+    (item) => item.version.id === args.versionId,
+  );
+  if (!match) return { ok: false, error: "That bid document could not be found." };
+  if (match.version.status === "rejected") {
+    return { ok: false, error: "That file was rejected and cannot be extracted." };
+  }
+  const bytes = await readPrivateBidBytes(match.version.pathname);
+  if (!bytes) return { ok: false, error: "That file is no longer available." };
+  const db = getDb();
+  if (match.version.status === "quarantined") {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const duplicate = await db
+      .select({ id: documentVersions.id })
+      .from(documentVersions)
+      .where(
+        and(
+          eq(documentVersions.organizationId, args.organizationId),
+          eq(documentVersions.sha256, sha256),
+          ne(documentVersions.id, match.version.id),
+        ),
+      )
+      .limit(1);
+    const activeScanner =
+      scanner === undefined
+        ? resolveMalwareScanner({
+            OPS_DEMO: process.env.OPS_DEMO,
+            DATABASE_URL: process.env.DATABASE_URL,
+            CLAMAV_HOST: process.env.CLAMAV_HOST,
+            CLAMAV_PORT: process.env.CLAMAV_PORT,
+          })
+        : scanner;
+    const scanned = activeScanner
+      ? await activeScanner.scan(
+          (async function* () {
+            yield bytes;
+          })(),
+        )
+      : null;
+    const decision = applyScanOutcome(scanned, sha256, {
+      duplicate: Boolean(duplicate[0]),
+    });
+    if (decision.retry) {
+      return { ok: false, error: decision.reason ?? "The scan could not finish." };
+    }
+    await db
+      .update(documentVersions)
+      .set({ status: decision.status, sha256: decision.sha256 })
+      .where(eq(documentVersions.id, match.version.id));
+    if (decision.enqueueExtraction) {
+      await db.insert(documentExtractions).values({
+        organizationId: args.organizationId,
+        documentVersionId: match.version.id,
+        status: "queued",
+        pageProgress: 0,
+      });
+      await db
+        .insert(backgroundJobs)
+        .values({
+          organizationId: args.organizationId,
+          kind: "document.extract",
+          aggregateType: "document_version",
+          aggregateId: match.version.id,
+          idempotencyKey: `document.extract:${match.version.id}`,
+          status: "queued",
+          attempts: 0,
+          maxAttempts: BACKGROUND_JOB_ATTEMPT_LIMIT,
+          payload: {
+            documentVersionId: match.version.id,
+            opportunityId: args.opportunityId,
+          },
+        })
+        .onConflictDoNothing();
+    }
+    return {
+      ok: true,
+      progress: bidDocumentProgress({
+        versionStatus: decision.status,
+        extractionStatus: decision.enqueueExtraction ? "queued" : null,
+      }),
+    };
+  }
+  if (!match.extraction) {
+    return { ok: false, error: "That document is not ready to extract." };
+  }
+  if (match.extraction.status === "ready") return { ok: true, progress: "Ready" };
+  await db
+    .update(documentExtractions)
+    .set({ status: "running", updatedAt: new Date() })
+    .where(eq(documentExtractions.id, match.extraction.id));
+  const extracted = await extractEmbeddedPdfPages(bytes);
+  if (!extracted.ok) {
+    await db
+      .update(documentExtractions)
+      .set({ status: "failed", error: extracted.error, updatedAt: new Date() })
+      .where(eq(documentExtractions.id, match.extraction.id));
+    return { ok: true, progress: "Failed" };
+  }
+  for (const page of extracted.pages) {
+    if (page.pageNumber <= match.extraction.pageProgress) continue;
+    const resolved = await resolvePageText({
+      pageNumber: page.pageNumber,
+      embeddedText: page.text,
+      ocr: null,
+    });
+    const pageId = crypto.randomUUID();
+    await db.insert(documentPages).values({
+      id: pageId,
+      organizationId: args.organizationId,
+      documentVersionId: match.version.id,
+      extractionId: match.extraction.id,
+      pageNumber: page.pageNumber,
+      sheetLabel: resolved.sheetLabel,
+      machineText: resolved.text,
+    });
+    const chunks = chunksForText(resolved.text);
+    if (chunks.length > 0) {
+      await db.insert(documentChunks).values(
+        chunks.map((chunk) => ({
+          organizationId: args.organizationId,
+          documentVersionId: match.version.id,
+          pageId,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset,
+          contentHash: chunk.contentHash,
+          text: chunk.text,
+          bbox: resolved.bbox,
+        })),
+      );
+    }
+    await db
+      .update(documentExtractions)
+      .set({
+        pageProgress: page.pageNumber,
+        pageCount: extracted.pages.length,
+        provider: "pdfjs",
+        model: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(documentExtractions.id, match.extraction.id));
+  }
+  await db
+    .update(documentExtractions)
+    .set({ status: "ready", error: null, updatedAt: new Date() })
+    .where(eq(documentExtractions.id, match.extraction.id));
+  return { ok: true, progress: "Ready" };
+}
+
+export async function correctBidDocumentPage(args: {
+  organizationId: string;
+  opportunityId: string;
+  versionId: string;
+  pageId: string;
+  sheetLabel: string | null;
+  correctedText: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isDemoOpsStore()) return correctDemoBidDocumentPage(args);
+  const match = (await listBidPackage(args.organizationId, args.opportunityId)).find(
+    (item) => item.version.id === args.versionId,
+  );
+  const page = match?.pages.find((item) => item.id === args.pageId);
+  if (!page) return { ok: false, error: "That page could not be found." };
+  await getDb()
+    .update(documentPages)
+    .set({
+      sheetLabel: args.sheetLabel,
+      correctedText: args.correctedText,
+    })
+    .where(
+      and(
+        eq(documentPages.id, page.id),
+        eq(documentPages.organizationId, args.organizationId),
+      ),
+    );
   return { ok: true };
 }
 

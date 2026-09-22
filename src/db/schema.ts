@@ -1180,6 +1180,9 @@ export const documentChunks = pgTable(
 export type DocumentRow = typeof documents.$inferSelect;
 export type DocumentVersionRow = typeof documentVersions.$inferSelect;
 export type DocumentLinkRow = typeof documentLinks.$inferSelect;
+export type DocumentExtractionRow = typeof documentExtractions.$inferSelect;
+export type DocumentPageRow = typeof documentPages.$inferSelect;
+export type DocumentChunkRow = typeof documentChunks.$inferSelect;
 
 export const calendlyUnmatchedEvents = pgTable(
   "calendly_unmatched_events",

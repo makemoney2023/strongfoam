@@ -500,7 +500,7 @@ Commit message: `Add private bid packages before job creation.`
 - Modify: `src/lib/ops/demo-store.ts`
 - Modify: `.env.example`
 
-- [ ] **Step 1: Write scanner and extraction tests**
+- [x] **Step 1: Write scanner and extraction tests**
 
 Fixtures cover:
 
@@ -512,13 +512,13 @@ Fixtures cover:
 - Human sheet-label/text correction preserving machine text.
 - Chunk boundary and content-hash stability.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/document-scanner.test.ts src/lib/ops/document-extraction.test.ts
 ```
 
-- [ ] **Step 3: Implement quarantine scan**
+- [x] **Step 3: Implement quarantine scan**
 
 `document-scanner.ts` exposes:
 
@@ -536,7 +536,7 @@ Production uses an authenticated private ClamAV service configured by
 `CLAMAV_HOST` and `CLAMAV_PORT`. If scanner configuration is absent outside
 demo, the version stays quarantined and extraction is not enqueued.
 
-- [ ] **Step 4: Implement PDF text and OCR**
+- [x] **Step 4: Implement PDF text and OCR**
 
 Use `pdfjs-dist` for embedded text. Pages below the configured text threshold
 render through `@napi-rs/canvas` and are sent to the model configured by
@@ -544,21 +544,21 @@ render through `@napi-rs/canvas` and are sent to the model configured by
 sheet label, and optional normalized bounding boxes. Validate page numbers and
 text length before insert.
 
-- [ ] **Step 5: Implement bounded chunks and citations**
+- [x] **Step 5: Implement bounded chunks and citations**
 
 Chunks are 800–1,500 characters, never cross a page, and retain page offsets
 and content hash. Export the exact `DocumentCitation` contract from the design.
 `validateDocumentCitation` checks authorization, organization, version, page,
 chunk, offsets, and hash.
 
-- [ ] **Step 6: Add worker handlers and UI**
+- [x] **Step 6: Add worker handlers and UI**
 
 `scan-document` transitions quarantined → clean/rejected and enqueues
 `document.extract` only when clean. `extract-document` checkpoints each page.
 The review component displays original page, machine text, correction, sheet
 label, and retry/error state.
 
-- [ ] **Step 7: Run checks and browser-verify**
+- [x] **Step 7: Run checks and browser-verify**
 
 ```bash
 npx vitest run src/lib/ops/document-scanner.test.ts src/lib/ops/document-extraction.test.ts
@@ -569,7 +569,7 @@ npm test
 Use demo fixtures to verify `Scanning → Extracting → Ready`, page citations,
 correction labels, failed retry, and no AI/provider network call in demo.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Commit message: `Extract cited bid-package pages durably.`
 

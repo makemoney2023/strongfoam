@@ -15,6 +15,8 @@ import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { parseOpportunityUpdate } from "@/lib/ops/records";
 import {
   deleteOpportunity,
+  correctBidDocumentPage as saveBidDocumentPageCorrection,
+  processBidDocument as advanceBidDocument,
   recordQuarantinedBidDocument,
   retryBidDocumentScan as queueBidDocumentScan,
   updateOpportunity,
@@ -146,6 +148,58 @@ export async function retryBidDocumentScan(formData: FormData): Promise<ActionSt
   revalidatePath(path);
   if (!result.ok) return fail(path, result.error);
   return succeed(path, "Scan queued.");
+}
+
+export async function processBidDocument(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const versionId = String(formData.get("versionId") ?? "");
+  const path = opportunityPath(opportunityId);
+  if (!opportunityId || !versionId) return fail(path, "Missing bid document.");
+  const access = resolveCommercialAccess(session, "estimate.edit");
+  if (!access.ok) return fail(path, access.error);
+  const result = await advanceBidDocument({
+    organizationId: access.organizationId,
+    opportunityId,
+    versionId,
+  });
+  revalidatePath(path);
+  if (!result.ok) return fail(path, result.error);
+  return succeed(path, result.progress);
+}
+
+export async function correctBidDocumentPage(formData: FormData): Promise<ActionState> {
+  const session = await getOpsSession();
+  if (!session) redirect("/app/login");
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const versionId = String(formData.get("versionId") ?? "");
+  const pageId = String(formData.get("pageId") ?? "");
+  const path = opportunityPath(opportunityId);
+  if (!opportunityId || !versionId || !pageId) {
+    return fail(path, "Missing extracted page.");
+  }
+  const access = resolveCommercialAccess(session, "estimate.edit");
+  if (!access.ok) return fail(path, access.error);
+  const sheetLabel = String(formData.get("sheetLabel") ?? "").trim() || null;
+  const correctedText = String(formData.get("correctedText") ?? "").trim() || null;
+  if (sheetLabel && sheetLabel.length > 40) {
+    return fail(path, "Sheet labels must be 40 characters or fewer.");
+  }
+  if (correctedText && correctedText.length > 20_000) {
+    return fail(path, "Corrected text must be 20,000 characters or fewer.");
+  }
+  const result = await saveBidDocumentPageCorrection({
+    organizationId: access.organizationId,
+    opportunityId,
+    versionId,
+    pageId,
+    sheetLabel,
+    correctedText,
+  });
+  revalidatePath(path);
+  if (!result.ok) return fail(path, result.error);
+  return succeed(path, "Page correction saved.");
 }
 
 export async function removeOpportunity(formData: FormData): Promise<ActionState> {

@@ -1,4 +1,8 @@
 import { recordHeartbeat } from "@/lib/ops/background-jobs";
+import {
+  handleExtractDocument,
+  handleScanDocument,
+} from "@/worker/handlers/scan-document";
 
 export type WorkerJob = {
   id: string;
@@ -11,4 +15,6 @@ export const handlers: Record<string, WorkerHandler> = {
   "worker-heartbeat": async () => {
     recordHeartbeat(process.env.WORKER_ID ?? "strongfoam-worker");
   },
+  "document.scan": handleScanDocument,
+  "document.extract": handleExtractDocument,
 };

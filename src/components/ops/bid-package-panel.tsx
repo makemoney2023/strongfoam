@@ -1,7 +1,8 @@
 import { FileTextIcon } from "lucide-react";
-import { retryBidDocumentScan } from "@/app/app/opportunities/actions";
+import { processBidDocument, retryBidDocumentScan } from "@/app/app/opportunities/actions";
 import { ActionForm } from "@/components/ops/action-form";
 import { BidPackageUploader } from "@/components/ops/bid-package-uploader";
+import { DocumentExtractionReview } from "@/components/ops/document-extraction-review";
 import { SubmitButton } from "@/components/ops/submit-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { BID_DOCUMENT_LABELS, type BidDocumentKind } from "@/lib/ops/commercial-documents";
+import { bidDocumentProgress } from "@/lib/ops/document-extraction";
 import type { BidPackageItem } from "@/lib/ops/store";
 
 const STATUS_LABELS = {
@@ -46,17 +48,29 @@ export function BidPackagePanel({
           <p className="text-sm text-muted-foreground">No bid documents yet.</p>
         ) : (
           <ul className="space-y-3">
-            {items.map(({ version }) => (
-              <li key={version.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+            {items.map(({ version, extraction, pages, chunks }) => {
+              const progress = bidDocumentProgress({
+                versionStatus: version.status,
+                extractionStatus: extraction?.status,
+                pageProgress: extraction?.pageProgress,
+                pageCount: extraction?.pageCount,
+              });
+              return (
+              <li key={version.id} className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{version.filename}</p>
                   <p className="text-sm text-muted-foreground">
                     {BID_DOCUMENT_LABELS[version.kind as BidDocumentKind] ?? version.kind}
                     {version.revisionLabel ? ` · ${version.revisionLabel}` : ""}
                     {` · v${version.versionNumber}`}
+                    {` · ${progress}`}
                     {` · ${STATUS_LABELS[version.status as keyof typeof STATUS_LABELS] ?? version.status}`}
                     {` · ${version.uploadedBy}`}
                   </p>
+                  {extraction?.error ? (
+                    <p className="text-sm text-destructive">{extraction.error}</p>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -72,6 +86,15 @@ export function BidPackagePanel({
                     <FileTextIcon aria-hidden="true" />
                     Download
                   </Button>
+                  {canUpload && storageMode === "demo" && progress !== "Ready" && progress !== "Rejected" ? (
+                    <ActionForm action={processBidDocument}>
+                      <input type="hidden" name="opportunityId" value={opportunityId} />
+                      <input type="hidden" name="versionId" value={version.id} />
+                      <SubmitButton variant="outline" className="min-h-11 md:min-h-8" pendingLabel="Processing…">
+                        {progress === "Failed" ? "Retry extraction" : "Process document"}
+                      </SubmitButton>
+                    </ActionForm>
+                  ) : null}
                   {canUpload && version.status !== "clean" ? (
                     <ActionForm action={retryBidDocumentScan}>
                       <input type="hidden" name="opportunityId" value={opportunityId} />
@@ -82,8 +105,19 @@ export function BidPackagePanel({
                     </ActionForm>
                   ) : null}
                 </div>
+                </div>
+                {pages.length > 0 ? (
+                  <DocumentExtractionReview
+                    opportunityId={opportunityId}
+                    versionId={version.id}
+                    pages={pages}
+                    chunks={chunks}
+                    canCorrect={canUpload}
+                  />
+                ) : null}
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
         {canUpload ? (

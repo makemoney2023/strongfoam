@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  serverExternalPackages: ["pdfjs-dist", "@napi-rs/canvas"],
   experimental: {
     serverActions: {
       // Demo mode posts files through a Server Action. Production uploads go
