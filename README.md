@@ -138,7 +138,7 @@ Those three credentials must differ in production. If a private `data-imports` S
 bucket is configured, it stays private: no public listing and no cross-organization
 object list.
 
-The worker job `data-import.retain` clears source bytes and normalized row values.
+The worker schedules `data-import.retain` every day at 09:15 UTC. That job clears source bytes and normalized row values for finished batches.
 Cancelled batches lose the source file immediately. Failed batches lose it after 7
 days. Completed batches lose it after 30 days. Normalized row values are cleared
 after 90 days. The batch summary, source keys, and events stay. A later retention

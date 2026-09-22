@@ -18,12 +18,16 @@ export function planImportRetention(
   now: Date,
 ): ImportRetentionPlan {
   const age = now.getTime() - subject.updatedAt.getTime();
+  const finished =
+    subject.status === "cancelled" ||
+    subject.status === "failed" ||
+    subject.status === "completed";
   const deleteSource =
     subject.hasSource &&
     (subject.status === "cancelled" ||
       (subject.status === "failed" && age >= 7 * DAY_MS) ||
       (subject.status === "completed" && age >= 30 * DAY_MS));
-  const deleteNormalized = subject.hasNormalized && age >= 90 * DAY_MS;
+  const deleteNormalized = finished && subject.hasNormalized && age >= 90 * DAY_MS;
   return { deleteSource, deleteNormalized };
 }
 

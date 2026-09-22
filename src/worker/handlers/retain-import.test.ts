@@ -74,6 +74,18 @@ describe("import retention", () => {
         NOW,
       ),
     ).toEqual({ deleteSource: false, deleteNormalized: true });
+    expect(
+      planImportRetention(
+        {
+          id: "ready",
+          status: "ready",
+          updatedAt: daysAgo(90),
+          hasSource: true,
+          hasNormalized: true,
+        },
+        NOW,
+      ),
+    ).toEqual({ deleteSource: false, deleteNormalized: false });
   });
 
   it("checkpoints each deletion and ignores a retry after the object is gone", async () => {
@@ -101,5 +113,9 @@ describe("import retention", () => {
 
   it("registers the retention job", () => {
     expect(handlers["data-import.retain"]).toBe(handleRetainImport);
+  });
+
+  it("retains every organization when the scheduled job has no organization", async () => {
+    await expect(handleRetainImport({ id: "retain-all", data: {} })).resolves.toBeUndefined();
   });
 });

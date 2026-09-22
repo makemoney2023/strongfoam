@@ -36,6 +36,17 @@ describe("GET import reconciliation report", () => {
       loadRows: async () => null,
     });
     expect(missing.status).toBe(404);
+
+    let loaded = false;
+    const malformed = await handleImportReportRequest("not-a-batch", {
+      getSession: async () => ({ role: "office", organizationId: "org-1", email: "office@strongfoam.com" }),
+      loadRows: async () => {
+        loaded = true;
+        return rows;
+      },
+    });
+    expect(malformed.status).toBe(404);
+    expect(loaded).toBe(false);
   });
 
   it("lets office download the report without row payloads", async () => {

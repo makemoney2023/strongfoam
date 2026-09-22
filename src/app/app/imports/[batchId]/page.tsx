@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveImportAccess } from "@/lib/ops/import-authorization";
-import { IMPORT_ENTITY_LABELS, IMPORT_STATUS_LABELS } from "@/lib/ops/import-contract";
+import { IMPORT_ENTITY_LABELS, IMPORT_STATUS_LABELS, isImportId } from "@/lib/ops/import-contract";
 import { getImportRepository } from "@/lib/ops/import-store";
 import { cancelImport, commitImport } from "../actions";
 
@@ -33,6 +33,7 @@ export default async function ImportBatchPage({
   const access = resolveImportAccess(session, "data.import.prepare");
   if (!access.ok) redirect("/app");
   const { batchId } = await params;
+  if (!isImportId(batchId)) notFound();
   const batch = await getImportRepository().getBatch(access.organizationId, batchId, {
     rowLimit: 200,
   });

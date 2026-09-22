@@ -1,4 +1,5 @@
 import { getOpsSession } from "@/lib/ops/auth";
+import { isImportId } from "@/lib/ops/import-contract";
 import { resolveImportAccess, type ImportActor } from "@/lib/ops/import-authorization";
 import { reconciliationCsv, type ReconciliationRow } from "@/lib/ops/import-report";
 import { getImportRepository } from "@/lib/ops/import-store";
@@ -37,6 +38,9 @@ export async function handleImportReportRequest(
   const access = resolveImportAccess(session, "data.import.prepare");
   if (!access.ok) {
     return new Response(access.error, { status: 403 });
+  }
+  if (!isImportId(batchId)) {
+    return new Response("That import could not be found.", { status: 404 });
   }
   const rows = await deps.loadRows(access.organizationId, batchId);
   if (!rows) {

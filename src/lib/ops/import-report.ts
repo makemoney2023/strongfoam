@@ -21,7 +21,7 @@ const REPORT_COLUMNS = [
 ] as const;
 
 function csvCell(value: string): string {
-  const formula = /^[=+\-@]/.test(value);
+  const formula = /^[=+\-@\t\r]/.test(value);
   const text = formula ? `'${value}` : value;
   if (formula || /[",\r\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;

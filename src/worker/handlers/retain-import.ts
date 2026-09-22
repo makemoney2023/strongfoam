@@ -7,9 +7,6 @@ function firstJob(job: WorkerJob | WorkerJob[]): WorkerJob | undefined {
 
 export async function handleRetainImport(job: WorkerJob | WorkerJob[]): Promise<void> {
   const data = firstJob(job)?.data ?? {};
-  const organizationId = String(data.organizationId ?? "");
-  if (!organizationId) {
-    throw new Error("data-import.retain is missing its organization.");
-  }
-  await retainDueImports(organizationId, new Date());
+  const organizationId = String(data.organizationId ?? "").trim();
+  await retainDueImports(organizationId || undefined, new Date());
 }

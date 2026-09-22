@@ -53,11 +53,12 @@ export function listImportHomeExceptions(input: {
     }
   }
   for (const job of input.deadLetters) {
-    if (!IMPORT_JOB_KINDS.has(job.kind) || !job.batchId) continue;
+    if (!IMPORT_JOB_KINDS.has(job.kind)) continue;
+    if (!job.batchId && job.kind !== "data-import.retain") continue;
     rows.push({
       kind: "dead_letter_import",
       label: `Import job needs review: ${job.kind}`,
-      href: `/app/imports/${job.batchId}`,
+      href: job.batchId ? `/app/imports/${job.batchId}` : "/app/imports",
     });
   }
   return rows;

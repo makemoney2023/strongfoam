@@ -34,6 +34,7 @@ describe("import home exceptions", () => {
           batchId: "11111111-1111-4111-8111-111111111111",
         },
         { id: "job-2", kind: "document.scan", batchId: "11111111-1111-4111-8111-111111111111" },
+        { id: "job-3", kind: "data-import.retain", batchId: "" },
       ],
     });
     expect(rows.map((row) => [row.kind, row.href])).toEqual([
@@ -41,6 +42,7 @@ describe("import home exceptions", () => {
       ["price_drafts", "/app/imports/22222222-2222-4222-8222-222222222222"],
       ["inactive_workforce", "/app/imports/22222222-2222-4222-8222-222222222222"],
       ["dead_letter_import", "/app/imports/11111111-1111-4111-8111-111111111111"],
+      ["dead_letter_import", "/app/imports"],
     ]);
   });
 });

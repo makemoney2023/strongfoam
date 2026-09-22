@@ -24,6 +24,16 @@ describe("import reconciliation report", () => {
         targetId: "",
         message: "+sum(A1)",
       },
+      {
+        sheet: "Companies",
+        sourceRow: 4,
+        entityType: "company",
+        sourceKey: "\t=cmd()",
+        operation: "skip",
+        status: "error",
+        targetId: "",
+        message: "",
+      },
     ]);
     expect(csv.split("\n")[0]).toBe(
       "sheet,source_row,entity_type,source_key,operation,status,target_id,message",
@@ -31,6 +41,7 @@ describe("import reconciliation report", () => {
     expect(csv).toContain("acme,create,valid,11111111-1111-4111-8111-111111111111,Ready");
     expect(csv).toContain(`"'=cmd()"`);
     expect(csv).toContain(`"'+sum(A1)"`);
+    expect(csv).toContain(`"'\t=cmd()"`);
     expect(csv).not.toContain("unit_price");
     expect(csv).not.toContain("password");
   });
