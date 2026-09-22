@@ -835,6 +835,7 @@ export const priceBookItems = pgTable(
     unitPriceCents: integer("unit_price_cents").notNull(),
     active: boolean("active").notNull().default(true),
     createdBy: text("created_by").notNull(),
+    currentApprovedVersionId: uuid("current_approved_version_id"),
   },
   (table) => [
     check(
@@ -853,6 +854,61 @@ export const priceBookItems = pgTable(
     index("price_book_items_trade_name_idx").on(table.trade, table.name),
   ],
 );
+
+export const priceBookItemVersions = pgTable(
+  "price_book_item_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => priceBookItems.id),
+    versionNumber: integer("version_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    trade: text("trade").notNull(),
+    description: text("description").notNull(),
+    unit: text("unit").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    status: text("status").notNull().default("draft"),
+    effectiveAt: timestamp("effective_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    contentHash: text("content_hash").notNull(),
+  },
+  (table) => [
+    unique("price_book_item_versions_item_version_unique").on(
+      table.itemId,
+      table.versionNumber,
+    ),
+    check(
+      "price_book_item_versions_status_valid",
+      sql`${table.status} IN ('draft', 'approved')`,
+    ),
+    check(
+      "price_book_item_versions_trade_valid",
+      sql`${table.trade} IN ('spray-foam', 'fireproofing', 'intumescent', 'avb', 'spf-roofing')`,
+    ),
+    check(
+      "price_book_item_versions_unit_valid",
+      sql`${table.unit} IN ('bags', 'sq_ft', 'hour', 'each')`,
+    ),
+    check(
+      "price_book_item_versions_price_valid",
+      sql`${table.unitPriceCents} >= 0 AND ${table.unitPriceCents} <= 100000000`,
+    ),
+    index("price_book_item_versions_item_idx").on(
+      table.organizationId,
+      table.itemId,
+    ),
+  ],
+);
+
+export type PriceBookItemVersionRow = typeof priceBookItemVersions.$inferSelect;
 
 export const auditEvents = pgTable(
   "audit_events",

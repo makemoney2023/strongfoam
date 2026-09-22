@@ -42,6 +42,7 @@ import {
   opportunities,
   organizations,
   priceBookItems,
+  priceBookItemVersions,
   projectScheduleBaselineItems,
   projectScheduleBaselines,
   projects,
@@ -78,6 +79,9 @@ import {
   addDemoJobTask,
   addDemoJobToProject,
   addDemoPriceBookItem,
+  approveDemoPriceBookRevision,
+  listDemoPriceBookVersions,
+  saveDemoPriceBookDraft,
   addDemoSite,
   addDemoUser,
   addDemoJobVoiceNote,
@@ -193,6 +197,7 @@ import { BACKGROUND_JOB_ATTEMPT_LIMIT } from "@/lib/ops/background-jobs";
 import { nextDocumentVersion, type BidDocumentInput } from "@/lib/ops/commercial-documents";
 import { endOfDay, parseDateRange, startOfDay } from "@/lib/ops/filters";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
+import { priceRevisionContentHash } from "@/lib/ops/price-book";
 import {
   clearJobDocumentBytes,
   getStoredJobDocumentBytes,
@@ -5429,4 +5434,144 @@ export async function updatePriceBookItem(
     .where(eq(priceBookItems.id, id))
     .returning();
   return rows[0] ?? null;
+}
+
+export async function listPriceBookVersions(
+  itemIds?: string[],
+): Promise<Array<typeof priceBookItemVersions.$inferSelect>> {
+  if (itemIds && itemIds.length === 0) return [];
+  if (isDemoOpsStore()) {
+    const versions = listDemoPriceBookVersions();
+    return itemIds ? versions.filter((version) => itemIds.includes(version.itemId)) : versions;
+  }
+  const db = getDb();
+  const conditions = [eq(priceBookItemVersions.organizationId, STRONG_FOAM_ORGANIZATION_ID)];
+  if (itemIds) conditions.push(inArray(priceBookItemVersions.itemId, itemIds));
+  return db
+    .select()
+    .from(priceBookItemVersions)
+    .where(and(...conditions))
+    .orderBy(priceBookItemVersions.itemId, priceBookItemVersions.versionNumber);
+}
+
+export async function savePriceBookDraft(args: {
+  itemId: string;
+  trade: PriceBookItemInput["trade"];
+  description: string;
+  unit: PriceBookItemInput["unit"];
+  unitPriceCents: number;
+  createdBy: string;
+}): Promise<(typeof priceBookItemVersions.$inferSelect) | null> {
+  if (isDemoOpsStore()) return saveDemoPriceBookDraft(args);
+  const db = getDb();
+  const items = await db
+    .select()
+    .from(priceBookItems)
+    .where(
+      and(
+        eq(priceBookItems.id, args.itemId),
+        eq(priceBookItems.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+      ),
+    )
+    .limit(1);
+  const item = items[0];
+  if (!item) return null;
+  const versions = await db
+    .select()
+    .from(priceBookItemVersions)
+    .where(eq(priceBookItemVersions.itemId, args.itemId));
+  const draft = versions.find((version) => version.status === "draft");
+  const versionNumber =
+    draft?.versionNumber ??
+    versions.reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1;
+  const contentHash = priceRevisionContentHash({
+    itemId: args.itemId,
+    versionNumber,
+    trade: args.trade,
+    description: args.description,
+    unit: args.unit,
+    unitPriceCents: args.unitPriceCents,
+  });
+  if (draft) {
+    const rows = await db
+      .update(priceBookItemVersions)
+      .set({
+        trade: args.trade,
+        description: args.description,
+        unit: args.unit,
+        unitPriceCents: args.unitPriceCents,
+        createdBy: args.createdBy,
+        contentHash,
+      })
+      .where(eq(priceBookItemVersions.id, draft.id))
+      .returning();
+    return rows[0] ?? null;
+  }
+  const rows = await db
+    .insert(priceBookItemVersions)
+    .values({
+      organizationId: item.organizationId,
+      itemId: args.itemId,
+      versionNumber,
+      trade: args.trade,
+      description: args.description,
+      unit: args.unit,
+      unitPriceCents: args.unitPriceCents,
+      status: "draft",
+      createdBy: args.createdBy,
+      contentHash,
+    })
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function approvePriceBookRevision(args: {
+  itemId: string;
+  versionId: string;
+  approver: string;
+}): Promise<
+  | { ok: true; revision: typeof priceBookItemVersions.$inferSelect }
+  | { ok: false; error: string }
+> {
+  if (isDemoOpsStore()) return approveDemoPriceBookRevision(args);
+  const db = getDb();
+  const versions = await db
+    .select()
+    .from(priceBookItemVersions)
+    .where(
+      and(
+        eq(priceBookItemVersions.id, args.versionId),
+        eq(priceBookItemVersions.itemId, args.itemId),
+        eq(priceBookItemVersions.organizationId, STRONG_FOAM_ORGANIZATION_ID),
+      ),
+    )
+    .limit(1);
+  const revision = versions[0];
+  if (!revision) return { ok: false, error: "That price revision could not be found." };
+  if (revision.status === "approved") return { ok: false, error: "immutable" };
+  const approvedAt = new Date();
+  const updated = await db
+    .update(priceBookItemVersions)
+    .set({
+      status: "approved",
+      approvedBy: args.approver,
+      approvedAt,
+      effectiveAt: approvedAt,
+    })
+    .where(eq(priceBookItemVersions.id, revision.id))
+    .returning();
+  const approved = updated[0];
+  if (!approved) return { ok: false, error: "That price revision could not be approved." };
+  await db
+    .update(priceBookItems)
+    .set({
+      currentApprovedVersionId: approved.id,
+      trade: approved.trade,
+      name: approved.description,
+      unit: approved.unit,
+      unitPriceCents: approved.unitPriceCents,
+      updatedAt: approvedAt,
+    })
+    .where(eq(priceBookItems.id, args.itemId));
+  return { ok: true, revision: approved };
 }

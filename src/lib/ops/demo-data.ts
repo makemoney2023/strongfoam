@@ -22,12 +22,14 @@ import {
   projects,
   scheduleCalendarExceptions,
   priceBookItems,
+  priceBookItemVersions,
   scheduleCalendars,
   sites,
   userEvents,
   users,
   workAreas,
 } from "@/db/schema";
+import { priceRevisionContentHash } from "@/lib/ops/price-book";
 
 export type EstimateRequestRow = typeof leads.$inferSelect;
 export type EstimateRequestEvent = typeof estimateRequestEvents.$inferSelect;
@@ -60,6 +62,7 @@ export type JobPlanAnnotationRow = typeof jobPlanAnnotations.$inferSelect;
 export type JobFieldNoteRow = typeof jobFieldNotes.$inferSelect;
 export type JobVoiceNoteRow = typeof jobVoiceNotes.$inferSelect;
 export type PriceBookItemRow = typeof priceBookItems.$inferSelect;
+export type PriceBookItemVersionRow = typeof priceBookItemVersions.$inferSelect;
 
 export const DEMO_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const DEMO_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -1029,6 +1032,10 @@ export function demoEstimateComments(): EstimateRequestComment[] {
   ];
 }
 
+export function priceBookVersionId(itemId: string): string {
+  return itemId.replace("11111111110", "11111111120");
+}
+
 export function demoPriceBookItems(): PriceBookItemRow[] {
   const createdAt = demoDate(-30);
   return [
@@ -1104,5 +1111,35 @@ export function demoPriceBookItems(): PriceBookItemRow[] {
       active: false,
       createdBy: DEMO_ADMIN_EMAIL,
     },
-  ];
+  ].map((item) => ({
+    ...item,
+    currentApprovedVersionId: priceBookVersionId(item.id),
+  }));
+}
+
+export function demoPriceBookVersions(): PriceBookItemVersionRow[] {
+  return demoPriceBookItems().map((item) => ({
+    id: item.currentApprovedVersionId ?? priceBookVersionId(item.id),
+    organizationId: item.organizationId,
+    itemId: item.id,
+    versionNumber: 1,
+    createdAt: item.createdAt,
+    trade: item.trade,
+    description: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    status: "approved",
+    effectiveAt: item.createdAt,
+    createdBy: item.createdBy,
+    approvedBy: item.createdBy,
+    approvedAt: item.createdAt,
+    contentHash: priceRevisionContentHash({
+      itemId: item.id,
+      versionNumber: 1,
+      trade: item.trade,
+      description: item.name,
+      unit: item.unit,
+      unitPriceCents: item.unitPriceCents,
+    }),
+  }));
 }

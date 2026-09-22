@@ -5,9 +5,13 @@ import {
   updateDemoPriceBookItem,
 } from "@/lib/ops/demo-store";
 import {
+  approvePriceRevision,
+  draftRevision,
   formatUnitPrice,
+  listApprovedPriceRevisions,
   parsePriceBookItem,
   parseUnitPriceCents,
+  updateApprovedRevision,
 } from "@/lib/ops/price-book";
 
 describe("price book", () => {
@@ -76,5 +80,22 @@ describe("price book", () => {
     expect(updated?.unitPriceCents).toBe(700);
     expect(listDemoPriceBookItems({ q: "Silicone" })).toEqual([]);
     expect(listDemoPriceBookItems({ q: "Silicone", includeInactive: true })[0]?.active).toBe(false);
+  });
+
+  it("keeps each approved price after a newer revision is approved", () => {
+    const retiredItem = { id: "11111111-1111-4111-8111-111111111199" };
+    const v1 = approvePriceRevision(
+      draftRevision({ itemId: retiredItem.id, unitPriceCents: 18500 }),
+    );
+    const v2 = approvePriceRevision(
+      draftRevision({ itemId: retiredItem.id, unitPriceCents: 19200 }),
+    );
+    expect(v1.unitPriceCents).toBe(18500);
+    expect(v1.status).toBe("approved");
+    expect(v2.versionNumber).toBe(v1.versionNumber + 1);
+    expect(v2.unitPriceCents).toBe(19200);
+    expect(updateApprovedRevision(v1)).toEqual({ ok: false, error: "immutable" });
+    expect(listApprovedPriceRevisions(retiredItem.id)).toContainEqual(v1);
+    expect(listApprovedPriceRevisions(retiredItem.id)).toContainEqual(v2);
   });
 });

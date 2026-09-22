@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import { SERVICE_LABELS } from "@/lib/ops/workflow";
 
 export const PRICE_BOOK_TRADES = [
@@ -115,4 +117,102 @@ export function parsePriceBookItem(input: {
       active,
     },
   };
+}
+
+export type PriceRevisionDraft = {
+  itemId: string;
+  organizationId: string;
+  trade: PriceBookTrade;
+  description: string;
+  unit: PriceBookUnit;
+  unitPriceCents: number;
+  createdBy: string;
+};
+
+export type ApprovedPriceRevision = PriceRevisionDraft & {
+  id: string;
+  versionNumber: number;
+  status: "approved";
+  effectiveAt: Date;
+  approvedBy: string;
+  approvedAt: Date;
+  contentHash: string;
+};
+
+const approvedRevisions = new Map<string, ApprovedPriceRevision[]>();
+
+export function priceRevisionContentHash(input: {
+  itemId: string;
+  versionNumber: number;
+  trade: string;
+  description: string;
+  unit: string;
+  unitPriceCents: number;
+}): string {
+  return createHash("sha256")
+    .update(
+      [
+        input.itemId,
+        String(input.versionNumber),
+        input.trade,
+        input.description,
+        input.unit,
+        String(input.unitPriceCents),
+      ].join("\n"),
+    )
+    .digest("hex");
+}
+
+export function draftRevision(
+  overrides: Partial<PriceRevisionDraft> = {},
+): PriceRevisionDraft {
+  return {
+    itemId: overrides.itemId ?? "11111111-1111-4111-8111-111111111199",
+    organizationId: overrides.organizationId ?? STRONG_FOAM_ORGANIZATION_ID,
+    trade: overrides.trade ?? "spray-foam",
+    description: overrides.description ?? "Closed-cell spray foam",
+    unit: overrides.unit ?? "bags",
+    unitPriceCents: overrides.unitPriceCents ?? 0,
+    createdBy: overrides.createdBy ?? "office@strongfoam.demo",
+  };
+}
+
+export function approvePriceRevision(
+  draft: PriceRevisionDraft,
+  approver = "admin@strongfoam.demo",
+): ApprovedPriceRevision {
+  const existing = approvedRevisions.get(draft.itemId) ?? [];
+  const versionNumber =
+    existing.reduce((max, revision) => Math.max(max, revision.versionNumber), 0) + 1;
+  const approvedAt = new Date();
+  const approved: ApprovedPriceRevision = {
+    ...draft,
+    id: crypto.randomUUID(),
+    versionNumber,
+    status: "approved",
+    effectiveAt: approvedAt,
+    approvedBy: approver,
+    approvedAt,
+    contentHash: priceRevisionContentHash({
+      itemId: draft.itemId,
+      versionNumber,
+      trade: draft.trade,
+      description: draft.description,
+      unit: draft.unit,
+      unitPriceCents: draft.unitPriceCents,
+    }),
+  };
+  approvedRevisions.set(draft.itemId, [...existing, approved]);
+  return approved;
+}
+
+export function updateApprovedRevision(revision: {
+  status: string;
+}): { ok: false; error: "immutable" } {
+  void revision;
+  return { ok: false, error: "immutable" };
+}
+
+export function listApprovedPriceRevisions(itemId: string): ApprovedPriceRevision[] {
+  return approvedRevisions.get(itemId) ?? [];
 }

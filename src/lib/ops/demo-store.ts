@@ -29,6 +29,7 @@ import {
   demoOpportunities,
   demoOrganizations,
   demoPriceBookItems,
+  demoPriceBookVersions,
   demoProjectScheduleBaselineItems,
   demoProjectScheduleBaselines,
   demoProjects,
@@ -57,6 +58,7 @@ import {
   type OpportunityRow,
   type OrganizationRow,
   type PriceBookItemRow,
+  type PriceBookItemVersionRow,
   type ProjectRow,
   type ProjectScheduleBaselineItemRow,
   type ProjectScheduleBaselineRow,
@@ -131,6 +133,7 @@ import {
   setBidDocumentBytes,
 } from "@/lib/ops/bid-document-bytes";
 import type { PriceBookItemInput, PriceBookListFilters } from "@/lib/ops/price-book";
+import { priceRevisionContentHash } from "@/lib/ops/price-book";
 import type { FieldNoteInput, FieldNoteKind } from "@/lib/ops/field-workspace";
 import {
   STRONG_FOAM_ORGANIZATION_ID,
@@ -200,6 +203,7 @@ type DemoOpsState = {
   jobFieldNotes: JobFieldNoteRow[];
   jobVoiceNotes: JobVoiceNoteRow[];
   priceBookItems: PriceBookItemRow[];
+  priceBookVersions: PriceBookItemVersionRow[];
   auditEvents: AuditEventRow[];
   bidDocuments: DocumentRow[];
   bidDocumentVersions: DocumentVersionRow[];
@@ -246,6 +250,7 @@ function getDemoState(): DemoOpsState {
       jobFieldNotes: demoJobFieldNotes(),
       jobVoiceNotes: demoJobVoiceNotes(),
       priceBookItems: demoPriceBookItems(),
+      priceBookVersions: demoPriceBookVersions(),
       auditEvents: [],
       bidDocuments: [],
       bidDocumentVersions: [],
@@ -286,6 +291,9 @@ function getDemoState(): DemoOpsState {
   }
   if (!globalForDemo.__strongfoamDemoOps.priceBookItems) {
     globalForDemo.__strongfoamDemoOps.priceBookItems = demoPriceBookItems();
+  }
+  if (!globalForDemo.__strongfoamDemoOps.priceBookVersions) {
+    globalForDemo.__strongfoamDemoOps.priceBookVersions = demoPriceBookVersions();
   }
   if (!globalForDemo.__strongfoamDemoOps.auditEvents) {
     globalForDemo.__strongfoamDemoOps.auditEvents = [];
@@ -382,6 +390,7 @@ const {
   jobFieldNotes,
   jobVoiceNotes,
   priceBookItems,
+  priceBookVersions,
 } = getDemoState();
 
 const PORTFOLIO_PROJECT_LIMIT = 250;
@@ -3766,8 +3775,33 @@ export function addDemoPriceBookItem(
     organizationId: STRONG_FOAM_ORGANIZATION_ID,
     createdAt: now,
     updatedAt: now,
+    currentApprovedVersionId: null,
     ...input,
   };
+  priceBookVersions.push({
+    id: crypto.randomUUID(),
+    organizationId: item.organizationId,
+    itemId: item.id,
+    versionNumber: 1,
+    createdAt: now,
+    trade: item.trade,
+    description: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    status: "draft",
+    effectiveAt: null,
+    createdBy: item.createdBy,
+    approvedBy: null,
+    approvedAt: null,
+    contentHash: priceRevisionContentHash({
+      itemId: item.id,
+      versionNumber: 1,
+      trade: item.trade,
+      description: item.name,
+      unit: item.unit,
+      unitPriceCents: item.unitPriceCents,
+    }),
+  });
   priceBookItems.unshift(item);
   return item;
 }
@@ -3780,6 +3814,100 @@ export function updateDemoPriceBookItem(
   if (!item) return null;
   Object.assign(item, input, { updatedAt: new Date() });
   return item;
+}
+
+export function listDemoPriceBookVersions(itemId?: string): PriceBookItemVersionRow[] {
+  return priceBookVersions
+    .filter((version) => !itemId || version.itemId === itemId)
+    .sort((a, b) => a.versionNumber - b.versionNumber || a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+function nextDemoPriceVersion(itemId: string): number {
+  return (
+    priceBookVersions
+      .filter((version) => version.itemId === itemId)
+      .reduce((max, version) => Math.max(max, version.versionNumber), 0) + 1
+  );
+}
+
+export function saveDemoPriceBookDraft(args: {
+  itemId: string;
+  trade: PriceBookItemInput["trade"];
+  description: string;
+  unit: PriceBookItemInput["unit"];
+  unitPriceCents: number;
+  createdBy: string;
+}): PriceBookItemVersionRow | null {
+  const item = priceBookItems.find((entry) => entry.id === args.itemId);
+  if (!item || item.organizationId !== STRONG_FOAM_ORGANIZATION_ID) return null;
+  const existing = priceBookVersions.find(
+    (version) => version.itemId === args.itemId && version.status === "draft",
+  );
+  const versionNumber = existing?.versionNumber ?? nextDemoPriceVersion(args.itemId);
+  const contentHash = priceRevisionContentHash({
+    itemId: args.itemId,
+    versionNumber,
+    trade: args.trade,
+    description: args.description,
+    unit: args.unit,
+    unitPriceCents: args.unitPriceCents,
+  });
+  if (existing) {
+    if (existing.status === "approved") return null;
+    Object.assign(existing, {
+      trade: args.trade,
+      description: args.description,
+      unit: args.unit,
+      unitPriceCents: args.unitPriceCents,
+      createdBy: args.createdBy,
+      contentHash,
+    });
+    return existing;
+  }
+  const draft: PriceBookItemVersionRow = {
+    id: crypto.randomUUID(),
+    organizationId: item.organizationId,
+    itemId: args.itemId,
+    versionNumber,
+    createdAt: new Date(),
+    trade: args.trade,
+    description: args.description,
+    unit: args.unit,
+    unitPriceCents: args.unitPriceCents,
+    status: "draft",
+    effectiveAt: null,
+    createdBy: args.createdBy,
+    approvedBy: null,
+    approvedAt: null,
+    contentHash,
+  };
+  priceBookVersions.push(draft);
+  return draft;
+}
+
+export function approveDemoPriceBookRevision(args: {
+  itemId: string;
+  versionId: string;
+  approver: string;
+}): { ok: true; revision: PriceBookItemVersionRow } | { ok: false; error: string } {
+  const item = priceBookItems.find((entry) => entry.id === args.itemId);
+  const revision = priceBookVersions.find(
+    (version) => version.id === args.versionId && version.itemId === args.itemId,
+  );
+  if (!item || !revision) return { ok: false, error: "That price revision could not be found." };
+  if (revision.status === "approved") return { ok: false, error: "immutable" };
+  const approvedAt = new Date();
+  revision.status = "approved";
+  revision.approvedBy = args.approver;
+  revision.approvedAt = approvedAt;
+  revision.effectiveAt = approvedAt;
+  item.currentApprovedVersionId = revision.id;
+  item.trade = revision.trade;
+  item.name = revision.description;
+  item.unit = revision.unit;
+  item.unitPriceCents = revision.unitPriceCents;
+  item.updatedAt = approvedAt;
+  return { ok: true, revision };
 }
 
 export function appendDemoAuditEvent(event: AuditEventRow): AuditEventRow {

@@ -592,7 +592,7 @@ Commit message: `Extract cited bid-package pages durably.`
 - Create: `drizzle/0021_price_book_versions.sql`
 - Modify: `drizzle/meta/_journal.json`
 
-- [ ] **Step 1: Extend tests before changing schema**
+- [x] **Step 1: Extend tests before changing schema**
 
 Assert:
 
@@ -605,13 +605,13 @@ expect(updateApprovedRevision(v1)).toEqual({ ok: false, error: "immutable" });
 expect(listApprovedPriceRevisions(retiredItem.id)).toContainEqual(v1);
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx vitest run src/lib/ops/price-book.test.ts
 ```
 
-- [ ] **Step 3: Add immutable revision schema and backfill**
+- [x] **Step 3: Add immutable revision schema and backfill**
 
 Create `price_book_item_versions` with organization, item, version number,
 trade, description, unit, unit price cents, status, effective timestamps,
@@ -619,13 +619,13 @@ creator, approver, approval timestamp, and content hash. Backfill each current
 item as approved version 1. Add `current_approved_version_id` to the logical
 item.
 
-- [ ] **Step 4: Split draft and approval actions**
+- [x] **Step 4: Split draft and approval actions**
 
 Office users create a draft revision. Administrators approve it. Estimate
 queries return only active approved revisions. Retiring a logical item hides it
 from new estimates and does not invalidate old revision references.
 
-- [ ] **Step 5: Run checks and browser-verify**
+- [x] **Step 5: Run checks and browser-verify**
 
 ```bash
 npx vitest run src/lib/ops/price-book.test.ts src/lib/ops/search.test.ts
@@ -636,7 +636,7 @@ npm test
 Create a revision, approve it as admin, retire the item, and confirm both
 approved revisions remain readable.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `Preserve approved price-book revisions.`
 

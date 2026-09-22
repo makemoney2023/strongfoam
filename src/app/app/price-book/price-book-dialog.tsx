@@ -34,7 +34,7 @@ export function PriceBookDialog({
       triggerVariant={editing ? "outline" : "default"}
       triggerAriaLabel={editing ? `Edit ${item?.name}` : undefined}
       title={editing ? "Edit price-book item" : "Add a price-book item"}
-      description="A reusable unit price for one trade. Retiring an item keeps it in the book."
+      description="Saving a changed price creates a draft revision. An administrator approves it. Retiring an item keeps every approved revision."
     >
       <ActionForm
         action={editing ? savePriceBookItem : createPriceBookItem}
@@ -116,7 +116,7 @@ export function PriceBookDialog({
           Active
         </label>
         <SubmitButton className="min-h-11 w-full sm:w-auto" pendingLabel="Saving…">
-          {editing ? "Save item" : "Create item"}
+          {editing ? "Save draft" : "Create draft"}
         </SubmitButton>
       </ActionForm>
     </FormDialog>
