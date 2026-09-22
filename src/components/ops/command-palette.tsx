@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { recordRecentItem, readRecentItems, type RecentItem } from "@/lib/ops/recent";
-import { SEARCH_KIND_LABELS, type SearchHit } from "@/lib/ops/search";
+import { SEARCH_KIND_LABELS, type SearchHit } from "@/lib/ops/search-hits";
 import { cn } from "@/lib/utils";
 
 export function CommandPalette() {

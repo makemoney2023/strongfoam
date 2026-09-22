@@ -18,35 +18,9 @@ import {
   formatRequestNumber,
   WORKFLOW_LABELS,
 } from "@/lib/ops/workflow";
+import { SEARCH_KIND_LABELS, type SearchHit, type SearchHitKind } from "@/lib/ops/search-hits";
 
-export type SearchHitKind =
-  | "company"
-  | "contact"
-  | "request"
-  | "opportunity"
-  | "project"
-  | "job"
-  | "price_book"
-  | "estimate";
-
-export type SearchHit = {
-  kind: SearchHitKind;
-  id: string;
-  href: string;
-  title: string;
-  subtitle: string;
-};
-
-export const SEARCH_KIND_LABELS: Record<SearchHitKind, string> = {
-  company: "Company",
-  contact: "Contact",
-  request: "Request",
-  opportunity: "Opportunity",
-  project: "Project",
-  job: "Job",
-  price_book: "Price book",
-  estimate: "Estimate",
-};
+export { SEARCH_KIND_LABELS, type SearchHit, type SearchHitKind };
 
 export async function searchOps(query: string, limit = 8): Promise<SearchHit[]> {
   const q = query.trim();

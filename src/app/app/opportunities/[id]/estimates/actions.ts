@@ -430,7 +430,12 @@ export async function draftBidEstimateAction(formData: FormData): Promise<Action
   });
   if (!drafted.ok) return fail(fallback, explain(drafted.error));
   revalidatePath(fallback);
-  return succeed(fallback, drafted.replayed ? "This draft was already requested." : "Estimate suggestions are ready for review.");
+  const message = drafted.replayed
+    ? "This draft was already requested."
+    : drafted.proposalId
+      ? "Estimate suggestions are ready for review."
+      : "Estimate suggestions were queued.";
+  return succeed(fallback, message);
 }
 
 export async function dismissBidEstimateProposalAction(formData: FormData): Promise<ActionState> {

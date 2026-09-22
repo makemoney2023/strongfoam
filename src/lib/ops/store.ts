@@ -6642,7 +6642,13 @@ export async function dismissAiProposal(
   const rows = await getDb()
     .update(aiProposals)
     .set({ status: "dismissed" })
-    .where(and(eq(aiProposals.id, proposalId), eq(aiProposals.organizationId, organizationId)))
+    .where(
+      and(
+        eq(aiProposals.id, proposalId),
+        eq(aiProposals.organizationId, organizationId),
+        eq(aiProposals.status, "proposed"),
+      ),
+    )
     .returning();
   return rows[0] ? { ok: true } : { ok: false, error: "That suggestion could not be found." };
 }
@@ -6743,6 +6749,32 @@ export async function listEstimateConversions(estimateId: string): Promise<Conve
   }));
 }
 
+function conversionFromRow(row: typeof estimateConversions.$inferSelect): ConversionResult {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    acceptanceId: row.acceptanceId,
+    estimateId: row.estimateId,
+    estimateVersionId: row.estimateVersionId,
+    contentHash: row.contentHash,
+    idempotencyKey: row.idempotencyKey,
+    payloadHash: row.payloadHash,
+    projectId: row.projectId,
+    jobIds: row.jobIds,
+    workAreaIds: [],
+    taskIds: [],
+    budgetId: "",
+    documentVersionIds: [],
+    createdAt: row.createdAt,
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; cause?: { code?: string } };
+  return candidate.code === "23505" || candidate.cause?.code === "23505";
+}
+
 export async function convertAcceptedEstimate(args: {
   actor: {
     email: string;
@@ -6760,7 +6792,26 @@ export async function convertAcceptedEstimate(args: {
   if (isDemoOpsStore()) return convertDemoAcceptedEstimate(args);
   const now = args.now ?? new Date();
   const db = getDb();
-  return db.transaction(async (tx) => {
+  const acceptancePreview = await db
+    .select()
+    .from(estimateAcceptances)
+    .where(eq(estimateAcceptances.id, args.acceptanceId))
+    .limit(1);
+  const preview = acceptancePreview[0];
+  if (!preview) return { ok: false, error: "That acceptance could not be found." };
+  const estimatePreview = await db
+    .select()
+    .from(estimates)
+    .where(eq(estimates.id, preview.estimateId))
+    .limit(1);
+  const estimate = estimatePreview[0];
+  if (!estimate) return { ok: false, error: "That estimate could not be found." };
+  const [graphs, rules] = await Promise.all([
+    listEstimateGraphs(estimate.id),
+    listCommercialApprovalRules(estimate.organizationId),
+  ]);
+  try {
+    return await db.transaction(async (tx) => {
     const acceptanceRows = await tx
       .select()
       .from(estimateAcceptances)
@@ -6769,25 +6820,24 @@ export async function convertAcceptedEstimate(args: {
     const acceptanceRow = acceptanceRows[0];
     if (!acceptanceRow) return { ok: false as const, error: "That acceptance could not be found." };
     await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${acceptanceRow.organizationId}, 0))`,
+      sql`select pg_advisory_xact_lock(hashtextextended(${acceptanceRow.organizationId}::text, 0))`,
     );
     const existingRows = await tx
       .select()
       .from(estimateConversions)
-      .where(eq(estimateConversions.acceptanceId, acceptanceRow.id))
+      .where(
+        or(
+          eq(estimateConversions.acceptanceId, acceptanceRow.id),
+          and(
+            eq(estimateConversions.organizationId, acceptanceRow.organizationId),
+            eq(estimateConversions.idempotencyKey, args.idempotencyKey),
+          ),
+        ),
+      )
       .limit(1);
     if (existingRows[0]) {
-      const listed = await listEstimateConversions(acceptanceRow.estimateId);
-      const existing = listed.find((item) => item.acceptanceId === acceptanceRow.id);
-      if (existing) return { ok: true as const, result: existing, replayed: true };
+      return { ok: true as const, result: conversionFromRow(existingRows[0]), replayed: true };
     }
-    const estimateRows = await tx
-      .select()
-      .from(estimates)
-      .where(eq(estimates.id, acceptanceRow.estimateId))
-      .limit(1);
-    const estimate = estimateRows[0];
-    if (!estimate) return { ok: false as const, error: "That estimate could not be found." };
     const opportunityRows = await tx
       .select()
       .from(opportunities)
@@ -6801,15 +6851,41 @@ export async function convertAcceptedEstimate(args: {
       .where(eq(proposals.id, acceptanceRow.proposalId))
       .limit(1);
     const proposal = proposalRows[0] ? proposalFromRow(proposalRows[0]) : null;
-    const graphs = await listEstimateGraphs(estimate.id);
+    const versionRows = await tx
+      .select({
+        id: estimateVersions.id,
+        versionNumber: estimateVersions.versionNumber,
+        contentHash: estimateVersions.contentHash,
+      })
+      .from(estimateVersions)
+      .where(eq(estimateVersions.estimateId, estimate.id));
+    const latest = versionRows.reduce((max, row) => Math.max(max, row.versionNumber), 0);
+    const lockedVersion = versionRows.find((row) => row.id === acceptanceRow.estimateVersionId);
     const version = graphs.find((graph) => graph.versionId === acceptanceRow.estimateVersionId);
-    if (!opportunity || !version) return { ok: false as const, error: "That estimate could not be found." };
-    const latest = graphs.reduce((max, graph) => Math.max(max, graph.versionNumber), 0);
-    const [rules, approvals, eventRows] = await Promise.all([
-      listCommercialApprovalRules(estimate.organizationId),
-      listEstimateApprovals(estimate.id),
+    if (!opportunity || !version || !lockedVersion || lockedVersion.contentHash !== version.contentHash) {
+      return { ok: false as const, error: "That estimate could not be found." };
+    }
+    const [approvalRows, eventRows] = await Promise.all([
+      tx
+        .select()
+        .from(estimateApprovals)
+        .where(eq(estimateApprovals.estimateId, estimate.id)),
       tx.select().from(proposalEvents).where(eq(proposalEvents.proposalId, acceptanceRow.proposalId)),
     ]);
+    const approvals = approvalRows.map((row) => ({
+      id: row.id,
+      organizationId: row.organizationId,
+      estimateId: row.estimateId,
+      estimateVersionId: row.estimateVersionId,
+      versionNumber: row.versionNumber,
+      contentHash: row.contentHash,
+      ruleId: row.ruleId,
+      actorEmail: row.actorEmail,
+      decision: row.decision === "rejected" ? ("rejected" as const) : ("approved" as const),
+      comment: row.comment,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt,
+    }));
     const approval = evaluateApprovalRules({
       now,
       organizationId: estimate.organizationId,
@@ -6956,5 +7032,15 @@ export async function convertAcceptedEstimate(args: {
         .where(eq(leads.id, opportunity.sourceLeadId));
     }
     return { ok: true as const, result: committed.result, replayed: false };
-  });
+    });
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    const saved = await db
+      .select()
+      .from(estimateConversions)
+      .where(eq(estimateConversions.acceptanceId, args.acceptanceId))
+      .limit(1);
+    if (saved[0]) return { ok: true, result: conversionFromRow(saved[0]), replayed: true };
+    throw error;
+  }
 }
