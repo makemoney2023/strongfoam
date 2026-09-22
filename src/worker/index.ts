@@ -12,6 +12,7 @@ export type WorkerBoss = {
   stop: (options?: { graceful?: boolean; timeout?: number }) => Promise<void>;
   work: (name: string, handler: WorkerHandler) => Promise<string>;
   createQueue: (name: string) => Promise<void>;
+  schedule?: (name: string, cron: string, data?: object | null) => Promise<void>;
 };
 
 export type RunningWorker = {
@@ -52,6 +53,7 @@ export async function startWorker(
       }
     });
   }
+  await boss.schedule?.("data-import.retain", "15 9 * * *", {});
 
   let stopping = false;
   return {

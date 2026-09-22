@@ -208,13 +208,95 @@ export function previewHash(rows: StagedImportRow[]): string {
       status: row.status,
       values: row.values,
     }));
-  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+  return createHash("sha256").update(stableStringify(canonical)).digest("hex");
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+const ENTITY_HEADER_ALIASES: Partial<Record<ImportEntityType, Record<string, string>>> = {
+  company: {
+    company: "name",
+    companyname: "name",
+    customer: "name",
+    customername: "name",
+  },
+  workforce_user: {
+    name: "display_name",
+    fullname: "display_name",
+    employeename: "display_name",
+  },
+  job: {
+    job: "name",
+    jobname: "name",
+  },
+  project: {
+    project: "name",
+    projectname: "name",
+  },
+  opportunity: {
+    opportunity: "name",
+    opportunityname: "name",
+  },
+  site: {
+    site: "name",
+    sitename: "name",
+  },
+  work_area: {
+    area: "name",
+    areaname: "name",
+    workarea: "name",
+    job: "job_name",
+    jobname: "job_name",
+  },
+  job_assignment: {
+    job: "job_name",
+    jobname: "job_name",
+  },
+  job_task: {
+    name: "title",
+    task: "title",
+    taskname: "title",
+    job: "job_name",
+    jobname: "job_name",
+  },
+};
+
 function detectEntity(sheet: WorkbookSheet): ImportEntityType | null {
-  const alias = SHEET_ALIASES[normalizeKey(sheet.name)];
+  const key = normalizeKey(sheet.name);
+  const alias = SHEET_ALIASES[key];
   if (alias) return alias;
+  const prefixed = Object.entries(SHEET_ALIASES)
+    .filter(
+      ([aliasKey]) =>
+        aliasKey.length >= 4 && (key.startsWith(aliasKey) || key.endsWith(aliasKey)),
+    )
+    .sort((left, right) => right[0].length - left[0].length)[0];
+  if (prefixed) return prefixed[1];
+  const fields = new Set(
+    headerLabels(sheet).map((header) => HEADER_ALIASES[normalizeKey(header)] ?? ""),
+  );
+  if (fields.has("unit_price") || fields.has("unit_price_cents")) return "price_book_item";
+  if (fields.has("display_name")) return "workforce_user";
+  if (fields.has("first_name")) return "contact";
+  if (fields.has("company_name") || fields.has("address_line") || fields.has("postal_code")) {
+    if (fields.has("address_line") || fields.has("postal_code")) return "site";
+    return "company";
+  }
   return null;
+}
+
+function fieldForHeader(header: string, entityType: ImportEntityType): string {
+  const key = normalizeKey(header);
+  if (!key) return "";
+  return ENTITY_HEADER_ALIASES[entityType]?.[key] ?? HEADER_ALIASES[key] ?? "";
 }
 
 function headerLabels(sheet: WorkbookSheet): string[] {
@@ -236,7 +318,7 @@ function stageSheet(
       error: "Import files cannot include a password column.",
     };
   }
-  const fields = headers.map((header) => HEADER_ALIASES[normalizeKey(header)] ?? "");
+  const fields = headers.map((header) => fieldForHeader(header, entityType));
   const rows: StagedImportRow[] = [];
   const seen = new Set<string>();
   for (let index = 1; index < sheet.rows.length; index += 1) {
@@ -460,8 +542,8 @@ function normalizeRow(
     }
   }
   if (entityType === "job_task") {
-    requireField("title", "Task title");
     if (!values.title && values.name) values.title = values.name;
+    requireField("title", "Task title");
     if (!values.job_source_key && !values.job_name) {
       setStatus("error");
       messages.push("A task needs a job source key or an exact job name.");

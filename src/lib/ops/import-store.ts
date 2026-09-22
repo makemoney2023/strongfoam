@@ -1,9 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   companies,
   contacts,
+  backgroundJobs,
   dataImportBatches,
   dataImportEvents,
   dataImportRows,
@@ -31,11 +32,14 @@ import {
   importScopeClause,
   isImportBatchStatus,
   isImportEntityType,
+  isImportId,
   transitionImportBatch,
   type ImportBatchState,
   type ImportBatchStatus,
   type ImportEntityType,
 } from "@/lib/ops/import-contract";
+import type { ImportAttentionBatch, ImportDeadLetter } from "@/lib/ops/import-attention";
+import { applyImportRetention } from "@/lib/ops/import-retention";
 import { hashPassword } from "@/lib/ops/credentials";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import {
@@ -90,9 +94,19 @@ export type ImportRepository = {
     batchId: string;
     actor: string;
   }): Promise<{ ok: true; batch: ImportBatchDetail } | { ok: false; error: string }>;
+  listAttention(organizationId: string): Promise<{
+    batches: ImportAttentionBatch[];
+    deadLetters: ImportDeadLetter[];
+  }>;
+  retainDue(organizationId: string, now: Date): Promise<void>;
+  retainAll(now: Date): Promise<void>;
 };
 
-type MemoryBatch = ImportBatchDetail & { idempotencyKey: string };
+type MemoryBatch = ImportBatchDetail & {
+  idempotencyKey: string;
+  updatedAt: Date;
+  hasSource: boolean;
+};
 
 export function createMemoryImportStore(initialDomain = emptyImportDomain()): ImportRepository & {
   domain: ImportDomain;
@@ -143,6 +157,8 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
         previewHash: staged.value.previewHash,
         sha256,
         idempotencyKey: sha256,
+        updatedAt: new Date(),
+        hasSource: true,
         sheets: staged.value.sheets,
         rows: staged.value.rows.map((row) => ({ ...row, operation: null, targetId: null })),
       };
@@ -181,6 +197,7 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
       batch.status = state.status;
       batch.revision = state.revision;
       batch.durable = input.durable;
+      batch.updatedAt = new Date();
       return { ok: true, batch, already: false };
     },
     async cancel(input) {
@@ -196,19 +213,57 @@ export function createMemoryImportStore(initialDomain = emptyImportDomain()): Im
         );
         batch.status = state.status;
         batch.revision = state.revision;
+        batch.updatedAt = new Date();
       } catch {
         return { ok: false, error: "This import can no longer be cancelled." };
       }
       return { ok: true, batch };
     },
+    async listAttention(organizationId) {
+      return attentionFromBatches(batches.filter((batch) => batch.organizationId === organizationId));
+    },
+    async retainDue(organizationId, now) {
+      const owned = batches
+        .filter((batch) => batch.organizationId === organizationId)
+        .map((batch) => ({
+          id: batch.id,
+          status: batch.status,
+          updatedAt: batch.updatedAt,
+          hasSource: batch.hasSource,
+          hasNormalized: batch.rows.some((row) => Object.keys(row.values).length > 0),
+          batch,
+        }));
+      await applyImportRetention(owned, now, async (subject, plan) => {
+        if (plan.deleteSource) subject.batch.hasSource = false;
+        if (plan.deleteNormalized) {
+          for (const row of subject.batch.rows) row.values = {};
+        }
+      });
+    },
+    async retainAll(now) {
+      const organizations = [...new Set(batches.map((batch) => batch.organizationId))];
+      for (const organizationId of organizations) {
+        await store.retainDue(organizationId, now);
+      }
+    },
   };
   return store;
 }
 
-const memoryStore = createMemoryImportStore();
+function memoryImportStore(): ReturnType<typeof createMemoryImportStore> {
+  // Server actions and route handlers can load separate module copies.
+  // Keep staged imports on globalThis so the reconciliation download can read them.
+  const globalForImport = globalThis as typeof globalThis & {
+    __strongfoamImportStore?: ReturnType<typeof createMemoryImportStore>;
+  };
+  if (!globalForImport.__strongfoamImportStore) {
+    globalForImport.__strongfoamImportStore = createMemoryImportStore();
+  }
+  return globalForImport.__strongfoamImportStore;
+}
 
 export function getImportRepository(): ImportRepository {
-  return isDemoOpsStore() ? memoryStore : postgresImportRepository;
+  return isDemoOpsStore() ? memoryImportStore() : postgresImportRepository;
 }
 
 const postgresImportRepository: ImportRepository = {
@@ -217,7 +272,225 @@ const postgresImportRepository: ImportRepository = {
   saveUpload: savePostgresUpload,
   commit: commitPostgresBatch,
   cancel: cancelPostgresBatch,
+  listAttention: listPostgresAttention,
+  retainDue: retainPostgresImports,
+  retainAll: retainAllPostgresImports,
 };
+
+const IMPORT_DEAD_LETTER_KINDS = [
+  "data-import.analyze",
+  "data-import.commit",
+  "data-import.retain",
+] as const;
+
+function sqlBoolean(value: unknown): boolean {
+  return value === true || value === "t" || value === "true";
+}
+
+function importAttentionBatchId(
+  kind: string,
+  aggregateId: string,
+  payload: Record<string, unknown> | null,
+): string {
+  const fromPayload = typeof payload?.batchId === "string" ? payload.batchId : "";
+  if (kind === "data-import.retain") return isImportId(fromPayload) ? fromPayload : "";
+  if (isImportId(fromPayload)) return fromPayload;
+  return isImportId(aggregateId) ? aggregateId : "";
+}
+
+async function listPostgresAttention(organizationId: string) {
+  importScopeClause("batches", organizationId);
+  const db = getDb();
+  const batches = await db
+    .select({
+      id: dataImportBatches.id,
+      filename: dataImportBatches.filename,
+      status: dataImportBatches.status,
+    })
+    .from(dataImportBatches)
+    .where(eq(dataImportBatches.organizationId, organizationId));
+  const counts = await db
+    .select({
+      batchId: dataImportRows.batchId,
+      price: sql<number>`count(*) filter (where ${dataImportRows.entityType} = 'price_book_item' and ${dataImportRows.operation} in ('create', 'update'))::int`,
+      users: sql<number>`count(*) filter (where ${dataImportRows.entityType} = 'workforce_user' and ${dataImportRows.operation} = 'create')::int`,
+    })
+    .from(dataImportRows)
+    .where(eq(dataImportRows.organizationId, organizationId))
+    .groupBy(dataImportRows.batchId);
+  const byBatch = new Map<string, { price: number; users: number }>();
+  for (const row of counts) {
+    byBatch.set(row.batchId, { price: Number(row.price), users: Number(row.users) });
+  }
+  const jobs = await db
+    .select({
+      id: backgroundJobs.id,
+      kind: backgroundJobs.kind,
+      batchId: backgroundJobs.aggregateId,
+      payload: backgroundJobs.payload,
+    })
+    .from(backgroundJobs)
+    .where(
+      and(
+        eq(backgroundJobs.organizationId, organizationId),
+        eq(backgroundJobs.status, "dead_letter"),
+        inArray(backgroundJobs.kind, [...IMPORT_DEAD_LETTER_KINDS]),
+      ),
+    );
+  return {
+    batches: batches.flatMap((batch) => {
+      const counted = byBatch.get(batch.id) ?? { price: 0, users: 0 };
+      const priceDraftCount = batch.status === "completed" ? counted.price : 0;
+      const inactiveUserCount = batch.status === "completed" ? counted.users : 0;
+      if (batch.status !== "failed" && priceDraftCount === 0 && inactiveUserCount === 0) {
+        return [];
+      }
+      return [{
+        id: batch.id,
+        filename: batch.filename,
+        status: batch.status,
+        priceDraftCount,
+        inactiveUserCount,
+      }];
+    }),
+    deadLetters: jobs.map((job) => ({
+      id: job.id,
+      kind: job.kind,
+      batchId: importAttentionBatchId(job.kind, job.batchId, job.payload),
+    })),
+  };
+}
+
+async function retainPostgresImports(organizationId: string, now: Date) {
+  importScopeClause("batches", organizationId);
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: dataImportBatches.id,
+      status: dataImportBatches.status,
+      updatedAt: dataImportBatches.updatedAt,
+      hasSource: sql<boolean>`(${dataImportBatches.fileBytes} is not null)`,
+      hasNormalized: sql<boolean>`exists (
+        select 1 from ${dataImportRows}
+        where ${dataImportRows.batchId} = ${dataImportBatches.id}
+          and ${dataImportRows.organizationId} = ${organizationId}
+          and ${dataImportRows.values} <> '{}'::jsonb
+      )`,
+    })
+    .from(dataImportBatches)
+    .where(eq(dataImportBatches.organizationId, organizationId));
+  const subjects = rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    updatedAt: row.updatedAt,
+    hasSource: sqlBoolean(row.hasSource),
+    hasNormalized: sqlBoolean(row.hasNormalized),
+  }));
+  await applyImportRetention(subjects, now, async (subject, plan) => {
+    await db.transaction(async (tx) => {
+      if (plan.deleteSource) {
+        const cleared = await tx
+          .update(dataImportBatches)
+          .set({ fileBytes: null })
+          .where(and(
+            eq(dataImportBatches.organizationId, organizationId),
+            eq(dataImportBatches.id, subject.id),
+            isNotNull(dataImportBatches.fileBytes),
+          ))
+          .returning({ id: dataImportBatches.id });
+        if (cleared[0]) {
+          await tx.insert(dataImportEvents).values({
+            batchId: subject.id,
+            organizationId,
+            actor: "worker",
+            kind: "retention",
+            summary: "Removed the staged source file.",
+            payload: { removed: "source" },
+          });
+        }
+      }
+      if (plan.deleteNormalized) {
+        const cleared = await tx
+          .update(dataImportRows)
+          .set({ values: {} })
+          .where(and(
+            eq(dataImportRows.organizationId, organizationId),
+            eq(dataImportRows.batchId, subject.id),
+            sql`${dataImportRows.values} <> '{}'::jsonb`,
+          ))
+          .returning({ id: dataImportRows.id });
+        if (cleared.length > 0) {
+          await tx.insert(dataImportEvents).values({
+            batchId: subject.id,
+            organizationId,
+            actor: "worker",
+            kind: "retention",
+            summary: "Cleared normalized row values.",
+            payload: { removed: "normalized" },
+          });
+        }
+      }
+    });
+  });
+}
+
+async function retainAllPostgresImports(now: Date) {
+  const db = getDb();
+  const organizations = await db
+    .selectDistinct({ organizationId: dataImportBatches.organizationId })
+    .from(dataImportBatches);
+  for (const organization of organizations) {
+    await retainPostgresImports(organization.organizationId, now);
+  }
+}
+
+function attentionFromBatches(batches: MemoryBatch[]): {
+  batches: ImportAttentionBatch[];
+  deadLetters: ImportDeadLetter[];
+} {
+  return {
+    batches: batches.flatMap((batch) => {
+      const priceDraftCount =
+        batch.status === "completed"
+          ? batch.rows.filter(
+            (row) =>
+              row.entityType === "price_book_item" &&
+              (row.operation === "create" || row.operation === "update"),
+          ).length
+          : 0;
+      const inactiveUserCount =
+        batch.status === "completed"
+          ? batch.rows.filter(
+            (row) => row.entityType === "workforce_user" && row.operation === "create",
+          ).length
+          : 0;
+      if (batch.status !== "failed" && priceDraftCount === 0 && inactiveUserCount === 0) {
+        return [];
+      }
+      return [{
+        id: batch.id,
+        filename: batch.filename,
+        status: batch.status,
+        priceDraftCount,
+        inactiveUserCount,
+      }];
+    }),
+    deadLetters: [],
+  };
+}
+
+export async function listImportAttention(organizationId: string) {
+  return getImportRepository().listAttention(organizationId);
+}
+
+export async function retainDueImports(organizationId?: string, now = new Date()) {
+  const repository = getImportRepository();
+  if (!organizationId) {
+    await repository.retainAll(now);
+    return;
+  }
+  await repository.retainDue(organizationId, now);
+}
 
 function summaryOf(batch: ImportBatchDetail): ImportBatchSummary {
   return {
@@ -236,6 +509,38 @@ function limitRows(batch: ImportBatchDetail, rowLimit?: number): ImportBatchDeta
   const errors = batch.rows.filter((row) => row.status === "error" || row.status === "conflict");
   const rest = batch.rows.filter((row) => row.status !== "error" && row.status !== "conflict");
   return { ...batch, rows: [...errors, ...rest].slice(0, rowLimit) };
+}
+
+async function persistImportRowResults(
+  tx: Pick<ReturnType<typeof getDb>, "execute">,
+  organizationId: string,
+  batchId: string,
+  results: Array<{ sheetName: string; rowNumber: number; operation: string; targetId: string }>,
+) {
+  const missing = results.find((result) => !isImportId(result.targetId));
+  if (missing) {
+    throw new Error(`Import row ${missing.sheetName} ${missing.rowNumber} has no record id.`);
+  }
+  const chunkSize = 200;
+  for (let index = 0; index < results.length; index += chunkSize) {
+    const chunk = results.slice(index, index + chunkSize);
+    const tuples = sql.join(
+      chunk.map(
+        (result) =>
+          sql`(${result.sheetName}, ${result.rowNumber}::int, ${result.operation}, ${result.targetId}::uuid)`,
+      ),
+      sql`, `,
+    );
+    await tx.execute(sql`
+      update ${dataImportRows} as row
+      set operation = input.operation, target_id = input.target_id
+      from (values ${tuples}) as input(sheet_name, row_number, operation, target_id)
+      where row.organization_id = ${organizationId}
+        and row.batch_id = ${batchId}
+        and row.sheet_name = input.sheet_name
+        and row.row_number = input.row_number
+    `);
+  }
 }
 
 function applyRowResults(
@@ -323,9 +628,15 @@ async function getPostgresBatch(
     .where(and(
       eq(dataImportRows.organizationId, organizationId),
       eq(dataImportRows.batchId, batchId),
-    ))
-    .orderBy(dataImportRows.rowNumber);
-  const storedRows = options?.rowLimit ? await rowQuery.limit(options.rowLimit) : await rowQuery;
+    ));
+  const storedRows = options?.rowLimit
+    ? await rowQuery
+      .orderBy(
+        sql`case when ${dataImportRows.status} in ('error', 'conflict') then 0 else 1 end`,
+        asc(dataImportRows.rowNumber),
+      )
+      .limit(options.rowLimit)
+    : await rowQuery.orderBy(asc(dataImportRows.rowNumber));
   return {
     id: batch.id,
     organizationId: batch.organizationId,
@@ -360,81 +671,124 @@ async function getPostgresBatch(
   };
 }
 
-async function savePostgresUpload(
-  input: Parameters<ImportRepository["saveUpload"]>[0],
-): ReturnType<ImportRepository["saveUpload"]> {
-  importScopeClause("batches", input.organizationId);
-  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+const INSERT_CHUNK = 200;
+
+async function insertInChunks<T>(rows: T[], write: (chunk: T[]) => Promise<unknown>) {
+  for (let index = 0; index < rows.length; index += INSERT_CHUNK) {
+    await write(rows.slice(index, index + INSERT_CHUNK));
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; cause?: { code?: string } };
+  return candidate.code === "23505" || candidate.cause?.code === "23505";
+}
+
+async function findUploadByHash(
+  organizationId: string,
+  sha256: string,
+): Promise<{ ok: true; batch: ImportBatchDetail; duplicate: true } | { ok: false; error: string } | null> {
   const db = getDb();
   const existing = await db
     .select({ id: dataImportBatches.id })
     .from(dataImportBatches)
     .where(and(
-      eq(dataImportBatches.organizationId, input.organizationId),
+      eq(dataImportBatches.organizationId, organizationId),
       eq(dataImportBatches.idempotencyKey, sha256),
     ));
-  if (existing[0]) {
-    const batch = await getPostgresBatch(input.organizationId, existing[0].id);
-    if (!batch) return { ok: false, error: "That import could not be found." };
-    return { ok: true, batch, duplicate: true };
-  }
+  if (!existing[0]) return null;
+  const batch = await getPostgresBatch(organizationId, existing[0].id);
+  if (!batch) return { ok: false, error: "That import could not be found." };
+  return { ok: true, batch, duplicate: true };
+}
+
+async function savePostgresUpload(
+  input: Parameters<ImportRepository["saveUpload"]>[0],
+): ReturnType<ImportRepository["saveUpload"]> {
+  importScopeClause("batches", input.organizationId);
+  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+  const existing = await findUploadByHash(input.organizationId, sha256);
+  if (existing) return existing;
   const staged = stageImportFile({
     bytes: input.bytes,
     filename: input.filename,
     entityType: input.entityType,
   });
   if (!staged.ok) return staged;
-  const inserted = await db
-    .insert(dataImportBatches)
-    .values({
-      organizationId: input.organizationId,
-      createdBy: input.actor,
-      filename: input.filename,
-      contentType: input.contentType || "application/octet-stream",
-      byteSize: input.bytes.length,
-      sha256,
-      idempotencyKey: sha256,
-      status: staged.value.status,
-      previewHash: staged.value.previewHash,
-      durable: false,
-      summary: staged.value.summary,
-      fileBytes: input.bytes,
-    })
-    .returning({ id: dataImportBatches.id });
-  const batchId = inserted[0]?.id;
-  if (!batchId) return { ok: false, error: "The import could not be saved." };
-  if (staged.value.sheets.length) {
-    await db.insert(dataImportSheets).values(staged.value.sheets.map((sheet) => ({
-      batchId,
-      organizationId: input.organizationId,
-      sheetName: sheet.name,
-      entityType: sheet.entityType,
-      rowCount: sheet.rowCount,
-      headers: sheet.headers,
-    })));
+  const db = getDb();
+  let batchId = "";
+  try {
+    batchId = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(dataImportBatches)
+        .values({
+          organizationId: input.organizationId,
+          createdBy: input.actor,
+          filename: input.filename,
+          contentType: input.contentType || "application/octet-stream",
+          byteSize: input.bytes.length,
+          sha256,
+          idempotencyKey: sha256,
+          status: staged.value.status,
+          previewHash: staged.value.previewHash,
+          durable: false,
+          summary: staged.value.summary,
+          fileBytes: input.bytes,
+        })
+        .returning({ id: dataImportBatches.id });
+      const id = inserted[0]?.id;
+      if (!id) throw new Error("The import could not be saved.");
+      if (staged.value.sheets.length) {
+        await insertInChunks(
+          staged.value.sheets.map((sheet) => ({
+            batchId: id,
+            organizationId: input.organizationId,
+            sheetName: sheet.name,
+            entityType: sheet.entityType,
+            rowCount: sheet.rowCount,
+            headers: sheet.headers,
+          })),
+          (chunk) => tx.insert(dataImportSheets).values(chunk),
+        );
+      }
+      if (staged.value.rows.length) {
+        await insertInChunks(
+          staged.value.rows.map((row) => ({
+            batchId: id,
+            organizationId: input.organizationId,
+            sheetName: row.sheetName,
+            rowNumber: row.rowNumber,
+            entityType: row.entityType,
+            sourceKey: row.sourceKey,
+            status: row.status,
+            operation: "",
+            values: row.values,
+            messages: row.messages,
+          })),
+          (chunk) => tx.insert(dataImportRows).values(chunk),
+        );
+      }
+      await tx.insert(dataImportEvents).values({
+        batchId: id,
+        organizationId: input.organizationId,
+        actor: input.actor,
+        kind: "uploaded",
+        summary: `Staged ${input.filename}.`,
+        payload: { sha256, status: staged.value.status },
+      });
+      return id;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      const duplicate = await findUploadByHash(input.organizationId, sha256);
+      if (duplicate) return duplicate;
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "The import could not be saved.",
+    };
   }
-  if (staged.value.rows.length) {
-    await db.insert(dataImportRows).values(staged.value.rows.map((row) => ({
-      batchId,
-      organizationId: input.organizationId,
-      sheetName: row.sheetName,
-      rowNumber: row.rowNumber,
-      entityType: row.entityType,
-      sourceKey: row.sourceKey,
-      status: row.status,
-      operation: "create" as const,
-      values: row.values,
-      messages: row.messages,
-    })));
-  }
-  await db.insert(dataImportEvents).values({
-    batchId,
-    organizationId: input.organizationId,
-    actor: input.actor,
-    kind: "uploaded",
-    summary: `Staged ${input.filename}.`,
-    payload: { sha256, status: staged.value.status },
-  });
   const batch = await getPostgresBatch(input.organizationId, batchId);
   if (!batch) return { ok: false, error: "The import could not be saved." };
   return { ok: true, batch, duplicate: false };
@@ -477,6 +831,7 @@ async function commitPostgresBatch(
       });
       if (!applied.ok) throw new Error(applied.error);
       await writeImport(tx, input.organizationId, input.actor, applied.writes);
+      await persistImportRowResults(tx, input.organizationId, input.batchId, applied.rowResults);
       const updated = await tx
         .update(dataImportBatches)
         .set({
@@ -712,17 +1067,15 @@ async function writeImport(
   actor: string,
   writes: ImportWrite,
 ) {
-  if (writes.companies.length) {
-    await tx.insert(companies).values(writes.companies.map((company) => ({
-      id: company.id,
-      organizationId,
-      name: company.name,
-      email: company.email,
-      phone: company.phone,
-      city: company.city,
-      province: company.province,
-    })));
-  }
+  await insertInChunks(writes.companies.map((company) => ({
+    id: company.id,
+    organizationId,
+    name: company.name,
+    email: company.email,
+    phone: company.phone,
+    city: company.city,
+    province: company.province,
+  })), (chunk) => tx.insert(companies).values(chunk));
   for (const company of writes.companyUpdates) {
     await tx.update(companies).set({
       email: company.email,
@@ -732,150 +1085,124 @@ async function writeImport(
       updatedAt: new Date(),
     }).where(and(eq(companies.id, company.id), eq(companies.organizationId, organizationId)));
   }
-  if (writes.contacts.length) {
-    await tx.insert(contacts).values(writes.contacts.map((contact) => ({
-      id: contact.id,
-      organizationId,
-      companyId: contact.companyId,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      phone: contact.phone,
-      role: contact.role,
-    })));
-  }
-  if (writes.sites.length) {
-    await tx.insert(sites).values(writes.sites.map((site) => ({
-      id: site.id,
-      organizationId,
-      companyId: site.companyId,
-      name: site.name,
-      city: site.city,
-      province: site.province,
-      addressLine: site.addressLine,
-      postalCode: site.postalCode,
-    })));
-  }
-  if (writes.users.length) {
-    await tx.insert(users).values(writes.users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      passwordHash: user.passwordHash,
-      active: false,
-      createdBy: actor,
-    })));
-  }
-  if (writes.memberships.length) {
-    await tx.insert(memberships).values(writes.memberships.map((membership) => ({
-      id: membership.id,
-      organizationId,
-      userId: membership.userId,
-      role: membership.role,
-      active: false,
-    })));
-  }
-  if (writes.priceItems.length) {
-    await tx.insert(priceBookItems).values(writes.priceItems.map((item) => ({
-      id: item.id,
-      organizationId,
-      trade: item.trade,
-      name: item.name,
-      unit: item.unit,
-      unitPriceCents: item.unitPriceCents,
-      itemCode: item.itemCode,
-      itemKind: item.itemKind,
-      supplier: item.supplier,
-      unitCostCents: item.unitCostCents,
-      active: true,
-      createdBy: actor,
-    })));
-  }
-  if (writes.priceVersions.length) {
-    await tx.insert(priceBookItemVersions).values(writes.priceVersions.map((version) => ({
-      id: version.id,
-      organizationId,
-      itemId: version.itemId,
-      versionNumber: version.versionNumber,
-      trade: version.trade,
-      description: version.description,
-      unit: version.unit,
-      unitPriceCents: version.unitPriceCents,
-      unitCostCents: version.unitCostCents,
-      status: "draft" as const,
-      createdBy: actor,
-      contentHash: version.contentHash,
-    })));
-  }
-  if (writes.opportunities.length) {
-    await tx.insert(opportunities).values(writes.opportunities.map((opportunity) => ({
-      id: opportunity.id,
-      organizationId,
-      name: opportunity.name,
-      companyId: opportunity.companyId,
-      contactId: opportunity.contactId,
-      siteId: opportunity.siteId,
-      stage: opportunity.stage,
-      services: opportunity.services,
-    })));
-  }
-  if (writes.projects.length) {
-    await tx.insert(projects).values(writes.projects.map((project) => ({
-      id: project.id,
-      organizationId,
-      name: project.name,
-      companyId: project.companyId,
-      siteId: project.siteId,
-      opportunityId: project.opportunityId,
-      status: project.status,
-    })));
-  }
-  if (writes.jobs.length) {
-    await tx.insert(jobs).values(writes.jobs.map((job) => ({
-      id: job.id,
-      organizationId,
-      name: job.name,
-      projectId: job.projectId,
-      companyId: job.companyId,
-      siteId: job.siteId,
-      opportunityId: job.opportunityId,
-      status: job.status,
-      scope: null,
-      services: job.services,
-    })));
-  }
-  if (writes.assignments.length) {
-    await tx.insert(jobAssignments).values(writes.assignments.map((assignment) => ({
-      id: assignment.id,
-      jobId: assignment.jobId,
-      userId: assignment.userId,
-      role: assignment.role,
-      createdBy: actor,
-    })));
-  }
-  if (writes.workAreas.length) {
-    await tx.insert(workAreas).values(writes.workAreas.map((area) => ({
-      id: area.id,
-      jobId: area.jobId,
-      name: area.name,
-    })));
-  }
-  if (writes.tasks.length) {
-    await tx.insert(jobTasks).values(writes.tasks.map((task) => ({
-      id: task.id,
-      jobId: task.jobId,
-      workAreaId: task.workAreaId,
-      title: task.title,
-      createdBy: actor,
-    })));
-  }
-  if (writes.crosswalk.length) {
-    await tx.insert(externalRecordKeys).values(writes.crosswalk.map((key) => ({
-      organizationId,
-      sourceSystem: "spreadsheet",
-      entityType: key.entityType as ImportEntityType,
-      sourceKey: key.sourceKey,
-      targetId: key.targetId,
-    })));
-  }
+  await insertInChunks(writes.contacts.map((contact) => ({
+    id: contact.id,
+    organizationId,
+    companyId: contact.companyId,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phone: contact.phone,
+    role: contact.role,
+  })), (chunk) => tx.insert(contacts).values(chunk));
+  await insertInChunks(writes.sites.map((site) => ({
+    id: site.id,
+    organizationId,
+    companyId: site.companyId,
+    name: site.name,
+    city: site.city,
+    province: site.province,
+    addressLine: site.addressLine,
+    postalCode: site.postalCode,
+  })), (chunk) => tx.insert(sites).values(chunk));
+  await insertInChunks(writes.users.map((user) => ({
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    passwordHash: user.passwordHash,
+    active: false,
+    createdBy: actor,
+  })), (chunk) => tx.insert(users).values(chunk));
+  await insertInChunks(writes.memberships.map((membership) => ({
+    id: membership.id,
+    organizationId,
+    userId: membership.userId,
+    role: membership.role,
+    active: false,
+  })), (chunk) => tx.insert(memberships).values(chunk));
+  await insertInChunks(writes.priceItems.map((item) => ({
+    id: item.id,
+    organizationId,
+    trade: item.trade,
+    name: item.name,
+    unit: item.unit,
+    unitPriceCents: item.unitPriceCents,
+    itemCode: item.itemCode,
+    itemKind: item.itemKind,
+    supplier: item.supplier,
+    unitCostCents: item.unitCostCents,
+    active: true,
+    createdBy: actor,
+  })), (chunk) => tx.insert(priceBookItems).values(chunk));
+  await insertInChunks(writes.priceVersions.map((version) => ({
+    id: version.id,
+    organizationId,
+    itemId: version.itemId,
+    versionNumber: version.versionNumber,
+    trade: version.trade,
+    description: version.description,
+    unit: version.unit,
+    unitPriceCents: version.unitPriceCents,
+    unitCostCents: version.unitCostCents,
+    status: "draft" as const,
+    createdBy: actor,
+    contentHash: version.contentHash,
+  })), (chunk) => tx.insert(priceBookItemVersions).values(chunk));
+  await insertInChunks(writes.opportunities.map((opportunity) => ({
+    id: opportunity.id,
+    organizationId,
+    name: opportunity.name,
+    companyId: opportunity.companyId,
+    contactId: opportunity.contactId,
+    siteId: opportunity.siteId,
+    stage: opportunity.stage,
+    services: opportunity.services,
+  })), (chunk) => tx.insert(opportunities).values(chunk));
+  await insertInChunks(writes.projects.map((project) => ({
+    id: project.id,
+    organizationId,
+    name: project.name,
+    companyId: project.companyId,
+    siteId: project.siteId,
+    opportunityId: project.opportunityId,
+    status: project.status,
+  })), (chunk) => tx.insert(projects).values(chunk));
+  await insertInChunks(writes.jobs.map((job) => ({
+    id: job.id,
+    organizationId,
+    name: job.name,
+    projectId: job.projectId,
+    companyId: job.companyId,
+    siteId: job.siteId,
+    opportunityId: job.opportunityId,
+    status: job.status,
+    scope: null,
+    services: job.services,
+  })), (chunk) => tx.insert(jobs).values(chunk));
+  await insertInChunks(writes.assignments.map((assignment) => ({
+    id: assignment.id,
+    jobId: assignment.jobId,
+    userId: assignment.userId,
+    role: assignment.role,
+    createdBy: actor,
+  })), (chunk) => tx.insert(jobAssignments).values(chunk));
+  await insertInChunks(writes.workAreas.map((area) => ({
+    id: area.id,
+    jobId: area.jobId,
+    name: area.name,
+  })), (chunk) => tx.insert(workAreas).values(chunk));
+  await insertInChunks(writes.tasks.map((task) => ({
+    id: task.id,
+    jobId: task.jobId,
+    workAreaId: task.workAreaId,
+    title: task.title,
+    createdBy: actor,
+  })), (chunk) => tx.insert(jobTasks).values(chunk));
+  await insertInChunks(writes.crosswalk.map((key) => ({
+    organizationId,
+    sourceSystem: "spreadsheet",
+    entityType: key.entityType as ImportEntityType,
+    sourceKey: key.sourceKey,
+    targetId: key.targetId,
+  })), (chunk) => tx.insert(externalRecordKeys).values(chunk));
 }

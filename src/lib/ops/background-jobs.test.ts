@@ -140,6 +140,21 @@ describe("worker process", () => {
     expect(registered).toContain("worker-heartbeat");
     expect(registered).toContain("work:worker-heartbeat");
   });
+
+  it("schedules daily import retention after the queue exists", async () => {
+    const scheduled: string[] = [];
+    const worker = await startWorker({
+      start: async () => undefined,
+      stop: async () => undefined,
+      createQueue: async () => undefined,
+      work: async () => "worker",
+      schedule: async (name, cron) => {
+        scheduled.push(`${name} ${cron}`);
+      },
+    });
+    await worker.stop();
+    expect(scheduled).toEqual(["data-import.retain 15 9 * * *"]);
+  });
 });
 
 describe("transactional outbox", () => {

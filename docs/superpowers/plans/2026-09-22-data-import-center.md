@@ -1269,7 +1269,7 @@ Assert the full workbook has the 11 canonical sheet names, required headers,
 example rows, enum guidance, and no formulas. Assert each CSV template is
 UTF-8 and quotes commas safely.
 
-- [ ] **Step 2: Write report tests**
+- [x] **Step 2: Write report tests**
 
 Assert CSV columns:
 
@@ -1316,7 +1316,7 @@ Commit message: `Add import templates and reconciliation reports.`
 - Modify: `src/lib/ops/audit.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write retention tests**
+- [x] **Step 1: Write retention tests**
 
 Assert:
 
@@ -1328,7 +1328,7 @@ Assert:
 - Each deletion is checkpointed and writes a retention event.
 - Retry after object deletion does not fail.
 
-- [ ] **Step 2: Write Home exception tests**
+- [x] **Step 2: Write Home exception tests**
 
 Home shows:
 
@@ -1345,13 +1345,13 @@ Each row links to `/app/imports/[batchId]`.
 npx vitest run src/worker/handlers/retain-import.test.ts src/lib/ops/home.test.ts
 ```
 
-- [ ] **Step 4: Register retention and audit redaction**
+- [x] **Step 4: Register retention and audit redaction**
 
 Register `data-import.retain`. Extend audit redaction so raw row values,
 workbook bytes, passwords, tokens, secret keys, and storage signed URLs never
 enter audit payloads.
 
-- [ ] **Step 5: Document operations**
+- [x] **Step 5: Document operations**
 
 README runbook includes:
 
@@ -1363,7 +1363,7 @@ README runbook includes:
 - Retention policy.
 - Backup and staging rehearsal.
 
-- [ ] **Step 6: Run checks and commit**
+- [x] **Step 6: Run checks and commit**
 
 ```bash
 npx vitest run src/worker/handlers/retain-import.test.ts src/lib/ops/home.test.ts src/lib/ops/audit.test.ts
@@ -1386,7 +1386,7 @@ Commit message: `Operate import retention and exception review.`
 - Modify: `package.json`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write environment-verifier tests**
+- [x] **Step 1: Write environment-verifier tests**
 
 Inject adapters and assert the verifier fails when:
 
@@ -1399,7 +1399,7 @@ Inject adapters and assert the verifier fails when:
 - pg-boss cannot create/claim a test job.
 - Backup/PITR status is not confirmed in production checklist input.
 
-- [ ] **Step 2: Implement the verifier**
+- [x] **Step 2: Implement the verifier**
 
 The script reports pass/fail metadata without printing connection strings,
 keys, tokens, signed URLs, or row content.
@@ -1467,7 +1467,7 @@ Verify:
 - No estimate, approval, proposal, acceptance, conversion, or notification was
   created by import.
 
-- [ ] **Step 7: Write the cutover runbook**
+- [x] **Step 7: Write the cutover runbook**
 
 The runbook requires:
 

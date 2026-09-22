@@ -1,7 +1,7 @@
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { parseCsvGrid, parseImportWorkbook } from "@/lib/ops/import-workbook";
-import { stageImportFile } from "@/lib/ops/import-validation";
+import { previewHash, stageImportFile } from "@/lib/ops/import-validation";
 
 describe("import workbook", () => {
   it("reads a UTF-8 CSV without evaluating a formula", () => {
@@ -58,6 +58,84 @@ describe("import workbook", () => {
       rows: `<row><c r="A1" t="inlineStr"><is><t>name</t></is></c></row>`,
     }), "companies.xlsx");
     expect(parsed.ok).toBe(false);
+  });
+});
+
+describe("import staging", () => {
+  it("hashes the same preview when value keys are reordered", () => {
+    const base = {
+      sheetName: "Companies",
+      rowNumber: 2,
+      entityType: "company" as const,
+      sourceKey: "CUST-1",
+      status: "warning" as const,
+      messages: ["No source key was provided, so repeat imports match the exact protected value."],
+      values: { name: "Harbour", email: "a@b.test", source_key: "name:harbour" },
+    };
+    const reordered = {
+      ...base,
+      values: { source_key: "name:harbour", email: "a@b.test", name: "Harbour" },
+    };
+    expect(JSON.stringify(base.values)).not.toBe(JSON.stringify(reordered.values));
+    expect(previewHash([reordered])).toBe(previewHash([base]));
+  });
+
+  it("recognizes a company export whose file name only starts with companies", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("Company,Email,City,Province\nHarbour Header Co,office@harbour-header.example,Winnipeg,MB\n"),
+      filename: "companies-header.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.sheets[0]?.entityType).toBe("company");
+    expect(staged.value.rows[0]?.values.name).toBe("Harbour Header Co");
+    expect(staged.value.status).not.toBe("needs_mapping");
+  });
+
+  it("maps a Company column to the company name", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("Company,Email,City,Province\nHarbour Import Co,office@harbour.test,Winnipeg,MB\n"),
+      filename: "companies.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.rows[0]?.values.name).toBe("Harbour Import Co");
+    expect(staged.value.rows[0]?.status).not.toBe("error");
+    expect(staged.value.rows[0]?.messages.join(" ")).not.toMatch(/Company name is required/);
+  });
+
+  it("maps a workforce Name column to the display name", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("Name,Email\nPat Example,pat@strongfoam.demo\n"),
+      filename: "employees.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.rows[0]?.values.display_name).toBe("Pat Example");
+    expect(staged.value.rows[0]?.messages.join(" ")).not.toMatch(/Name is required/);
+  });
+
+  it("maps a task Name column to the title before requiring it", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("Name,Job\nSpray bay,Harbour Job\n"),
+      filename: "tasks.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.rows[0]?.values.title).toBe("Spray bay");
+    expect(staged.value.rows[0]?.values.job_name).toBe("Harbour Job");
+    expect(staged.value.rows[0]?.messages.join(" ")).not.toMatch(/Task title is required/);
+  });
+
+  it("recognizes a price-book sheet that is not named Price Book", () => {
+    const staged = stageImportFile({
+      bytes: Buffer.from("name,trade,unit,unit_price\nOpen cell,spray foam,sq ft,12.50\n"),
+      filename: "Sheet1.csv",
+    });
+    expect(staged.ok).toBe(true);
+    if (!staged.ok) return;
+    expect(staged.value.sheets[0]?.entityType).toBe("price_book_item");
+    expect(staged.value.status).toBe("ready");
   });
 });
 
