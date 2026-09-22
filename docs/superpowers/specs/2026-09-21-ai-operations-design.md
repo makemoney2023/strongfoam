@@ -20,11 +20,12 @@ plan marks, and job events that already exist:
 3. **AI-013** lists missing daily logs, failed transcriptions, blocked jobs,
    overdue tasks, and unextracted voice notes on Home.
 
-AI-010, AI-011, AI-012, AI-014, AI-015, and AI-020 stay in Release A and wait
-until those three are citing and confirming correctly. Release B waits on
-estimate, price-book, and change-order records. Release C waits on the Render
-worker, crew capacity, an evaluation set, a portal or inbox, or an accounting
-system.
+AI-010, AI-011, AI-012, AI-014, AI-015, and AI-020 are also shipped in
+Release A. Release B waits on durable bid documents, extraction, approved
+price revisions, immutable estimate versions, approvals, proposals, accepted
+conversion, and change-order records. Release C waits on the Render worker
+capabilities not already required by Release B, crew capacity, an evaluation
+set, a portal or inbox, or an accounting system.
 
 ## Goals
 
@@ -203,11 +204,18 @@ Start a commercial AI requirement only after its predecessor record ships.
 
 | ID | Predecessor | Agent output | Person decides |
 |---|---|---|---|
-| AI-016 | Price book | Scope outline on the request | Estimator accepts it onto the opportunity |
+| AI-016 | Durable bid documents, extraction, approved price revisions, and manual estimate versions | Cited scope, estimate, and job-package proposal | Estimator selects suggestions and creates a version |
 | AI-017 | Estimate versions | Plain-language revision diff and threshold | Approver |
-| AI-018 | Price book and assembly fields | Draft lines for location, R-value, area, depth, product, bags | Item and price |
+| AI-018 | BID-001 through BID-011 and assembly fields | Cited bid-package or walkthrough lines for location, R-value, area, depth, product, bags | Price revision and confirmed quantity |
 | AI-019 | Change order | Location, quantity, schedule impact, customer wording | Price and approval |
 | AI-021 | Assembly fields | Closeout and rebate narrative | Whether it is published |
+
+AI-016 and AI-018 may repeat an unambiguous quantity explicitly written in an
+authorized source. They do not scale, trace, or measure plan geometry. Missing
+or conflicting quantity is `Takeoff required`. The complete commercial design
+and implementation order live in
+`docs/superpowers/specs/2026-09-22-ai-bid-package-estimating-design.md` and
+`docs/superpowers/plans/2026-09-22-ai-bid-package-estimating.md`.
 
 Public lead qualification stays deterministic.
 
