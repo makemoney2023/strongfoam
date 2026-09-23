@@ -1,3 +1,4 @@
+import { demoEquipmentSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import type { EquipmentAssignment } from "@/lib/ops/equipment";
 
 type EquipmentMemory = {
@@ -8,7 +9,9 @@ export function equipmentMemory(): EquipmentMemory {
   const globalForEquipment = globalThis as typeof globalThis & {
     __strongfoamEquipment?: EquipmentMemory;
   };
-  globalForEquipment.__strongfoamEquipment ??= { assignments: [] };
+  globalForEquipment.__strongfoamEquipment ??= {
+    assignments: seedWhenDemo(() => demoEquipmentSeed(), []),
+  };
   return globalForEquipment.__strongfoamEquipment;
 }
 

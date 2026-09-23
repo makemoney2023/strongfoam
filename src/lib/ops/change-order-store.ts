@@ -6,6 +6,7 @@ import {
   changeOrders,
 } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
+import { demoChangeOrderSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { saveDemoApprovalRule } from "@/lib/ops/demo-store";
 import type { CommercialApprovalRule } from "@/lib/ops/estimate-approvals";
@@ -46,7 +47,10 @@ function memory(): MemoryState {
   const globalForOrders = globalThis as typeof globalThis & {
     __strongfoamChangeOrders?: MemoryState;
   };
-  globalForOrders.__strongfoamChangeOrders ??= { orders: [], approvals: [], effects: [] };
+  globalForOrders.__strongfoamChangeOrders ??= seedWhenDemo(
+    () => demoChangeOrderSeed(),
+    { orders: [], approvals: [], effects: [] },
+  );
   return globalForOrders.__strongfoamChangeOrders;
 }
 

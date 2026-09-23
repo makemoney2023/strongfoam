@@ -2,6 +2,7 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { laborEntries } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
+import { demoLaborSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { dispatchableJobStatus, parseWorkDate } from "@/lib/ops/dispatch";
 import { isFieldMembershipRole } from "@/lib/ops/identity";
@@ -31,7 +32,9 @@ function memory(): LaborMemory {
   const globalForLabor = globalThis as typeof globalThis & {
     __strongfoamLabor?: LaborMemory;
   };
-  globalForLabor.__strongfoamLabor ??= { rows: [] };
+  globalForLabor.__strongfoamLabor ??= {
+    rows: seedWhenDemo(() => demoLaborSeed(), []),
+  };
   return globalForLabor.__strongfoamLabor;
 }
 

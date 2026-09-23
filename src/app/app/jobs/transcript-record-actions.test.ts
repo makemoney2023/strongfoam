@@ -177,7 +177,7 @@ describe("transcript record actions", () => {
           (row) => row.kind === "material_request" && row.body === material.selectedText,
         ),
       ).toBe(true);
-      expect(notes.some((row) => row.kind === "blocker")).toBe(false);
+      expect(notes.some((row) => row.kind === "blocker" && row.body.includes("Hold the south wall"))).toBe(false);
       expect(getDemoJob(DEMO_JOB_ID)?.status).not.toBe("blocked");
     } finally {
       note.transcript = original;

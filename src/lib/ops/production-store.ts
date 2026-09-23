@@ -7,6 +7,7 @@ import {
   productionTargets,
 } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
+import { demoProductionSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { dispatchableJobStatus, parseWorkDate } from "@/lib/ops/dispatch";
 import { listDispatches } from "@/lib/ops/dispatch-store";
@@ -54,12 +55,10 @@ function memory(): ProductionMemory {
   const globalForProduction = globalThis as typeof globalThis & {
     __strongfoamProduction?: ProductionMemory;
   };
-  globalForProduction.__strongfoamProduction ??= {
-    entries: [],
-    participants: [],
-    allocations: [],
-    targets: [],
-  };
+  globalForProduction.__strongfoamProduction ??= seedWhenDemo(
+    () => demoProductionSeed(),
+    { entries: [], participants: [], allocations: [], targets: [] },
+  );
   return globalForProduction.__strongfoamProduction;
 }
 

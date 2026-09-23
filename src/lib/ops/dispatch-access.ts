@@ -1,3 +1,4 @@
+import { demoDispatchSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import type { Dispatch } from "@/lib/ops/dispatch";
 
@@ -9,7 +10,9 @@ export function dispatchMemory(): DispatchMemory {
   const globalForDispatch = globalThis as typeof globalThis & {
     __strongfoamDispatches?: DispatchMemory;
   };
-  globalForDispatch.__strongfoamDispatches ??= { rows: [] };
+  globalForDispatch.__strongfoamDispatches ??= {
+    rows: seedWhenDemo(() => demoDispatchSeed(), []),
+  };
   return globalForDispatch.__strongfoamDispatches;
 }
 

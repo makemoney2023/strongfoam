@@ -129,9 +129,12 @@ const demoPasswordHash =
 const DEMO_SECOND_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
 const DEMO_EMPTY_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3";
 const DEMO_CLOSED_PROJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4";
-const DEMO_SECOND_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
-const DEMO_BLOCKED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3";
-const DEMO_CLOSED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4";
+export const DEMO_SECOND_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+export const DEMO_BLOCKED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3";
+export const DEMO_CLOSED_JOB_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4";
+export const DEMO_MATERIAL_REQUEST_OPEN_ID = "ffffffff-ffff-4fff-8fff-ffffffffff11";
+export const DEMO_MATERIAL_REQUEST_DRAFT_ID = "ffffffff-ffff-4fff-8fff-ffffffffff12";
+export const DEMO_MATERIAL_REQUEST_ORDERED_ID = "ffffffff-ffff-4fff-8fff-ffffffffff13";
 const DEMO_DEFAULT_CALENDAR_ID = "00000000-0000-4000-8000-000000000001";
 const DEMO_FIRST_CALENDAR_ID = "ca000001-0000-4000-8000-000000000001";
 const DEMO_SECOND_CALENDAR_ID = "ca000002-0000-4000-8000-000000000002";
@@ -1023,6 +1026,110 @@ export function demoJobFieldNotes(): JobFieldNoteRow[] {
       body: "Closed-cell installed on the podium deck.",
       quantity: 48,
       unit: "bags",
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: DEMO_MATERIAL_REQUEST_OPEN_ID,
+      createdAt: demoDate(-1),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: null,
+      annotationId: null,
+      kind: "material_request",
+      body: "Closed-cell foam for the podium deck.",
+      quantity: 80,
+      unit: "bags",
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: DEMO_MATERIAL_REQUEST_DRAFT_ID,
+      createdAt: demoDate(-1),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: null,
+      annotationId: null,
+      kind: "material_request",
+      body: "AVB membrane for the north elevation.",
+      quantity: 400,
+      unit: "linear_ft",
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: DEMO_MATERIAL_REQUEST_ORDERED_ID,
+      createdAt: demoDate(-2),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      taskId: null,
+      annotationId: null,
+      kind: "material_request",
+      body: "Fireproofing cement for the mechanical room.",
+      quantity: 24,
+      unit: "bags",
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff21",
+      createdAt: demoDate(0),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: DEMO_JOB_TASK_ID,
+      annotationId: null,
+      kind: "daily_report",
+      body: "Crew staged at the north gate, held the morning safety talk, and started closed-cell on the podium deck.",
+      quantity: null,
+      unit: null,
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff22",
+      createdAt: demoDate(0),
+      jobId: DEMO_SECOND_JOB_ID,
+      workAreaId: null,
+      taskId: null,
+      annotationId: null,
+      kind: "daily_report",
+      body: "Mechanical room layout is marked. Fireproofing starts after the cement arrives.",
+      quantity: null,
+      unit: null,
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff23",
+      createdAt: demoDate(0),
+      jobId: DEMO_BLOCKED_JOB_ID,
+      workAreaId: null,
+      taskId: null,
+      annotationId: null,
+      kind: "daily_report",
+      body: "Loading dock remains held. Concrete repairs are still curing.",
+      quantity: null,
+      unit: null,
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff24",
+      createdAt: demoDate(-1),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: null,
+      annotationId: null,
+      kind: "blocker",
+      body: "Lift inspection is still open, so the north elevation start is waiting on the rental company.",
+      quantity: null,
+      unit: null,
+      createdBy: DEMO_FIELD_EMAIL,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffff25",
+      createdAt: demoDate(-1),
+      jobId: DEMO_JOB_ID,
+      workAreaId: DEMO_WORK_AREA_ID,
+      taskId: null,
+      annotationId: null,
+      kind: "deficiency",
+      body: "Closed-cell is thin along the podium column line and needs a second pass.",
+      quantity: null,
+      unit: null,
       createdBy: DEMO_FIELD_EMAIL,
     },
   ];

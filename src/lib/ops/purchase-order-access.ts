@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { purchaseOrderLines } from "@/db/schema";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
+import { demoPurchaseSeed, seedWhenDemo } from "@/lib/ops/demo-operations";
 import type { PurchaseOrder, PurchaseOrderLine } from "@/lib/ops/purchase-order";
 
 type PurchaseMemory = {
@@ -13,7 +14,10 @@ export function purchaseOrderMemory(): PurchaseMemory {
   const globalForPurchase = globalThis as typeof globalThis & {
     __strongfoamPurchaseOrders?: PurchaseMemory;
   };
-  globalForPurchase.__strongfoamPurchaseOrders ??= { orders: [], lines: [] };
+  globalForPurchase.__strongfoamPurchaseOrders ??= seedWhenDemo(
+    () => demoPurchaseSeed(),
+    { orders: [], lines: [] },
+  );
   return globalForPurchase.__strongfoamPurchaseOrders;
 }
 
