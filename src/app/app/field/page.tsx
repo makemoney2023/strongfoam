@@ -203,7 +203,7 @@ export default async function FieldLandingPage({
         )}
       </section>
 
-      {performance ? (
+      {performanceEnabled ? (
         <section aria-labelledby="my-performance-heading" className="space-y-3">
           <div>
             <h2 id="my-performance-heading" className="text-lg font-semibold">My performance</h2>
@@ -211,26 +211,37 @@ export default async function FieldLandingPage({
               Your verified production only. Quality is not available yet, and no one else&apos;s ranking is shown.
             </p>
           </div>
-          <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10 text-sm">
-            <li className="px-4 py-3">{performance.nextAction}</li>
-            <li className="px-4 py-3">
-              Today: {performance.today.segments.map((segment) => formatProductionQuantity(segment.quantity, segment.unit)).join(", ") || "No verified production"}
-              {performance.today.efficiency == null ? "" : ` · ${formatEfficiency(performance.today.efficiency)}`}
-            </li>
-            <li className="px-4 py-3">
-              7 days: {performance.sevenDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.sevenDay.efficiency)} · {formatLaborHours(Math.round(performance.sevenDay.actualHours * 60)) || "0 hours"}
-            </li>
-            <li className="px-4 py-3">
-              28 days: {performance.twentyEightDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.twentyEightDay.efficiency)} · {performance.twentyEightDay.shifts} {performance.twentyEightDay.shifts === 1 ? "shift" : "shifts"}
-            </li>
-            <li className="px-4 py-3">
-              {performance.personalBests.length === 0
-                ? "No personal best yet."
-                : performance.personalBests
-                    .map((best) => `Best ${best.label}: ${formatEfficiency(best.efficiency)}`)
-                    .join(" · ")}
-            </li>
-          </ul>
+          {performance ? (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10 text-sm">
+              <li className="px-4 py-3">{performance.nextAction}</li>
+              <li className="px-4 py-3">
+                Today: {performance.today.segments.map((segment) => formatProductionQuantity(segment.quantity, segment.unit)).join(", ") || "No verified production"}
+                {performance.today.efficiency == null ? "" : ` · ${formatEfficiency(performance.today.efficiency)}`}
+                {" · "}
+                {formatLaborHours(Math.round(performance.today.actualHours * 60)) || "0 hours"}
+              </li>
+              {performance.twentyEightDay.excluded.length > 0 ? (
+                <li className="px-4 py-3 text-muted-foreground">
+                  {[...new Set(performance.twentyEightDay.excluded.map((row) => row.reason))].join(" · ")}
+                </li>
+              ) : null}
+              <li className="px-4 py-3">
+                7 days: {performance.sevenDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.sevenDay.efficiency)} · {formatLaborHours(Math.round(performance.sevenDay.actualHours * 60)) || "0 hours"}
+              </li>
+              <li className="px-4 py-3">
+                28 days: {performance.twentyEightDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.twentyEightDay.efficiency)} · {performance.twentyEightDay.shifts} {performance.twentyEightDay.shifts === 1 ? "shift" : "shifts"}
+              </li>
+              <li className="px-4 py-3">
+                {performance.personalBests.length === 0
+                  ? "No personal best yet."
+                  : performance.personalBests
+                      .map((best) => `Best ${best.label}: ${formatEfficiency(best.efficiency)}`)
+                      .join(" · ")}
+              </li>
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Record installed quantity to start your pace.</p>
+          )}
           {laborJobs.length > 0 ? (
             <Card>
               <CardHeader>

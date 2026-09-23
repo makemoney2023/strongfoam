@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   productionAllocations,
@@ -92,6 +92,19 @@ async function audit(
     correlationId: crypto.randomUUID(),
     payload,
   });
+}
+
+class ProductionRuleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProductionRuleError";
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; cause?: { code?: string } };
+  return candidate.code === "23505" || candidate.cause?.code === "23505";
 }
 
 function asStatus(value: string): ProductionStatus {
@@ -288,6 +301,12 @@ export async function recordProduction(input: {
       return { ok: false, error: "You can record only your own production." };
     }
   }
+  if (mode.value === "individual" && participantUserIds.length !== 1) {
+    return {
+      ok: false,
+      error: "Individual production is for one person. Choose crew when several people share the quantity.",
+    };
+  }
   const job = await getJob(input.jobId);
   if (!job || job.organizationId !== access.organizationId) {
     return { ok: false, error: "That job was not found." };
@@ -391,14 +410,14 @@ export async function verifyProduction(input: {
   const now = new Date();
   if (isDemoOpsStore()) {
     const row = memory().entries.find((entry) => entry.id === current.id);
-    if (!row) return { ok: false, error: "That production entry was not found." };
+    if (!row || row.status !== "draft") return { ok: false, error: "That production entry was not found." };
     row.status = "verified";
     row.verifiedBy = input.actor.email;
     row.verifiedAt = now;
     row.updatedAt = now;
     row.version += 1;
   } else {
-    await getDb()
+    const updated = await getDb()
       .update(productionEntries)
       .set({
         status: "verified",
@@ -407,7 +426,9 @@ export async function verifyProduction(input: {
         updatedAt: now,
         version: current.version + 1,
       })
-      .where(and(eq(productionEntries.id, current.id), eq(productionEntries.status, "draft")));
+      .where(and(eq(productionEntries.id, current.id), eq(productionEntries.status, "draft")))
+      .returning({ id: productionEntries.id });
+    if (!updated[0]) return { ok: false, error: "That production entry was not found." };
   }
   await audit(input.actor, access.organizationId, "production.verify", current.id, {
     jobId: current.jobId,
@@ -428,21 +449,30 @@ export async function voidProduction(input: {
   if (!current || current.status === "void") {
     return { ok: false, error: "That production entry was not found." };
   }
+  const participants = await participantsFor(current.id);
+  if (includesActor(input.actor, participants)) {
+    return { ok: false, error: "You cannot void production that includes you." };
+  }
   const now = new Date();
   if (isDemoOpsStore()) {
     const row = memory().entries.find((entry) => entry.id === current.id);
-    if (!row) return { ok: false, error: "That production entry was not found." };
+    if (!row || row.status === "void") return { ok: false, error: "That production entry was not found." };
     row.status = "void";
     row.updatedAt = now;
     row.version += 1;
   } else {
-    await getDb()
+    const updated = await getDb()
       .update(productionEntries)
       .set({ status: "void", updatedAt: now, version: current.version + 1 })
-      .where(eq(productionEntries.id, current.id));
+      .where(and(eq(productionEntries.id, current.id), ne(productionEntries.status, "void")))
+      .returning({ id: productionEntries.id });
+    if (!updated[0]) return { ok: false, error: "That production entry was not found." };
   }
   await audit(input.actor, access.organizationId, "production.void", current.id, {
     jobId: current.jobId,
+    status: current.status,
+    quantity: current.quantity,
+    unit: current.unit,
   });
   return { ok: true };
 }
@@ -501,22 +531,35 @@ export async function setProductionAllocation(input: {
     else state.allocations.push(allocation);
   } else {
     const db = getDb();
-    const updated = await db
-      .update(productionAllocations)
-      .set({ quantity: measure.quantity })
-      .where(
-        and(
-          eq(productionAllocations.productionEntryId, current.id),
-          eq(productionAllocations.userId, input.userId),
-        ),
-      )
-      .returning({ id: productionAllocations.id });
-    if (!updated[0]) {
-      await db.insert(productionAllocations).values({
-        productionEntryId: current.id,
-        userId: input.userId,
-        quantity: measure.quantity,
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`select id from production_entries where id = ${current.id} for update`);
+        const existing = await tx
+          .select({ userId: productionAllocations.userId, quantity: productionAllocations.quantity })
+          .from(productionAllocations)
+          .where(eq(productionAllocations.productionEntryId, current.id));
+        const nextTotal =
+          existing
+            .filter((row) => row.userId !== input.userId)
+            .reduce((sum, row) => sum + row.quantity, 0) + measure.quantity;
+        if (nextTotal > current.quantity) {
+          throw new ProductionRuleError("Allocations cannot exceed the installed quantity.");
+        }
+        await tx
+          .insert(productionAllocations)
+          .values({
+            productionEntryId: current.id,
+            userId: input.userId,
+            quantity: measure.quantity,
+          })
+          .onConflictDoUpdate({
+            target: [productionAllocations.productionEntryId, productionAllocations.userId],
+            set: { quantity: measure.quantity },
+          });
       });
+    } catch (error) {
+      if (error instanceof ProductionRuleError) return { ok: false, error: error.message };
+      throw error;
     }
   }
   await audit(input.actor, access.organizationId, "production.allocate", current.id, {
@@ -580,31 +623,49 @@ export async function approveProductionTarget(input: {
     memory().targets.push(target);
   } else {
     const db = getDb();
-    const currentRows = await db
-      .select()
-      .from(productionTargets)
-      .where(
-        and(
-          eq(productionTargets.organizationId, target.organizationId),
-          eq(productionTargets.trade, target.trade),
-          eq(productionTargets.workType, target.workType),
-          eq(productionTargets.unit, target.unit),
-          eq(productionTargets.basis, target.basis),
-        ),
-      );
-    const current = currentRows.find((row) => row.effectiveTo == null);
-    if (current && current.effectiveFrom >= target.effectiveFrom) {
-      return { ok: false, error: "Choose an effective date after the current target." };
-    }
-    await db.transaction(async (tx) => {
-      if (current) {
-        await tx
-          .update(productionTargets)
-          .set({ effectiveTo: target.effectiveFrom })
-          .where(eq(productionTargets.id, current.id));
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`
+          select id from production_targets
+          where organization_id = ${target.organizationId}
+            and trade = ${target.trade}
+            and work_type = ${target.workType}
+            and unit = ${target.unit}
+            and basis = ${target.basis}
+            and effective_to is null
+          for update
+        `);
+        const currentRows = await tx
+          .select()
+          .from(productionTargets)
+          .where(
+            and(
+              eq(productionTargets.organizationId, target.organizationId),
+              eq(productionTargets.trade, target.trade),
+              eq(productionTargets.workType, target.workType),
+              eq(productionTargets.unit, target.unit),
+              eq(productionTargets.basis, target.basis),
+            ),
+          );
+        const current = currentRows.find((row) => row.effectiveTo == null);
+        if (current && current.effectiveFrom >= target.effectiveFrom) {
+          throw new ProductionRuleError("Choose an effective date after the current target.");
+        }
+        if (current) {
+          await tx
+            .update(productionTargets)
+            .set({ effectiveTo: target.effectiveFrom })
+            .where(eq(productionTargets.id, current.id));
+        }
+        await tx.insert(productionTargets).values(target);
+      });
+    } catch (error) {
+      if (error instanceof ProductionRuleError) return { ok: false, error: error.message };
+      if (isUniqueViolation(error)) {
+        return { ok: false, error: "Choose an effective date after the current target." };
       }
-      await tx.insert(productionTargets).values(target);
-    });
+      throw error;
+    }
   }
   await audit(input.actor, access.organizationId, "production.target", target.id, {
     trade: target.trade,

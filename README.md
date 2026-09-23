@@ -181,7 +181,7 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0032_production.sql` before using workforce
+Apply migrations through `0033_production_target_open.sql` before using workforce
 performance, through `0031_labor_entries.sql` before using labor, through
 `0030_dispatches.sql` before using day dispatch, and
 through `0029_change_orders.sql` before using change orders,
@@ -219,9 +219,11 @@ inspections, and closeout are unchanged.
 Workforce performance is separate from pay. `OPS_WORKFORCE_PERFORMANCE=1`
 enables it, and `0` keeps it off. Demo mode enables it when the variable is
 unset. Office staff approve a production target, record installed bags or
-square feet, and verify a field member's draft. The field landing shows that
-person's own pace. The office list does not assign a rank, and no wage is
-stored. Apply `0032_production.sql` before using it against Postgres.
+square feet, and verify a field member's draft. Individual production is one
+person; crew production is the shared quantity. The field landing shows that
+person's own pace and explains a missing score. The office list does not assign
+a rank, and no wage is stored. Apply `0032_production.sql` and
+`0033_production_target_open.sql` before using it against Postgres.
 
 To roll a capability back, set its flag to `0` and redeploy the web service.
 In-flight worker jobs can finish, and they cannot start a new AI draft, proposal

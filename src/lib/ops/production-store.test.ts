@@ -13,6 +13,7 @@ import {
   resetProductionForTests,
   setProductionAllocation,
   verifyProduction,
+  voidProduction,
 } from "@/lib/ops/production-store";
 
 const office = {
@@ -118,5 +119,28 @@ describe("production store", () => {
     expect(worker?.ranked).toBe(false);
     expect(board.ranked).toBe(false);
     expect(worker?.nextAction).toBe("Today's verified production is on the target.");
+    expect(
+      await recordProduction({
+        actor: office,
+        jobId: DEMO_JOB_ID,
+        workDate: today,
+        trade: "spray foam",
+        workType: "wall",
+        unit: "bags",
+        quantity: "10",
+        attributionMode: "individual",
+        participantUserIds: [DEMO_FIELD_USER_ID, "23232323-2323-4232-8232-232323232323"],
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: "Individual production is for one person. Choose crew when several people share the quantity.",
+    });
+    expect(
+      await voidProduction({
+        actor: { ...field, role: "office" },
+        productionId: recorded.entry.id,
+      }),
+    ).toMatchObject({ ok: false, error: "You cannot void production that includes you." });
+    expect(await voidProduction({ actor: office, productionId: recorded.entry.id })).toEqual({ ok: true });
   });
 });

@@ -627,6 +627,9 @@ export const productionTargets = pgTable(
       table.unit,
       table.basis,
     ),
+    uniqueIndex("production_targets_one_open")
+      .on(table.organizationId, table.trade, table.workType, table.unit, table.basis)
+      .where(sql`${table.effectiveTo} IS NULL`),
   ],
 );
 

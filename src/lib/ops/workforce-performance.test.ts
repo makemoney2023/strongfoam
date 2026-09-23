@@ -166,6 +166,27 @@ describe("workforce performance", () => {
     expect(board.exceptions.some((row) => row.kind === "missing_labor" && row.label.includes("Mechanical room"))).toBe(true);
   });
 
+  it("excludes individual production that has no allocation", () => {
+    const shared = entry({ id: "shared", workDate: asOf, quantity: 40, attributionMode: "individual" });
+    const board = buildWorkforcePerformance({
+      asOf,
+      entries: [shared],
+      participants: [participant("shared", jordan), participant("shared", alex)],
+      allocations: [],
+      targets: [target("person_hour")],
+      labor: [labor("jordan-hours", jordan, asOf, 480), labor("alex-hours", alex, asOf, 480)],
+      people,
+      jobs: [{ id: jobId, name: "North elevation spray foam" }],
+      dispatches: [],
+    });
+    expect(board.workers.map((worker) => worker.today.segments)).toEqual([[], []]);
+    expect(board.workers.map((worker) => worker.today.excluded.map((row) => row.reason))).toEqual([
+      ["Allocations are missing."],
+      ["Allocations are missing."],
+    ]);
+    expect(board.exceptions.map((row) => row.kind)).toContain("incomplete_attribution");
+  });
+
   it("does not rank a worker until the sample is large enough", () => {
     const shifts = ["2026-09-17", "2026-09-18", "2026-09-19"].map((workDate, index) =>
       entry({ id: `shift-${index}`, workDate, quantity: 40, attributionMode: "individual" }),

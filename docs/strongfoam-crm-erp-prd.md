@@ -2542,6 +2542,7 @@ These decisions are required before their respective implementation stage:
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.33 | 2026-09-23 | Corrected the first workforce slice: individual production is one person until an allocation exists, exclusion reasons are visible, a participant cannot void their own score, and only one target stays open for a work class |
 | 1.32 | 2026-09-23 | Implemented the first workforce-performance slice behind `OPS_WORKFORCE_PERFORMANCE`: verified production, targets, normalized efficiency, private My Performance, an unranked office review, and Home exceptions. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.31 | 2026-09-23 | Specified WFP-001 through WFP-018 and the implementation plan for verified production attribution, private field-worker trends, office workforce performance, actionable exceptions, sample and quality safeguards, controlled rollout, and a later restricted financial bridge. The feature is not built |
 | 1.30 | 2026-09-23 | Shipped LAB-001 through LAB-007. Field labor is piece work in bags or square feet, or hours up to 24. The same person can have both on one job and day. No wage is stored. Purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |

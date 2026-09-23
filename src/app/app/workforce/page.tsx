@@ -96,6 +96,11 @@ export default async function WorkforcePage({
                 {efficiencyLabel(worker.twentyEightDay)} · {hoursLabel(worker.twentyEightDay.actualHours)} · {worker.twentyEightDay.shifts} {worker.twentyEightDay.shifts === 1 ? "shift" : "shifts"}
               </p>
               <p className="text-muted-foreground">Quality: not available · {worker.nextAction}</p>
+              {worker.twentyEightDay.excluded.length > 0 ? (
+                <p className="text-muted-foreground">
+                  {[...new Set(worker.twentyEightDay.excluded.map((row) => row.reason))].join(" · ")}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -152,7 +157,9 @@ export default async function WorkforcePage({
           <Card>
             <CardHeader>
               <CardTitle>Record production</CardTitle>
-              <CardDescription>Installed quantity is counted once. A wage is not stored.</CardDescription>
+              <CardDescription>
+                Installed quantity is counted once. Individual production is one person; choose crew when several people share it. A wage is not stored.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ActionForm action={recordWorkforceProduction} className="grid gap-4">

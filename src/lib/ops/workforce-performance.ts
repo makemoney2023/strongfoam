@@ -159,6 +159,7 @@ export type WorkforceException = {
     | "missing_production"
     | "below_target"
     | "over_allocated"
+    | "incomplete_attribution"
     | "overlapping_labor";
   label: string;
   href: string;
@@ -452,6 +453,19 @@ export function buildWorkforcePerformance(input: {
       continue;
     }
     const allocations = input.allocations.filter((row) => row.productionEntryId === entry.id);
+    if (allocations.length === 0) {
+      for (const participant of participants) {
+        const bucket = individual.get(participant.userId) ?? { segments: [], excluded: [] };
+        bucket.excluded.push({
+          productionId: entry.id,
+          jobId: entry.jobId,
+          workDate: entry.workDate,
+          reason: "Allocations are missing.",
+        });
+        individual.set(participant.userId, bucket);
+      }
+      continue;
+    }
     const allocated = allocations.reduce((sum, row) => sum + row.quantity, 0);
     if (allocated > entry.quantity) {
       for (const allocation of allocations) {
@@ -537,11 +551,11 @@ export function buildWorkforcePerformance(input: {
 
   const exceptions: WorkforceException[] = [];
   const href = `/app/workforce?date=${encodeURIComponent(input.asOf)}`;
-  for (const entry of drafts) {
+    for (const entry of drafts) {
     if (entry.workDate !== input.asOf) continue;
     exceptions.push({
       kind: "awaiting_review",
-      label: `Production awaiting review: ${jobName.get(entry.jobId) ?? "Job"}`,
+      label: `Production awaiting review: ${jobName.get(entry.jobId) ?? "Job"} · ${entry.trade} · ${entry.workType} · ${formatProductionQuantity(entry.quantity, entry.unit)}`,
       href,
     });
   }
@@ -574,6 +588,16 @@ export function buildWorkforcePerformance(input: {
       exceptions.push({
         kind: "over_allocated",
         label: `Production is over-allocated: ${jobName.get(entry.jobId) ?? "Job"}`,
+        href,
+      });
+    }
+    if (
+      entry.attributionMode === "individual" &&
+      input.allocations.filter((row) => row.productionEntryId === entry.id).length === 0
+    ) {
+      exceptions.push({
+        kind: "incomplete_attribution",
+        label: `Individual production has no allocation: ${jobName.get(entry.jobId) ?? "Job"} · ${entry.trade} · ${entry.workType}`,
         href,
       });
     }
