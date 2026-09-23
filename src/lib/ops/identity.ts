@@ -104,6 +104,20 @@ export const EQUIPMENT_ROLE_PERMISSIONS: Record<
   field_worker: ["equipment.read"],
 };
 
+export const INSPECTION_PERMISSIONS = ["inspection.read", "inspection.edit"] as const;
+
+export type InspectionPermission = (typeof INSPECTION_PERMISSIONS)[number];
+
+export const INSPECTION_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly InspectionPermission[]
+> = {
+  administrator: INSPECTION_PERMISSIONS,
+  office: INSPECTION_PERMISSIONS,
+  field_lead: ["inspection.read"],
+  field_worker: ["inspection.read"],
+};
+
 export const WORKFORCE_PERMISSIONS = [
   "workforce.read",
   "workforce.record",

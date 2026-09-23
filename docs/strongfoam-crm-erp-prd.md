@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.36
+**Version:** 1.37
 **Created:** 2026-09-18
 **Last updated:** 2026-09-23
 
@@ -727,9 +727,12 @@ Future operational releases should provide:
 - Material requests, purchase orders, receipts, and delivery tickets. A
   purchase order that cites material requests is section 16.5. Receipts and
   delivery tickets remain future work.
-- Equipment assignment and usage.
+- Equipment assignment and usage. A named assignment is section 16.6.
+  Rentals and inventory remain future work.
 - Safety forms and incidents.
-- RFIs, submittals, inspections, and deficiencies.
+- RFIs, submittals, inspections, and deficiencies. A named inspection on a
+  job is section 16.7. RFIs, submittals, and deficiency workflows remain
+  future work.
 - Punch lists and rework.
 - Customer completion sign-off.
 - Closeout packages and warranty service.
@@ -945,9 +948,9 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
 
 A dispatch places one active field member on one job for one work date. It
 does not replace the durable job assignment, move the schedule, or recommend
-a crew. Inspections and closeout stay future work. Hours and
+a crew. Closeout stays future work. Hours and
 piece work are section 16.3. Purchase orders are section 16.5. Equipment is
-section 16.6.
+section 16.6. Inspections are section 16.7.
 
 **DSP-001:** An office user can open a Dispatch board for one work date. The
 default date is the working day in America/Toronto.
@@ -1017,7 +1020,8 @@ operational slice is enabled in production. `OPS_WORKFORCE_PERFORMANCE` is `1`
 for production and preview. Demo mode enables the same flag when the variable
 is unset, and `0` hides the feature. It records production, verifies it,
 calculates comparable efficiency, shows a private field view, and shows an
-unranked office review. Rankings, wages, quality scoring, and the financial
+unranked office review. Named inspections in section 16.7 are recorded and
+are not scored. Rankings, wages, quality scoring, and the financial
 bridge are not enabled.
 
 **WFP-001:** Installed production must be an authoritative record with
@@ -1123,6 +1127,33 @@ released row and a closed job do not count.
 **EQ-007:** Assign and release write an audit event with the name and status.
 The payload has no rate.
 
+### 16.7 Inspections
+
+An inspection records one named result on one job. It is not a price, a
+deficiency workflow, or a closeout packet.
+
+**INS-001:** An office user can record an inspection on an open job. The row
+stores a name of 1 to 80 characters, a result of open, passed, or failed, and
+an optional note of at most 500 characters. No price is stored.
+
+**INS-002:** One organization has one row for the same job and inspection
+name, ignoring letter case. Recording that name again updates the result, the
+display name, and the note, and keeps the same row.
+
+**INS-003:** A closed job cannot take a new inspection or a change to an
+existing one. Existing rows stay readable.
+
+**INS-004:** Administrators and office users can record inspections. An
+estimator uses the office permissions. Field leads and field workers can read
+inspections on a job they can open and cannot change them.
+
+**INS-005:** Home lists open and failed inspections on jobs that are not
+closed. A passed row and a closed job do not count. The list is failed, then
+open, then job name, then inspection name.
+
+**INS-006:** Recording an inspection writes an audit event with the job, name,
+and result. The payload has no price or rate.
+
 ## 17. Trade-specific requirements
 
 The platform must use shared project and job primitives while allowing
@@ -1213,8 +1244,9 @@ Examples include:
 
 AI-013 covers the exception queue for records that exist today: missing daily
 logs, failed transcriptions, blocked jobs, overdue tasks, and voice notes that
-have not been extracted. Unapproved change orders, inspections, and cost
-variance appear in this queue only after their source records exist.
+have not been extracted. Unapproved change orders and open or failed
+inspections appear on Home. Cost variance appears in this queue only after
+its source records exist.
 
 **RPT-002:** Users must be able to navigate from a dashboard result to the
 underlying record and activity history.
@@ -2476,16 +2508,19 @@ policy and human review.
    requests. No price is stored. Equipment is done: an office user assigns a
    named piece of equipment to an open job or releases it. Releasing keeps the
    row. The same name on two open jobs shows on Home. No rate is stored.
-   Inspections, closeout, AI-021, and AI-023 are not built.
+   Inspections are done: an office user records a named result of open, passed,
+   or failed on an open job. Recording the same name updates that row. Home
+   lists open and failed results on jobs that are still open. No price is
+   stored. Closeout, AI-021, and AI-023 are not built.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
    exception widgets under WFP-001 through WFP-018. The first slice is
    enabled in production with `OPS_WORKFORCE_PERFORMANCE=1`: production can be
    recorded and verified, efficiency is calculated, the field view is private,
    and the office review is unranked. Field labor alone must not produce rankings.
-   Quality context becomes complete as inspections, deficiencies, and rework
-   records ship. Financial cost extensions wait for the accounting system of
-   record.
+   Quality context becomes complete as deficiencies and rework records ship.
+   Inspections are recorded in section 16.7 and stay out of the score.
+   Financial cost extensions wait for the accounting system of record.
 10. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
 11. Add customer and subcontractor portals if validated, then warranty triage
@@ -2612,11 +2647,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Enable the first workforce view in production | `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs stay off. Setting the flag to `0` hides the feature |
 | 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description and any stated quantity, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
 | 2026-09-23 | Assign named equipment to an open job before rentals or inventory | EQ-001 through EQ-007 record which named unit is on a job. Releasing keeps the row. The same name on two open jobs is visible. Rates, rentals, and inventory stay out |
+| 2026-09-23 | Record a named inspection on an open job before closeout | INS-001 through INS-006 store open, passed, or failed for one name on one job. Recording that name again updates the row. Home lists open and failed results on jobs that are still open. No price is stored. The result is not a workforce score. Closeout stays unbuilt |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.37 | 2026-09-23 | Shipped INS-001 through INS-006. Office users record a named inspection on an open job. The same name updates that row. Home lists open and failed results on jobs that are still open. No price is stored. The result is not a workforce score. Closeout and AI-023 remain unbuilt |
 | 1.36 | 2026-09-23 | Shipped EQ-001 through EQ-007. Office users assign named equipment to an open job or release it. Releasing keeps the row. Home lists the same name on two open jobs. No rate is stored. Inspections, closeout, and AI-023 remain unbuilt |
 | 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. A material request can store an optional quantity, which the line copies. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.34 | 2026-09-23 | Enabled the first workforce slice in production. `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs remain off |

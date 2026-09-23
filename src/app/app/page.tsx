@@ -38,6 +38,9 @@ import { listDispatches } from "@/lib/ops/dispatch-store";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { formatEquipmentConflict } from "@/lib/ops/equipment";
 import { listEquipmentAttention } from "@/lib/ops/equipment-store";
+import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
+import { formatInspectionAttention } from "@/lib/ops/inspection";
+import { listInspectionAttention } from "@/lib/ops/inspection-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listPurchaseAttention } from "@/lib/ops/purchase-order-store";
 import { loadWorkforceBoard } from "@/lib/ops/production-store";
@@ -214,6 +217,11 @@ export default async function OpsHomePage() {
     ? await listEquipmentAttention(equipmentAccess.organizationId)
     : null;
   const equipmentShown = equipmentConflicts?.slice(0, 8) ?? [];
+  const inspectionAccess = resolveInspectionAccess(session, "inspection.read");
+  const inspectionAttention = inspectionAccess.ok
+    ? await listInspectionAttention(inspectionAccess.organizationId)
+    : null;
+  const inspectionShown = inspectionAttention?.slice(0, 8) ?? [];
   const workforceAccess = resolveWorkforceAccess(session, "workforce.read");
   const workforceExceptions =
     workforcePerformanceEnabled() && workforceAccess.ok
@@ -521,6 +529,41 @@ export default async function OpsHomePage() {
           {equipmentConflicts.length > equipmentShown.length ? (
             <p className="text-sm text-muted-foreground">
               {equipmentConflicts.length} equipment conflicts. Showing {equipmentShown.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {inspectionAttention ? (
+        <section aria-labelledby="inspection-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="inspection-attention-heading" className="text-lg font-semibold">
+              Inspections
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Open and failed inspections on jobs that are still open.
+            </p>
+          </div>
+          {inspectionShown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No open or failed inspections.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {inspectionShown.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    href={`/app/jobs/${item.jobId}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{formatInspectionAttention(item)}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {inspectionAttention.length > inspectionShown.length ? (
+            <p className="text-sm text-muted-foreground">
+              {inspectionAttention.length} inspections. Showing {inspectionShown.length}.
             </p>
           ) : null}
         </section>

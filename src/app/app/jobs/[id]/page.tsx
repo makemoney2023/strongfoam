@@ -18,6 +18,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
 import { EquipmentPanel } from "@/components/ops/equipment-assignments";
+import { InspectionPanel } from "@/components/ops/inspections";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
@@ -115,9 +116,12 @@ import {
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { listJobEquipment } from "@/lib/ops/equipment-store";
+import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
+import { listJobInspections } from "@/lib/ops/inspection-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { assignJobEquipment, releaseJobEquipment } from "../equipment-actions";
+import { recordJobInspection } from "../inspection-actions";
 import {
   cancelJobPurchaseOrder,
   draftPurchaseOrder,
@@ -262,6 +266,11 @@ export default async function JobDetailPage({
   const canEditEquipment = resolveEquipmentAccess(session, "equipment.edit").ok;
   const equipment = equipmentRead.ok
     ? await listJobEquipment(equipmentRead.organizationId, job.id)
+    : [];
+  const inspectionRead = resolveInspectionAccess(session, "inspection.read");
+  const canEditInspections = resolveInspectionAccess(session, "inspection.edit").ok;
+  const jobInspections = inspectionRead.ok
+    ? await listJobInspections(inspectionRead.organizationId, job.id)
     : [];
   const claimedMaterialRequests = new Set(
     purchaseOrders.flatMap((order) =>
@@ -1315,6 +1324,16 @@ export default async function JobDetailPage({
               jobClosed={job.status === "closed"}
               assignAction={assignJobEquipment}
               releaseAction={releaseJobEquipment}
+            />
+          ) : null}
+
+          {inspectionRead.ok ? (
+            <InspectionPanel
+              jobId={job.id}
+              inspections={jobInspections}
+              canEdit={canEditInspections}
+              jobClosed={job.status === "closed"}
+              recordAction={recordJobInspection}
             />
           ) : null}
 

@@ -1075,6 +1075,45 @@ export const equipmentAssignments = pgTable(
   ],
 );
 
+export const inspections = pgTable(
+  "inspections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    result: text("result").notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("inspections_slot_unique").on(table.organizationId, table.jobId, table.nameKey),
+    check(
+      "inspections_result_valid",
+      sql`${table.result} IN ('open', 'passed', 'failed')`,
+    ),
+    check(
+      "inspections_name_valid",
+      sql`char_length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND char_length(${table.note}) <= 500`,
+    ),
+    index("inspections_job_idx").on(table.organizationId, table.jobId),
+    index("inspections_attention_idx")
+      .on(table.organizationId, table.result)
+      .where(sql`${table.result} IN ('open', 'failed')`),
+  ],
+);
+
 export const jobVoiceNotes = pgTable(
   "job_voice_notes",
   {
@@ -2285,6 +2324,7 @@ export type LaborEntryRow = typeof laborEntries.$inferSelect;
 export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 export type PurchaseOrderLineRow = typeof purchaseOrderLines.$inferSelect;
 export type EquipmentAssignmentRow = typeof equipmentAssignments.$inferSelect;
+export type InspectionRow = typeof inspections.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

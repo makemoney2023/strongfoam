@@ -34,6 +34,8 @@ import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { listJobEquipment } from "@/lib/ops/equipment-store";
+import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
+import { listJobInspections } from "@/lib/ops/inspection-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
@@ -88,6 +90,7 @@ import {
   uploadFieldDocument,
 } from "@/app/field/actions";
 import { EquipmentPanel } from "@/components/ops/equipment-assignments";
+import { InspectionPanel } from "@/components/ops/inspections";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
@@ -208,6 +211,10 @@ export default async function FieldJobPage({
   const equipmentRead = resolveEquipmentAccess(session, "equipment.read");
   const fieldEquipment = equipmentRead.ok
     ? await listJobEquipment(equipmentRead.organizationId, job.id)
+    : [];
+  const inspectionRead = resolveInspectionAccess(session, "inspection.read");
+  const fieldInspections = inspectionRead.ok
+    ? await listJobInspections(inspectionRead.organizationId, job.id)
     : [];
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
@@ -398,6 +405,15 @@ export default async function FieldJobPage({
         <EquipmentPanel
           jobId={job.id}
           assignments={fieldEquipment}
+          canEdit={false}
+          jobClosed={job.status === "closed"}
+        />
+      ) : null}
+
+      {fieldInspections.length > 0 ? (
+        <InspectionPanel
+          jobId={job.id}
+          inspections={fieldInspections}
           canEdit={false}
           jobClosed={job.status === "closed"}
         />

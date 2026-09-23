@@ -14,6 +14,7 @@ import {
   demoChangeOrderSeed,
   demoDispatchSeed,
   demoEquipmentSeed,
+  demoInspectionSeed,
   demoLaborSeed,
   demoOperationsAsOf,
   demoProductionSeed,
@@ -23,6 +24,8 @@ import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
 import { resetDispatchMemory } from "@/lib/ops/dispatch-access";
 import { buildEquipmentAttention } from "@/lib/ops/equipment";
 import { equipmentMemory, resetEquipmentMemory } from "@/lib/ops/equipment-access";
+import { buildInspectionAttention } from "@/lib/ops/inspection";
+import { inspectionMemory, resetInspectionMemory } from "@/lib/ops/inspection-access";
 import { isUuid } from "@/lib/ops/job-workspace";
 import { resetLaborForTests } from "@/lib/ops/labor-store";
 import { resetProductionForTests } from "@/lib/ops/production-store";
@@ -38,6 +41,7 @@ afterEach(() => {
   resetLaborForTests();
   resetProductionForTests();
   resetChangeOrdersForTests();
+  resetInspectionMemory();
 });
 
 describe("demo operations sample", () => {
@@ -110,6 +114,16 @@ describe("demo operations sample", () => {
     }
     expect(orders.effects).toHaveLength(1);
 
+    const inspectionAttention = buildInspectionAttention({
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobs,
+      inspections: demoInspectionSeed(),
+    });
+    expect(inspectionAttention.map((item) => `${item.result}:${item.name}`)).toEqual([
+      "failed:Podium deck thickness",
+      "open:Fireproofing adhesion",
+    ]);
+
     const ids = [
       ...purchase.orders.map((row) => row.id),
       ...purchase.lines.map((row) => row.id),
@@ -118,12 +132,15 @@ describe("demo operations sample", () => {
       ...demoLaborSeed().map((row) => row.id),
       ...production.entries.map((row) => row.id),
       ...orders.orders.map((row) => row.id),
+      ...demoInspectionSeed().map((row) => row.id),
     ];
     expect(ids.every((id) => isUuid(id))).toBe(true);
 
     delete (globalThis as { __strongfoamEquipment?: unknown }).__strongfoamEquipment;
     delete (globalThis as { __strongfoamPurchaseOrders?: unknown }).__strongfoamPurchaseOrders;
+    delete (globalThis as { __strongfoamInspections?: unknown }).__strongfoamInspections;
     expect(equipmentMemory().assignments.some((row) => row.jobId === DEMO_JOB_ID)).toBe(true);
     expect(purchaseOrderMemory().orders).toHaveLength(2);
+    expect(inspectionMemory().rows.some((row) => row.jobId === DEMO_JOB_ID)).toBe(true);
   });
 });

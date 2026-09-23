@@ -11,10 +11,12 @@ function toneFor(status: string): Tone {
     case "qualified":
     case "approved":
     case "ordered":
+    case "passed":
       return "default";
     case "lost":
     case "blocked":
     case "rejected":
+    case "failed":
       return "destructive";
     case "in_progress":
     case "scheduled":

@@ -181,7 +181,8 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0035_equipment_assignments.sql` before using
+Apply migrations through `0036_inspections.sql` before using inspections,
+through `0035_equipment_assignments.sql` before using
 equipment, through `0034_purchase_orders.sql` before using purchase
 orders, through `0033_production_target_open.sql` before using workforce
 performance, through `0031_labor_entries.sql` before using labor, through
@@ -230,8 +231,14 @@ Equipment is a named assignment on one job. Office staff assign it or release
 it. Releasing keeps the row, and assigning that same name again marks it
 assigned. Home lists the same name on more than one open job. No rate is
 stored. Apply `0035_equipment_assignments.sql` before deploying this
-application code: Home and the job pages read that table. Inspections and
-closeout are unchanged.
+application code: Home and the job pages read that table.
+
+An inspection is a named result on one job. Office staff record open, passed,
+or failed, and an optional note. Recording the same name updates that row.
+Home lists open and failed results on jobs that are still open. A passed row
+and a closed job do not count. No price is stored. Apply
+`0036_inspections.sql` before deploying this application code: Home and the
+job pages read that table. Closeout is unchanged.
 
 Workforce performance is separate from pay. Production and preview are set to
 `OPS_WORKFORCE_PERFORMANCE=1`. `0` keeps it off. Demo mode enables it when the

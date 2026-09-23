@@ -20,6 +20,7 @@ import {
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { DISPATCH_TIME_ZONE, type Dispatch } from "@/lib/ops/dispatch";
 import type { EquipmentAssignment } from "@/lib/ops/equipment";
+import type { Inspection } from "@/lib/ops/inspection";
 import type { LaborEntry } from "@/lib/ops/labor";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import type { PurchaseOrder, PurchaseOrderLine } from "@/lib/ops/purchase-order";
@@ -430,6 +431,60 @@ export function demoChangeOrderSeed(now = getOpsNow()): {
       },
     ],
   };
+}
+
+export function demoInspectionSeed(now = getOpsNow()): Inspection[] {
+  const createdAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return [
+    {
+      id: demoId("e1", 1),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_JOB_ID,
+      name: "Podium deck thickness",
+      nameKey: "podium deck thickness",
+      result: "failed",
+      note: "Thin along the column line.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("e1", 2),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_JOB_ID,
+      name: "Lift inspection",
+      nameKey: "lift inspection",
+      result: "passed",
+      note: "Rental company signed off.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: createdAt,
+    },
+    {
+      id: demoId("e1", 3),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_SECOND_JOB_ID,
+      name: "Fireproofing adhesion",
+      nameKey: "fireproofing adhesion",
+      result: "open",
+      note: "Waiting on the cement.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("e1", 4),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_CLOSED_JOB_ID,
+      name: "Closeout walk",
+      nameKey: "closeout walk",
+      result: "passed",
+      note: "Deficiency list is clear.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: createdAt,
+    },
+  ];
 }
 
 export function seedWhenDemo<T>(seed: () => T, empty: T): T {
