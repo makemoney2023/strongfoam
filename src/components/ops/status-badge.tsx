@@ -10,6 +10,7 @@ function toneFor(status: string): Tone {
     case "closed":
     case "qualified":
     case "approved":
+    case "ordered":
       return "default";
     case "lost":
     case "blocked":
@@ -19,6 +20,7 @@ function toneFor(status: string): Tone {
     case "scheduled":
     case "ready_for_inspection":
     case "pending":
+    case "draft":
       return "secondary";
     default:
       return "outline";

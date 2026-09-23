@@ -35,6 +35,8 @@ import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { buildDispatchDay, DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
 import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
 import { listDispatches } from "@/lib/ops/dispatch-store";
+import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
+import { listPurchaseAttention } from "@/lib/ops/purchase-order-store";
 import { loadWorkforceBoard } from "@/lib/ops/production-store";
 import { resolveWorkforceAccess } from "@/lib/ops/workforce-authorization";
 import { workforcePerformanceEnabled } from "@/lib/ops/workforce-performance";
@@ -185,6 +187,25 @@ export default async function OpsHomePage() {
       })
     : null;
   const undispatchedPreview = dispatchDay?.undispatched.slice(0, 8) ?? [];
+  const purchaseAccess = resolvePurchaseAccess(session, "purchase_order.read");
+  const purchaseAttention = purchaseAccess.ok
+    ? await listPurchaseAttention(purchaseAccess.organizationId)
+    : null;
+  const purchasePreview = purchaseAttention
+    ? [
+        ...purchaseAttention.drafts.map((draft) => ({
+          key: `draft-${draft.id}`,
+          href: `/app/jobs/${draft.jobId}`,
+          label: `${draft.supplier} draft on ${draft.jobName}`,
+        })),
+        ...purchaseAttention.unordered.map((request) => ({
+          key: `request-${request.noteId}`,
+          href: `/app/jobs/${request.jobId}`,
+          label: `${request.jobName} still needs an order for ${request.description}`,
+        })),
+      ]
+    : [];
+  const purchaseShown = purchasePreview.slice(0, 8);
   const workforceAccess = resolveWorkforceAccess(session, "workforce.read");
   const workforceExceptions =
     workforcePerformanceEnabled() && workforceAccess.ok
@@ -422,6 +443,41 @@ export default async function OpsHomePage() {
           {dispatchDay.undispatched.length > undispatchedPreview.length ? (
             <p className="text-sm text-muted-foreground">
               {dispatchDay.undispatched.length} jobs have no dispatch. Showing {undispatchedPreview.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {purchaseAttention ? (
+        <section aria-labelledby="purchase-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="purchase-attention-heading" className="text-lg font-semibold">
+              Purchasing
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Draft purchase orders, and material requests that are not on a draft or ordered order.
+            </p>
+          </div>
+          {purchaseShown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No purchasing attention.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {purchaseShown.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{item.label}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {purchasePreview.length > purchaseShown.length ? (
+            <p className="text-sm text-muted-foreground">
+              {purchasePreview.length} purchasing items. Showing {purchaseShown.length}.
             </p>
           ) : null}
         </section>

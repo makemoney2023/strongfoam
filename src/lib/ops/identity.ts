@@ -73,6 +73,23 @@ export const LABOR_ROLE_PERMISSIONS: Record<
   field_worker: LABOR_PERMISSIONS,
 };
 
+export const PURCHASE_ORDER_PERMISSIONS = [
+  "purchase_order.read",
+  "purchase_order.edit",
+] as const;
+
+export type PurchaseOrderPermission = (typeof PURCHASE_ORDER_PERMISSIONS)[number];
+
+export const PURCHASE_ORDER_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly PurchaseOrderPermission[]
+> = {
+  administrator: PURCHASE_ORDER_PERMISSIONS,
+  office: PURCHASE_ORDER_PERMISSIONS,
+  field_lead: ["purchase_order.read"],
+  field_worker: ["purchase_order.read"],
+};
+
 export const WORKFORCE_PERMISSIONS = [
   "workforce.read",
   "workforce.record",

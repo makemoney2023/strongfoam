@@ -949,6 +949,75 @@ export const jobFieldNotes = pgTable(
   ],
 );
 
+export const purchaseOrders = pgTable(
+  "purchase_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    supplier: text("supplier").notNull(),
+    note: text("note").notNull().default(""),
+    status: text("status").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "purchase_orders_status_valid",
+      sql`${table.status} IN ('draft', 'ordered', 'cancelled')`,
+    ),
+    index("purchase_orders_job_idx").on(table.organizationId, table.jobId),
+  ],
+);
+
+export const purchaseOrderLines = pgTable(
+  "purchase_order_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    purchaseOrderId: uuid("purchase_order_id")
+      .notNull()
+      .references(() => purchaseOrders.id),
+    materialRequestId: uuid("material_request_id")
+      .notNull()
+      .references(() => jobFieldNotes.id),
+    activeMaterialRequestId: uuid("active_material_request_id"),
+    description: text("description").notNull(),
+    quantity: integer("quantity"),
+    unit: text("unit").notNull().default(""),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    unique("purchase_order_lines_order_request_unique").on(
+      table.purchaseOrderId,
+      table.materialRequestId,
+    ),
+    uniqueIndex("purchase_order_lines_active_request_idx")
+      .on(table.organizationId, table.activeMaterialRequestId)
+      .where(sql`${table.activeMaterialRequestId} IS NOT NULL`),
+    check(
+      "purchase_order_lines_claim_valid",
+      sql`${table.activeMaterialRequestId} IS NULL OR ${table.activeMaterialRequestId} = ${table.materialRequestId}`,
+    ),
+    check(
+      "purchase_order_lines_unit_valid",
+      sql`${table.unit} IN ('', 'board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours')`,
+    ),
+    index("purchase_order_lines_order_idx").on(table.purchaseOrderId),
+  ],
+);
+
 export const jobVoiceNotes = pgTable(
   "job_voice_notes",
   {
@@ -2156,6 +2225,8 @@ export type ChangeOrderApprovalRow = typeof changeOrderApprovals.$inferSelect;
 export type ChangeOrderBudgetEffectRow = typeof changeOrderBudgetEffects.$inferSelect;
 export type DispatchRow = typeof dispatches.$inferSelect;
 export type LaborEntryRow = typeof laborEntries.$inferSelect;
+export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
+export type PurchaseOrderLineRow = typeof purchaseOrderLines.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

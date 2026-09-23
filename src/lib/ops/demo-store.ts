@@ -1,3 +1,4 @@
+import { materialRequestCitedInMemory } from "@/lib/ops/purchase-order-access";
 import type { CommercialApprovalRule, EstimateApproval } from "@/lib/ops/estimate-approvals";
 import type {
   EstimateAcceptance,
@@ -3445,6 +3446,7 @@ export function deleteDemoJobFieldNote(args: {
     (item) => item.id === args.noteId && item.jobId === args.jobId,
   );
   if (!note) return null;
+  if (materialRequestCitedInMemory(args.noteId)) return null;
   removeById(jobFieldNotes, args.noteId);
   recordJobEvent({
     jobId: args.jobId,

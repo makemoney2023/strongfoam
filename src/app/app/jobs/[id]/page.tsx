@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
+import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
 import { TranscriptRecordPanel } from "@/components/ops/transcript-record-panel";
@@ -111,6 +112,13 @@ import {
   resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
+import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
+import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
+import {
+  cancelJobPurchaseOrder,
+  draftPurchaseOrder,
+  markPurchaseOrderOrdered,
+} from "../purchase-actions";
 import {
   addJobFieldEntry,
   addJobVoiceEntry,
@@ -241,6 +249,21 @@ export default async function JobDetailPage({
       listJobTasks(job.id),
     ]);
 
+  const purchaseRead = resolvePurchaseAccess(session, "purchase_order.read");
+  const canEditPurchaseOrders = resolvePurchaseAccess(session, "purchase_order.edit").ok;
+  const purchaseOrders = purchaseRead.ok
+    ? await listJobPurchaseOrders(purchaseRead.organizationId, job.id)
+    : [];
+  const claimedMaterialRequests = new Set(
+    purchaseOrders.flatMap((order) =>
+      order.lines
+        .map((line) => line.activeMaterialRequestId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const availableMaterialRequests = materialNotes.filter(
+    (note) => note.body.trim() && !claimedMaterialRequests.has(note.id),
+  );
   const paceWarnings = listQuantityPaceWarnings({
     jobs: [{ id: job.id, name: job.name }],
     tasks: commandTasks,
@@ -1242,7 +1265,7 @@ export default async function JobDetailPage({
             <CardHeader>
               <CardTitle>Material pick list</CardTitle>
               <CardDescription>
-                Open material requests on this job. Copy the list. It does not create a purchase order.
+                Open material requests on this job. Copy the list, or draft a purchase order below. A draft has no price.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1261,6 +1284,19 @@ export default async function JobDetailPage({
               <CopyDraftButton text={materialPickList.draft} />
             </CardContent>
           </Card>
+
+          {purchaseRead.ok ? (
+            <PurchaseOrdersPanel
+              jobId={job.id}
+              orders={purchaseOrders}
+              availableRequests={availableMaterialRequests}
+              canEdit={canEditPurchaseOrders}
+              jobClosed={job.status === "closed"}
+              createAction={draftPurchaseOrder}
+              orderAction={markPurchaseOrderOrdered}
+              cancelAction={cancelJobPurchaseOrder}
+            />
+          ) : null}
 
           <TranscriptRecordPanel jobId={job.id} proposals={transcriptProposals} />
 

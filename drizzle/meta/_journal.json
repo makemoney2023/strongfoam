@@ -239,6 +239,13 @@
       "when": 1758440000000,
       "tag": "0033_production_target_open",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1758441000000,
+      "tag": "0034_purchase_orders",
+      "breakpoints": true
     }
   ]
 }

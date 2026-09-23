@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.34
+**Version:** 1.35
 **Created:** 2026-09-18
 **Last updated:** 2026-09-23
 
@@ -724,7 +724,9 @@ Future operational releases should provide:
 - Daily field reports and weather/site conditions.
 - Labor time and piece work. Hours and piece counts are specified in
   section 16.3. A wage is not stored.
-- Material requests, purchase orders, receipts, and delivery tickets.
+- Material requests, purchase orders, receipts, and delivery tickets. A
+  purchase order that cites material requests is section 16.5. Receipts and
+  delivery tickets remain future work.
 - Equipment assignment and usage.
 - Safety forms and incidents.
 - RFIs, submittals, inspections, and deficiencies.
@@ -943,8 +945,8 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
 
 A dispatch places one active field member on one job for one work date. It
 does not replace the durable job assignment, move the schedule, or recommend
-a crew. Purchase orders, equipment, inspections, and closeout stay future
-work. Hours and piece work are section 16.3.
+a crew. Equipment, inspections, and closeout stay future work. Hours and
+piece work are section 16.3. Purchase orders are section 16.5.
 
 **DSP-001:** An office user can open a Dispatch board for one work date. The
 default date is the working day in America/Toronto.
@@ -1057,6 +1059,38 @@ instead of zero or a guessed score.
 actions require organization authorization and audit evidence. A person cannot
 verify an entry or allocation that affects their own individual score. Voiding
 preserves the original record.
+
+### 16.5 Purchase orders
+
+A purchase order cites open material requests on one job. It is not a price,
+a receipt, or a vendor bill. The material request stays in the field log.
+Deleting a cited request is refused so the order keeps its evidence.
+
+**PO-001:** An office user can draft a purchase order on an open job. The
+draft stores a supplier, an optional note, and one or more lines. Each line
+copies one material request's description and, when present, its quantity and
+unit. No price is stored.
+
+**PO-002:** One material request can sit on one draft or ordered purchase
+order. A second draft that cites it is refused.
+
+**PO-003:** Ordering a draft marks that order ordered and locks it. A closed
+job cannot be drafted or ordered. Cancelling a draft or ordered row keeps the
+order and releases the material requests so they can be drafted again.
+
+**PO-004:** Administrators and office users can draft, order, and cancel.
+Field users can read purchase orders on a job they can open and cannot change
+them.
+
+**PO-005:** The job page lists the orders and the material requests still
+waiting. Home lists draft orders and uncited material requests on open jobs
+for users who can read purchase orders.
+
+**PO-006:** Create, order, and cancel write an audit event with the supplier,
+status, and line count. The payload has no price.
+
+**PO-007:** A later edit to the material request does not change the copied
+line. Receipts, delivery tickets, inventory, and cost stay unbuilt.
 
 ## 17. Trade-specific requirements
 
@@ -2405,8 +2439,11 @@ policy and human review.
    one job for one date, a cancelled row stays as evidence, a second job the
    same day is shown as a double booking, Home lists active jobs with no
    dispatch, and the field landing shows that person's rows. Labor is hours or
-   piece work in bags or square feet, with no wage stored. Purchase orders,
-   equipment, inspections, closeout, AI-021, and AI-023 are not built.
+   piece work in bags or square feet, with no wage stored. Purchase orders are
+   done: an office user drafts a supplier order from material requests, marks
+   it ordered, or cancels it. Cancelling keeps the row and releases the
+   requests. No price is stored. Equipment, inspections, closeout, AI-021, and
+   AI-023 are not built.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
    exception widgets under WFP-001 through WFP-018. The first slice is
@@ -2540,11 +2577,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Treat workforce efficiency as verified operational performance before financial reporting | One authoritative production quantity, linked labor, explicit crew or individual attribution, effective-dated targets, comparable samples, and quality context avoid a misleading raw-output leaderboard. My Performance is private. Office rankings require policy sign-off. Costs wait for the accounting system of record |
 | 2026-09-23 | Ship the first workforce view behind a flag without rankings | Office and field can review verified pace while the sample, attribution, and target policy are still open. `OPS_WORKFORCE_PERFORMANCE=0` hides it. Demo mode shows it |
 | 2026-09-23 | Enable the first workforce view in production | `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs stay off. Setting the flag to `0` hides the feature |
+| 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.34 | 2026-09-23 | Enabled the first workforce slice in production. `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.33 | 2026-09-23 | Corrected the first workforce slice: individual production is one person until an allocation exists, exclusion reasons are visible, a participant cannot void their own score, and only one target stays open for a work class |
 | 1.32 | 2026-09-23 | Implemented the first workforce-performance slice behind `OPS_WORKFORCE_PERFORMANCE`: verified production, targets, normalized efficiency, private My Performance, an unranked office review, and Home exceptions. Rankings, wages, quality scoring, and financial costs remain off |

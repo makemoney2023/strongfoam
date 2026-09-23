@@ -181,7 +181,8 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0033_production_target_open.sql` before using workforce
+Apply migrations through `0034_purchase_orders.sql` before using purchase
+orders, through `0033_production_target_open.sql` before using workforce
 performance, through `0031_labor_entries.sql` before using labor, through
 `0030_dispatches.sql` before using day dispatch, and
 through `0029_change_orders.sql` before using change orders,
@@ -213,8 +214,15 @@ square feet for one person, job, and date. Hours are a duration up to 24 hours.
 The same person can have both, and saving the same measure again updates it.
 The dispatch board lists the day's labor. The field landing records only the
 signed-in person's labor. No rate or wage is stored. Apply
-`0031_labor_entries.sql` before using labor against Postgres. Purchase orders,
-inspections, and closeout are unchanged.
+`0031_labor_entries.sql` before using labor against Postgres.
+
+A purchase order cites open material requests on one job. Office staff enter a
+supplier and draft the order, then mark it ordered or cancel it. Cancelling
+keeps the order and lets those requests be drafted again. The line copies the
+request text and any quantity. No price is stored. A cited request cannot be
+deleted. Home lists drafts and requests that are not on an active order. Apply
+`0034_purchase_orders.sql` before using purchase orders against Postgres.
+Equipment, inspections, and closeout are unchanged.
 
 Workforce performance is separate from pay. Production and preview are set to
 `OPS_WORKFORCE_PERFORMANCE=1`. `0` keeps it off. Demo mode enables it when the

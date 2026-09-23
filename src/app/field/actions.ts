@@ -256,6 +256,13 @@ export async function removeFieldEntry(
   ) {
     return fail(returnTo, "You can only remove your own field entries.");
   }
+  const { materialRequestIsCited } = await import("@/lib/ops/purchase-order-access");
+  if (await materialRequestIsCited(noteId)) {
+    return fail(
+      returnTo,
+      "That material request is on a purchase order and cannot be deleted.",
+    );
+  }
   const note = await deleteJobFieldNote({
     jobId,
     noteId,

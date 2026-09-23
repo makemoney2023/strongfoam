@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
+import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
+import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
 import {
   formatStatedQuantity,
@@ -83,6 +85,7 @@ import {
   undoFieldTaskStatus,
   uploadFieldDocument,
 } from "@/app/field/actions";
+import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
 import { FieldEntryFields } from "../../../jobs/workspace-fields";
@@ -195,6 +198,10 @@ export default async function FieldJobPage({
     tasks: briefTasks,
     quantities: briefNotes.filter((note) => note.kind === "quantity"),
   });
+  const purchaseRead = resolvePurchaseAccess(session, "purchase_order.read");
+  const fieldPurchaseOrders = purchaseRead.ok
+    ? await listJobPurchaseOrders(purchaseRead.organizationId, job.id)
+    : [];
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
@@ -369,6 +376,16 @@ export default async function FieldJobPage({
           )}
         </CardContent>
       </Card>
+
+      {fieldPurchaseOrders.length > 0 ? (
+        <PurchaseOrdersPanel
+          jobId={job.id}
+          orders={fieldPurchaseOrders}
+          availableRequests={[]}
+          canEdit={false}
+          jobClosed={job.status === "closed"}
+        />
+      ) : null}
 
       <Card id="tasks">
         <CardHeader>

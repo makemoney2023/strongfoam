@@ -657,6 +657,13 @@ export async function removeJobFieldEntry(formData: FormData): Promise<ActionSta
     `/app/field/jobs/${jobId}`,
   );
   if (!jobId || !noteId) return fail(returnTo, "Missing field entry.");
+  const { materialRequestIsCited } = await import("@/lib/ops/purchase-order-access");
+  if (await materialRequestIsCited(noteId)) {
+    return fail(
+      returnTo,
+      "That material request is on a purchase order and cannot be deleted.",
+    );
+  }
   const note = await deleteJobFieldNote({
     jobId,
     noteId,

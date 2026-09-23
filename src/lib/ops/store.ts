@@ -5466,6 +5466,8 @@ export async function deleteJobFieldNote(args: {
     .limit(1);
   const note = existing[0];
   if (!note) return null;
+  const { materialRequestIsCited } = await import("@/lib/ops/purchase-order-access");
+  if (await materialRequestIsCited(note.id)) return null;
   await db
     .delete(jobFieldNotes)
     .where(and(eq(jobFieldNotes.id, args.noteId), eq(jobFieldNotes.jobId, args.jobId)));
