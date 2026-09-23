@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.35
+**Version:** 1.36
 **Created:** 2026-09-18
 **Last updated:** 2026-09-23
 
@@ -945,8 +945,9 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
 
 A dispatch places one active field member on one job for one work date. It
 does not replace the durable job assignment, move the schedule, or recommend
-a crew. Equipment, inspections, and closeout stay future work. Hours and
-piece work are section 16.3. Purchase orders are section 16.5.
+a crew. Inspections and closeout stay future work. Hours and
+piece work are section 16.3. Purchase orders are section 16.5. Equipment is
+section 16.6.
 
 **DSP-001:** An office user can open a Dispatch board for one work date. The
 default date is the working day in America/Toronto.
@@ -1093,6 +1094,34 @@ status, and line count. The payload has no price.
 
 **PO-007:** A later edit to the material request does not change the copied
 line. Receipts, delivery tickets, inventory, and cost stay unbuilt.
+
+### 16.6 Equipment
+
+An equipment assignment names one piece of equipment on one job. It is not a
+rental rate, an inventory count, or a maintenance log. Two machines need two
+names.
+
+**EQ-001:** An office user can assign equipment to an open job. The row stores
+the name and an optional note. No rate is stored.
+
+**EQ-002:** One organization has one row for the same job and equipment name,
+ignoring letter case. Assigning that name again while it is assigned is
+refused.
+
+**EQ-003:** Releasing keeps the row. Assigning the same job and name again
+marks that row assigned.
+
+**EQ-004:** A closed job cannot take a new assignment. Releasing an existing
+row stays available after the job closes.
+
+**EQ-005:** Administrators and office users can assign and release. Field
+users can read equipment on a job they can open and cannot change it.
+
+**EQ-006:** Home lists a name that is assigned to more than one open job. A
+released row and a closed job do not count.
+
+**EQ-007:** Assign and release write an audit event with the name and status.
+The payload has no rate.
 
 ## 17. Trade-specific requirements
 
@@ -2444,8 +2473,10 @@ policy and human review.
    piece work in bags or square feet, with no wage stored. Purchase orders are
    done: an office user drafts a supplier order from material requests, marks
    it ordered, or cancels it. Cancelling keeps the row and releases the
-   requests. No price is stored. Equipment, inspections, closeout, AI-021, and
-   AI-023 are not built.
+   requests. No price is stored. Equipment is done: an office user assigns a
+   named piece of equipment to an open job or releases it. Releasing keeps the
+   row. The same name on two open jobs shows on Home. No rate is stored.
+   Inspections, closeout, AI-021, and AI-023 are not built.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
    exception widgets under WFP-001 through WFP-018. The first slice is
@@ -2580,11 +2611,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Ship the first workforce view behind a flag without rankings | Office and field can review verified pace while the sample, attribution, and target policy are still open. `OPS_WORKFORCE_PERFORMANCE=0` hides it. Demo mode shows it |
 | 2026-09-23 | Enable the first workforce view in production | `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs stay off. Setting the flag to `0` hides the feature |
 | 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description and any stated quantity, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
+| 2026-09-23 | Assign named equipment to an open job before rentals or inventory | EQ-001 through EQ-007 record which named unit is on a job. Releasing keeps the row. The same name on two open jobs is visible. Rates, rentals, and inventory stay out |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.36 | 2026-09-23 | Shipped EQ-001 through EQ-007. Office users assign named equipment to an open job or release it. Releasing keeps the row. Home lists the same name on two open jobs. No rate is stored. Inspections, closeout, and AI-023 remain unbuilt |
 | 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. A material request can store an optional quantity, which the line copies. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.34 | 2026-09-23 | Enabled the first workforce slice in production. `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.33 | 2026-09-23 | Corrected the first workforce slice: individual production is one person until an allocation exists, exclusion reasons are visible, a participant cannot void their own score, and only one target stays open for a work class |

@@ -35,6 +35,9 @@ import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { buildDispatchDay, DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
 import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
 import { listDispatches } from "@/lib/ops/dispatch-store";
+import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
+import { formatEquipmentConflict } from "@/lib/ops/equipment";
+import { listEquipmentAttention } from "@/lib/ops/equipment-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listPurchaseAttention } from "@/lib/ops/purchase-order-store";
 import { loadWorkforceBoard } from "@/lib/ops/production-store";
@@ -206,6 +209,11 @@ export default async function OpsHomePage() {
       ]
     : [];
   const purchaseShown = purchasePreview.slice(0, 8);
+  const equipmentAccess = resolveEquipmentAccess(session, "equipment.read");
+  const equipmentConflicts = equipmentAccess.ok
+    ? await listEquipmentAttention(equipmentAccess.organizationId)
+    : null;
+  const equipmentShown = equipmentConflicts?.slice(0, 8) ?? [];
   const workforceAccess = resolveWorkforceAccess(session, "workforce.read");
   const workforceExceptions =
     workforcePerformanceEnabled() && workforceAccess.ok
@@ -478,6 +486,41 @@ export default async function OpsHomePage() {
           {purchasePreview.length > purchaseShown.length ? (
             <p className="text-sm text-muted-foreground">
               {purchasePreview.length} purchasing items. Showing {purchaseShown.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {equipmentConflicts ? (
+        <section aria-labelledby="equipment-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="equipment-attention-heading" className="text-lg font-semibold">
+              Equipment
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              The same equipment name assigned to more than one open job.
+            </p>
+          </div>
+          {equipmentShown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No equipment conflicts.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {equipmentShown.map((conflict) => (
+                <li key={conflict.nameKey}>
+                  <Link
+                    href={`/app/jobs/${conflict.jobs[0]?.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{formatEquipmentConflict(conflict)}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {equipmentConflicts.length > equipmentShown.length ? (
+            <p className="text-sm text-muted-foreground">
+              {equipmentConflicts.length} equipment conflicts. Showing {equipmentShown.length}.
             </p>
           ) : null}
         </section>

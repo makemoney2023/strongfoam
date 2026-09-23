@@ -246,6 +246,13 @@
       "when": 1758441000000,
       "tag": "0034_purchase_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1758442000000,
+      "tag": "0035_equipment_assignments",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
+import { EquipmentPanel } from "@/components/ops/equipment-assignments";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
@@ -112,8 +113,11 @@ import {
   resolveProjectScheduleCalendar,
 } from "@/lib/ops/store";
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
+import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
+import { listJobEquipment } from "@/lib/ops/equipment-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
+import { assignJobEquipment, releaseJobEquipment } from "../equipment-actions";
 import {
   cancelJobPurchaseOrder,
   draftPurchaseOrder,
@@ -253,6 +257,11 @@ export default async function JobDetailPage({
   const canEditPurchaseOrders = resolvePurchaseAccess(session, "purchase_order.edit").ok;
   const purchaseOrders = purchaseRead.ok
     ? await listJobPurchaseOrders(purchaseRead.organizationId, job.id)
+    : [];
+  const equipmentRead = resolveEquipmentAccess(session, "equipment.read");
+  const canEditEquipment = resolveEquipmentAccess(session, "equipment.edit").ok;
+  const equipment = equipmentRead.ok
+    ? await listJobEquipment(equipmentRead.organizationId, job.id)
     : [];
   const claimedMaterialRequests = new Set(
     purchaseOrders.flatMap((order) =>
@@ -1295,6 +1304,17 @@ export default async function JobDetailPage({
               createAction={draftPurchaseOrder}
               orderAction={markPurchaseOrderOrdered}
               cancelAction={cancelJobPurchaseOrder}
+            />
+          ) : null}
+
+          {equipmentRead.ok ? (
+            <EquipmentPanel
+              jobId={job.id}
+              assignments={equipment}
+              canEdit={canEditEquipment}
+              jobClosed={job.status === "closed"}
+              assignAction={assignJobEquipment}
+              releaseAction={releaseJobEquipment}
             />
           ) : null}
 

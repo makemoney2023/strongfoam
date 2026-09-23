@@ -90,6 +90,20 @@ export const PURCHASE_ORDER_ROLE_PERMISSIONS: Record<
   field_worker: ["purchase_order.read"],
 };
 
+export const EQUIPMENT_PERMISSIONS = ["equipment.read", "equipment.edit"] as const;
+
+export type EquipmentPermission = (typeof EQUIPMENT_PERMISSIONS)[number];
+
+export const EQUIPMENT_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly EquipmentPermission[]
+> = {
+  administrator: EQUIPMENT_PERMISSIONS,
+  office: EQUIPMENT_PERMISSIONS,
+  field_lead: ["equipment.read"],
+  field_worker: ["equipment.read"],
+};
+
 export const WORKFORCE_PERMISSIONS = [
   "workforce.read",
   "workforce.record",

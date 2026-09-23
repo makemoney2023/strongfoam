@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
+import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
+import { listJobEquipment } from "@/lib/ops/equipment-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
@@ -85,6 +87,7 @@ import {
   undoFieldTaskStatus,
   uploadFieldDocument,
 } from "@/app/field/actions";
+import { EquipmentPanel } from "@/components/ops/equipment-assignments";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
@@ -201,6 +204,10 @@ export default async function FieldJobPage({
   const purchaseRead = resolvePurchaseAccess(session, "purchase_order.read");
   const fieldPurchaseOrders = purchaseRead.ok
     ? await listJobPurchaseOrders(purchaseRead.organizationId, job.id)
+    : [];
+  const equipmentRead = resolveEquipmentAccess(session, "equipment.read");
+  const fieldEquipment = equipmentRead.ok
+    ? await listJobEquipment(equipmentRead.organizationId, job.id)
     : [];
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
@@ -382,6 +389,15 @@ export default async function FieldJobPage({
           jobId={job.id}
           orders={fieldPurchaseOrders}
           availableRequests={[]}
+          canEdit={false}
+          jobClosed={job.status === "closed"}
+        />
+      ) : null}
+
+      {fieldEquipment.length > 0 ? (
+        <EquipmentPanel
+          jobId={job.id}
+          assignments={fieldEquipment}
           canEdit={false}
           jobClosed={job.status === "closed"}
         />

@@ -1032,6 +1032,49 @@ export const purchaseOrderLines = pgTable(
   ],
 );
 
+export const equipmentAssignments = pgTable(
+  "equipment_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    note: text("note").notNull().default(""),
+    status: text("status").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("equipment_assignments_slot_unique").on(
+      table.organizationId,
+      table.jobId,
+      table.nameKey,
+    ),
+    check(
+      "equipment_assignments_status_valid",
+      sql`${table.status} IN ('assigned', 'released')`,
+    ),
+    check(
+      "equipment_assignments_name_valid",
+      sql`char_length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND char_length(${table.note}) <= 500`,
+    ),
+    index("equipment_assignments_job_idx").on(table.organizationId, table.jobId),
+    index("equipment_assignments_active_idx")
+      .on(table.organizationId, table.nameKey)
+      .where(sql`${table.status} = 'assigned'`),
+  ],
+);
+
 export const jobVoiceNotes = pgTable(
   "job_voice_notes",
   {
@@ -2241,6 +2284,7 @@ export type DispatchRow = typeof dispatches.$inferSelect;
 export type LaborEntryRow = typeof laborEntries.$inferSelect;
 export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 export type PurchaseOrderLineRow = typeof purchaseOrderLines.$inferSelect;
+export type EquipmentAssignmentRow = typeof equipmentAssignments.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

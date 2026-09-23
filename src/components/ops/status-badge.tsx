@@ -18,6 +18,7 @@ function toneFor(status: string): Tone {
       return "destructive";
     case "in_progress":
     case "scheduled":
+    case "assigned":
     case "ready_for_inspection":
     case "pending":
     case "draft":

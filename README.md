@@ -181,7 +181,8 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
-Apply migrations through `0034_purchase_orders.sql` before using purchase
+Apply migrations through `0035_equipment_assignments.sql` before using
+equipment, through `0034_purchase_orders.sql` before using purchase
 orders, through `0033_production_target_open.sql` before using workforce
 performance, through `0031_labor_entries.sql` before using labor, through
 `0030_dispatches.sql` before using day dispatch, and
@@ -223,7 +224,13 @@ can store an optional whole quantity and field unit. The line copies the
 request text and that quantity. No price is stored. A cited request cannot be
 deleted. Home lists open-job drafts and requests that are not on an active
 order. Apply `0034_purchase_orders.sql` before deploying this application
-code: Home and the job pages read those tables. Equipment, inspections, and
+code: Home and the job pages read those tables.
+
+Equipment is a named assignment on one job. Office staff assign it or release
+it. Releasing keeps the row, and assigning that same name again marks it
+assigned. Home lists the same name on more than one open job. No rate is
+stored. Apply `0035_equipment_assignments.sql` before deploying this
+application code: Home and the job pages read that table. Inspections and
 closeout are unchanged.
 
 Workforce performance is separate from pay. Production and preview are set to
