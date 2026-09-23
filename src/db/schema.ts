@@ -493,6 +493,143 @@ export const laborEntries = pgTable(
   ],
 );
 
+export const productionEntries = pgTable(
+  "production_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    workDate: date("work_date", { mode: "string" }).notNull(),
+    taskId: uuid("task_id").references(() => jobTasks.id),
+    workAreaId: uuid("work_area_id").references(() => workAreas.id),
+    trade: text("trade").notNull(),
+    workType: text("work_type").notNull(),
+    unit: text("unit").notNull(),
+    quantity: integer("quantity").notNull(),
+    attributionMode: text("attribution_mode").notNull(),
+    status: text("status").notNull(),
+    recordedBy: text("recorded_by").notNull(),
+    verifiedBy: text("verified_by"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    sourceType: text("source_type"),
+    sourceId: uuid("source_id"),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "production_entries_unit_valid",
+      sql`${table.unit} IN ('bags', 'sq_ft')`,
+    ),
+    check(
+      "production_entries_quantity_valid",
+      sql`${table.quantity} > 0 AND ${table.quantity} <= 1000000`,
+    ),
+    check(
+      "production_entries_mode_valid",
+      sql`${table.attributionMode} IN ('crew', 'individual')`,
+    ),
+    check(
+      "production_entries_status_valid",
+      sql`${table.status} IN ('draft', 'verified', 'void')`,
+    ),
+    index("production_entries_day_idx").on(table.organizationId, table.workDate),
+  ],
+);
+
+export const productionParticipants = pgTable(
+  "production_participants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productionEntryId: uuid("production_entry_id")
+      .notNull()
+      .references(() => productionEntries.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    laborEntryId: uuid("labor_entry_id").references(() => laborEntries.id),
+  },
+  (table) => [
+    unique("production_participants_entry_user_unique").on(
+      table.productionEntryId,
+      table.userId,
+    ),
+    uniqueIndex("production_participants_labor_unique")
+      .on(table.laborEntryId)
+      .where(sql`${table.laborEntryId} IS NOT NULL`),
+  ],
+);
+
+export const productionAllocations = pgTable(
+  "production_allocations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productionEntryId: uuid("production_entry_id")
+      .notNull()
+      .references(() => productionEntries.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    quantity: integer("quantity").notNull(),
+  },
+  (table) => [
+    unique("production_allocations_entry_user_unique").on(
+      table.productionEntryId,
+      table.userId,
+    ),
+    check(
+      "production_allocations_quantity_valid",
+      sql`${table.quantity} > 0 AND ${table.quantity} <= 1000000`,
+    ),
+  ],
+);
+
+export const productionTargets = pgTable(
+  "production_targets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    trade: text("trade").notNull(),
+    workType: text("work_type").notNull(),
+    unit: text("unit").notNull(),
+    basis: text("basis").notNull(),
+    rateMilli: integer("rate_milli").notNull(),
+    effectiveFrom: date("effective_from", { mode: "string" }).notNull(),
+    effectiveTo: date("effective_to", { mode: "string" }),
+    approvedBy: text("approved_by").notNull(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "production_targets_unit_valid",
+      sql`${table.unit} IN ('bags', 'sq_ft')`,
+    ),
+    check(
+      "production_targets_basis_valid",
+      sql`${table.basis} IN ('crew_hour', 'person_hour')`,
+    ),
+    check("production_targets_rate_positive", sql`${table.rateMilli} > 0`),
+    index("production_targets_class_idx").on(
+      table.organizationId,
+      table.trade,
+      table.workType,
+      table.unit,
+      table.basis,
+    ),
+  ],
+);
+
 export const workAreas = pgTable(
   "work_areas",
   {

@@ -1009,8 +1009,11 @@ measure and no wage.
 Field labor is the capture foundation for workforce performance, but a piece
 count by itself is not enough to rank a worker or crew. The complete data
 contract and implementation sequence are in
-[`workforce-performance-spec.md`](workforce-performance-spec.md). This feature
-is specified and not built.
+[`workforce-performance-spec.md`](workforce-performance-spec.md). The first
+operational slice is implemented behind `OPS_WORKFORCE_PERFORMANCE` and is on
+in demo mode. It records production, verifies it, calculates comparable
+efficiency, shows a private field view, and shows an unranked office review.
+Rankings, wages, quality scoring, and the financial bridge are not enabled.
 
 **WFP-001:** Installed production must be an authoritative record with
 organization, job, work date, optional task and work area, trade or work type,
@@ -2404,10 +2407,13 @@ policy and human review.
    equipment, inspections, closeout, AI-021, and AI-023 are not built.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
-   exception widgets under WFP-001 through WFP-018. Field labor alone must not
-   produce rankings. Quality context becomes complete as inspections,
-   deficiencies, and rework records ship. Financial cost extensions wait for
-   the accounting system of record.
+   exception widgets under WFP-001 through WFP-018. The first slice is
+   implemented behind `OPS_WORKFORCE_PERFORMANCE`: production can be recorded
+   and verified, efficiency is calculated, the field view is private, and the
+   office review is unranked. Field labor alone must not produce rankings.
+   Quality context becomes complete as inspections, deficiencies, and rework
+   records ship. Financial cost extensions wait for the accounting system of
+   record.
 10. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
 11. Add customer and subcontractor portals if validated, then warranty triage
@@ -2530,11 +2536,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Schedule a person on a job for one day before recommending a crew | DSP-001 through DSP-008 record who is sent where. Cancelling keeps the row. Two jobs on the same day stay visible. Job assignments, task dates, time, purchase orders, inspections, closeout, and AI-023 stay unchanged |
 | 2026-09-23 | Record field labor as piece work or hours, without a wage | Spray foam crews are often paid by the bag or square foot. The labor entry stores that count, or the hours worked. Rates and payroll stay out under IMP-024 |
 | 2026-09-23 | Treat workforce efficiency as verified operational performance before financial reporting | One authoritative production quantity, linked labor, explicit crew or individual attribution, effective-dated targets, comparable samples, and quality context avoid a misleading raw-output leaderboard. My Performance is private. Office rankings require policy sign-off. Costs wait for the accounting system of record |
+| 2026-09-23 | Ship the first workforce view behind a flag without rankings | Office and field can review verified pace while the sample, attribution, and target policy are still open. `OPS_WORKFORCE_PERFORMANCE=0` hides it. Demo mode shows it |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.32 | 2026-09-23 | Implemented the first workforce-performance slice behind `OPS_WORKFORCE_PERFORMANCE`: verified production, targets, normalized efficiency, private My Performance, an unranked office review, and Home exceptions. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.31 | 2026-09-23 | Specified WFP-001 through WFP-018 and the implementation plan for verified production attribution, private field-worker trends, office workforce performance, actionable exceptions, sample and quality safeguards, controlled rollout, and a later restricted financial bridge. The feature is not built |
 | 1.30 | 2026-09-23 | Shipped LAB-001 through LAB-007. Field labor is piece work in bags or square feet, or hours up to 24. The same person can have both on one job and day. No wage is stored. Purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.29 | 2026-09-22 | Shipped DSP-001 through DSP-008 day dispatch. Office users schedule or cancel a field member on a job for one date. The same slot revives instead of duplicating. Double bookings stay visible on the board and Home. Field users see only their own scheduled rows, and that row opens the job for the working day. Time, purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |

@@ -12,6 +12,7 @@ import {
   FileSpreadsheetIcon,
   FolderKanbanIcon,
   CalendarDaysIcon,
+  ChartNoAxesCombinedIcon,
   HammerIcon,
   HardHatIcon,
   HouseIcon,
@@ -49,16 +50,21 @@ export function AppSidebar({
   email,
   canManageUsers,
   canPrepareImports,
+  showWorkforce,
 }: {
   email: string;
   canManageUsers: boolean;
   canPrepareImports: boolean;
+  showWorkforce: boolean;
 }) {
   const pathname = usePathname();
   const items = [
     ...nav.slice(0, -1),
     ...(canPrepareImports
       ? [{ title: "Import", href: "/app/imports", icon: FileSpreadsheetIcon }]
+      : []),
+    ...(showWorkforce
+      ? [{ title: "Workforce", href: "/app/workforce", icon: ChartNoAxesCombinedIcon }]
       : []),
     ...(canManageUsers
       ? [{ title: "Users", href: "/app/users", icon: UsersRoundIcon }]

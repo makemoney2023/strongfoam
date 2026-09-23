@@ -73,6 +73,24 @@ export const LABOR_ROLE_PERMISSIONS: Record<
   field_worker: LABOR_PERMISSIONS,
 };
 
+export const WORKFORCE_PERMISSIONS = [
+  "workforce.read",
+  "workforce.record",
+  "workforce.verify",
+] as const;
+
+export type WorkforcePermission = (typeof WORKFORCE_PERMISSIONS)[number];
+
+export const WORKFORCE_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly WorkforcePermission[]
+> = {
+  administrator: WORKFORCE_PERMISSIONS,
+  office: WORKFORCE_PERMISSIONS,
+  field_lead: ["workforce.record"],
+  field_worker: ["workforce.record"],
+};
+
 export const DATA_IMPORT_PERMISSIONS = [
   "data.import.prepare",
   "data.import.commit",

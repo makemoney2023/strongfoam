@@ -15,8 +15,15 @@ import { Label } from "@/components/ui/label";
 import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import { DISPATCH_TIME_ZONE, dispatchesVisibleToUser, dispatchableJobStatus } from "@/lib/ops/dispatch";
 import { listDispatches } from "@/lib/ops/dispatch-store";
-import { formatLaborEntry } from "@/lib/ops/labor";
+import { formatLaborEntry, formatLaborHours } from "@/lib/ops/labor";
 import { listLabor } from "@/lib/ops/labor-store";
+import { loadWorkforceBoard } from "@/lib/ops/production-store";
+import {
+  formatEfficiency,
+  formatProductionQuantity,
+  workforcePerformanceEnabled,
+} from "@/lib/ops/workforce-performance";
+import { recordFieldProduction } from "@/app/field/production-actions";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { isFieldActiveJobStatus } from "@/lib/ops/field-workspace";
 import { JOB_STATUS_LABELS, JOB_STATUSES, formatJobNumber } from "@/lib/ops/jobs";
@@ -68,6 +75,12 @@ export default async function FieldLandingPage({
     )
     .filter((job, index, list) => list.findIndex((item) => item.id === job.id) === index)
     .sort((left, right) => left.name.localeCompare(right.name));
+  const performanceEnabled = workforcePerformanceEnabled();
+  const performance = performanceEnabled
+    ? (await loadWorkforceBoard(session.organizationId, workDate)).workers.find(
+        (worker) => worker.userId === session.userId,
+      ) ?? null
+    : null;
   const laborJobNames = new Map(laborJobs.map((job) => [job.id, job.name]));
   await Promise.all(
     labor
@@ -189,6 +202,81 @@ export default async function FieldLandingPage({
           </Card>
         )}
       </section>
+
+      {performance ? (
+        <section aria-labelledby="my-performance-heading" className="space-y-3">
+          <div>
+            <h2 id="my-performance-heading" className="text-lg font-semibold">My performance</h2>
+            <p className="text-sm text-muted-foreground">
+              Your verified production only. Quality is not available yet, and no one else&apos;s ranking is shown.
+            </p>
+          </div>
+          <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10 text-sm">
+            <li className="px-4 py-3">{performance.nextAction}</li>
+            <li className="px-4 py-3">
+              Today: {performance.today.segments.map((segment) => formatProductionQuantity(segment.quantity, segment.unit)).join(", ") || "No verified production"}
+              {performance.today.efficiency == null ? "" : ` · ${formatEfficiency(performance.today.efficiency)}`}
+            </li>
+            <li className="px-4 py-3">
+              7 days: {performance.sevenDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.sevenDay.efficiency)} · {formatLaborHours(Math.round(performance.sevenDay.actualHours * 60)) || "0 hours"}
+            </li>
+            <li className="px-4 py-3">
+              28 days: {performance.twentyEightDay.efficiency == null ? "Not calculable" : formatEfficiency(performance.twentyEightDay.efficiency)} · {performance.twentyEightDay.shifts} {performance.twentyEightDay.shifts === 1 ? "shift" : "shifts"}
+            </li>
+            <li className="px-4 py-3">
+              {performance.personalBests.length === 0
+                ? "No personal best yet."
+                : performance.personalBests
+                    .map((best) => `Best ${best.label}: ${formatEfficiency(best.efficiency)}`)
+                    .join(" · ")}
+            </li>
+          </ul>
+          {laborJobs.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Record installed quantity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ActionForm action={recordFieldProduction} className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fieldProductionJob">Job</Label>
+                    <NativeSelect id="fieldProductionJob" name="jobId" required className="h-11">
+                      <option value="">Choose a job</option>
+                      {laborJobs.map((job) => (
+                        <option key={job.id} value={job.id}>
+                          {formatJobNumber(job.id)} · {job.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="fieldProductionTrade">Trade</Label>
+                      <Input id="fieldProductionTrade" name="trade" defaultValue="spray foam" className="h-11" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fieldProductionWorkType">Work type</Label>
+                      <Input id="fieldProductionWorkType" name="workType" defaultValue="wall" className="h-11" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fieldProductionQuantity">Quantity</Label>
+                      <Input id="fieldProductionQuantity" name="quantity" inputMode="numeric" className="h-11" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fieldProductionUnit">Unit</Label>
+                      <NativeSelect id="fieldProductionUnit" name="unit" className="h-11">
+                        <option value="bags">Bags</option>
+                        <option value="sq_ft">Square feet</option>
+                      </NativeSelect>
+                    </div>
+                  </div>
+                  <SubmitButton pendingLabel="Saving…" className="min-h-11">Save production</SubmitButton>
+                </ActionForm>
+              </CardContent>
+            </Card>
+          ) : null}
+        </section>
+      ) : null}
 
       <section aria-labelledby="dispatched-today-heading" className="space-y-3">
         <h2 id="dispatched-today-heading" className="text-lg font-semibold">

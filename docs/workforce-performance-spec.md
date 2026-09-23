@@ -1,6 +1,9 @@
 # Workforce performance specification and implementation plan
 
-Status: specified, not built
+Status: partial. Capture, verification, normalized efficiency, private My
+Performance, the unranked office review, and Home exceptions are implemented
+behind `OPS_WORKFORCE_PERFORMANCE`. Demo mode enables the flag. Rankings,
+financial costs, quality scoring, and CSV export are not enabled.
 
 PRD requirements: WFP-001 through WFP-018 in
 `docs/strongfoam-crm-erp-prd.md`

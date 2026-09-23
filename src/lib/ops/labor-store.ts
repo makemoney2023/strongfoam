@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { laborEntries } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
@@ -129,6 +129,32 @@ export async function listLabor(
             eq(laborEntries.organizationId, organizationId),
             eq(laborEntries.workDate, workDate),
           ),
+    );
+  return rows.map(fromRow);
+}
+
+export async function listLaborRange(
+  organizationId: string,
+  from: string,
+  to: string,
+): Promise<LaborEntry[]> {
+  if (isDemoOpsStore()) {
+    return memory().rows.filter(
+      (row) =>
+        row.organizationId === organizationId &&
+        row.workDate >= from &&
+        row.workDate <= to,
+    );
+  }
+  const rows = await getDb()
+    .select()
+    .from(laborEntries)
+    .where(
+      and(
+        eq(laborEntries.organizationId, organizationId),
+        gte(laborEntries.workDate, from),
+        lte(laborEntries.workDate, to),
+      ),
     );
   return rows.map(fromRow);
 }

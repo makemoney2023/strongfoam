@@ -35,6 +35,9 @@ import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
 import { buildDispatchDay, DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
 import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
 import { listDispatches } from "@/lib/ops/dispatch-store";
+import { loadWorkforceBoard } from "@/lib/ops/production-store";
+import { resolveWorkforceAccess } from "@/lib/ops/workforce-authorization";
+import { workforcePerformanceEnabled } from "@/lib/ops/workforce-performance";
 import { getOpsSession, organizationIdForOpsSession } from "@/lib/ops/auth";
 import { resolveImportAccess } from "@/lib/ops/import-authorization";
 import { listImportHomeExceptions } from "@/lib/ops/import-attention";
@@ -182,6 +185,11 @@ export default async function OpsHomePage() {
       })
     : null;
   const undispatchedPreview = dispatchDay?.undispatched.slice(0, 8) ?? [];
+  const workforceAccess = resolveWorkforceAccess(session, "workforce.read");
+  const workforceExceptions =
+    workforcePerformanceEnabled() && workforceAccess.ok
+      ? (await loadWorkforceBoard(workforceAccess.organizationId, dispatchDate)).exceptions.slice(0, 8)
+      : [];
   const changeOrderAccess = resolveCommercialAccess(session, "change_order.read");
   const unapprovedChangeOrders = changeOrderAccess.ok
     ? await listUnapprovedChangeOrders(changeOrderAccess.organizationId)
@@ -416,6 +424,36 @@ export default async function OpsHomePage() {
               {dispatchDay.undispatched.length} jobs have no dispatch. Showing {undispatchedPreview.length}.
             </p>
           ) : null}
+        </section>
+      ) : null}
+
+      {workforcePerformanceEnabled() && workforceAccess.ok ? (
+        <section aria-labelledby="workforce-exceptions-heading" className="space-y-3">
+          <div>
+            <h2 id="workforce-exceptions-heading" className="text-lg font-semibold">
+              Workforce
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Missing production or labor, reviews, and repeated below-target shifts. This is not a ranking.
+            </p>
+          </div>
+          {workforceExceptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No workforce exceptions.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {workforceExceptions.map((exception) => (
+                <li key={`${exception.kind}-${exception.label}`}>
+                  <Link
+                    href={exception.href}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{exception.label}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ) : null}
 

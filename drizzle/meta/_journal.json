@@ -225,6 +225,13 @@
       "when": 1758438000000,
       "tag": "0031_labor_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1758439000000,
+      "tag": "0032_production",
+      "breakpoints": true
     }
   ]
 }
