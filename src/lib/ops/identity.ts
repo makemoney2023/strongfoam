@@ -59,6 +59,20 @@ export const DISPATCH_ROLE_PERMISSIONS: Record<
   field_worker: ["dispatch.read"],
 };
 
+export const LABOR_PERMISSIONS = ["labor.read", "labor.edit"] as const;
+
+export type LaborPermission = (typeof LABOR_PERMISSIONS)[number];
+
+export const LABOR_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly LaborPermission[]
+> = {
+  administrator: LABOR_PERMISSIONS,
+  office: LABOR_PERMISSIONS,
+  field_lead: LABOR_PERMISSIONS,
+  field_worker: LABOR_PERMISSIONS,
+};
+
 export const DATA_IMPORT_PERMISSIONS = [
   "data.import.prepare",
   "data.import.commit",

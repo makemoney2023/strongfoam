@@ -722,7 +722,8 @@ Future operational releases should provide:
 - Calendar, dispatch board, crew capacity, and scheduling. The day dispatch
   board in section 16.2 is the first slice. Crew capacity remains future work.
 - Daily field reports and weather/site conditions.
-- Labor time and production quantities.
+- Labor time and piece work. Hours and piece counts are specified in
+  section 16.3. A wage is not stored.
 - Material requests, purchase orders, receipts, and delivery tickets.
 - Equipment assignment and usage.
 - Safety forms and incidents.
@@ -942,8 +943,8 @@ remain keyboard-usable and horizontally scrollable at 375px with 44px targets.
 
 A dispatch places one active field member on one job for one work date. It
 does not replace the durable job assignment, move the schedule, or recommend
-a crew. Time, purchase orders, equipment, inspections, and closeout stay
-future work.
+a crew. Purchase orders, equipment, inspections, and closeout stay future
+work. Hours and piece work are section 16.3.
 
 **DSP-001:** An office user can open a Dispatch board for one work date. The
 default date is the working day in America/Toronto.
@@ -972,6 +973,36 @@ people scheduled on more than one job, to users who can read dispatch.
 
 **DSP-008:** Schedule and cancel write an audit event for the session
 organization.
+
+### 16.3 Field labor
+
+Field labor is either time or piece work. Piece work is the count of bags or
+square feet a person completed. Hours are the time they worked. The same
+person can have both on one job and day. The record stores no rate and no
+pay. Individual compensation stays out of scope under IMP-024.
+
+**LAB-001:** A labor entry is one field member, one job, one work date, and
+one measure: hours or piece work.
+
+**LAB-002:** Piece work is a whole number of bags or square feet. Hours are a
+duration greater than zero and no more than 24 hours. Both measures may exist
+for the same person, job, and day, including bags and square feet together.
+
+**LAB-003:** Saving the same person, job, day, and measure updates that entry
+instead of adding a second row. Removing an entry writes an audit event.
+
+**LAB-004:** Administrators and office users can record and remove any field
+member's labor. A field member can record and remove only their own labor, and
+only on a job they are assigned to or dispatched to that working day.
+
+**LAB-005:** A closed job cannot take labor. The person must be an active
+field member of the organization.
+
+**LAB-006:** The dispatch board lists that day's labor. The field landing
+records the signed-in person's labor for the working day.
+
+**LAB-007:** Record and remove write an audit event. The payload has the
+measure and no wage.
 
 ## 17. Trade-specific requirements
 
@@ -2256,8 +2287,9 @@ policy and human review.
    dispatch is done: an office user schedules or cancels one field member on
    one job for one date, a cancelled row stays as evidence, a second job the
    same day is shown as a double booking, Home lists active jobs with no
-   dispatch, and the field landing shows that person's rows. Time, purchase
-   orders, equipment, inspections, closeout, AI-021, and AI-023 are not built.
+   dispatch, and the field landing shows that person's rows. Labor is hours or
+   piece work in bags or square feet, with no wage stored. Purchase orders,
+   equipment, inspections, closeout, AI-021, and AI-023 are not built.
 9. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
 10. Add customer and subcontractor portals if validated, then warranty triage
@@ -2373,11 +2405,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Gate commercial AI separately from manual estimates, proposals, and conversion | Office staff can keep estimating while AI stays off. Production AI requires passed workflow checks, a fresh worker heartbeat, residency-approved scanner and models, evaluation rejections, and cost and rate limits |
 | 2026-09-22 | Record a change order on the project before drafting one from a voice note | QTE-007 needs scope, price, schedule impact, status, approval evidence, and a budget effect. Approval uses the existing second-approver rule. The revised total adds approved effects to the original budget. Schedule-impact days are recorded and do not move tasks. AI-019 stays unbuilt |
 | 2026-09-22 | Schedule a person on a job for one day before recommending a crew | DSP-001 through DSP-008 record who is sent where. Cancelling keeps the row. Two jobs on the same day stay visible. Job assignments, task dates, time, purchase orders, inspections, closeout, and AI-023 stay unchanged |
+| 2026-09-23 | Record field labor as piece work or hours, without a wage | Spray foam crews are often paid by the bag or square foot. The labor entry stores that count, or the hours worked. Rates and payroll stay out under IMP-024 |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.30 | 2026-09-23 | Shipped LAB-001 through LAB-007. Field labor is piece work in bags or square feet, or hours up to 24. The same person can have both on one job and day. No wage is stored. Purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.29 | 2026-09-22 | Shipped DSP-001 through DSP-008 day dispatch. Office users schedule or cancel a field member on a job for one date. The same slot revives instead of duplicating. Double bookings stay visible on the board and Home. Field users see only their own scheduled rows, and that row opens the job for the working day. Time, purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.28 | 2026-09-22 | Shipped QTE-007 change orders: scope, price, schedule-impact days, status, administrator approval evidence, and one budget effect on the revised project total. Task dates are not moved. AI-019 remains unbuilt |
 | 1.27 | 2026-09-22 | Added organization-scoped commercial rollout flags and Home links for failed scan, extraction, proposal, and conversion jobs. Commercial AI stays off until workflow checks, a healthy worker heartbeat, residency-approved providers, the evaluation suite, and cost and rate limits are in place |

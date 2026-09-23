@@ -19,9 +19,13 @@ import {
 import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
 import { listDispatches } from "@/lib/ops/dispatch-store";
 import { formatJobNumber } from "@/lib/ops/jobs";
+import { formatLaborEntry } from "@/lib/ops/labor";
+import { resolveLaborAccess } from "@/lib/ops/labor-authorization";
+import { listLabor } from "@/lib/ops/labor-store";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import { listActiveFieldUsers, listJobs, listUsers } from "@/lib/ops/store";
 import { cancelDayDispatch, scheduleDayDispatch } from "./actions";
+import { recordDayLabor, removeDayLabor } from "./labor-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -43,17 +47,19 @@ export default async function DispatchPage({
   const access = resolveDispatchAccess(session, "dispatch.read");
   if (!access.ok) redirect("/app");
   const canEdit = resolveDispatchAccess(session, "dispatch.edit").ok;
+  const canEditLabor = resolveLaborAccess(session, "labor.edit").ok;
 
   const params = await searchParams;
   const requested = parseWorkDate(params.date);
   const workDate = requested.ok
     ? requested.value
     : workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE);
-  const [jobs, people, fieldUsers, dispatches] = await Promise.all([
+  const [jobs, people, fieldUsers, dispatches, labor] = await Promise.all([
     listJobs(),
     listUsers(),
     listActiveFieldUsers(),
     listDispatches(access.organizationId, workDate),
+    listLabor(access.organizationId, workDate),
   ]);
   const day = buildDispatchDay({
     organizationId: access.organizationId,
@@ -165,6 +171,118 @@ export default async function DispatchPage({
           </ul>
         </section>
       ) : null}
+
+      <section aria-labelledby="labor-heading" className="space-y-3">
+        <div>
+          <h2 id="labor-heading" className="text-lg font-semibold">Labor</h2>
+          <p className="text-sm text-muted-foreground">
+            Piece work is bags or square feet. Hours are for time. A wage is not stored.
+          </p>
+        </div>
+        {labor.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No labor recorded this day.</p>
+        ) : (
+          <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+            {labor
+              .map((entry) => ({
+                entry,
+                person: people.find((user) => user.userId === entry.userId)?.displayName ?? "Former member",
+                jobName: jobs.find((job) => job.id === entry.jobId)?.name ?? "Unknown job",
+              }))
+              .sort((left, right) => left.person.localeCompare(right.person) || left.jobName.localeCompare(right.jobName))
+              .map(({ entry, person, jobName }) => (
+                <li key={entry.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <span>
+                    {person} · {jobName} · {formatLaborEntry(entry)}
+                    {entry.note ? ` · ${entry.note}` : ""}
+                  </span>
+                  {canEditLabor ? (
+                    <ActionForm action={removeDayLabor}>
+                      <input type="hidden" name="workDate" value={workDate} />
+                      <input type="hidden" name="laborId" value={entry.id} />
+                      <SubmitButton variant="outline" pendingLabel="Removing…" className="min-h-11">
+                        Remove
+                      </SubmitButton>
+                    </ActionForm>
+                  ) : null}
+                </li>
+              ))}
+          </ul>
+        )}
+        {canEditLabor ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Record labor</CardTitle>
+              <CardDescription>
+                Saving the same person, job, day, and measure updates that entry.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ActionForm action={recordDayLabor} className="grid gap-4 sm:grid-cols-2">
+                <input type="hidden" name="workDate" value={workDate} />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="laborJobId">Job</Label>
+                  <NativeSelect id="laborJobId" name="jobId" required className="h-11">
+                    <option value="">Choose a job</option>
+                    {openJobs.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {formatJobNumber(job.id)} · {job.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="laborUserId">Field member</Label>
+                  <NativeSelect id="laborUserId" name="userId" required className="h-11">
+                    <option value="">Choose a person</option>
+                    {fieldUsers.map((user) => (
+                      <option key={user.userId} value={user.userId}>
+                        {user.displayName}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Measure</legend>
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input type="radio" name="kind" value="piece" required />
+                    Piece work
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input type="radio" name="kind" value="hourly" />
+                    Hours
+                  </label>
+                </fieldset>
+                <div className="space-y-2">
+                  <Label htmlFor="laborQuantity">Pieces</Label>
+                  <Input id="laborQuantity" name="quantity" inputMode="numeric" className="h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="laborUnit">Unit</Label>
+                  <NativeSelect id="laborUnit" name="unit" className="h-11">
+                    <option value="">Choose a unit</option>
+                    <option value="bags">Bags</option>
+                    <option value="sq_ft">Square feet</option>
+                  </NativeSelect>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="laborHours">Hours</Label>
+                  <Input id="laborHours" name="hours" inputMode="decimal" placeholder="8 or 7.5" className="h-11" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="laborNote">Note</Label>
+                  <Input id="laborNote" name="note" maxLength={500} className="h-11" />
+                </div>
+                <div className="sm:col-span-2">
+                  <SubmitButton pendingLabel="Saving…" className="min-h-11">
+                    Save labor
+                  </SubmitButton>
+                </div>
+              </ActionForm>
+            </CardContent>
+          </Card>
+        ) : null}
+      </section>
 
       {canEdit ? (
         <Card>

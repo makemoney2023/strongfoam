@@ -434,6 +434,65 @@ export const dispatches = pgTable(
   ],
 );
 
+export const laborEntries = pgTable(
+  "labor_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    workDate: date("work_date", { mode: "string" }).notNull(),
+    kind: text("kind").notNull(),
+    minutes: integer("minutes"),
+    quantity: integer("quantity"),
+    unit: text("unit").notNull().default(""),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("labor_entries_slot_unique").on(
+      table.organizationId,
+      table.jobId,
+      table.userId,
+      table.workDate,
+      table.kind,
+      table.unit,
+    ),
+    check(
+      "labor_entries_kind_valid",
+      sql`${table.kind} IN ('hourly', 'piece')`,
+    ),
+    check(
+      "labor_entries_measure_valid",
+      sql`(
+        ${table.kind} = 'hourly'
+        AND ${table.minutes} > 0
+        AND ${table.minutes} <= 1440
+        AND ${table.quantity} IS NULL
+        AND ${table.unit} = ''
+      ) OR (
+        ${table.kind} = 'piece'
+        AND ${table.quantity} > 0
+        AND ${table.minutes} IS NULL
+        AND ${table.unit} IN ('bags', 'sq_ft')
+      )`,
+    ),
+    index("labor_entries_day_idx").on(table.organizationId, table.workDate),
+  ],
+);
+
 export const workAreas = pgTable(
   "work_areas",
   {
@@ -1956,6 +2015,7 @@ export type ChangeOrderRow = typeof changeOrders.$inferSelect;
 export type ChangeOrderApprovalRow = typeof changeOrderApprovals.$inferSelect;
 export type ChangeOrderBudgetEffectRow = typeof changeOrderBudgetEffects.$inferSelect;
 export type DispatchRow = typeof dispatches.$inferSelect;
+export type LaborEntryRow = typeof laborEntries.$inferSelect;
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {

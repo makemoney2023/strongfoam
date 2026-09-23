@@ -218,6 +218,13 @@
       "when": 1758437000000,
       "tag": "0030_dispatches",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1758438000000,
+      "tag": "0031_labor_entries",
+      "breakpoints": true
     }
   ]
 }
