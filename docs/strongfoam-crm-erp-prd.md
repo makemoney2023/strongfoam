@@ -1004,6 +1004,55 @@ records the signed-in person's labor for the working day.
 **LAB-007:** Record and remove write an audit event. The payload has the
 measure and no wage.
 
+### 16.4 Production attribution and workforce efficiency
+
+Field labor is the capture foundation for workforce performance, but a piece
+count by itself is not enough to rank a worker or crew. The complete data
+contract and implementation sequence are in
+[`workforce-performance-spec.md`](workforce-performance-spec.md). This feature
+is specified and not built.
+
+**WFP-001:** Installed production must be an authoritative record with
+organization, job, work date, optional task and work area, trade or work type,
+one unit, quantity, attribution mode, review status, recorder, and timestamps.
+It must not be inferred by adding every worker's piece count.
+
+**WFP-002:** A stated task quantity is planned or remaining work, not installed
+production. A quantity field note may create or link to one production record,
+but analytics must not count both. A labor piece count remains valid
+operational evidence and is not verified production until explicitly linked or
+reviewed.
+
+**WFP-003:** A production record may be crew-only or have individual
+allocations. Individual allocations must not exceed verified production. Crew
+production without an individual allocation may produce a crew metric but not
+an individual score.
+
+**WFP-004:** Actual crew-hours are the sum of linked participant minutes.
+Individual efficiency requires both an individual production allocation and
+the person's linked hours for comparable work. Overlapping labor and
+over-allocated production must be rejected or excluded with a visible reason.
+
+**WFP-005:** A production target must be approved, immutable, and
+effective-dated. It must identify organization, trade, work type, unit, target
+basis, and target rate. Bags, square feet, and materially different work
+classes must not be compared as raw totals.
+
+**WFP-006:** Earned hours equal verified quantity divided by the matching target
+rate. Efficiency equals earned hours divided by actual comparable hours,
+multiplied by 100. Roll-ups use total earned hours divided by total actual
+hours; they must not average percentages.
+
+**WFP-007:** A result is not calculable when production is unverified, hours or
+an approved target are missing, units are incompatible, attribution is
+incomplete, or records overlap. The API and UI must return the exclusion reason
+instead of zero or a guessed score.
+
+**WFP-008:** Verify, correct, void, allocate, target-approve, export, and rollout
+actions require organization authorization and audit evidence. A person cannot
+verify an entry or allocation that affects their own individual score. Voiding
+preserves the original record.
+
 ## 17. Trade-specific requirements
 
 The platform must use shared project and job primitives while allowing
@@ -1068,6 +1117,12 @@ Future financial capabilities include:
 A general ledger, payroll calculation, and tax engine remain outside the initial
 scope.
 
+Workforce efficiency is operational before it is financial. WFP-001 through
+WFP-018 may calculate verified production, crew-hours, earned hours, and
+normalized efficiency without a wage. Standard labor cost, accounting actual,
+estimate-to-actual variance, and margin belong in a restricted financial view
+only after the accounting system of record and cost permissions are approved.
+
 ## 19. Centralized command center and reporting
 
 **RPT-001:** Role-based dashboards must surface actionable exceptions rather
@@ -1096,6 +1151,60 @@ underlying record and activity history.
 
 **RPT-003:** Reports must use consistent organization time zone, currency, and
 status definitions.
+
+### 19.1 Workforce performance
+
+**WFP-009:** The field application must provide a private My Performance view
+for the signed-in worker. It shows today's verified production and hours,
+current pace, seven-day and 28-day trends, included sample, documentation
+status, available quality context, personal bests for comparable work, and
+factual next actions.
+
+**WFP-010:** The field application must not expose coworker rankings, a public
+leaderboard, wages, piece rates, payroll amounts, or inferred compensation. It
+must not reward overtime, skipped breaks, unverified output, or unavailable
+quality evidence.
+
+**WFP-011:** Office users with workforce-performance permission must receive a
+dedicated Workforce Performance view for workers and crews. It lists role,
+trade, verified production by unit, actual hours, production rate, normalized
+efficiency, trend, quality and documentation context, comparable sample, and
+last active date.
+
+**WFP-012:** The office view must filter by date, worker or crew, trade, work
+type, unit, job, customer, role, eligibility, and review state. Every result
+must drill into its production, labor, allocation, target revision, job, and
+exception evidence.
+
+**WFP-013:** Ranked office results require a configurable minimum comparable
+sample. The initial proposed policy is three verified shifts and twelve actual
+hours. A smaller sample stays visible as insufficient data and receives no
+rank.
+
+**WFP-014:** Quality, safety, rework, deficiencies, inspections, and
+documentation must be separate, visible dimensions, not hidden deductions in
+the efficiency formula. A missing source is “not available,” not a pass.
+
+**WFP-015:** Home must show workforce exceptions rather than a leaderboard:
+missing labor, missing production, production awaiting review, repeated
+below-target comparable shifts, high efficiency with quality exceptions,
+overlapping labor, and over-allocated production.
+
+**WFP-016:** Performance metrics must not trigger an automated employment,
+compensation, discipline, termination, or scheduling decision. Policy,
+minimum-sample, comparison-class, and human-review controls require explicit
+approval before office rankings are enabled.
+
+**WFP-017:** After the accounting system of record is approved, a separately
+authorized financial dashboard may add earned versus actual hours, standard
+versus accounting labor cost, labor cost per unit, estimate-to-actual labor
+variance, and margin by job, trade, or crew. Individual wages stay outside the
+operational model and field application.
+
+**WFP-018:** Rollout must be feature-flagged. Calculations first run in shadow
+mode, then My Performance may open after reviewed validation, and office
+rankings may open only after policy sign-off. Rollout monitoring must check
+attribution errors, metric gaming, quality regressions, and worker feedback.
 
 ## 20. Notifications and activity
 
@@ -2123,7 +2232,10 @@ Later metrics:
 
 - Estimate accuracy versus actual cost.
 - Gross margin and variance by trade and job.
-- Crew productivity against planned production.
+- Verified crew productivity and earned hours against an approved,
+  effective-dated production target.
+- Eligible worker efficiency trends, comparable sample size, attribution
+  exceptions, and quality context. No automated employment decision.
 - Change-order approval cycle.
 - Schedule adherence.
 - Customer repeat and warranty rates.
@@ -2290,9 +2402,15 @@ policy and human review.
    dispatch, and the field landing shows that person's rows. Labor is hours or
    piece work in bags or square feet, with no wage stored. Purchase orders,
    equipment, inspections, closeout, AI-021, and AI-023 are not built.
-9. Add job costing and accounting integrations, then cost variance
+9. Add authoritative production attribution and approved production targets,
+   then My Performance, the office Workforce Performance view, and workforce
+   exception widgets under WFP-001 through WFP-018. Field labor alone must not
+   produce rankings. Quality context becomes complete as inspections,
+   deficiencies, and rework records ship. Financial cost extensions wait for
+   the accounting system of record.
+10. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
-10. Add customer and subcontractor portals if validated, then warranty triage
+11. Add customer and subcontractor portals if validated, then warranty triage
    (AI-025).
 
 Each stage must include authorization tests, audit coverage, data migration,
@@ -2322,6 +2440,7 @@ operational monitoring, and user acceptance criteria.
 | Spreadsheet PII or pricing is exposed | Private Storage, non-exposed staging schema, scoped authorization, audit redaction, and retention deletion |
 | Workforce spreadsheet creates insecure accounts | Reject password columns, create inactive identities, and require separate administrator activation |
 | Internal labour costs are mistaken for payroll wages | Generic estimating-rate items only; individual compensation requires a separate restricted model |
+| Raw or self-reported production creates a misleading worker ranking | Verify one authoritative production quantity, separate crew from individual attribution, normalize only comparable work, require a minimum sample, show quality context, and prohibit automated employment decisions |
 | Render worker stops during processing | Checkpointed jobs, graceful shutdown, retries, and dead-letter queue |
 | Infrastructure stores Canadian data outside Canada | Confirm contractual residency and transfer requirements before provisioning |
 
@@ -2350,6 +2469,10 @@ These decisions are required before their respective implementation stage:
     needed.
 12. Which non-administrator roles may view imported internal unit cost. Until
     approved, cost visibility remains administrator-only.
+13. Workforce-performance policy: crew versus individual attribution,
+    authorized verifiers, target owners and work classes, minimum comparable
+    sample, quality and safety context, correction rights, export rights, and
+    which roles may view office rankings. Rankings stay off until approved.
 
 ## 31. Decision log
 
@@ -2406,11 +2529,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-22 | Record a change order on the project before drafting one from a voice note | QTE-007 needs scope, price, schedule impact, status, approval evidence, and a budget effect. Approval uses the existing second-approver rule. The revised total adds approved effects to the original budget. Schedule-impact days are recorded and do not move tasks. AI-019 stays unbuilt |
 | 2026-09-22 | Schedule a person on a job for one day before recommending a crew | DSP-001 through DSP-008 record who is sent where. Cancelling keeps the row. Two jobs on the same day stay visible. Job assignments, task dates, time, purchase orders, inspections, closeout, and AI-023 stay unchanged |
 | 2026-09-23 | Record field labor as piece work or hours, without a wage | Spray foam crews are often paid by the bag or square foot. The labor entry stores that count, or the hours worked. Rates and payroll stay out under IMP-024 |
+| 2026-09-23 | Treat workforce efficiency as verified operational performance before financial reporting | One authoritative production quantity, linked labor, explicit crew or individual attribution, effective-dated targets, comparable samples, and quality context avoid a misleading raw-output leaderboard. My Performance is private. Office rankings require policy sign-off. Costs wait for the accounting system of record |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.31 | 2026-09-23 | Specified WFP-001 through WFP-018 and the implementation plan for verified production attribution, private field-worker trends, office workforce performance, actionable exceptions, sample and quality safeguards, controlled rollout, and a later restricted financial bridge. The feature is not built |
 | 1.30 | 2026-09-23 | Shipped LAB-001 through LAB-007. Field labor is piece work in bags or square feet, or hours up to 24. The same person can have both on one job and day. No wage is stored. Purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.29 | 2026-09-22 | Shipped DSP-001 through DSP-008 day dispatch. Office users schedule or cancel a field member on a job for one date. The same slot revives instead of duplicating. Double bookings stay visible on the board and Home. Field users see only their own scheduled rows, and that row opens the job for the working day. Time, purchase orders, equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.28 | 2026-09-22 | Shipped QTE-007 change orders: scope, price, schedule-impact days, status, administrator approval evidence, and one budget effect on the revised project total. Task dates are not moved. AI-019 remains unbuilt |
