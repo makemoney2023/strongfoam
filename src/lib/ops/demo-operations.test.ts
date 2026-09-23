@@ -119,9 +119,11 @@ describe("demo operations sample", () => {
       jobs,
       inspections: demoInspectionSeed(),
     });
-    expect(inspectionAttention.map((item) => `${item.result}:${item.name}`)).toEqual([
-      "failed:Podium deck thickness",
-      "open:Fireproofing adhesion",
+    expect(inspectionAttention.map((item) => `${item.result}:${item.name}:${item.jobName}`)).toEqual([
+      "failed:Podium deck thickness:North elevation spray foam",
+      "open:Concrete cure:Loading dock air barrier",
+      "open:Fireproofing adhesion:Mechanical room fireproofing",
+      "open:Lift inspection:North elevation spray foam",
     ]);
 
     const ids = [
