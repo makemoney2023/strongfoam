@@ -148,12 +148,15 @@ export function buildPurchaseAttention(input: {
     lineCount.set(line.purchaseOrderId, (lineCount.get(line.purchaseOrderId) ?? 0) + 1);
   }
   const drafts = input.orders
-    .filter(
-      (order) =>
+    .filter((order) => {
+      const job = jobs.get(order.jobId);
+      return (
         order.organizationId === input.organizationId &&
         order.status === "draft" &&
-        jobs.has(order.jobId),
-    )
+        job &&
+        job.status !== "closed"
+      );
+    })
     .map((order) => ({
       id: order.id,
       jobId: order.jobId,

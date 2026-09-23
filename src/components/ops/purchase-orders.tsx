@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionState } from "@/lib/ops/action-result";
+import { formatFieldQuantity } from "@/lib/ops/field-workspace";
 import {
   formatPurchaseLine,
   purchaseOrderStatusLabel,
@@ -42,8 +43,9 @@ export function PurchaseOrdersPanel({
       <CardHeader>
         <CardTitle>Purchase orders</CardTitle>
         <CardDescription>
-          A draft cites open material requests. It stores no price. Ordering locks the
-          draft. Cancelling keeps the order and releases those requests.
+          {canEdit
+            ? "A draft cites open material requests. It stores no price. Ordering locks the draft. Cancelling keeps the order and releases those requests."
+            : "These orders cite material requests on this job. They store no price."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -132,24 +134,25 @@ export function PurchaseOrdersPanel({
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">Material requests</legend>
                 <ul className="space-y-2">
-                  {availableRequests.map((request) => (
-                    <li key={request.id}>
-                      <label className="flex min-h-11 items-start gap-3 text-sm">
-                        <input
-                          type="checkbox"
-                          name="materialRequestId"
-                          value={request.id}
-                          className="mt-1 size-5"
-                        />
-                        <span>
-                          {request.body}
-                          {request.quantity && request.unit
-                            ? ` · ${request.quantity} ${request.unit.replaceAll("_", " ")}`
-                            : ""}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
+                  {availableRequests.map((request) => {
+                    const quantity = formatFieldQuantity(request.quantity, request.unit);
+                    return (
+                      <li key={request.id}>
+                        <label className="flex min-h-11 items-start gap-3 text-sm">
+                          <input
+                            type="checkbox"
+                            name="materialRequestId"
+                            value={request.id}
+                            className="mt-1 size-5"
+                          />
+                          <span>
+                            {request.body}
+                            {quantity ? ` · ${quantity}` : ""}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
                 </ul>
               </fieldset>
               <SubmitButton pendingLabel="Drafting…" className="min-h-11 w-full sm:w-auto">

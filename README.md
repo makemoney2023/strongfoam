@@ -218,11 +218,13 @@ signed-in person's labor. No rate or wage is stored. Apply
 
 A purchase order cites open material requests on one job. Office staff enter a
 supplier and draft the order, then mark it ordered or cancel it. Cancelling
-keeps the order and lets those requests be drafted again. The line copies the
-request text and any quantity. No price is stored. A cited request cannot be
-deleted. Home lists drafts and requests that are not on an active order. Apply
-`0034_purchase_orders.sql` before using purchase orders against Postgres.
-Equipment, inspections, and closeout are unchanged.
+keeps the order and lets those requests be drafted again. A material request
+can store an optional whole quantity and field unit. The line copies the
+request text and that quantity. No price is stored. A cited request cannot be
+deleted. Home lists open-job drafts and requests that are not on an active
+order. Apply `0034_purchase_orders.sql` before deploying this application
+code: Home and the job pages read those tables. Equipment, inspections, and
+closeout are unchanged.
 
 Workforce performance is separate from pay. Production and preview are set to
 `OPS_WORKFORCE_PERFORMANCE=1`. `0` keeps it off. Demo mode enables it when the

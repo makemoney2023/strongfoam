@@ -976,6 +976,9 @@ export const purchaseOrders = pgTable(
       sql`${table.status} IN ('draft', 'ordered', 'cancelled')`,
     ),
     index("purchase_orders_job_idx").on(table.organizationId, table.jobId),
+    index("purchase_orders_draft_idx")
+      .on(table.organizationId, table.jobId)
+      .where(sql`${table.status} = 'draft'`),
   ],
 );
 
@@ -1014,7 +1017,18 @@ export const purchaseOrderLines = pgTable(
       "purchase_order_lines_unit_valid",
       sql`${table.unit} IN ('', 'board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours')`,
     ),
+    check(
+      "purchase_order_lines_measure_valid",
+      sql`(
+        ${table.quantity} IS NULL AND ${table.unit} = ''
+      ) OR (
+        ${table.quantity} > 0
+        AND ${table.quantity} <= 1000000
+        AND ${table.unit} IN ('board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours')
+      )`,
+    ),
     index("purchase_order_lines_order_idx").on(table.purchaseOrderId),
+    index("purchase_order_lines_request_idx").on(table.materialRequestId),
   ],
 );
 

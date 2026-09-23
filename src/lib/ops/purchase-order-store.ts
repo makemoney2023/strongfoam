@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { jobFieldNotes, jobs, purchaseOrderLines, purchaseOrders } from "@/db/schema";
 import { recordAuditEvent } from "@/lib/ops/audit";
@@ -218,9 +218,22 @@ export async function listPurchaseAttention(organizationId: string): Promise<{
   const db = getDb();
   const [orderRows, requestRows, lineRows] = await Promise.all([
     db
-      .select()
+      .select({
+        order: purchaseOrders,
+        jobName: jobs.name,
+        jobStatus: jobs.status,
+        jobOrganizationId: jobs.organizationId,
+      })
       .from(purchaseOrders)
-      .where(eq(purchaseOrders.organizationId, organizationId)),
+      .innerJoin(jobs, eq(purchaseOrders.jobId, jobs.id))
+      .where(
+        and(
+          eq(purchaseOrders.organizationId, organizationId),
+          eq(jobs.organizationId, organizationId),
+          eq(purchaseOrders.status, "draft"),
+          ne(jobs.status, "closed"),
+        ),
+      ),
     db
       .select({
         id: jobFieldNotes.id,
@@ -242,7 +255,12 @@ export async function listPurchaseAttention(organizationId: string): Promise<{
     db
       .select()
       .from(purchaseOrderLines)
-      .where(eq(purchaseOrderLines.organizationId, organizationId)),
+      .where(
+        and(
+          eq(purchaseOrderLines.organizationId, organizationId),
+          isNotNull(purchaseOrderLines.activeMaterialRequestId),
+        ),
+      ),
   ]);
   const jobMap = new Map<string, { id: string; name: string; status: string; organizationId: string }>();
   for (const row of requestRows) {
@@ -253,24 +271,19 @@ export async function listPurchaseAttention(organizationId: string): Promise<{
       organizationId: row.organizationId,
     });
   }
-  for (const order of orderRows) {
-    if (!jobMap.has(order.jobId)) {
-      const job = await getJob(order.jobId);
-      if (job) {
-        jobMap.set(job.id, {
-          id: job.id,
-          name: job.name,
-          status: job.status,
-          organizationId: job.organizationId,
-        });
-      }
-    }
+  for (const row of orderRows) {
+    jobMap.set(row.order.jobId, {
+      id: row.order.jobId,
+      name: row.jobName,
+      status: row.jobStatus,
+      organizationId: row.jobOrganizationId,
+    });
   }
   return buildPurchaseAttention({
     organizationId,
     jobs: [...jobMap.values()],
     requests: requestRows,
-    orders: orderRows.map(orderFromRow),
+    orders: orderRows.map((row) => orderFromRow(row.order)),
     lines: lineRows.map(lineFromRow),
   });
 }
@@ -453,7 +466,7 @@ export async function cancelPurchaseOrder(input: {
     }
     state.orders[index] = next;
     state.lines = state.lines.map((line) =>
-      line.purchaseOrderId === next.id
+      line.purchaseOrderId === next.id && line.organizationId === access.organizationId
         ? { ...line, activeMaterialRequestId: null }
         : line,
     );
@@ -474,7 +487,12 @@ export async function cancelPurchaseOrder(input: {
       await tx
         .update(purchaseOrderLines)
         .set({ activeMaterialRequestId: null })
-        .where(eq(purchaseOrderLines.purchaseOrderId, current.id));
+        .where(
+          and(
+            eq(purchaseOrderLines.purchaseOrderId, current.id),
+            eq(purchaseOrderLines.organizationId, access.organizationId),
+          ),
+        );
       return rows[0];
     });
     if (!updated) {

@@ -24,14 +24,17 @@ const field = {
 
 async function clearTestRequests() {
   resetPurchaseOrdersForTests();
-  const notes = await listJobFieldNotes(DEMO_JOB_ID, { kind: "material_request" });
-  for (const note of notes) {
-    if (note.body.startsWith("PO test ")) {
-      await deleteJobFieldNote({
-        jobId: DEMO_JOB_ID,
-        noteId: note.id,
-        actor: "test",
-      });
+  const jobs = await listJobs();
+  for (const job of jobs) {
+    const notes = await listJobFieldNotes(job.id, { kind: "material_request" });
+    for (const note of notes) {
+      if (note.body.startsWith("PO test ")) {
+        await deleteJobFieldNote({
+          jobId: job.id,
+          noteId: note.id,
+          actor: "test",
+        });
+      }
     }
   }
 }
@@ -169,5 +172,70 @@ describe("purchase order store", () => {
       ]),
     );
     expect(purchaseAudits.every((event) => !("price" in (event.payload ?? {})))).toBe(true);
+  });
+
+  it("keeps another organization and another job off the draft", async () => {
+    const bags = await request("PO test isolation bags", 4);
+    const otherJob = (await listJobs()).find((job) => job.name === "Mechanical room fireproofing");
+    if (!otherJob) throw new Error("Second demo job is missing.");
+    const foreign = await addJobFieldNote({
+      jobId: otherJob.id,
+      actor: office.email,
+      input: {
+        kind: "material_request",
+        body: "PO test other job bags",
+        workAreaId: null,
+        taskId: null,
+        quantity: 3,
+        unit: "bags",
+      },
+    });
+    if (!foreign) throw new Error("Other job request was not saved.");
+
+    const outsider = {
+      email: "other@example.com",
+      role: "office" as const,
+      organizationId: "00000000-0000-4000-8000-000000000099",
+    };
+    const hidden = await createPurchaseOrder({
+      actor: outsider,
+      jobId: DEMO_JOB_ID,
+      supplier: "Foam supply",
+      materialRequestIds: [bags.id],
+    });
+    expect(hidden).toMatchObject({ ok: false, error: "That job was not found." });
+
+    const wrongJob = await createPurchaseOrder({
+      actor: office,
+      jobId: DEMO_JOB_ID,
+      supplier: "Foam supply",
+      materialRequestIds: [foreign.id],
+    });
+    expect(wrongJob).toMatchObject({
+      ok: false,
+      error: "That material request was not found.",
+    });
+    expect(
+      await createPurchaseOrder({
+        actor: office,
+        jobId: DEMO_JOB_ID,
+        supplier: "Foam supply",
+        materialRequestIds: [],
+      }),
+    ).toMatchObject({ ok: false, error: "Choose at least one material request." });
+
+    const drafted = await createPurchaseOrder({
+      actor: office,
+      jobId: DEMO_JOB_ID,
+      supplier: "Foam supply",
+      materialRequestIds: [bags.id],
+    });
+    if (!drafted.ok) throw new Error(drafted.error);
+    expect(
+      await listJobPurchaseOrders(outsider.organizationId, DEMO_JOB_ID),
+    ).toEqual([]);
+    const attention = await listPurchaseAttention(outsider.organizationId);
+    expect(attention.drafts.some((draft) => draft.id === drafted.order.id)).toBe(false);
+    expect(attention.unordered.some((row) => row.noteId === bags.id)).toBe(false);
   });
 });

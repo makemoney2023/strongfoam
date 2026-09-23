@@ -23,7 +23,15 @@ CREATE TABLE IF NOT EXISTS "purchase_order_lines" (
   "position" integer NOT NULL,
   CONSTRAINT "purchase_order_lines_order_request_unique" UNIQUE ("purchase_order_id", "material_request_id"),
   CONSTRAINT "purchase_order_lines_claim_valid" CHECK ("active_material_request_id" IS NULL OR "active_material_request_id" = "material_request_id"),
-  CONSTRAINT "purchase_order_lines_unit_valid" CHECK ("unit" IN ('', 'board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours'))
+  CONSTRAINT "purchase_order_lines_unit_valid" CHECK ("unit" IN ('', 'board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours')),
+  CONSTRAINT "purchase_order_lines_measure_valid" CHECK (
+    ("quantity" IS NULL AND "unit" = '')
+    OR (
+      "quantity" > 0
+      AND "quantity" <= 1000000
+      AND "unit" IN ('board_feet', 'sq_ft', 'linear_ft', 'bags', 'hours')
+    )
+  )
 );
 
 DO $$ BEGIN
@@ -43,5 +51,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 CREATE INDEX IF NOT EXISTS "purchase_orders_job_idx" ON "purchase_orders" ("organization_id", "job_id");
+CREATE INDEX IF NOT EXISTS "purchase_orders_draft_idx" ON "purchase_orders" ("organization_id", "job_id") WHERE "status" = 'draft';
 CREATE INDEX IF NOT EXISTS "purchase_order_lines_order_idx" ON "purchase_order_lines" ("purchase_order_id");
+CREATE INDEX IF NOT EXISTS "purchase_order_lines_request_idx" ON "purchase_order_lines" ("material_request_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "purchase_order_lines_active_request_idx" ON "purchase_order_lines" ("organization_id", "active_material_request_id") WHERE "active_material_request_id" IS NOT NULL;

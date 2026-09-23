@@ -307,7 +307,7 @@ export function FieldEntryFields({
           inputMode="decimal"
           className="h-11"
           defaultValue={defaults.quantity ?? ""}
-          placeholder="Only for quantity entries"
+          placeholder="Optional, except on a quantity entry"
         />
       </div>
       <div className="space-y-2">

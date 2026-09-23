@@ -63,4 +63,48 @@ describe("field workspace parsing", () => {
       }),
     ).toMatchObject({ ok: false, field: "body" });
   });
+
+  it("keeps an optional quantity on a material request and ignores it on a note", () => {
+    expect(
+      parseFieldNoteInput({
+        kind: "material_request",
+        body: "Closed-cell bags for the next lift",
+        quantity: "12",
+        unit: "bags",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { kind: "material_request", quantity: 12, unit: "bags" },
+    });
+    expect(
+      parseFieldNoteInput({
+        kind: "material_request",
+        body: "Seam tape",
+        quantity: "",
+        unit: "board_feet",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { quantity: null, unit: null },
+    });
+    expect(
+      parseFieldNoteInput({
+        kind: "material_request",
+        body: "Closed-cell bags",
+        quantity: "12.5",
+        unit: "bags",
+      }).ok,
+    ).toBe(false);
+    expect(
+      parseFieldNoteInput({
+        kind: "note",
+        body: "Safety talk complete.",
+        quantity: "12",
+        unit: "bags",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { quantity: null, unit: null },
+    });
+  });
 });

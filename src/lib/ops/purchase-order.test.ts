@@ -91,7 +91,14 @@ describe("purchase orders", () => {
           body: "Old bags",
         },
       ],
-      orders: [order()],
+      orders: [
+        order(),
+        order({
+          id: "11111111-1111-4111-8111-111111111112",
+          jobId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2",
+          supplier: "Closed yard",
+        }),
+      ],
       lines: [line()],
     });
     expect(attention.drafts).toEqual([

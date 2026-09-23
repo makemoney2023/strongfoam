@@ -1069,7 +1069,9 @@ Deleting a cited request is refused so the order keeps its evidence.
 **PO-001:** An office user can draft a purchase order on an open job. The
 draft stores a supplier, an optional note, and one or more lines. Each line
 copies one material request's description and, when present, its quantity and
-unit. No price is stored.
+unit. A material request can store an optional whole quantity and field unit.
+A quantity entry still requires both. Other field notes leave quantity blank.
+No price is stored.
 
 **PO-002:** One material request can sit on one draft or ordered purchase
 order. A second draft that cites it is refused.
@@ -2577,13 +2579,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Treat workforce efficiency as verified operational performance before financial reporting | One authoritative production quantity, linked labor, explicit crew or individual attribution, effective-dated targets, comparable samples, and quality context avoid a misleading raw-output leaderboard. My Performance is private. Office rankings require policy sign-off. Costs wait for the accounting system of record |
 | 2026-09-23 | Ship the first workforce view behind a flag without rankings | Office and field can review verified pace while the sample, attribution, and target policy are still open. `OPS_WORKFORCE_PERFORMANCE=0` hides it. Demo mode shows it |
 | 2026-09-23 | Enable the first workforce view in production | `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs stay off. Setting the flag to `0` hides the feature |
-| 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
+| 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description and any stated quantity, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
-| 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |
+| 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. A material request can store an optional quantity, which the line copies. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |
 | 1.34 | 2026-09-23 | Enabled the first workforce slice in production. `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.33 | 2026-09-23 | Corrected the first workforce slice: individual production is one person until an allocation exists, exclusion reasons are visible, a participant cannot void their own score, and only one target stays open for a work class |
 | 1.32 | 2026-09-23 | Implemented the first workforce-performance slice behind `OPS_WORKFORCE_PERFORMANCE`: verified production, targets, normalized efficiency, private My Performance, an unranked office review, and Home exceptions. Rankings, wages, quality scoring, and financial costs remain off |
