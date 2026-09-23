@@ -216,9 +216,9 @@ signed-in person's labor. No rate or wage is stored. Apply
 `0031_labor_entries.sql` before using labor against Postgres. Purchase orders,
 inspections, and closeout are unchanged.
 
-Workforce performance is separate from pay. `OPS_WORKFORCE_PERFORMANCE=1`
-enables it, and `0` keeps it off. Demo mode enables it when the variable is
-unset. Office staff approve a production target, record installed bags or
+Workforce performance is separate from pay. Production and preview are set to
+`OPS_WORKFORCE_PERFORMANCE=1`. `0` keeps it off. Demo mode enables it when the
+variable is unset. Office staff approve a production target, record installed bags or
 square feet, and verify a field member's draft. Individual production is one
 person; crew production is the shared quantity. The field landing shows that
 person's own pace and explains a missing score. The office list does not assign

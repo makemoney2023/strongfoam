@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.27
+**Version:** 1.34
 **Created:** 2026-09-18
-**Last updated:** 2026-09-22
+**Last updated:** 2026-09-23
 
 ## 1. Purpose
 
@@ -1010,10 +1010,12 @@ Field labor is the capture foundation for workforce performance, but a piece
 count by itself is not enough to rank a worker or crew. The complete data
 contract and implementation sequence are in
 [`workforce-performance-spec.md`](workforce-performance-spec.md). The first
-operational slice is implemented behind `OPS_WORKFORCE_PERFORMANCE` and is on
-in demo mode. It records production, verifies it, calculates comparable
-efficiency, shows a private field view, and shows an unranked office review.
-Rankings, wages, quality scoring, and the financial bridge are not enabled.
+operational slice is enabled in production. `OPS_WORKFORCE_PERFORMANCE` is `1`
+for production and preview. Demo mode enables the same flag when the variable
+is unset, and `0` hides the feature. It records production, verifies it,
+calculates comparable efficiency, shows a private field view, and shows an
+unranked office review. Rankings, wages, quality scoring, and the financial
+bridge are not enabled.
 
 **WFP-001:** Installed production must be an authoritative record with
 organization, job, work date, optional task and work area, trade or work type,
@@ -2408,9 +2410,9 @@ policy and human review.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
    exception widgets under WFP-001 through WFP-018. The first slice is
-   implemented behind `OPS_WORKFORCE_PERFORMANCE`: production can be recorded
-   and verified, efficiency is calculated, the field view is private, and the
-   office review is unranked. Field labor alone must not produce rankings.
+   enabled in production with `OPS_WORKFORCE_PERFORMANCE=1`: production can be
+   recorded and verified, efficiency is calculated, the field view is private,
+   and the office review is unranked. Field labor alone must not produce rankings.
    Quality context becomes complete as inspections, deficiencies, and rework
    records ship. Financial cost extensions wait for the accounting system of
    record.
@@ -2537,11 +2539,13 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Record field labor as piece work or hours, without a wage | Spray foam crews are often paid by the bag or square foot. The labor entry stores that count, or the hours worked. Rates and payroll stay out under IMP-024 |
 | 2026-09-23 | Treat workforce efficiency as verified operational performance before financial reporting | One authoritative production quantity, linked labor, explicit crew or individual attribution, effective-dated targets, comparable samples, and quality context avoid a misleading raw-output leaderboard. My Performance is private. Office rankings require policy sign-off. Costs wait for the accounting system of record |
 | 2026-09-23 | Ship the first workforce view behind a flag without rankings | Office and field can review verified pace while the sample, attribution, and target policy are still open. `OPS_WORKFORCE_PERFORMANCE=0` hides it. Demo mode shows it |
+| 2026-09-23 | Enable the first workforce view in production | `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs stay off. Setting the flag to `0` hides the feature |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.34 | 2026-09-23 | Enabled the first workforce slice in production. `OPS_WORKFORCE_PERFORMANCE=1` on production and preview. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.33 | 2026-09-23 | Corrected the first workforce slice: individual production is one person until an allocation exists, exclusion reasons are visible, a participant cannot void their own score, and only one target stays open for a work class |
 | 1.32 | 2026-09-23 | Implemented the first workforce-performance slice behind `OPS_WORKFORCE_PERFORMANCE`: verified production, targets, normalized efficiency, private My Performance, an unranked office review, and Home exceptions. Rankings, wages, quality scoring, and financial costs remain off |
 | 1.31 | 2026-09-23 | Specified WFP-001 through WFP-018 and the implementation plan for verified production attribution, private field-worker trends, office workforce performance, actionable exceptions, sample and quality safeguards, controlled rollout, and a later restricted financial bridge. The feature is not built |
