@@ -30,10 +30,10 @@ in the operations repository. Requirements HND-001 through HND-058.
 
 ## Repository boundary
 
-Implement this plan in a new repository named `handoff`. Do not add
-application code, dependencies, environment variables, or migrations to the
-operations repository. The operations repository keeps the spec and this plan
-only.
+Implement this plan in a new private repository,
+`https://github.com/makemoney2023/handoff`. Do not add application code,
+dependencies, environment variables, or migrations to the operations
+repository. The operations repository keeps the spec and this plan only.
 
 The new app does not depend on the operations package, does not read any
 operations cookie, and does not connect to the operations database.

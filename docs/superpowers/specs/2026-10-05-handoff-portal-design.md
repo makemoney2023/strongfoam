@@ -4,8 +4,8 @@
 **Product:** Handoff
 **Status:** Proposed, implementation-ready
 **Requirements:** HND-001 through HND-058
-**Lives in:** its own repository, Vercel project, Supabase project, and
-Render worker
+**Lives in:** private repository `makemoney2023/handoff`, its own Vercel
+project, Supabase project, and Render worker
 
 ## Executive summary
 
