@@ -2,23 +2,29 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a standalone locker where an invited client drops folders of
-brand, photo, copy, export, and reference files, and the build team downloads
-the files that pass scan.
+**Goal:** Ship a multi-client locker where each client's invited people drop
+folders of brand, photo, copy, export, source, and reference files against a
+request checklist, and the operators assigned to that client pull the files
+that pass a malware scan.
 
-**Architecture:** A separate Next.js app authenticates with its own Supabase
-Auth magic links and writes metadata with its own server key. The browser
-uploads bytes with the Storage resumable protocol into a private bucket.
-A worker scans objects and is the only path that marks a file clean.
-Authorization is a pure function in front of every route. The operations
+**Architecture:** A standalone Next.js app on Vercel authenticates with its
+own Supabase Auth magic links, sent through Resend SMTP. Server routes call
+one pure authorization function, then write with the server key. Row-level
+security on every table and on `storage.objects` isolates workspaces a second
+time. The browser uploads bytes with the Storage resumable protocol into a
+private bucket. One Render background worker runs `clamd` beside the Handoff
+worker process. It is the only code that marks a file clean. The same worker
+also sends notifications and runs sweeps and purges. Operators pull batches
+with an export file and a `handoff pull` command. The Strong Foam operations
 platform is not imported, linked, or migrated.
 
 **Tech Stack:** Next.js App Router, React, TypeScript, Vitest, Zod, Drizzle
 ORM, Supabase Postgres, Supabase Auth, Supabase Storage resumable uploads,
-`tus-js-client`, Tailwind CSS.
+`tus-js-client`, Resend, ClamAV `clamd`, Render background worker, Docker,
+Tailwind CSS.
 
 **Design:** `docs/superpowers/specs/2026-10-05-handoff-portal-design.md`
-in the operations repository. Requirements HND-001 through HND-032.
+in the operations repository. Requirements HND-001 through HND-058.
 
 ---
 
@@ -29,27 +35,36 @@ application code, dependencies, environment variables, or migrations to the
 operations repository. The operations repository keeps the spec and this plan
 only.
 
-The new app does not depend on the operations package, does not read
-`sf-ops-session`, and does not connect to the operations database.
+The new app does not depend on the operations package, does not read any
+operations cookie, and does not connect to the operations database.
 
-Before adding App Router pages or route handlers, read the current guide in
-that project's `node_modules/next/dist/docs/`.
+Before adding App Router pages, route handlers, or server actions, read the
+current guide in that project's `node_modules/next/dist/docs/`.
 
 ## Global constraints
 
-- One upload path: Storage resumable uploads, 6 MiB chunks, concurrency 3.
+- One deployment serves many clients in one data region.
+- Isolation is enforced in the authorization function and again by RLS and
+  storage policies. A task that adds a table adds its policy and a database
+  isolation test in the same commit.
+- A route returns 404 for a workspace the caller cannot see.
+- Uploads use Storage resumable uploads, 6 MiB chunks, concurrency 3.
 - The Next.js server accepts manifests and issues decisions. It does not
   accept file bodies.
 - Object keys are `{workspaceId}/{batchId}/{fileId}`.
-- Download URLs last 5 minutes, are attachments, and exist only for `clean`
-  files.
-- Tags do not trigger imports or publishes.
-- Tests use fakes. They do not call Supabase, ClamAV, or the network.
-- Production fails closed when `SUPABASE_SECRET_KEY` or `DATABASE_URL` is
-  missing. `CLAMAV_URL` is optional.
+- Only the worker moves a file out of `uploaded`. Production requires `clamd`.
+- `HANDOFF_ALLOW_UNSCANNED=1` is refused when `NODE_ENV=production`.
+- Download URLs last 5 minutes. Export URLs last 60 minutes, or 24 hours for a
+  workspace export. All are attachments, only for `clean` files.
+- Tags never trigger an import, publish, or scan.
+- Unit tests use fakes and open no network connection. Database tests run
+  against a local Supabase stack with `npm run test:db`.
+- Production fails closed when `SUPABASE_SECRET_KEY`, `DATABASE_URL`, or
+  `RESEND_API_KEY` is missing.
 - No `NEXT_PUBLIC_` variable contains a secret.
-- Logs and audit metadata exclude tokens, signed URLs, and file bytes.
-- v1 does not build batch ZIPs, thumbnails, previews, or archive extraction.
+- Logs, email, and audit metadata exclude tokens, signed URLs, and bytes.
+- No product copy names a specific client except through workspace data.
+- Use one logical commit per task.
 - If this repository deploys to the same Vercel Hobby team as the operations
   app, commit as `makemoney2023 <124006256+makemoney2023@users.noreply.github.com>`
   using per-command author environment variables. Do not change git config.
@@ -62,71 +77,72 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY
 DATABASE_URL
 DIRECT_URL
+RESEND_API_KEY
+HANDOFF_FROM_EMAIL
 HANDOFF_BUCKET=handoff
-HANDOFF_OPERATOR_EMAILS
-CLAMAV_URL
+HANDOFF_BRANDING_BUCKET=branding
+HANDOFF_SUPER_ADMIN_EMAILS
+HANDOFF_REGION
+CLAMD_HOST=127.0.0.1
+CLAMD_PORT=3310
+HANDOFF_ALLOW_UNSCANNED
 ```
-
-Set the Storage file size limit to at least 2 GB before the first real drop.
-Confirm the Supabase region against the operations platform before inviting
-Strong Foam.
 
 ## File structure
 
 | Path | Responsibility |
 |---|---|
-| `src/lib/policy/files.ts` | Extensions, blocked names, size caps, path normalization |
-| `src/lib/policy/files.test.ts` | Policy tests |
-| `src/lib/authz.ts` | Pure membership and operator decisions |
-| `src/lib/authz.test.ts` | Authorization tests |
-| `src/lib/batches.ts` | Manifest validation and batch derivation |
-| `src/lib/batches.test.ts` | Manifest and status tests |
-| `src/lib/scan.ts` | Signature decision given a header and a scan result |
-| `src/lib/scan.test.ts` | Scan decision tests |
+| `src/lib/policy/profiles.ts` | `standard` and `software` profiles, always-refused names |
+| `src/lib/policy/paths.ts` | Relative path normalization |
+| `src/lib/policy/limits.ts` | File, batch, quota, window, and rate limits |
+| `src/lib/authz.ts` | Pure permission matrix (HND-006) |
+| `src/lib/batches.ts` | Manifest validation, batch window, derived status |
+| `src/lib/scan.ts` | Signature table and scan outcome decision |
+| `src/lib/export.ts` | Export document builder |
+| `src/lib/notifications.ts` | Event-to-recipient rules and idempotency keys |
+| `src/lib/retention.ts` | Archive, purge-after, and reminder dates |
 | `src/db/schema.ts` | Drizzle tables |
-| `drizzle/` | SQL migrations |
-| `src/lib/session.ts` | Resolve caller from the Handoff session |
-| `src/lib/store.ts` | Persistence used by routes and the worker |
-| `src/app/api/workspaces/[slug]/batches/route.ts` | Create a batch |
-| `src/app/api/batches/[batchId]/files/[fileId]/grant/route.ts` | Refresh a grant |
-| `src/app/api/batches/[batchId]/files/[fileId]/complete/route.ts` | Complete an upload |
-| `src/app/api/batches/[batchId]/files/[fileId]/download/route.ts` | Signed download |
-| `src/app/api/batches/[batchId]/manifest/route.ts` | JSON tree |
-| `src/app/api/batches/[batchId]/discard/route.ts` | Client discard |
-| `src/worker/index.ts` | Scan, grant expiry, rejected-object deletion |
-| `src/app/page.tsx` | Magic-link request |
-| `src/app/workspaces/page.tsx` | Workspace list |
-| `src/app/w/[slug]/page.tsx` | Batches, invite, revoke |
-| `src/app/w/[slug]/batches/[batchId]/page.tsx` | Tree, progress, download |
-| `src/app/ops/page.tsx` | Create workspace, operator admin |
-| `src/components/drop-zone.tsx` | Folder and file selection, resumable upload |
+| `drizzle/` | SQL migrations, including RLS and storage policies |
+| `supabase/` | Local stack config, auth email templates |
+| `src/lib/session.ts` | Resolve caller and memberships from Supabase Auth |
+| `src/lib/store/*.ts` | Persistence used by routes and the worker |
+| `src/app/api/**` | Route handlers listed in the spec |
+| `src/app/**/page.tsx` | Screens listed in the spec |
+| `src/components/drop-zone.tsx` | Folder selection and resumable upload |
+| `worker/Dockerfile` | `clamd`, `freshclam`, and the worker process |
+| `worker/clamd.conf` | Stream, file, scan, and archive limits |
+| `src/worker/index.ts` | Job loop and health check |
+| `src/worker/jobs/*.ts` | Scan, window sweep, notifications, retention, purge |
+| `cli/pull.ts` | `handoff pull <export.json> <dir>` |
+| `tests/db/*.test.ts` | Isolation tests against local Supabase |
 
 ---
 
-## Phase 1 — Policy and authorization
+## Phase 1 — Pure policy
 
 ### Task 1: Scaffold the repository
 
 **Files:**
-- Create: the Next.js app, Vitest, TypeScript, Tailwind, Zod, Drizzle, and
-  the Supabase server client
+- Create: Next.js app, Vitest, TypeScript, Tailwind, Zod, Drizzle, Supabase
+  clients
+- Create: `supabase/config.toml` for the local stack
 - Create: `.env.example` with the environment contract
-- Create: `README.md` with local setup, the region warning, and the statement
-  that this app is not part of the operations platform
+- Create: `README.md` with local setup, the one-region rule, and the statement
+  that Handoff is not part of any client's product
 
-- [ ] **Step 1: Create the app in a new repository**
+- [ ] **Step 1: Create the app and scripts**
 
-Use the current Next.js App Router starter. Do not copy the operations app's
-`src/` tree.
+Add `test`, `test:db`, `build`, `worker`, and `pull` scripts. `test` excludes
+`tests/db`.
 
-- [ ] **Step 2: Confirm the app builds and the empty test script runs**
+- [ ] **Step 2: Confirm the empty suites and build run**
 
 ```bash
 npm test
 npm run build
+npx supabase start
+npm run test:db
 ```
-
-Expected: both succeed.
 
 - [ ] **Step 3: Commit**
 
@@ -134,18 +150,17 @@ Expected: both succeed.
 git commit -m "Scaffold the Handoff app."
 ```
 
-### Task 2: File policy
+### Task 2: File policy profiles
 
 **Files:**
-- Create: `src/lib/policy/files.ts`
-- Test: `src/lib/policy/files.test.ts`
+- Create: `src/lib/policy/profiles.ts`, `src/lib/policy/paths.ts`,
+  `src/lib/policy/limits.ts`
+- Test: matching `*.test.ts`
 
 **Produces:**
 
 ```ts
-export const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
-export const MAX_BATCH_BYTES = 10 * 1024 * 1024 * 1024;
-export const MAX_BATCH_FILES = 2000;
+export type PolicyProfile = "standard" | "software";
 
 export function normalizeRelativePath(
   input: string,
@@ -153,40 +168,30 @@ export function normalizeRelativePath(
 
 export function inspectFileName(
   path: string,
+  profile: PolicyProfile,
 ): { ok: true; extension: string } | { ok: false; reason: string };
 ```
 
 - [ ] **Step 1: Write failing tests**
 
-Cover:
+- `Brand/logos/primary.svg` is allowed under both profiles
+- `src/app.ts` is refused under `standard` and allowed under `software`
+- `.env`, `.env.production`, `id_ed25519`, `server.pem` are refused under both
+- `report.pdf.exe` and `setup.exe.pdf` are refused
+- `/etc/passwd`, `a\b.pdf`, `a/../b.pdf`, `a/./b.pdf`, `a//b.pdf`,
+  `.github/x.yml`, and a control character are refused
+- two paths differing only by Unicode composition normalize equal
+- `photo.JPG` reports `jpg`
+- a path of 17 segments and a segment of 256 characters are refused
 
-- `Brand/logos/primary.svg` normalizes and is allowed
-- `..\secret.pdf`, `/etc/passwd`, `a\\b.pdf`, and `foo/\u0000.pdf` fail
-- two paths that differ only by Unicode composition collide after NFC
-- `notes.pdf.exe`, `.env`, `.env.local`, and `id_rsa` fail
-- `photo.JPG` is allowed and reports `jpg`
-- a 0-byte size and a size of `MAX_FILE_BYTES + 1` fail
-- 2,001 files and a total over `MAX_BATCH_BYTES` fail
-- a path deeper than 16 segments fails
-
-- [ ] **Step 2: Run the test and confirm it fails**
-
-```bash
-npx vitest run src/lib/policy/files.test.ts
-```
-
-- [ ] **Step 3: Implement the policy**
-
-Use the extension lists in HND-011 and HND-012. Do not read the filesystem.
-
-- [ ] **Step 4: Re-run the test and commit**
+- [ ] **Step 2: Run, implement, re-run, and commit**
 
 ```bash
-npx vitest run src/lib/policy/files.test.ts
-git commit -m "Reject unsafe handoff paths and file types."
+npx vitest run src/lib/policy
+git commit -m "Define handoff file policy profiles."
 ```
 
-### Task 3: Authorization
+### Task 3: Authorization matrix
 
 **Files:**
 - Create: `src/lib/authz.ts`
@@ -195,33 +200,41 @@ git commit -m "Reject unsafe handoff paths and file types."
 **Produces:**
 
 ```ts
-export type Caller =
-  | { kind: "operator"; email: string }
-  | { kind: "member"; email: string; workspaceIds: string[] }
-  | { kind: "anonymous" };
+export type Caller = {
+  userId: string | null;
+  staff: { superAdmin: boolean } | null;
+  operatorOf: string[];
+  memberships: { workspaceId: string; role: "client_owner" | "client_member" }[];
+};
 
-export function canCreateBatch(caller: Caller, workspaceId: string): boolean;
-export function canDownload(caller: Caller, workspaceId: string): boolean;
-export function canDiscard(caller: Caller, workspaceId: string): boolean;
-export function canInvite(caller: Caller): boolean;
-export function canTag(caller: Caller): boolean;
-export function canDeleteBatch(caller: Caller): boolean;
+export type Action =
+  | "workspace.view" | "workspace.create" | "workspace.configure"
+  | "workspace.archive" | "workspace.export" | "workspace.purge"
+  | "invite.owner" | "invite.member" | "member.remove"
+  | "request.manage" | "batch.create" | "batch.discard" | "batch.delete"
+  | "batch.export" | "file.download" | "file.tag" | "file.release";
+
+export function can(
+  caller: Caller,
+  action: Action,
+  target: { workspaceId?: string; batchCreatedBy?: string },
+): boolean;
 ```
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write a table-driven failing test from HND-006**
 
-Assert the matrix in HND-005, HND-006, and HND-007. A member of workspace A
-cannot create a batch or download in workspace B. An anonymous caller can do
-none of these. An operator can.
+Every row and column of the matrix is one case. Add cases for an unassigned
+operator, a revoked membership, a client of workspace A acting on B, and a
+client discarding someone else's batch.
 
 - [ ] **Step 2: Implement, test, and commit**
 
 ```bash
 npx vitest run src/lib/authz.test.ts
-git commit -m "Authorize handoff actions from membership."
+git commit -m "Authorize handoff actions per workspace role."
 ```
 
-### Task 4: Manifest and batch status
+### Task 4: Manifest, quota, window, and status
 
 **Files:**
 - Create: `src/lib/batches.ts`
@@ -230,30 +243,36 @@ git commit -m "Authorize handoff actions from membership."
 **Produces:**
 
 ```ts
-export function validateManifest(
-  files: { relativePath: string; sizeBytes: number; contentType: string; tag?: string }[],
-):
-  | { ok: true; files: ValidFile[] }
-  | { ok: false; reason: string };
+export function validateManifest(input: {
+  files: { relativePath: string; sizeBytes: number; contentType: string; tag?: string }[];
+  profile: PolicyProfile;
+  workspaceUsedBytes: number;
+  workspaceQuotaBytes: number;
+}): { ok: true; files: ValidFile[]; totalBytes: number } | { ok: false; reason: string; index?: number };
 
-export function deriveBatchStatus(
-  files: { status: FileStatus }[],
-  now: Date,
-  expiresAt: Date,
-): BatchStatus;
+export function isBatchActive(createdAt: Date, lastActivityAt: Date, now: Date): boolean;
+
+export function deriveBatchStatus(input: {
+  files: { status: FileStatus }[];
+  active: boolean;
+  discarded: boolean;
+}): BatchStatus;
 ```
 
 - [ ] **Step 1: Write failing tests**
 
-One bad entry fails the whole manifest. Duplicate normalized paths fail.
-An unknown tag fails. Status derivation matches the table in HND-024,
-including a batch past `expiresAt` with files still `pending`.
+- one bad entry refuses the manifest and returns its index
+- duplicate normalized paths, an unknown tag, an empty file, 2,001 files, and
+  10 GB plus one byte are refused
+- a manifest that would exceed the workspace quota is refused
+- a batch is active 5 hours after its last activity and inactive after 6
+- a batch is inactive 24 hours after creation even with recent activity
+- every row of the HND-048 status table
 
 - [ ] **Step 2: Implement, test, and commit**
 
 ```bash
-npx vitest run src/lib/batches.test.ts
-git commit -m "Validate handoff manifests and derive batch status."
+git commit -m "Validate handoff manifests against quota and window."
 ```
 
 ### Task 5: Scan decision
@@ -268,218 +287,287 @@ git commit -m "Validate handoff manifests and derive batch status."
 export function decideScan(input: {
   extension: string;
   header: Uint8Array;
-  malware: "clean" | "infected" | "unavailable" | "not_configured";
-}): { status: "clean" } | { status: "rejected"; reason: string } | { status: "retry" };
+  clamd:
+    | { kind: "ok" }
+    | { kind: "found"; signature: string }
+    | { kind: "limit"; detail: string }
+    | { kind: "error"; detail: string }
+    | { kind: "skipped_dev" };
+  attempts: number;
+}):
+  | { status: "clean" }
+  | { status: "rejected"; reason: string }
+  | { status: "held"; reason: string }
+  | { status: "retry"; delaySeconds: number };
 ```
 
 - [ ] **Step 1: Write failing tests**
 
-- PDF bytes starting with `%PDF` and malware `not_configured` are clean
-- A `.png` whose header is not a PNG is rejected
-- `.txt` with malware `not_configured` is clean
-- malware `infected` is rejected
-- malware `unavailable` returns `retry` and is not clean
-- `.svg` is not sniffed and can be clean
+- a PDF starting with `%PDF` and `ok` is clean
+- a `.png` whose header is not PNG is rejected
+- a `.txt` starting with `MZ` is rejected
+- `.dwg` with `ok` is clean on extension alone
+- `found` is rejected with the signature name
+- `limit` is held
+- `error` on attempt 1 retries with backoff, and on attempt 5 is held
+- `skipped_dev` is clean only when the caller passed the dev flag
 
 - [ ] **Step 2: Implement, test, and commit**
 
 ```bash
-npx vitest run src/lib/scan.test.ts
-git commit -m "Decide handoff scan results without opening the network."
+git commit -m "Decide handoff scan outcomes from signature and clamd."
 ```
 
 ---
 
-## Phase 2 — Persistence and routes
+## Phase 2 — Data, isolation, and identity
 
-### Task 6: Schema
+### Task 6: Schema and policies
 
 **Files:**
 - Create: `src/db/schema.ts`
-- Create: the first Drizzle migration
+- Create: migrations for the HND-047 tables
+- Create: a migration for RLS, storage policies, and helper functions
 
-- [ ] **Step 1: Add the tables from HND-024**
+- [ ] **Step 1: Add tables and constraints from HND-047**
 
-Use `bigint` for `size_bytes`. Add the unique constraints named in the spec.
-Enable row-level security on every table and add no client policies. The
-server key bypasses RLS. Authenticated browser clients have no table grants.
+`size_bytes` and `quota_bytes` are `bigint`. Add the unique constraints and
+the `(workspace_id, sha256)` index.
 
-- [ ] **Step 2: Add the storage policy for HND-015**
+- [ ] **Step 2: Add policy helpers**
 
-Writes require a security-definer function that checks membership, object
-key, file status, and grant expiry. The function is the only client write
-path. There is no client read policy on the bucket.
+Security-definer functions, `search_path` pinned:
+`handoff.is_member(workspace_id)`, `handoff.is_operator(workspace_id)`,
+`handoff.is_super_admin()`, `handoff.can_write_object(name)`. The last parses
+`{workspaceId}/{batchId}/{fileId}`, then requires a live membership, an active
+batch, a writable file status, and an exact key match.
 
-- [ ] **Step 3: Generate the migration and commit**
+- [ ] **Step 3: Enable RLS everywhere**
 
-```bash
-git commit -m "Add the handoff workspace, batch, and file tables."
-```
-
-### Task 7: Session, invites, and workspaces
-
-**Files:**
-- Create: `src/lib/session.ts`
-- Create: `src/lib/store.ts` invite and operator functions
-- Create: `src/app/ops/page.tsx`
-- Create: `src/app/workspaces/page.tsx`
-- Create: `src/app/page.tsx`
-- Create: `src/app/auth/callback/route.ts`
-
-- [ ] **Step 1: Bootstrap operators**
-
-When `operators` has no rows, insert the lowercase addresses in
-`HANDOFF_OPERATOR_EMAILS`. Later requests read the table, not the variable.
-
-- [ ] **Step 2: Magic link**
-
-The home page collects an email and requests a Supabase magic link. The
-callback exchanges the code and redirects to `/workspaces`. A caller with no
-operator row and no live membership sees an empty explanation and no
-workspace names.
-
-- [ ] **Step 3: Operator admin**
-
-`/ops` creates a workspace, invites a client, revokes a membership, and adds
-or revokes an operator. Invite rows store a SHA-256 of the token. Resend
-replaces the hash. Audit each action.
+Authenticated users may `select` workspaces, requests, batches, and files only
+where a helper allows it. They have no direct `insert`, `update`, or `delete`
+on any table. `staff`, `invites`, `notifications`, and `audit_events` have no
+authenticated access. On `storage.objects`, `insert` and `update` in bucket
+`handoff` require `can_write_object(name)`. There is no client `select` on
+the `handoff` bucket.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git commit -m "Sign clients in with workspace invites."
+git commit -m "Add handoff tables with workspace row and storage policies."
 ```
 
-### Task 8: Create a batch
+### Task 7: Isolation tests
+
+**Files:**
+- Create: `tests/db/isolation.test.ts`
+- Create: `tests/db/fixtures.ts`
+
+- [ ] **Step 1: Seed two workspaces, two operators, and two clients**
+
+Sign each fixture user in against the local stack and use their own session.
+
+- [ ] **Step 2: Assert**
+
+- client A selects no rows from workspace B in every table
+- client A cannot write an object under workspace B's prefix, under their own
+  prefix with a made-up file id, or over a clean file's key
+- operator A sees no workspace B rows
+- an expired batch rejects a write to a still-pending key
+- the publishable key alone reads nothing
+
+- [ ] **Step 3: Run and commit**
+
+```bash
+npm run test:db
+git commit -m "Prove handoff workspaces are isolated in the database."
+```
+
+### Task 8: Sign-in, staff, and email
+
+**Files:**
+- Create: `src/lib/session.ts`
+- Create: `src/app/page.tsx`, `src/app/auth/callback/route.ts`
+- Create: `supabase/templates/magic-link.html`
+- Create: `src/lib/store/staff.ts`
+
+- [ ] **Step 1: Bootstrap super-admins**
+
+When `staff` is empty, the first sign-in whose email is listed in
+`HANDOFF_SUPER_ADMIN_EMAILS` creates a super-admin row with that user id.
+
+- [ ] **Step 2: Magic link through Resend SMTP**
+
+Configure custom SMTP in `supabase/config.toml` for local work. Record the
+production setting in the README. The template uses Handoff wording and no
+client name.
+
+- [ ] **Step 3: Resolve the caller**
+
+`getCaller()` returns the `Caller` shape from Task 3 in one query. A revoked
+row is not returned.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git commit -m "Sign in to Handoff with branded magic links."
+```
+
+### Task 9: Workspaces, operators, and branding
+
+**Files:**
+- Create: `src/app/admin/page.tsx`, `src/app/admin/workspaces/new/page.tsx`
+- Create: `src/app/admin/staff/page.tsx`
+- Create: `src/app/w/[slug]/settings/page.tsx`
+- Create: `src/lib/store/workspaces.ts`
+- Test: action tests with a fake store
+
+- [ ] **Step 1: Write failing action tests**
+
+- only a super-admin creates a workspace, assigns operators, or changes
+  profile and quota
+- creating from a template copies its items into `requests`
+- a logo that is not PNG or WebP, or over 512 KB, is refused
+- an accepted logo is re-encoded before it is stored in `branding`
+
+- [ ] **Step 2: Implement**
+
+The workspace layout reads `display_name` and the logo for every screen.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git commit -m "Create branded handoff workspaces and assign operators."
+```
+
+### Task 10: Invites and memberships
+
+**Files:**
+- Create: `src/app/w/[slug]/people/page.tsx`
+- Create: `src/app/invites/[inviteId]/page.tsx`
+- Create: `src/lib/store/invites.ts`
+- Test: action tests
+
+- [ ] **Step 1: Write failing tests**
+
+- a client owner can invite a member and cannot invite an owner
+- an operator can invite either role
+- acceptance by a user whose verified email differs creates nothing
+- acceptance of an expired, revoked, or archived-workspace invite creates
+  nothing
+- acceptance creates a membership keyed by user id
+- a second live invite for the same email and workspace is refused
+- the 31st invite by one inviter in a day is refused
+
+- [ ] **Step 2: Implement**
+
+Send the invite as a magic link that returns to `/invites/[inviteId]`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git commit -m "Invite client owners and members into a handoff workspace."
+```
+
+### Task 11: Requests and templates
+
+**Files:**
+- Create: `src/app/admin/templates/page.tsx`
+- Create: `src/app/w/[slug]/requests/page.tsx`
+- Create: `src/lib/store/requests.ts`
+- Test: action tests
+
+- [ ] **Step 1: Write failing tests**
+
+- staff create, reorder, and retire template items
+- editing a template does not change requests already copied
+- only staff create, edit, close, or reopen requests
+
+- [ ] **Step 2: Implement**
+
+The workspace home lists open requests first. Each request has a button to
+start a drop against it.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git commit -m "Track what each client still needs to send."
+```
+
+---
+
+## Phase 3 — Upload
+
+### Task 12: Create a batch
 
 **Files:**
 - Create: `src/app/api/workspaces/[slug]/batches/route.ts`
 - Test: route tests with a fake store
 
-- [ ] **Step 1: Write failing route tests**
+- [ ] **Step 1: Write failing tests**
 
-- A member's valid manifest returns file ids and object keys and writes
-  `pending` rows
-- A member of another workspace receives 403 and writes nothing
-- A manifest with one blocked file receives 400 and writes nothing
-- The 11th batch in an hour receives 429
+- a client's valid manifest writes `pending` rows and returns object keys
+- a staff caller cannot create a batch
+- a caller outside the workspace receives 404 and nothing is written
+- a blocked file, an over-quota manifest, or an archived workspace refuses
+- a `request_id` from another workspace or a closed request refuses
+- the 11th batch in an hour receives 429
 
-- [ ] **Step 2: Implement against `validateManifest` and `canCreateBatch`**
-
-Set `expires_at` two hours ahead. Write `batch.created`.
-
-- [ ] **Step 3: Test and commit**
+- [ ] **Step 2: Implement, test, and commit**
 
 ```bash
-npx vitest run src/app/api/workspaces/[slug]/batches/route.test.ts
 git commit -m "Create a handoff batch from a validated manifest."
 ```
 
-### Task 9: Grants and completion
+### Task 13: Activity, grants, and completion
 
 **Files:**
 - Create: `src/app/api/batches/[batchId]/files/[fileId]/grant/route.ts`
 - Create: `src/app/api/batches/[batchId]/files/[fileId]/complete/route.ts`
-- Test: both route tests
+- Test: route tests
 
 - [ ] **Step 1: Write failing tests**
 
-- A grant for a `pending` file in the caller's workspace succeeds
-- A grant for a `clean` file fails
-- A grant after `expires_at` fails
-- Completion with a matching stored size marks `uploaded` and enqueues one scan
-- A second completion returns the same row and does not enqueue again
-- Completion whose stored size differs marks `failed`
+- a grant for a `pending` or `failed` file in an active batch succeeds and
+  updates `last_activity_at`
+- a grant for a `clean`, `held`, `rejected`, or `uploaded` file fails
+- a grant on an inactive batch fails
+- completion with a matching stored size marks `uploaded` and enqueues once
+- a repeat completion returns the same row and enqueues nothing
+- a size mismatch marks `failed` and deletes the object
 
 - [ ] **Step 2: Implement, test, and commit**
 
-The completion handler reads object metadata with the server key. It does
-not download the object.
+Completion reads object metadata only.
 
 ```bash
 git commit -m "Grant and complete direct handoff uploads."
 ```
 
-### Task 10: Worker
-
-**Files:**
-- Create: `src/worker/index.ts`
-- Test: worker tests with a fake object store and a fake scanner
-
-- [ ] **Step 1: Write failing tests**
-
-- An `uploaded` file becomes `clean` when `decideScan` says clean
-- An infected result becomes `rejected` with a reason
-- A scanner `retry` leaves the file available for another pass
-- Running the job twice does not double-write a clean file
-- A `pending` file past expiry becomes `failed`
-- A rejected object older than 14 days is deleted and the row remains
-
-- [ ] **Step 2: Implement the polling worker**
-
-Read only a header large enough for signature checks unless `CLAMAV_URL` is
-set. When it is set, stream the object to that scanner. Do not write the
-object to the worker disk.
-
-- [ ] **Step 3: Test and commit**
-
-```bash
-git commit -m "Scan handoff objects and expire abandoned uploads."
-```
-
-### Task 11: Download and manifest
-
-**Files:**
-- Create: `src/app/api/batches/[batchId]/files/[fileId]/download/route.ts`
-- Create: `src/app/api/batches/[batchId]/manifest/route.ts`
-- Create: `src/app/api/batches/[batchId]/discard/route.ts`
-- Test: route tests
-
-- [ ] **Step 1: Write failing tests**
-
-- A clean file returns a signed attachment URL and writes `file.downloaded`
-- A scanning or rejected file returns 409
-- A member of another workspace returns 403
-- The manifest lists paths, sizes, tags, and statuses, and contains no URL
-- Discard succeeds when no file is clean, and fails when one is
-
-- [ ] **Step 2: Implement, test, and commit**
-
-```bash
-git commit -m "Download clean handoff files as short-lived attachments."
-```
-
----
-
-## Phase 3 — Upload and review screens
-
-### Task 12: Drop a folder
+### Task 14: Drop screen
 
 **Files:**
 - Create: `src/components/drop-zone.tsx`
-- Create: `src/app/w/[slug]/page.tsx`
-- Create: `src/app/w/[slug]/batches/[batchId]/page.tsx`
-- Test: component tests for the manifest builder
+- Create: `src/app/w/[slug]/drop/page.tsx`
+- Test: manifest builder tests
 
-- [ ] **Step 1: Build the manifest from a directory drop and from a file input**
+- [ ] **Step 1: Build the manifest**
 
-Read `webkitRelativePath` when it is present. Send the manifest to Task 8.
-Upload with `tus-js-client` to the Storage resumable endpoint using the
-signed-in user token, 6 MiB chunks, and a concurrency of 3. Call the grant
-route before each file and the complete route after each success.
+Read `webkitRelativePath` for a folder and `name` for loose files. Accept a
+`request` search parameter and show that request's guidance.
 
-- [ ] **Step 2: Show progress**
+- [ ] **Step 2: Upload**
 
-Show the tree, a per-file state, and totals. Register a `beforeunload`
-handler while any file is in flight. A failed file retries through the grant
-route. When the browser cannot select a directory, show the computer-folder
-instruction and keep the multi-file picker.
+Use `tus-js-client` against the Storage resumable endpoint with the user's
+access token, 6 MiB chunks, concurrency 3. Refresh the grant before each file
+and on resume. Call completion after each success.
 
-- [ ] **Step 3: Batch screen**
+- [ ] **Step 3: Progress and recovery**
 
-Members see status and can download clean files. Operators can change tags
-through a server action that writes `file.tagged`. Discard is visible only
-while HND-005 allows it.
+Show the tree, per-file state, and totals. Register `beforeunload` while in
+flight. Retry failed files while the batch is active. On a device without a
+directory picker, keep multi-file selection and show the computer-folder
+instruction. Show the HND-058 notice.
 
 - [ ] **Step 4: Commit**
 
@@ -487,66 +575,253 @@ while HND-005 allows it.
 git commit -m "Upload a folder into a handoff workspace."
 ```
 
-### Task 13: Operator review
+---
+
+## Phase 4 — Worker
+
+### Task 15: Worker image and scan job
 
 **Files:**
-- Modify: `src/app/w/[slug]/page.tsx`
-- Modify: `src/app/ops/page.tsx`
+- Create: `worker/Dockerfile`, `worker/clamd.conf`, `worker/start.sh`
+- Create: `src/worker/index.ts`, `src/worker/jobs/scan.ts`
+- Create: `src/worker/clamd.ts`
+- Test: scan job tests with a fake object stream and fake `clamd`
 
-- [ ] **Step 1: Workspace screen**
+- [ ] **Step 1: Build the image**
 
-Show batch status, who created it, and the note. Provide invite and revoke
-to operators only.
+Install ClamAV. `start.sh` runs `freshclam` once, starts `clamd`, schedules
+`freshclam` every 4 hours, then starts the worker. Set `StreamMaxLength`,
+`MaxFileSize`, and `MaxScanSize` to at least 2 GB. Enable archive scanning
+with `MaxRecursion`, `MaxFiles`, and `MaxScanSize` limits, and alert on
+exceeded limits so they come back as `limit`.
 
-- [ ] **Step 2: Empty and error states**
+- [ ] **Step 2: Write failing job tests**
 
-A new workspace explains what to send: brand, photos, copy, exports, and
-reference files. A refused manifest shows the server reason. A scanning
-batch shows that downloads open after the scan.
+- a claimed file is marked `scanning` and read once
+- the one read yields the SHA-256, the header, and the `clamd` stream
+- each `decideScan` outcome writes the matching status, reason, and audit
+- `retry` returns the file to `uploaded` with `next_scan_at`
+- two workers never scan the same file
+- startup in production with no reachable `clamd` exits non-zero
+- `HANDOFF_ALLOW_UNSCANNED=1` with `NODE_ENV=production` exits non-zero
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Implement the loop**
+
+Claim with `FOR UPDATE SKIP LOCKED`. Expose `/health` on `$PORT`, bound to
+`0.0.0.0`, that reports `clamd` reachability.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git commit -m "Let the build team review a handoff workspace."
+git commit -m "Scan handoff objects with clamd in one pass."
+```
+
+### Task 16: Request receipt and notifications
+
+**Files:**
+- Create: `src/lib/notifications.ts`
+- Create: `src/worker/jobs/notify.ts`
+- Create: email templates
+- Test: rule and job tests with a fake Resend client
+
+- [ ] **Step 1: Write failing tests**
+
+- the first clean file in a batch that names a request marks it `received`
+- each HND-045 event produces its recipients and one idempotency key
+- a repeated event sends nothing new
+- email bodies contain no URL other than a Handoff page link
+- the weekly digest goes only to owners of workspaces that enabled it
+
+- [ ] **Step 2: Implement, test, and commit**
+
+```bash
+git commit -m "Email operators and clients about handoff progress."
+```
+
+### Task 17: Sweeps
+
+**Files:**
+- Create: `src/worker/jobs/sweep-windows.ts`
+- Create: `src/worker/jobs/delete-rejected.ts`
+- Test: job tests
+
+- [ ] **Step 1: Write failing tests**
+
+- files still `pending` or `uploading` in an inactive batch become `failed`
+  and queue the uploader email
+- rejected and failed objects older than 14 days are deleted and the row
+  records `object_deleted_at`
+
+- [ ] **Step 2: Implement, test, and commit**
+
+```bash
+git commit -m "Close idle handoff batches and delete rejected objects."
 ```
 
 ---
 
-## Phase 4 — Verification
+## Phase 5 — Review and pull
 
-### Task 14: End-to-end checks
+### Task 18: Batch screen and download
 
-- [ ] **Step 1: Run the automated suite**
+**Files:**
+- Create: `src/app/w/[slug]/batches/[batchId]/page.tsx`
+- Create: `src/app/api/batches/[batchId]/files/[fileId]/download/route.ts`
+- Create: `src/app/api/batches/[batchId]/discard/route.ts`
+- Test: route tests
+
+- [ ] **Step 1: Write failing tests**
+
+- a clean file returns a 5-minute attachment URL and writes `file.downloaded`
+- a held, scanning, or rejected file returns 409
+- a caller outside the workspace receives 404
+- a client discards their own batch only while no file is clean
+- a file whose hash matches an earlier clean file in the workspace is marked
+
+- [ ] **Step 2: Implement, test, and commit**
+
+Operators can change tags from this screen.
+
+```bash
+git commit -m "Review and download clean handoff files."
+```
+
+### Task 19: Export and `handoff pull`
+
+**Files:**
+- Create: `src/lib/export.ts`
+- Create: `src/app/api/batches/[batchId]/export/route.ts`
+- Create: `cli/pull.ts`
+- Test: export builder and CLI tests against a temp directory
+
+- [ ] **Step 1: Write failing tests**
+
+- export lists clean files with 60-minute URLs and other files without URLs
+- a client cannot export, and the 21st export in an hour is refused
+- `pull` recreates the tree, verifies each hash, and skips matching files
+- `pull` refuses a path that resolves outside the target directory
+- `pull` deletes a partial file whose hash does not match and exits non-zero
+
+- [ ] **Step 2: Implement, test, and commit**
+
+```bash
+git commit -m "Pull a whole handoff batch with verified hashes."
+```
+
+### Task 20: Held review
+
+**Files:**
+- Create: `src/app/admin/held/page.tsx`
+- Test: action tests
+
+- [ ] **Step 1: Write failing tests**
+
+- only a super-admin can release or reject a held file
+- release and reject both require a reason and write an audit event
+- release queues the uploader email and can complete a request
+
+- [ ] **Step 2: Implement, test, and commit**
+
+```bash
+git commit -m "Let a super-admin release or reject held files."
+```
+
+---
+
+## Phase 6 — Engagement end
+
+### Task 21: Archive, workspace export, and purge
+
+**Files:**
+- Create: `src/lib/retention.ts`
+- Create: `src/worker/jobs/purge.ts`
+- Modify: `src/app/w/[slug]/settings/page.tsx`
+- Test: retention and purge tests
+
+- [ ] **Step 1: Write failing tests**
+
+- archive sets `purge_after` to archive date plus `retention_days`
+- archive refuses new batches, invites, and requests and keeps downloads
+- archive queues the owner and operator email, and a reminder 7 days before
+  purge
+- a workspace export covers every batch with 24-hour URLs
+- purge refuses an `active` workspace
+- purge deletes every object and every file, batch, request, invite, and
+  membership row, and records counts and bytes
+- audit rows survive purge
+- early purge requires a super-admin and a reason
+
+- [ ] **Step 2: Implement, test, and commit**
+
+```bash
+git commit -m "Archive, export, and purge a finished handoff workspace."
+```
+
+---
+
+## Phase 7 — Deploy and accept
+
+### Task 22: Provision and deploy
+
+- [ ] **Step 1: Supabase**
+
+Create the Handoff project on a paid plan in the region recorded as
+`HANDOFF_REGION`. Confirm it matches Strong Foam's operations region before
+the first invite. Set the global file size limit and the `handoff` bucket
+limit to at least 2 GB. Create the `branding` bucket. Configure Resend SMTP
+and the auth email template. Set the site URL and redirect URLs to the
+Handoff domain. Run migrations with `DIRECT_URL`.
+
+- [ ] **Step 2: Resend**
+
+Verify the sending domain and set `HANDOFF_FROM_EMAIL`.
+
+- [ ] **Step 3: Vercel**
+
+Create a separate Vercel project for this repository. Set the environment
+contract. Attach the Handoff domain.
+
+- [ ] **Step 4: Render**
+
+Create a background worker from `worker/Dockerfile`. Size it for the ClamAV
+signature database plus scanning headroom. Set the worker environment. Point
+the health check at `/health`.
+
+- [ ] **Step 5: Record the deployment in `README.md` and commit**
+
+```bash
+git commit -m "Document the Handoff deployment."
+```
+
+### Task 23: Acceptance
+
+- [ ] **Step 1: Run the suites**
 
 ```bash
 npm test
+npm run test:db
 npm run build
 ```
 
-Expected: both succeed. Confirm no test opens a network connection.
+- [ ] **Step 2: Walk the acceptance list in the spec on staging**
 
-- [ ] **Step 2: Exercise one drop against a staging project**
-
-Use a folder that contains a nested image, a PDF larger than 100 MB, a
-`.env` file, and a path with `..` if the picker allows it. The image and PDF
-reach `clean` and download as attachments. The `.env` file and the escaping
-path do not create objects. A second workspace is invisible to the client.
-Revoking the membership blocks the next download.
+Use two workspaces with different operators. Include the EICAR test file, a
+file that trips a `clamd` archive limit, a file over 1 GB, `.env`,
+`report.pdf.exe`, a `..` path, and an over-quota manifest.
 
 - [ ] **Step 3: Confirm the boundary**
 
-The operations repository has no new runtime code from this work. The
-Handoff project uses its own Supabase project and its own Vercel project.
+The Strong Foam operations repository has no runtime change from this work.
 
-- [ ] **Step 4: Commit any fix found in staging**
+- [ ] **Step 4: Commit any staging fix**
 
 ```bash
-git commit -m "Fix handoff issues found in the staging drop."
+git commit -m "Fix handoff issues found in staging acceptance."
 ```
 
 Skip this commit when staging finds nothing.
 
 ## Done when
 
-The acceptance list in the design spec is true for a Strong Foam staging
-invite, and the operations application is unchanged.
+Every acceptance item in the design spec passes on staging with two client
+workspaces, and the Strong Foam operations application is unchanged.
