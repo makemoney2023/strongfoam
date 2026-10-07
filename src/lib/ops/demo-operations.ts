@@ -21,7 +21,9 @@ import {
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { DISPATCH_TIME_ZONE, type Dispatch } from "@/lib/ops/dispatch";
 import type { EquipmentAssignment } from "@/lib/ops/equipment";
+import type { Closeout } from "@/lib/ops/closeout";
 import type { Inspection } from "@/lib/ops/inspection";
+import type { QualityRecord } from "@/lib/ops/quality";
 import type { LaborEntry } from "@/lib/ops/labor";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import type { PurchaseOrder, PurchaseOrderLine } from "@/lib/ops/purchase-order";
@@ -434,6 +436,45 @@ export function demoChangeOrderSeed(now = getOpsNow()): {
   };
 }
 
+export function demoCloseoutSeed(now = getOpsNow()): Closeout[] {
+  const createdAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return [
+    {
+      id: demoId("c0", 1),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_JOB_ID,
+      status: "preparing",
+      note: "Podium thickness still failed, so this closeout cannot be signed.",
+      packetText: "",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("c0", 2),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_SECOND_JOB_ID,
+      status: "ready",
+      note: "Fireproofing adhesion is still open. Ready means the packet is assembled, not signed.",
+      packetText: "",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("c0", 3),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_CLOSED_JOB_ID,
+      status: "signed",
+      note: "The closeout walk passed and the customer signed.",
+      packetText: "",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: createdAt,
+    },
+  ];
+}
+
 export function demoInspectionSeed(now = getOpsNow()): Inspection[] {
   const createdAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   return [
@@ -493,6 +534,77 @@ export function demoInspectionSeed(now = getOpsNow()): Inspection[] {
       nameKey: "closeout walk",
       result: "passed",
       note: "Deficiency list is clear. The Graco E-30 was returned.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: createdAt,
+    },
+  ];
+}
+
+export function demoQualitySeed(now = getOpsNow()): QualityRecord[] {
+  const createdAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return [
+    {
+      id: demoId("f1", 1),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_JOB_ID,
+      kind: "deficiency",
+      name: "Podium edge",
+      nameKey: "podium edge",
+      status: "open",
+      note: "Closed-cell is thin along the podium column line.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("f1", 2),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_JOB_ID,
+      kind: "deficiency",
+      name: "Lift path",
+      nameKey: "lift path",
+      status: "corrected",
+      note: "The lift path was filled on the second pass.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("f1", 3),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_SECOND_JOB_ID,
+      kind: "deficiency",
+      name: "Rim gap",
+      nameKey: "rim gap",
+      status: "reopened",
+      note: "The rim joist gap opened again after the first fill.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("f1", 4),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_SECOND_JOB_ID,
+      kind: "rework",
+      name: "Second pass",
+      nameKey: "second pass",
+      status: "open",
+      note: "A second pass is still open on the mechanical room.",
+      createdBy: DEMO_ADMIN_EMAIL,
+      createdAt,
+      updatedAt: now,
+    },
+    {
+      id: demoId("f1", 5),
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobId: DEMO_CLOSED_JOB_ID,
+      kind: "deficiency",
+      name: "Old void",
+      nameKey: "old void",
+      status: "open",
+      note: "This closed job stays off the open list.",
       createdBy: DEMO_ADMIN_EMAIL,
       createdAt,
       updatedAt: createdAt,

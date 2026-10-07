@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   productionAllocations,
@@ -12,6 +12,7 @@ import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { dispatchableJobStatus, parseWorkDate } from "@/lib/ops/dispatch";
 import { listDispatches } from "@/lib/ops/dispatch-store";
 import { listLaborRange } from "@/lib/ops/labor-store";
+import { listQualityRecords } from "@/lib/ops/quality-store";
 import { isFieldMembershipRole } from "@/lib/ops/identity";
 import { isUuid } from "@/lib/ops/job-workspace";
 import { parsePieceQuantity } from "@/lib/ops/labor";
@@ -532,7 +533,6 @@ export async function setProductionAllocation(input: {
     const db = getDb();
     try {
       await db.transaction(async (tx) => {
-        await tx.execute(sql`select id from production_entries where id = ${current.id} for update`);
         const existing = await tx
           .select({ userId: productionAllocations.userId, quantity: productionAllocations.quantity })
           .from(productionAllocations)
@@ -624,16 +624,6 @@ export async function approveProductionTarget(input: {
     const db = getDb();
     try {
       await db.transaction(async (tx) => {
-        await tx.execute(sql`
-          select id from production_targets
-          where organization_id = ${target.organizationId}
-            and trade = ${target.trade}
-            and work_type = ${target.workType}
-            and unit = ${target.unit}
-            and basis = ${target.basis}
-            and effective_to is null
-          for update
-        `);
         const currentRows = await tx
           .select()
           .from(productionTargets)
@@ -679,17 +669,19 @@ export async function approveProductionTarget(input: {
 
 export async function loadWorkforceBoard(organizationId: string, asOf: string) {
   const from = shiftWorkDate(asOf, -(WORKFORCE_WINDOWS.twentyEight - 1));
-  const [facts, labor, jobs, people, dispatches] = await Promise.all([
+  const [facts, labor, jobs, people, dispatches, qualityRecords] = await Promise.all([
     listProductionFacts(organizationId, from, asOf),
     listLaborRange(organizationId, from, asOf),
     listJobs(),
     listUsers(),
     listDispatches(organizationId, asOf),
+    listQualityRecords(organizationId),
   ]);
   return buildWorkforcePerformance({
     asOf,
     ...facts,
     labor,
+    qualityRecords,
     people: people.map((person) => ({
       userId: person.userId,
       displayName: person.displayName,

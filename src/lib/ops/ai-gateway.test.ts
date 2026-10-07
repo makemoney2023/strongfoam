@@ -99,10 +99,36 @@ describe("job AI gateway", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.bullets.map((bullet) => bullet.text)).toEqual(["Real task."]);
-    expect(result.provider).toBe("vercel-ai-gateway");
+    expect(result.provider).toBe("cloudflare-ai-gateway");
     expect(result.model).toBe("test-model");
     const body = JSON.parse(requestBody);
     expect(body.messages[0].content).toContain("what is missing");
+  });
+
+  it("asks the Strongfoam agent and keeps only citations in the pack", async () => {
+    delete process.env.OPS_DEMO;
+    process.env.AI_GATEWAY_MODEL = "test-model";
+    const fetchImpl = vi.fn();
+    const result = await requestJobAi({
+      pack,
+      purpose: "summary",
+      fetchImpl,
+      agent: {
+        draft: async () =>
+          JSON.stringify({
+            paragraph: "Podium is moving.",
+            bullets: [
+              { text: "Real task.", citations: [{ kind: "task", id: "task-1" }] },
+            ],
+            sections: { completed: [], held: [], material: [], next: [] },
+          }),
+      },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.provider).toBe("cloudflare-agent");
+    expect(result.bullets.map((bullet) => bullet.text)).toEqual(["Real task."]);
   });
 
   it("returns a failed draft when the gateway cannot be reached", async () => {

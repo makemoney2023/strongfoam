@@ -1,10 +1,12 @@
 # Workforce performance specification and implementation plan
 
 Status: partial, and enabled in production. Capture, verification, normalized
-efficiency, private My Performance, the unranked office review, and Home
-exceptions are implemented. `OPS_WORKFORCE_PERFORMANCE` is `1` in production
-and preview. Demo mode enables the flag when it is unset, and `0` hides it.
-Rankings, financial costs, quality scoring, and CSV export are not enabled.
+efficiency, private My Performance, the unranked office review, Home
+exceptions, and deficiency/rework quality context are implemented.
+`OPS_WORKFORCE_PERFORMANCE` is `1` in production and preview. Demo mode
+enables the flag when it is unset, and `0` hides it. Quality is a separate
+label: missing records stay “not available,” and inspections stay out of it.
+Rankings, financial costs, and CSV export are not enabled.
 
 PRD requirements: WFP-001 through WFP-018 in
 `docs/strongfoam-crm-erp-prd.md`
@@ -319,8 +321,8 @@ Exports use the same permissions.
 
 ### Slice 6: quality and financial extensions
 
-- Add inspection, deficiency, rework, and documentation context as those
-  authoritative records ship.
+- Deficiency and rework context is on the performance view. Inspections stay
+  out of that label. Documentation context waits on its own record.
 - After accounting decision 6, add earned-hour and cost variance to the
   restricted financial dashboard.
 - Do not add wages to the operational model.

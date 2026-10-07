@@ -56,8 +56,7 @@ export function AppShell({
           {demo ? (
             <Alert className="rounded-none border-x-0 border-t-0">
               <AlertDescription>
-                Demo data is loaded because Postgres is not connected. Set
-                DATABASE_URL and run migrations to use live records.
+                Demo data is loaded because Cloudflare D1 is not connected.
               </AlertDescription>
             </Alert>
           ) : null}

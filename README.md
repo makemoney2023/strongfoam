@@ -11,6 +11,47 @@ npm install
 npm run dev          # http://localhost:3000
 npm test
 npm run build
+npm run deploy       # OpenNext build, then Cloudflare Workers
+```
+
+## Cloudflare
+
+The site deploys as its own Worker, `strongfoam`, on the Abracadabra account
+(`6f6959ecba86d1de4d6cf6aa0b34528d`). Preview:
+`https://strongfoam.abracadabra-ai.workers.dev`.
+
+`npm run deploy` builds with OpenNext and publishes that Worker. It does not
+redeploy `abracadabra-marketing`, `handoff`, `handoff-hq`, or `readiness-check`.
+
+Model drafts are specified to go through `StrongfoamAgent` and AI Gateway
+`strongfoam`. The design is
+`docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`. The
+implementation plan is
+`docs/superpowers/plans/2026-10-06-cloudflare-agents.md`. D1 stays the system
+of record. A person confirms a draft before a business row changes.
+
+Cloudflare resources for this app only. Do not reuse handoff's database,
+bucket, or queues:
+
+| Binding | Resource |
+|---------|----------|
+| `DB` | D1 database `strongfoam` (`91cb6932-3463-4431-830c-bb3e05b6fe6f`: CRM, jobs, and rate limits) |
+| `FILES` | R2 bucket `strongfoam` (private uploads) |
+| `JOBS` | Queue `strongfoam-jobs` and dead-letter queue `strongfoam-jobs-dlq` |
+| `AI` | Workers AI through AI Gateway `strongfoam` |
+| `STRONGFOAM_AGENT` | Durable Object agent `StrongfoamAgent` |
+
+Companies, contacts, opportunities, projects, jobs, estimates, and the rest of
+the staff records live in that D1 database. JSON columns are stored as text.
+The staff workspace uses demo data only when `OPS_DEMO=1` or the `DB` binding
+is missing. Background jobs are sent to `strongfoam-jobs`, and a daily cron
+runs import retention. The incremental cache does not use R2.
+
+Auth for deploy is `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the
+environment. Do not commit them. After the first deploy, apply the D1 migration:
+
+```bash
+CI=1 npx wrangler d1 migrations apply strongfoam --remote
 ```
 
 ## Layout
@@ -60,35 +101,23 @@ only for emails that do not have a database-backed identity.
 `OPS_ADMIN_EMAILS` limits which fallback identities may administer users; when
 it is unset, the existing staff email list is used for migration compatibility.
 
-If `DATABASE_URL` is unset, or `OPS_DEMO=1`, the review workspace uses local
-demo requests so the UI can be exercised without Postgres.
+If the D1 binding is missing, or `OPS_DEMO=1`, the review workspace uses local
+demo requests. On the Worker, `DB` is bound, so `/app` reads and writes D1.
+The database starts with the Strong Foam organization and no staff user.
+`OPS_STAFF_EMAILS` and `OPS_STAFF_PASSWORD` are the bootstrap login until a
+user row exists. Do not invent those values.
 
 Production operations requirements:
 
-- Set both `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN`. Database-backed job
-  uploads fail closed when private Blob storage is unavailable; they never use
-  ephemeral process memory.
-- Run `npm run db:migrate` as a release step before deploying application code.
-  Migration `0010_user_administration.sql` is required for revocable sessions
-  and user lifecycle audit events. Apply `0013_plan_revision_integrity.sql`
-  before revision writes, `0014_job_voice_notes.sql` before serving voice-note
-  code,   `0015_plan_annotation_geometry.sql` for circle, polygon, arrow,
-  and text marks, `0016_task_stated_quantity.sql` before storing a stated
-  task quantity in bags or square feet, `0017_price_book_items.sql` before
-  storing price-book items, and `0018_organization_scope_audit.sql` before
-  organization-scoped commercial writes, `0019_background_execution.sql`
-  before the Render worker claims outbox jobs, and `0020_commercial_documents.sql`
-  before storing bid-package documents, `0021_price_book_versions.sql`
-  before approving a new price-book revision, `0022_estimates.sql` before
-  storing an estimate version, and `0023_estimate_approvals_proposals.sql`
-  before recording an estimate approval. The current Vercel Hobby deploy still uses the in-memory
-  demo store (`OPS_DEMO` or no `DATABASE_URL`), so those SQL files apply when
-  Postgres is attached.
+- Apply `migrations/0002_operations.sql` with
+  `CI=1 npx wrangler d1 migrations apply strongfoam --remote` before the Worker
+  that reads those tables is serving traffic.
+- Private uploads use the `FILES` R2 binding. Job uploads fail closed when that
+  binding is missing; they never use ephemeral process memory.
 
 ```bash
 npm test
-npm run db:generate
-npm run db:migrate
+CI=1 npx wrangler d1 migrations apply strongfoam --remote
 ```
 
 Environment names (values live in `.env.local`, never committed):
@@ -137,11 +166,10 @@ VOICE_CONSENT_NOTICE
 WORKER_ID
 ```
 
-Application traffic uses `DATABASE_URL`, the Supabase pooled connection.
-`npm run worker` uses `WORKER_DATABASE_URL` for pg-boss and the outbox.
-`npm run db:migrate` uses `DIRECT_URL`. Outside production, the worker and
-migration URLs fall back to `DATABASE_URL`. Production fails closed when either
-is missing. Supabase project credentials stay outside this repository.
+The Worker reads and writes CRM and job records through the D1 binding `DB`.
+`DATABASE_URL`, `WORKER_DATABASE_URL`, and `DIRECT_URL` are not used by that
+Worker. `npm run worker` remains the local pg-boss process and is not the
+Cloudflare queue consumer.
 
 `npm run worker` starts the Render background process. It claims pg-boss work,
 records a heartbeat, and stops cleanly on SIGTERM. It does not serve the Next.js
@@ -181,6 +209,9 @@ Commercial AI stays off unless all of these are true:
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
 - the Render worker heartbeat for that organization is healthy
 
+Apply `migrations/0005_quality_records.sql` before using deficiency and
+rework records, `migrations/0004_closeout_packet.sql` before using the
+closeout packet, and `migrations/0003_closeout.sql` before using closeout.
 Apply migrations through `0036_inspections.sql` before using inspections,
 through `0035_equipment_assignments.sql` before using
 equipment, through `0034_purchase_orders.sql` before using purchase
@@ -215,8 +246,8 @@ Field labor is hours or piece work. Piece work is a whole number of bags or
 square feet for one person, job, and date. Hours are a duration up to 24 hours.
 The same person can have both, and saving the same measure again updates it.
 The dispatch board lists the day's labor. The field landing records only the
-signed-in person's labor. No rate or wage is stored. Apply
-`0031_labor_entries.sql` before using labor against Postgres.
+signed-in person's labor. No rate or wage is stored. The `labor_entries` table
+is created by `migrations/0002_operations.sql`.
 
 A purchase order cites open material requests on one job. Office staff enter a
 supplier and draft the order, then mark it ordered or cancel it. Cancelling
@@ -224,21 +255,35 @@ keeps the order and lets those requests be drafted again. A material request
 can store an optional whole quantity and field unit. The line copies the
 request text and that quantity. No price is stored. A cited request cannot be
 deleted. Home lists open-job drafts and requests that are not on an active
-order. Apply `0034_purchase_orders.sql` before deploying this application
-code: Home and the job pages read those tables.
+order. Purchase orders are in `migrations/0002_operations.sql`. Home and the
+job pages read those tables.
 
 Equipment is a named assignment on one job. Office staff assign it or release
 it. Releasing keeps the row, and assigning that same name again marks it
 assigned. Home lists the same name on more than one open job. No rate is
-stored. Apply `0035_equipment_assignments.sql` before deploying this
-application code: Home and the job pages read that table.
+stored. Equipment assignments are in `migrations/0002_operations.sql`. Home
+and the job pages read that table.
 
 An inspection is a named result on one job. Office staff record open, passed,
 or failed, and an optional note. Recording the same name updates that row.
 Home lists open and failed results on jobs that are still open. A passed row
-and a closed job do not count. No price is stored. Apply
-`0036_inspections.sql` before deploying this application code: Home and the
-job pages read that table. Closeout is unchanged.
+and a closed job do not count. No price is stored. Inspections are in
+`migrations/0002_operations.sql`. Home and the job pages read that table.
+Inspections are not part of the workforce quality label.
+
+A quality record is a deficiency or a rework item on one job. Office staff
+record open, corrected, or reopened. The same kind and name updates that row.
+Home lists open and reopened rows on jobs that are still open. No price is
+stored. Quality records are in `migrations/0005_quality_records.sql`.
+
+Closeout is one status on an open job: preparing, ready, or signed. Signed
+waits until every inspection on that job has passed. Home lists preparing and
+ready closeouts. The job page also stores one insulation assembly and can save
+the closeout packet draft. Saving does not send it. Apply
+`migrations/0003_closeout.sql` and `migrations/0004_closeout_packet.sql`.
+Dispatch can set a field member to 1, 2, or 3 jobs in a day. The job page
+recommends a person who still has capacity, and accepting assigns that open
+task.
 
 Workforce performance is separate from pay. Production and preview are set to
 `OPS_WORKFORCE_PERFORMANCE=1`. `0` keeps it off. Demo mode enables it when the
@@ -246,8 +291,11 @@ variable is unset. Office staff approve a production target, record installed ba
 square feet, and verify a field member's draft. Individual production is one
 person; crew production is the shared quantity. The field landing shows that
 person's own pace and explains a missing score. The office list does not assign
-a rank, and no wage is stored. Apply `0032_production.sql` and
-`0033_production_target_open.sql` before using it against Postgres.
+a rank, and no wage is stored. A deficiency or rework record on a job that
+person worked shows as quality beside the efficiency number. No record stays
+“not available,” and a corrected set shows “clear.” Inspections stay off that
+label. Production tables are in `migrations/0002_operations.sql`. Quality
+records are in `migrations/0005_quality_records.sql`.
 
 To roll a capability back, set its flag to `0` and redeploy the web service.
 In-flight worker jobs can finish, and they cannot start a new AI draft, proposal
@@ -256,13 +304,12 @@ from the estimate page; revocation blocks later views and decisions for that
 token. Do not delete estimate versions, approvals, or document versions to undo
 a rollout.
 
-Import Center staging lives in the Postgres `private` schema (`data_import_batches`,
-including `file_bytes`, plus sheets, rows, events, and crosswalks). Apply migrations
-through `0028_import_domain_keys.sql` before a durable import. Runtime traffic uses
-`DATABASE_URL`, the worker uses `WORKER_DATABASE_URL`, and migrations use `DIRECT_URL`.
-Those three credentials must differ in production. If a private `data-imports` Storage
-bucket is configured, it stays private: no public listing and no cross-organization
-object list.
+Import Center staging lives in D1 tables `private_data_import_batches`
+(including `file_bytes`), `private_data_import_sheets`, `private_data_import_rows`,
+`private_data_import_events`, `private_data_import_mapping_profiles`, and
+`private_external_record_keys`. Apply `migrations/0002_operations.sql` before a
+durable import. Source files for imports stay in those rows or in the private
+`FILES` bucket: no public listing and no cross-organization object list.
 
 The worker schedules `data-import.retain` every day at 09:15 UTC. That job clears source bytes and normalized row values for finished batches.
 Cancelled batches lose the source file immediately. Failed batches lose it after 7

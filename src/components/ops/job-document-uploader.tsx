@@ -1,7 +1,7 @@
 "use client";
 import { ActionForm } from "@/components/ops/action-form";
 
-import { upload } from "@vercel/blob/client";
+import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
@@ -209,10 +209,9 @@ export function JobDocumentUploader({
           continue;
         }
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        await upload(`jobs/${jobId}/${index}-${safeName}`, file, {
-          access: "private",
+        setProgress(Math.round((index / files.length) * 100));
+        await uploadPrivateFile(`jobs/${jobId}/${index}-${safeName}`, file, {
           handleUploadUrl: "/api/ops/job-uploads",
-          multipart: file.size > 5 * 1024 * 1024,
           clientPayload: JSON.stringify({
             jobId,
             workAreaId: parsed.value.workAreaId,
@@ -220,11 +219,8 @@ export function JobDocumentUploader({
             filename: parsed.value.filename,
             replacesDocumentId: parsed.value.replacesDocumentId ?? null,
           }),
-          onUploadProgress: ({ percentage }) => {
-            const overall = ((index + percentage / 100) / files.length) * 100;
-            setProgress(Math.round(overall));
-          },
         });
+        setProgress(Math.round(((index + 1) / files.length) * 100));
         uploaded.push(file.name);
       }
       form.reset();

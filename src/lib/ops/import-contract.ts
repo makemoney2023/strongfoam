@@ -183,15 +183,15 @@ export function importScopeClause(
     throw new Error("An organization is required.");
   }
   const table = {
-    batches: "private.data_import_batches",
-    sheets: "private.data_import_sheets",
-    rows: "private.data_import_rows",
-    profiles: "private.data_import_mapping_profiles",
-    crosswalks: "private.external_record_keys",
-    events: "private.data_import_events",
+    batches: "private_data_import_batches",
+    sheets: "private_data_import_sheets",
+    rows: "private_data_import_rows",
+    profiles: "private_data_import_mapping_profiles",
+    crosswalks: "private_external_record_keys",
+    events: "private_data_import_events",
   }[kind];
   return {
-    text: `select * from ${table} where organization_id = $1`,
+    text: `select * from ${table} where organization_id = ?`,
     organizationId,
   };
 }

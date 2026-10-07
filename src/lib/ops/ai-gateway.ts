@@ -1,5 +1,13 @@
 import "server-only";
 import {
+  cloudflareChatCompletionsUrl,
+  compatModelName,
+  gatewayHeaders,
+  readModelContent,
+  type ChatMessage,
+} from "@/lib/cloudflare/gateway";
+import { getPlatform } from "@/lib/cloudflare/platform";
+import {
   filterCitations,
   isCitationKind,
   type Citation,
@@ -138,53 +146,26 @@ function readSections(value: unknown, pack: JobEvidencePack): AiDraftSections {
   };
 }
 
-export async function requestJobAi(args: {
-  pack: JobEvidencePack;
-  purpose: GatewayPurpose;
-  env?: Record<string, string | undefined>;
-  fetchImpl?: typeof fetch;
-}): Promise<AiGatewayResult> {
-  const env = args.env ?? process.env;
-  if (env.OPS_DEMO === "1") return demoAiResult(args.pack);
-  const apiKey = env.AI_GATEWAY_API_KEY?.trim();
-  const model = env.AI_GATEWAY_MODEL?.trim();
-  if (!apiKey || !model) return { status: "disabled" };
+const JOB_AI_SYSTEM =
+  "You summarize one construction job from the JSON evidence pack. Return JSON with paragraph, bullets, and sections.completed, sections.held, sections.material, and sections.next. Each bullet and section item is {text, citations:[{kind,id}]}. Citation kinds are task, field_note, voice_note, plan_mark, and job_event. Use only ids present in the pack. When the pack is thin, the paragraph must say what is missing. Do not invent prices or records.";
 
-  const fetchImpl = args.fetchImpl ?? fetch;
-  try {
-  const response = await fetchImpl("https://ai-gateway.vercel.sh/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+function jobMessages(purpose: GatewayPurpose, pack: JobEvidencePack): ChatMessage[] {
+  return [
+    { role: "system", content: JOB_AI_SYSTEM },
+    {
+      role: "user",
+      content: JSON.stringify({ purpose, workingDay: pack.workingDay, evidence: pack }),
     },
-    body: JSON.stringify({
-      model,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You summarize one construction job from the JSON evidence pack. Return JSON with paragraph, bullets, and sections.completed, sections.held, sections.material, and sections.next. Each bullet and section item is {text, citations:[{kind,id}]}. Citation kinds are task, field_note, voice_note, plan_mark, and job_event. Use only ids present in the pack. When the pack is thin, the paragraph must say what is missing. Do not invent prices or records.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            purpose: args.purpose,
-            workingDay: args.pack.workingDay,
-            evidence: args.pack,
-          }),
-        },
-      ],
-    }),
-  });
-  if (!response.ok) {
-    return { status: "failed", message: failureMessage(args.purpose) };
-  }
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = payload.choices?.[0]?.message?.content?.trim() ?? "";
+  ];
+}
+
+function parseJobDraft(
+  content: string,
+  pack: JobEvidencePack,
+  purpose: GatewayPurpose,
+  provider: string,
+  model: string,
+): AiGatewayResult {
   const json = content.replace(/^```json\s*/i, "").replace(/```$/, "");
   try {
     const parsed = JSON.parse(json) as {
@@ -192,25 +173,71 @@ export async function requestJobAi(args: {
       bullets?: unknown;
       sections?: unknown;
     };
-    const bullets = readCited(parsed.bullets, args.pack);
-    const sections = readSections(parsed.sections, args.pack);
+    const bullets = readCited(parsed.bullets, pack);
+    const sections = readSections(parsed.sections, pack);
     const paragraph =
       typeof parsed.paragraph === "string" && parsed.paragraph.trim()
         ? parsed.paragraph.trim()
         : bullets.length
-          ? `${args.pack.job.name} summary.`
+          ? `${pack.job.name} summary.`
           : "There is not enough field evidence to summarize this job yet.";
-    return {
-      status: "ready",
-      provider: "vercel-ai-gateway",
-      model,
-      paragraph,
-      bullets,
-      sections,
-    };
+    return { status: "ready", provider, model, paragraph, bullets, sections };
   } catch {
-    return { status: "failed", message: failureMessage(args.purpose) };
+    return { status: "failed", message: failureMessage(purpose) };
   }
+}
+
+export async function requestJobAi(args: {
+  pack: JobEvidencePack;
+  purpose: GatewayPurpose;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+  agent?: {
+    draft(input: { model: string; messages: ChatMessage[] }): Promise<string>;
+  };
+}): Promise<AiGatewayResult> {
+  const env = args.env ?? process.env;
+  if (env.OPS_DEMO === "1") return demoAiResult(args.pack);
+  const model = env.AI_GATEWAY_MODEL?.trim();
+  if (!model && !args.agent) return { status: "disabled" };
+
+  const messages = jobMessages(args.purpose, args.pack);
+  try {
+    let agent = args.agent;
+    if (!agent && !args.fetchImpl) {
+      const platform = await getPlatform();
+      const namespace = platform?.STRONGFOAM_AGENT;
+      if (namespace) {
+        const stub = namespace.get(namespace.idFromName("strongfoam"));
+        agent = stub;
+      }
+    }
+    if (agent) {
+      const content = await agent.draft({ model: model || "strongfoam", messages });
+      return parseJobDraft(
+        content,
+        args.pack,
+        args.purpose,
+        "cloudflare-agent",
+        model || "strongfoam",
+      );
+    }
+    if (!model) return { status: "disabled" };
+    const fetchImpl = args.fetchImpl ?? fetch;
+    const response = await fetchImpl(cloudflareChatCompletionsUrl(env), {
+      method: "POST",
+      headers: gatewayHeaders(env),
+      body: JSON.stringify({
+        model: compatModelName(model),
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+    if (!response.ok) {
+      return { status: "failed", message: failureMessage(args.purpose) };
+    }
+    const content = readModelContent(await response.json());
+    return parseJobDraft(content, args.pack, args.purpose, "cloudflare-ai-gateway", model);
   } catch {
     return { status: "failed", message: failureMessage(args.purpose) };
   }

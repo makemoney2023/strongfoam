@@ -1,3 +1,4 @@
+import { qualityContextLabel } from "@/lib/ops/quality";
 import {
   statedQuantityUnitLabel,
   type StatedQuantityUnit,
@@ -134,7 +135,7 @@ export type WorkerPerformance = {
     workDate: string;
   }>;
   nextAction: string;
-  quality: "not available";
+  quality: string;
   ranked: false;
 };
 
@@ -160,7 +161,8 @@ export type WorkforceException = {
     | "below_target"
     | "over_allocated"
     | "incomplete_attribution"
-    | "overlapping_labor";
+    | "overlapping_labor"
+    | "quality";
   label: string;
   href: string;
 };
@@ -397,6 +399,12 @@ export function buildWorkforcePerformance(input: {
   people: WorkforcePerson[];
   jobs: WorkforceJob[];
   dispatches: WorkforceDispatch[];
+  qualityRecords?: Array<{
+    jobId: string;
+    kind: "deficiency" | "rework";
+    name: string;
+    status: "open" | "corrected" | "reopened";
+  }>;
 }): WorkforceBoard {
   const used = new Set<string>();
   const individual = new Map<string, { segments: PerformanceSegment[]; excluded: ExcludedPerformance[] }>();
@@ -406,6 +414,34 @@ export function buildWorkforcePerformance(input: {
   );
   const jobName = new Map(input.jobs.map((job) => [job.id, job.name]));
   const personName = new Map(input.people.map((person) => [person.userId, person.displayName]));
+  const entryById = new Map(input.entries.map((entry) => [entry.id, entry]));
+
+  function workerJobIds(userId: string): string[] {
+    const ids = new Set<string>();
+    for (const participant of input.participants) {
+      if (participant.userId !== userId) continue;
+      const entry = entryById.get(participant.productionEntryId);
+      if (!entry || !dateInWindow(entry.workDate, input.asOf, WORKFORCE_WINDOWS.twentyEight)) continue;
+      ids.add(entry.jobId);
+    }
+    for (const row of input.labor) {
+      if (row.userId !== userId || !dateInWindow(row.workDate, input.asOf, WORKFORCE_WINDOWS.twentyEight)) {
+        continue;
+      }
+      ids.add(row.jobId);
+    }
+    for (const dispatch of input.dispatches) {
+      if (
+        dispatch.userId !== userId ||
+        dispatch.status !== "scheduled" ||
+        dispatch.workDate !== input.asOf
+      ) {
+        continue;
+      }
+      ids.add(dispatch.jobId);
+    }
+    return [...ids];
+  }
 
   for (const entry of ordered) {
     if (entry.status !== "verified") continue;
@@ -543,7 +579,10 @@ export function buildWorkforcePerformance(input: {
           userId: person.userId,
           participants: input.participants,
         }),
-        quality: "not available" as const,
+        quality: qualityContextLabel({
+          jobIds: workerJobIds(person.userId),
+          records: input.qualityRecords ?? [],
+        }),
         ranked: false as const,
       };
     })
@@ -634,6 +673,18 @@ export function buildWorkforcePerformance(input: {
       exceptions.push({
         kind: "below_target",
         label: `${worker.displayName} is below target on ${count} ${label} shifts`,
+        href,
+      });
+    }
+    if (
+      worker.twentyEightDay.efficiency != null &&
+      worker.twentyEightDay.efficiency >= 100 &&
+      worker.quality !== "not available" &&
+      worker.quality !== "clear"
+    ) {
+      exceptions.push({
+        kind: "quality",
+        label: `High efficiency with a quality exception: ${worker.displayName} · ${worker.quality}`,
         href,
       });
     }

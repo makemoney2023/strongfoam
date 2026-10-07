@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.37
+**Version:** 1.42
 **Created:** 2026-09-18
-**Last updated:** 2026-09-23
+**Last updated:** 2026-10-06
 
 ## 1. Purpose
 
@@ -38,6 +38,10 @@ user-facing requirements.
   `docs/superpowers/specs/2026-09-22-data-import-center-design.md`; its
   test-first sequence is
   `docs/superpowers/plans/2026-09-22-data-import-center.md`.
+- The Cloudflare agent runtime is
+  `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`; its
+  test-first sequence is
+  `docs/superpowers/plans/2026-10-06-cloudflare-agents.md`.
 - Implementation plans may add technical detail but must not silently change
   requirements in this PRD.
 - Material scope or workflow decisions must update this document's decision log
@@ -190,8 +194,8 @@ The system should answer:
 - Live multi-user collaborative drawing.
 - Native iOS or Android applications.
 - Full BIM authoring or editing IFC/Revit files.
-- Automated takeoff from plan geometry.
-- Inferring price or quantity from drawing scale, pixels, symbols, or geometry.
+- Storing a plan quantity the model invented. AI-027 calculates area, length, or count only after a person confirms the scale and the region.
+- Inferring price from a drawing.
 - Replacing existing accounting software.
 - A customer or subcontractor portal.
 - AI-generated pricing or autonomous approval decisions.
@@ -672,9 +676,11 @@ alternates, questions, candidate price-book items, and an explicitly written
 quantity. Upload and AI proposal write no business record until a person
 selects and applies the suggestion.
 
-**BID-007:** AI must not measure drawing geometry or infer quantity from scale,
-pixels, symbols, or dimensions. Missing, ambiguous, conflicting, or unitless
-quantity must display **Takeoff required** or a cited estimator question.
+**BID-007:** A written quantity may be cited only when it is explicit in the
+document. A measured quantity is AI-027: a person confirms the scale and the
+region, and the server calculates square feet, linear feet, or a count.
+Missing, ambiguous, conflicting, or unscaled geometry must display **Takeoff
+required**. The model must not supply the stored quantity or the price.
 
 **BID-008:** AI must not generate or select price, cost, markup, overhead, tax,
 discount, total, approval, proposal delivery, project, or live job. The server
@@ -1020,9 +1026,10 @@ operational slice is enabled in production. `OPS_WORKFORCE_PERFORMANCE` is `1`
 for production and preview. Demo mode enables the same flag when the variable
 is unset, and `0` hides the feature. It records production, verifies it,
 calculates comparable efficiency, shows a private field view, and shows an
-unranked office review. Named inspections in section 16.7 are recorded and
-are not scored. Rankings, wages, quality scoring, and the financial
-bridge are not enabled.
+unranked office review. Deficiency and rework records in section 16.9
+appear as a separate quality label. Named inspections in section 16.7 are
+recorded and are not scored. Rankings, wages, and the financial bridge are
+not enabled.
 
 **WFP-001:** Installed production must be an authoritative record with
 organization, job, work date, optional task and work area, trade or work type,
@@ -1153,6 +1160,81 @@ open, then job name, then inspection name.
 
 **INS-006:** Recording an inspection writes an audit event with the job, name,
 and result. The payload has no price or rate.
+
+### 16.8 Closeout
+
+A closeout is one completion record on one job. It is not a price, a customer
+send, or a warranty claim.
+
+**CLO-001:** An office user can record closeout on an open job. The row stores
+a status of preparing, ready, or signed, and an optional note of at most 500
+characters. One job has one closeout. Recording again updates that row. No
+price is stored.
+
+**CLO-002:** Signed is refused while any inspection on that job is open or
+failed. A job with no inspections can be signed. Preparing and ready do not
+wait on inspections.
+
+**CLO-003:** A closed job cannot take a new closeout or a change. The existing
+row stays readable.
+
+**CLO-004:** Administrators and office users can record closeout. An estimator
+uses the office permissions. Field leads and field workers can read closeout
+on a job they can open and cannot change it.
+
+**CLO-005:** Home lists preparing and ready closeouts on jobs that are not
+closed. A signed row and a closed job do not count. The list is ready, then
+preparing, then job name.
+
+**CLO-006:** Recording a closeout writes an audit event with the job and
+status. The payload has no price.
+
+**CLO-007:** An office user can record one insulation assembly on an open job:
+location, target R-value, area, bag count, and product, plus an optional
+rebate program. Recording again updates that row. The agent drafts a closeout
+packet from that assembly, job photos, stated quantities, and plan marks.
+Saving the draft stores it on the closeout. Saving does not send it and does
+not change the closeout status.
+
+### 16.9 Deficiencies and rework
+
+A quality record is one deficiency or one rework item on one job. It is not a
+price, an inspection, or a workforce score. Inspections in section 16.7 stay
+on their own list. Quality is shown beside efficiency and does not change the
+efficiency number.
+
+**QAL-001:** An office user can record a deficiency or a rework item on an
+open job. The row stores a kind, a name of 1 to 80 characters, a status of
+open, corrected, or reopened, and an optional note of at most 500 characters.
+No price is stored.
+
+**QAL-002:** One organization has one row for the same job, kind, and name,
+ignoring letter case. Recording that name again for the same kind updates the
+status, the display name, and the note, and keeps the same row. The same name
+may exist once as a deficiency and once as rework.
+
+**QAL-003:** A closed job cannot take a new record or a change. Existing rows
+stay readable.
+
+**QAL-004:** Administrators and office users can record quality. An estimator
+uses the office permissions. Field leads and field workers can read quality
+on a job they can open and cannot change it.
+
+**QAL-005:** Home lists open and reopened records on jobs that are not closed.
+A corrected row and a closed job do not count. The list is reopened, then
+open, then deficiency before rework, then job name, then name.
+
+**QAL-006:** Recording a quality row writes an audit event with the job, kind,
+name, and status. The payload has no price.
+
+**QAL-007:** Workforce quality is a separate label from efficiency. A worker
+with no deficiency or rework on a job they worked, or were scheduled on that
+day, shows “not available.” When every such record is corrected, the label is
+“clear.” An open or reopened record names that exception. The efficiency
+number does not change. Inspections do not change the label. The field view
+shows only the signed-in worker. The office list stays unranked. Home names a
+worker whose 28-day efficiency is at or above target and whose quality is an
+exception.
 
 ## 17. Trade-specific requirements
 
@@ -2037,7 +2119,7 @@ authorization decision.
 Retrieved content, uploaded plans, emails, and notes are untrusted data and
 cannot modify system policy or tool permissions.
 
-### 24.5 Retrieval and pgvector
+### 24.5 Retrieval
 
 Structured facts such as status, assignment, dates, quantities, approvals, and
 costs must come from authorized SQL/domain queries, not semantic search.
@@ -2050,21 +2132,19 @@ Unstructured content eligible for retrieval includes:
 - Scope descriptions and activity narrative.
 - Approved internal knowledge and procedures.
 
-Use hybrid retrieval:
+Use hybrid retrieval on Cloudflare AI Search:
 
 ```text
 Authorization prefilter
-  → PostgreSQL full-text search + pgvector similarity
-  → reranking
+  → AI Search over approved text
   → cited context
-  → model response
+  → StrongfoamAgent response through AI Gateway
 ```
 
 Each indexed chunk must store organization, source entity and immutable version,
-visibility scope, content hash, embedding model/version, timestamps, and
-deletion state. Use HNSW and GIN indexes where evaluation supports them.
-Re-embedding must occur side by side so model changes do not interrupt search.
-Audio binaries are never embedded; approved transcript text may be embedded.
+visibility scope, content hash, index version, timestamps, and deletion state.
+Re-indexing must occur side by side so model changes do not interrupt search.
+Audio binaries are never indexed; approved transcript text may be indexed.
 
 No retrieval result, count, title, or citation may cross an organization or
 record access boundary.
@@ -2137,9 +2217,10 @@ sync.
 
 These boundaries apply to every ID:
 
-- Geometric measurement of plan PDFs stays a non-goal. AI-016 and AI-018 may
-  use cited extracted document text or a walkthrough. They do not trace,
-  scale, or measure the drawing.
+- AI-016 and AI-018 cite a quantity only when it is written in the document.
+  They do not measure the drawing. AI-027 measures one page after a person
+  confirms the scale and the region. The server calculates the quantity. The
+  model does not supply it, and it does not set the price.
 - The agent does not generate price, markup, tax, or an approval decision.
 - Safety and compliance sign-off stays with a person. AI-024 may propose a
   deficiency and may not close one.
@@ -2155,17 +2236,18 @@ These boundaries apply to every ID:
 | AI-013 | Exception queue on current records | A | Shipped | With AI-008 |
 | AI-014 | Quantity pace warning | A | Shipped | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
-| AI-016 | Cited bid/request scope outline | B | Blocked | Durable bid documents, extraction, approved price revisions, and manual estimate versions |
+| AI-016 | Cited bid/request scope outline | B | Partly built | `ai_runs` and `ai_proposals` store the draft with an idempotency key. Audit the opportunity screen before marking shipped |
 | AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
-| AI-018 | Bid-package/walkthrough scope lines | B | Blocked | BID-001 through BID-011 and section 17.1 assembly fields |
+| AI-018 | Bid-package/walkthrough scope lines | B | Partly built | Same draft record as AI-016. Audit apply into an estimate version before marking shipped |
 | AI-019 | Change-order draft | B | Blocked | Change-order records exist. Voice, photo, and plan-pin drafts are not built; a person sets the price |
 | AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
-| AI-021 | Closeout and rebate packet | B | Blocked | Section 17.1 fields and the marked-up PDF export |
-| AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Render worker and pgvector |
-| AI-023 | Dispatch recommendation | C | Blocked | Day dispatch exists. Crew capacity and the recommendation are not built |
+| AI-021 | Closeout and rebate packet | B | Shipped | Assembly fields exist. The draft is saved on the closeout and is not sent |
+| AI-022 | Hybrid retrieval of notes and transcripts | C | Later | Approved notes and transcripts indexed in Cloudflare AI Search |
+| AI-023 | Dispatch recommendation | C | Shipped | Crew capacity is 1–3 jobs per day. Accepting assigns the open task |
 | AI-024 | Photo deficiency proposal | C | Later | Evaluation set required by section 24.8 |
 | AI-025 | Warranty and inbound email triage | C | Later | Customer portal or inbound mailbox |
 | AI-026 | Cost variance explanation | C | Blocked | Accounting system chosen in open decision 6 |
+| AI-027 | Plan takeoff | B | Specified | A document page and a scale a person can confirm. The server calculates the quantity |
 
 **AI-008:** An authorized office user can request a progress summary for one
 job. The summary covers tasks, field notes, blockers, deficiencies, quantities,
@@ -2234,19 +2316,21 @@ not send the change order.
 by plan sheet for closeout review. The group is a view and a draft. It does
 not replace a future punch-list workflow.
 
-**AI-021:** After insulation assembly fields exist, the agent drafts the
-closeout and rebate narrative from the marked-up PDF, quantities, photos, and
-those fields. Publishing the packet to a customer waits on portal policy.
+**AI-021:** The agent drafts the closeout and rebate narrative from the
+insulation assembly, job photos, stated quantities, and plan marks. Saving
+stores that draft on the closeout. Publishing the packet to a customer waits
+on portal policy, so save does not send it.
 
-**AI-022:** Approved note and transcript text may be embedded for hybrid
-retrieval under section 24.5. Audio binaries are not embedded. Interactive
-summaries in Release A do not require embeddings.
+**AI-022:** Approved note and transcript text may be indexed in Cloudflare
+AI Search and retrieved by the job agent. Audio binaries are not indexed.
+Interactive summaries in Release A do not require retrieval.
 
-**AI-023:** A person can schedule a field member on a job for one day. After
-crew capacity exists, the agent may recommend a person for an open task and
-present the assignment as an exact diff. Overlap warnings that already exist
-on the schedule remain the source for conflicts. The recommendation is not
-built.
+**AI-023:** A person can schedule a field member on a job for one day. Crew
+capacity is 1, 2, or 3 jobs that day, and the default is 1. The agent
+recommends a field member who still has capacity for an open task with no
+person, and shows that assignment. Accepting writes only that assignee
+through the existing task command. Overlap warnings on the dispatch board
+remain the source for same-day conflicts.
 
 **AI-024:** After an evaluation set exists, a photo may produce a proposed
 deficiency attached to a plan region. A person files or discards it. The
@@ -2260,9 +2344,21 @@ deficiencies cover problems found by the crew.
 cost and schedule variance in plain language and links to the source budget
 and field quantities. It does not post invoices, bills, or payments.
 
+**AI-027:** On one immutable plan page, the agent may propose a title-block
+scale and one region in PDF page space. A person confirms the scale and may
+edit the points. The server then calculates square feet, linear feet, or a
+count. Confirming stores that quantity on the estimate. The person sets the
+price. No confirmed scale displays **Takeoff required**. Bag count waits on a
+person-entered thickness or yield. This is not BIM, and it does not trace
+every symbol on the sheet.
+
 Design and the Release A implementation plan live in
 `docs/superpowers/specs/2026-09-21-ai-operations-design.md` and
 `docs/superpowers/plans/2026-09-21-ai-operations.md`.
+
+The agent runtime for the whole application lives in
+`docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md` and
+`docs/superpowers/plans/2026-10-06-cloudflare-agents.md`.
 
 The bid-package, estimating, and accepted-job design and implementation plan
 live in
@@ -2469,7 +2565,8 @@ policy and human review.
    deficiency, material request, or new task). A later sentence can still be
    saved, including after the earlier sentence is dismissed without a write.
    A daily report from that transcript stays the daily-report draft.
-6. Add hybrid retrieval (AI-022) when the Render worker and pgvector exist.
+6. Add hybrid retrieval (AI-022) when approved notes and transcripts are
+   indexed in Cloudflare AI Search.
 
 ### Commercial and operational expansion
 
@@ -2511,15 +2608,23 @@ policy and human review.
    Inspections are done: an office user records a named result of open, passed,
    or failed on an open job. Recording the same name updates that row. Home
    lists open and failed results on jobs that are still open. No price is
-   stored. Closeout, AI-021, and AI-023 are not built.
+   stored. Closeout is done: an office user records preparing, ready, or
+   signed on an open job. Signed waits until every inspection on that job has
+   passed. Home lists preparing and ready closeouts. The insulation assembly
+   and the saved packet draft do not send anything to the customer. Crew
+   capacity is 1–3 jobs per day. AI-023 recommends a field member with
+   remaining capacity, and accepting assigns that open task.
 9. Add authoritative production attribution and approved production targets,
    then My Performance, the office Workforce Performance view, and workforce
    exception widgets under WFP-001 through WFP-018. The first slice is
    enabled in production with `OPS_WORKFORCE_PERFORMANCE=1`: production can be
    recorded and verified, efficiency is calculated, the field view is private,
    and the office review is unranked. Field labor alone must not produce rankings.
-   Quality context becomes complete as deficiencies and rework records ship.
-   Inspections are recorded in section 16.7 and stay out of the score.
+   Quality context uses deficiency and rework records from section 16.9. A
+   missing record stays “not available,” and a fully corrected set is “clear.”
+   Open or reopened records are named beside the efficiency number and do not
+   change it. Inspections are recorded in section 16.7 and stay out of the
+   score.
    Financial cost extensions wait for the accounting system of record.
 10. Add job costing and accounting integrations, then cost variance
    explanation (AI-026).
@@ -2567,9 +2672,10 @@ These decisions are required before their respective implementation stage:
 3. Annotation library and marked-up PDF export approach.
 4. Speech-to-text languages beyond English, consent copy, and audio retention.
    The provider is Deepgram Nova-3 prerecorded listen.
-5. Embedding model and AI cost limits. Release A uses the Vercel AI Gateway.
-   The model id is configuration, and the agent stays off when that
-   configuration is missing. Embeddings wait for AI-022.
+5. Embedding model and AI cost limits. Model calls go through Cloudflare AI
+   Gateway `strongfoam` and the `StrongfoamAgent` class. The model id is
+   configuration, and the agent stays off when that configuration is missing.
+   Retrieval waits for AI-022 on Cloudflare AI Search.
 6. Accounting system of record and synchronization boundaries.
 7. Required field devices and minimum supported browsers.
 8. Offline requirements beyond drafts and queued uploads.
@@ -2648,11 +2754,20 @@ These decisions are required before their respective implementation stage:
 | 2026-09-23 | Draft a purchase order from material requests before receipts or cost | PO-001 through PO-007 cite the field request, copy its description and any stated quantity, and store no price. One request sits on one active order. Cancelling keeps the order and releases the request |
 | 2026-09-23 | Assign named equipment to an open job before rentals or inventory | EQ-001 through EQ-007 record which named unit is on a job. Releasing keeps the row. The same name on two open jobs is visible. Rates, rentals, and inventory stay out |
 | 2026-09-23 | Record a named inspection on an open job before closeout | INS-001 through INS-006 store open, passed, or failed for one name on one job. Recording that name again updates the row. Home lists open and failed results on jobs that are still open. No price is stored. The result is not a workforce score. Closeout stays unbuilt |
+| 2026-10-06 | Record closeout, then the packet draft and a dispatch recommendation | CLO-001 through CLO-007 store one closeout per open job. Signed waits until every inspection has passed. The assembly draft is saved and not sent. Crew capacity is 1–3 jobs a day. Accepting AI-023 assigns the open task |
+| 2026-10-06 | Record deficiencies and rework as workforce quality | QAL-001 through QAL-007 store one deficiency or rework row per job and name. Quality is a separate label on the performance view. A missing source stays “not available.” Inspections stay out of the score. Efficiency and the unranked office list stay as they are |
+| 2026-10-06 | Run every model draft through one Cloudflare agent | `StrongfoamAgent` is one class with an instance per organization and record. Model calls use AI Gateway `strongfoam`. D1 stays the system of record. A person confirms. The agent does not set a price, send a message, or change the workforce score. AI-022 uses AI Search instead of pgvector |
+| 2026-10-06 | Measure plan takeoff after a person confirms the scale | AI-027 lets the agent propose a scale and one region. The server calculates square feet, linear feet, or a count. The model does not supply the stored quantity or the price. An unscaled sheet stays Takeoff required. AI-016 and AI-018 still cite written quantities only |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.42 | 2026-10-06 | Reviewed the agent plan against the code. AI-016 and AI-018 are partly built and already store drafts in D1. Drafts stay in D1, not agent state. Plan takeoff adds page size, two-point calibration, a takeoff record, a vision model, and an evaluation set |
+| 1.41 | 2026-10-06 | Specified AI-027 plan takeoff. The agent proposes a scale and a region. The server calculates the quantity after a person confirms both. The model does not set the quantity or the price |
+| 1.40 | 2026-10-06 | Specified the Cloudflare agent runtime for the whole application. One `StrongfoamAgent` class, AI Gateway `strongfoam`, and D1 as the system of record. AI-022 retrieval is Cloudflare AI Search. The design and the implementation plan are linked from section 24 |
+| 1.39 | 2026-10-06 | Shipped QAL-001 through QAL-007. Office users record a deficiency or rework item on an open job. The same kind and name updates that row. Home lists open and reopened rows. The performance view shows that quality beside efficiency. A missing source stays “not available,” and inspections stay out of the score. The field view stays private and the office list stays unranked |
+| 1.38 | 2026-10-06 | Shipped CLO-001 through CLO-007, AI-021, and AI-023. Office users record one closeout per open job. Signed waits until every inspection has passed. The insulation assembly draft is saved on the closeout and is not sent. Crew capacity is 1–3 jobs a day. Accepting a recommendation assigns that open task |
 | 1.37 | 2026-09-23 | Shipped INS-001 through INS-006. Office users record a named inspection on an open job. The same name updates that row. Home lists open and failed results on jobs that are still open. No price is stored. The result is not a workforce score. Closeout and AI-023 remain unbuilt |
 | 1.36 | 2026-09-23 | Shipped EQ-001 through EQ-007. Office users assign named equipment to an open job or release it. Releasing keeps the row. Home lists the same name on two open jobs. No rate is stored. Inspections, closeout, and AI-023 remain unbuilt |
 | 1.35 | 2026-09-23 | Shipped PO-001 through PO-007. Office users draft a purchase order from material requests, mark it ordered, or cancel it. A material request can store an optional quantity, which the line copies. Cancelling keeps the row and releases the requests. No price is stored. Equipment, inspections, closeout, and AI-023 remain unbuilt |

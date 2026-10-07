@@ -95,7 +95,7 @@ export default async function WorkforcePage({
               <p>
                 {efficiencyLabel(worker.twentyEightDay)} · {hoursLabel(worker.twentyEightDay.actualHours)} · {worker.twentyEightDay.shifts} {worker.twentyEightDay.shifts === 1 ? "shift" : "shifts"}
               </p>
-              <p className="text-muted-foreground">Quality: not available · {worker.nextAction}</p>
+              <p className="text-muted-foreground">Quality: {worker.quality} · {worker.nextAction}</p>
               {worker.twentyEightDay.excluded.length > 0 ? (
                 <p className="text-muted-foreground">
                   {[...new Set(worker.twentyEightDay.excluded.map((row) => row.reason))].join(" · ")}

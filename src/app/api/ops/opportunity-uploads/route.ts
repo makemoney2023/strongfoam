@@ -1,4 +1,6 @@
 import { del, head } from "@vercel/blob";
+import { isDirectUpload, readDirectUpload } from "@/lib/cloudflare/direct-upload";
+import { deletePrivateObject, writePrivateObject } from "@/lib/cloudflare/private-objects";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getOpsSession } from "@/lib/ops/auth";
 import { resolveCommercialAccess, type CommercialActor } from "@/lib/ops/commercial-authorization";
@@ -83,10 +85,84 @@ const defaultDeps: OpportunityUploadPostDeps = {
   blobToken: process.env.BLOB_READ_WRITE_TOKEN,
 };
 
+export async function handleDirectOpportunityUpload(
+  request: Request,
+  deps: OpportunityUploadPostDeps = defaultDeps,
+): Promise<Response> {
+  const session = await deps.getSession();
+  if (!session) return Response.json({ error: "Unauthorized." }, { status: 401 });
+  const access = resolveCommercialAccess(session, "estimate.edit");
+  if (!access.ok) return Response.json({ error: "Forbidden." }, { status: 403 });
+  const upload = await readDirectUpload(request);
+  if (!isDirectUpload(upload)) {
+    return Response.json({ error: upload.error }, { status: 400 });
+  }
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(upload.clientPayload || "{}") as Record<string, unknown>;
+  } catch {
+    return Response.json({ error: "invalid_opportunity_upload" }, { status: 400 });
+  }
+  const payload = parsePayload(
+    JSON.stringify(raw),
+    session.email,
+    access.organizationId,
+  );
+  if (
+    !payload ||
+    !isOwnedOpportunityPath(payload.organizationId, payload.opportunityId, upload.pathname)
+  ) {
+    return Response.json({ error: "invalid_opportunity_upload" }, { status: 400 });
+  }
+  if (!(await deps.getOpportunity(payload.organizationId, payload.opportunityId))) {
+    return Response.json({ error: "opportunity_not_found" }, { status: 404 });
+  }
+  if (upload.bytes.byteLength > MAX_UPLOAD_BYTES) {
+    return Response.json({ error: "file_too_large" }, { status: 400 });
+  }
+  const stored = await writePrivateObject(upload.pathname, upload.bytes, upload.contentType);
+  if (!stored) {
+    return Response.json({ error: "Bid package storage is not configured." }, { status: 503 });
+  }
+  const parsed = parseBidDocumentInput({
+    filename: payload.filename,
+    contentType: upload.contentType,
+    sizeBytes: upload.bytes.byteLength,
+    kind: payload.kind,
+    revisionLabel: payload.revisionLabel,
+  });
+  if (!parsed.ok) {
+    await deletePrivateObject(upload.pathname);
+    return Response.json({ error: parsed.error }, { status: 400 });
+  }
+  try {
+    const recorded = await deps.recordDocument({
+      organizationId: payload.organizationId,
+      opportunityId: payload.opportunityId,
+      documentId: payload.documentId,
+      actor: payload.actor,
+      input: parsed.value,
+      pathname: upload.pathname,
+      bytes: upload.bytes,
+    });
+    if (!recorded) throw new Error("bid_document_not_saved");
+  } catch (error) {
+    await deletePrivateObject(upload.pathname);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "bid_document_not_saved" },
+      { status: 400 },
+    );
+  }
+  return Response.json({ pathname: upload.pathname });
+}
+
 export async function handleOpportunityUploadPost(
   request: Request,
   deps: OpportunityUploadPostDeps = defaultDeps,
 ): Promise<Response> {
+  if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    return handleDirectOpportunityUpload(request, deps);
+  }
   if (!deps.blobToken) {
     return Response.json(
       { error: "Bid package storage is not configured." },

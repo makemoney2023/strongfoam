@@ -1,4 +1,7 @@
 import { issueSignedToken, presignUrl } from "@vercel/blob";
+import { D1RateLimiter } from "@/lib/cloudflare/rate-limit";
+import { getPlatform } from "@/lib/cloudflare/platform";
+import { getObject } from "@/lib/cloudflare/objects";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
@@ -63,7 +66,9 @@ export function createRateLimiter(
 
 let rateLimiterSingleton: RateLimiter | null = null;
 
-export function getRateLimiter(): RateLimiter {
+export async function getRateLimiter(): Promise<RateLimiter> {
+  const platform = await getPlatform();
+  if (platform?.DB) return new D1RateLimiter(platform.DB, 5, 15 * 60);
   if (!rateLimiterSingleton) {
     rateLimiterSingleton = createRateLimiter(process.env);
   }
@@ -257,10 +262,22 @@ export function getMailer(): Mailer {
   };
 }
 
+export async function readStoredFile(
+  pathname: string,
+): Promise<{ body: Uint8Array; contentType: string } | null> {
+  const platform = await getPlatform();
+  if (!platform?.FILES) return null;
+  const stored = await getObject(platform.FILES, pathname);
+  if (!stored) return null;
+  return { body: stored.body, contentType: stored.contentType };
+}
+
 export async function resolveFileUrl(
   pathname: string,
   validForMs = 7 * 24 * 60 * 60 * 1000,
 ): Promise<string> {
+  const platform = await getPlatform();
+  if (platform?.FILES) return `r2:${pathname}`;
   const validUntil = Date.now() + validForMs;
   const token = await issueSignedToken({
     pathname,

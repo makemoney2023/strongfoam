@@ -295,16 +295,13 @@ export async function commercialModelTransport(
   request: { model: string; system: string; pack: CommercialEvidencePack },
   fetchImpl: typeof fetch = fetch,
 ): Promise<unknown> {
-  const apiKey = process.env.AI_GATEWAY_API_KEY?.trim();
-  if (!apiKey) throw new Error("model-unavailable");
-  const response = await fetchImpl("https://ai-gateway.vercel.sh/v1/chat/completions", {
+  const { cloudflareChatCompletionsUrl, compatModelName, gatewayHeaders, readModelContent } =
+    await import("@/lib/cloudflare/gateway");
+  const response = await fetchImpl(cloudflareChatCompletionsUrl(process.env), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: gatewayHeaders(process.env),
     body: JSON.stringify({
-      model: request.model,
+      model: compatModelName(request.model),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: request.system },
@@ -313,10 +310,8 @@ export async function commercialModelTransport(
     }),
   });
   if (!response.ok) throw new Error("model-unavailable");
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = payload.choices?.[0]?.message?.content?.trim() ?? "";
+  const content = readModelContent(await response.json());
+  if (!content) throw new Error("model-unavailable");
   return JSON.parse(content.replace(/^```json\s*/i, "").replace(/```$/, ""));
 }
 

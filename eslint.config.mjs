@@ -9,12 +9,15 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".open-next/**",
+    ".wrangler/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
     // Project-local agent skills are vendored reference tooling, not app code.
     ".cursor/**",
     ".worktrees/**",
+    "cloudflare-worker.ts",
   ]),
 ]);
 

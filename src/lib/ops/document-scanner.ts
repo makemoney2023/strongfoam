@@ -1,3 +1,5 @@
+import { readWorkerDatabase } from "@/lib/ops/demo-mode";
+
 export const EICAR_TEST_STRING =
   "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
@@ -64,13 +66,18 @@ export function parseClamAvResponse(raw: string): ScanResult {
   };
 }
 
-export function resolveMalwareScanner(env: {
-  OPS_DEMO?: string;
-  DATABASE_URL?: string;
-  CLAMAV_HOST?: string;
-  CLAMAV_PORT?: string;
-}): MalwareScanner | null {
-  if (env.OPS_DEMO === "1" || !env.DATABASE_URL) return createDemoMalwareScanner();
+export function resolveMalwareScanner(
+  env: {
+    OPS_DEMO?: string;
+    DATABASE_URL?: string;
+    CLAMAV_HOST?: string;
+    CLAMAV_PORT?: string;
+  },
+  liveDatabase: unknown = readWorkerDatabase(),
+): MalwareScanner | null {
+  if (env.OPS_DEMO === "1" || (!env.DATABASE_URL && liveDatabase == null)) {
+    return createDemoMalwareScanner();
+  }
   // Production scan uses the worker's ClamAV client. Without that service the
   // version stays quarantined and extraction is not enqueued.
   void env.CLAMAV_HOST;

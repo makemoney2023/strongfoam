@@ -1,6 +1,6 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
+import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import {
   CameraIcon,
   FileTextIcon,
@@ -139,10 +139,8 @@ export function JobPhotoGallery({
           continue;
         }
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        await upload(`jobs/${jobId}/${index}-${safeName}`, file, {
-          access: "private",
+        await uploadPrivateFile(`jobs/${jobId}/${index}-${safeName}`, file, {
           handleUploadUrl,
-          multipart: file.size > 5 * 1024 * 1024,
           clientPayload: JSON.stringify({
             jobId,
             workAreaId: parsed.value.workAreaId,

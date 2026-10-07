@@ -566,12 +566,10 @@ describe("demo ops store", () => {
     ).toBe(true);
   });
 
-  it("uses demo data when the database URL is absent", () => {
-    expect(isDemoOpsStore({})).toBe(true);
-    expect(isDemoOpsStore({ DATABASE_URL: "postgres://example" })).toBe(false);
-    expect(
-      isDemoOpsStore({ DATABASE_URL: "postgres://example", OPS_DEMO: "1" }),
-    ).toBe(true);
+  it("uses Cloudflare D1 for operational records", () => {
+    expect(isDemoOpsStore({}, null)).toBe(true);
+    expect(isDemoOpsStore({}, { prepare() {} })).toBe(false);
+    expect(isDemoOpsStore({ OPS_DEMO: "1" }, { prepare() {} })).toBe(true);
   });
 
   it("routes an assigned job to the stable field identity", () => {

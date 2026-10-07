@@ -5,7 +5,6 @@ import {
   eq,
   gt,
   gte,
-  ilike,
   inArray,
   lte,
   ne,
@@ -14,6 +13,13 @@ import {
 } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDb } from "@/db";
+import { publishQueuedJob } from "@/lib/cloudflare/platform";
+import { isObjectStorage } from "@/lib/cloudflare/objects";
+import {
+  deletePrivateObject,
+  readPrivateObject,
+  writePrivateObject,
+} from "@/lib/cloudflare/private-objects";
 import {
   companies,
   contacts,
@@ -510,6 +516,10 @@ function like(value: string): string {
   return `%${value.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
 }
 
+function includesText(column: unknown, value: string) {
+  return sql`lower(${column}) like lower(${value}) escape '\\'`;
+}
+
 export function parseEstimateRequestUpdate(input: {
   workflowStatus?: string;
   assignedTo?: string;
@@ -975,13 +985,13 @@ export async function listEstimateRequests(
   if (query) {
     conditions.push(
       or(
-        ilike(leads.company, like(query)),
-        ilike(leads.firstName, like(query)),
-        ilike(leads.lastName, like(query)),
-        ilike(leads.email, like(query)),
-        ilike(leads.phone, like(query)),
-        ilike(leads.city, like(query)),
-        ilike(sql<string>`${leads.id}::text`, like(query)),
+        includesText(leads.company, like(query)),
+        includesText(leads.firstName, like(query)),
+        includesText(leads.lastName, like(query)),
+        includesText(leads.email, like(query)),
+        includesText(leads.phone, like(query)),
+        includesText(leads.city, like(query)),
+        includesText(leads.id, like(query)),
       ),
     );
   }
@@ -1264,10 +1274,10 @@ export async function listCompanies(
     .where(
       query
         ? or(
-            ilike(companies.name, like(query)),
-            ilike(companies.email, like(query)),
-            ilike(companies.city, like(query)),
-            ilike(companies.phone, like(query)),
+            includesText(companies.name, like(query)),
+            includesText(companies.email, like(query)),
+            includesText(companies.city, like(query)),
+            includesText(companies.phone, like(query)),
           )
         : undefined,
     )
@@ -1327,9 +1337,9 @@ export async function listOpportunities(
   if (query) {
     conditions.push(
       or(
-        ilike(opportunities.name, like(query)),
-        ilike(opportunities.owner, like(query)),
-        ilike(opportunities.source, like(query)),
+        includesText(opportunities.name, like(query)),
+        includesText(opportunities.owner, like(query)),
+        includesText(opportunities.source, like(query)),
       ),
     );
   }
@@ -1550,6 +1560,14 @@ export async function recordQuarantinedBidDocument(args: {
       },
     }).onConflictDoNothing();
   });
+  await publishQueuedJob({
+    kind: "document.scan",
+    data: {
+      organizationId: args.organizationId,
+      documentVersionId: versionId,
+      opportunityId: args.opportunityId,
+    },
+  });
   return { documentId, versionId };
 }
 
@@ -1591,16 +1609,19 @@ export async function retryBidDocumentScan(args: {
       },
     }).onConflictDoNothing();
   });
+  await publishQueuedJob({
+    kind: "document.scan",
+    data: {
+      organizationId: args.organizationId,
+      documentVersionId: args.versionId,
+      opportunityId: args.opportunityId,
+    },
+  });
   return { ok: true };
 }
 
 async function readPrivateBidBytes(pathname: string): Promise<Uint8Array | null> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  const { get } = await import("@vercel/blob");
-  const result = await get(pathname, { access: "private", token });
-  if (!result || result.statusCode !== 200 || !result.stream) return null;
-  return new Uint8Array(await new Response(result.stream).arrayBuffer());
+  return readPrivateObject(pathname);
 }
 
 export async function processBidDocument(
@@ -1685,6 +1706,14 @@ export async function processBidDocument(
           },
         })
         .onConflictDoNothing();
+      await publishQueuedJob({
+        kind: "document.extract",
+        data: {
+          organizationId: args.organizationId,
+          documentVersionId: match.version.id,
+          opportunityId: args.opportunityId,
+        },
+      });
     }
     return {
       ok: true,
@@ -2018,8 +2047,8 @@ export async function listProjects(
   if (query) {
     conditions.push(
       or(
-        ilike(projects.name, like(query)),
-        ilike(projects.projectManager, like(query)),
+        includesText(projects.name, like(query)),
+        includesText(projects.projectManager, like(query)),
       ),
     );
   }
@@ -2057,8 +2086,8 @@ export async function listPortfolioSchedule(
   if (query) {
     conditions.push(
       or(
-        ilike(projects.name, like(query)),
-        ilike(projects.projectManager, like(query)),
+        includesText(projects.name, like(query)),
+        includesText(projects.projectManager, like(query)),
       ),
     );
   }
@@ -2092,7 +2121,7 @@ export async function listPortfolioSchedule(
   }
 
   const projectIds = selectedProjects.map((project) => project.id);
-  const [jobRows, dependencyRows, defaultCalendar, latestBaselines] =
+  const [jobRows, dependencyRows, defaultCalendar, baselineRows] =
     await Promise.all([
       db
         .select()
@@ -2111,7 +2140,7 @@ export async function listPortfolioSchedule(
         .limit(PORTFOLIO_DEPENDENCY_LIMIT + 1),
       ensureDefaultScheduleCalendar(),
       db
-        .selectDistinctOn([projectScheduleBaselines.projectId])
+        .select()
         .from(projectScheduleBaselines)
         .where(
           and(
@@ -2120,12 +2149,15 @@ export async function listPortfolioSchedule(
           ),
         )
         .orderBy(
-          asc(projectScheduleBaselines.projectId),
           desc(projectScheduleBaselines.capturedAt),
           desc(projectScheduleBaselines.id),
         ),
     ]);
 
+  const latestBaselines = baselineRows.filter(
+    (baseline, index) =>
+      baselineRows.findIndex((row) => row.projectId === baseline.projectId) === index,
+  );
   const selectedJobs = jobRows.slice(0, PORTFOLIO_JOB_LIMIT);
   const renderedJobIds = selectedJobs.map((job) => job.id);
   const calendarIds = [
@@ -2260,10 +2292,10 @@ export async function listJobs(filters: JobListFilters = {}): Promise<JobRow[]> 
   if (query) {
     conditions.push(
       or(
-        ilike(jobs.name, like(query)),
-        ilike(jobs.scope, like(query)),
-        ilike(jobs.foreman, like(query)),
-        ilike(jobs.projectManager, like(query)),
+        includesText(jobs.name, like(query)),
+        includesText(jobs.scope, like(query)),
+        includesText(jobs.foreman, like(query)),
+        includesText(jobs.projectManager, like(query)),
       ),
     );
   }
@@ -3708,6 +3740,7 @@ export async function recordUploadedJobDocument(args: {
   actor: string;
   input: JobDocumentInput;
   pathname: string;
+  storage?: "blob" | "r2";
 }): Promise<JobDocumentRow | null> {
   if (isDemoOpsStore()) return null;
   const job = await getJob(args.jobId);
@@ -3770,7 +3803,7 @@ export async function recordUploadedJobDocument(args: {
         contentType: args.input.contentType,
         sizeBytes: args.input.sizeBytes,
         pathname: args.pathname,
-        storage: "blob",
+        storage: args.storage ?? "blob",
         kind: args.input.kind,
         uploadedBy: args.actor,
         sheetKey,
@@ -3830,7 +3863,7 @@ export async function getJobDocumentDownload(
   const document = rows[0];
   if (!document) return null;
 
-  if (document.storage === "blob") {
+  if (isObjectStorage(document.storage)) {
     const { resolveFileUrl } = await import("@/lib/leads/adapters");
     const signedUrl = await resolveFileUrl(document.pathname, 5 * 60 * 1000);
     return {
@@ -3915,8 +3948,7 @@ export async function addJobPlanAnnotation(args: {
           eq(jobDocuments.id, args.input.documentId),
           eq(jobDocuments.jobId, args.jobId),
         ),
-      )
-      .for("update");
+      );
     const lockedDocument = lockedDocuments[0];
     if (!lockedDocument || !isCurrentPlanDocument(lockedDocument)) return null;
 
@@ -4430,16 +4462,14 @@ export async function addJobVoiceNote(args: {
       return null;
     }
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
-
   const id = crypto.randomUUID();
   const pathname = `jobs/${args.jobId}/voice/${id}/${args.input.filename}`;
-  const { put } = await import("@vercel/blob");
-  await put(pathname, Buffer.from(args.bytes), {
-    access: "private",
-    contentType: args.input.contentType,
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-  });
+  const storage = await writePrivateObject(
+    pathname,
+    args.bytes,
+    args.input.contentType,
+  );
+  if (!storage) return null;
 
   const db = getDb();
   const rows = await db
@@ -4456,7 +4486,7 @@ export async function addJobVoiceNote(args: {
       contentType: args.input.contentType,
       sizeBytes: args.input.sizeBytes,
       pathname,
-      storage: "blob",
+      storage,
       durationSeconds: args.input.durationSeconds,
       language: args.input.language,
       status: "queued",
@@ -4531,7 +4561,7 @@ export async function processJobVoiceTranscription(
 
   try {
     let bytes: Uint8Array | null = null;
-    if (claimed.storage === "blob") {
+    if (isObjectStorage(claimed.storage)) {
       const { resolveFileUrl } = await import("@/lib/leads/adapters");
       const signedUrl = await resolveFileUrl(claimed.pathname, 5 * 60 * 1000);
       const response = await fetch(signedUrl);
@@ -4766,12 +4796,9 @@ export async function deleteJobVoiceNote(args: {
         eq(jobVoiceNotes.jobId, args.jobId),
       ),
     );
-  if (existing.storage === "blob") {
+  if (isObjectStorage(existing.storage)) {
     try {
-      const { del } = await import("@vercel/blob");
-      await del(existing.pathname, {
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
+      await deletePrivateObject(existing.pathname);
     } catch (error) {
       console.error("Could not delete a voice note blob.", error);
     }
@@ -4805,7 +4832,7 @@ export async function getJobVoiceNoteDownload(
 
   const note = await getJobVoiceNote(jobId, voiceNoteId);
   if (!note) return null;
-  if (note.storage === "blob") {
+  if (isObjectStorage(note.storage)) {
     const { resolveFileUrl } = await import("@/lib/leads/adapters");
     const signedUrl = await resolveFileUrl(note.pathname, 5 * 60 * 1000);
     return {
@@ -5079,10 +5106,9 @@ export async function deleteJob(
     .from(jobVoiceNotes)
     .where(eq(jobVoiceNotes.jobId, jobId));
   for (const note of voiceNotes) {
-    if (note.storage === "blob") {
+    if (isObjectStorage(note.storage)) {
       try {
-        const { del } = await import("@vercel/blob");
-        await del(note.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+        await deletePrivateObject(note.pathname);
       } catch (error) {
         console.error("Could not delete a voice note blob.", error);
       }
@@ -5098,10 +5124,9 @@ export async function deleteJob(
     .from(jobDocuments)
     .where(eq(jobDocuments.jobId, jobId));
   for (const document of documents) {
-    if (document.storage === "blob") {
+    if (isObjectStorage(document.storage)) {
       try {
-        const { del } = await import("@vercel/blob");
-        await del(document.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+        await deletePrivateObject(document.pathname);
       } catch (error) {
         console.error("Could not delete a job document blob.", error);
       }
@@ -5392,10 +5417,9 @@ export async function deleteJobDocument(args: {
   await db
     .delete(jobDocuments)
     .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)));
-  if (document.storage === "blob") {
+  if (isObjectStorage(document.storage)) {
     try {
-      const { del } = await import("@vercel/blob");
-      await del(document.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      await deletePrivateObject(document.pathname);
     } catch (error) {
       console.error("Could not delete a job document blob.", error);
     }
@@ -5601,7 +5625,7 @@ export async function listPriceBookItems(
   const conditions = [];
   if (!filters.includeInactive) conditions.push(eq(priceBookItems.active, true));
   if (filters.trade) conditions.push(eq(priceBookItems.trade, filters.trade));
-  if (query) conditions.push(ilike(priceBookItems.name, like(query)));
+  if (query) conditions.push(includesText(priceBookItems.name, like(query)));
   return db
     .select()
     .from(priceBookItems)
@@ -6657,6 +6681,17 @@ export async function enqueueCommercialDraft(args: {
       })
       .onConflictDoNothing();
   });
+  await publishQueuedJob({
+    kind: "commercial_ai.draft",
+    data: {
+      organizationId: args.organizationId,
+      opportunityId: args.opportunityId,
+      mode: args.mode,
+      selectedDocumentVersionIds: args.selectedDocumentVersionIds,
+      actorEmail: args.actor.email,
+      idempotencyKey: args.idempotencyKey,
+    },
+  });
   return { ok: true, queued: true, replayed: false };
 }
 
@@ -6928,9 +6963,6 @@ export async function convertAcceptedEstimate(args: {
       .limit(1);
     const acceptanceRow = acceptanceRows[0];
     if (!acceptanceRow) return { ok: false as const, error: "That acceptance could not be found." };
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${acceptanceRow.organizationId}::text, 0))`,
-    );
     const existingRows = await tx
       .select()
       .from(estimateConversions)
@@ -6951,7 +6983,6 @@ export async function convertAcceptedEstimate(args: {
       .select()
       .from(opportunities)
       .where(eq(opportunities.id, estimate.opportunityId))
-      .for("update")
       .limit(1);
     const opportunity = opportunityRows[0];
     const proposalRows = await tx

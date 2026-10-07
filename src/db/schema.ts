@@ -1,36 +1,29 @@
 import { sql } from "drizzle-orm";
 import {
+  blob,
   check,
-  boolean,
-  customType,
-  date,
   foreignKey,
   index,
-  doublePrecision,
   integer,
-  jsonb,
-  numeric,
-  pgSchema,
-  pgTable,
+  real,
+  sqliteTable,
   text,
-  timestamp,
   unique,
   uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 
-export const leads = pgTable(
+export const leads = sqliteTable(
   "leads",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   status: text("status").notNull(),
   bookingStatus: text("booking_status").notNull(),
@@ -38,7 +31,7 @@ export const leads = pgTable(
   workflowStatus: text("workflow_status").notNull().default("new"),
   assignedTo: text("assigned_to"),
   nextAction: text("next_action"),
-  nextActionDueAt: timestamp("next_action_due_at", { withTimezone: true }),
+  nextActionDueAt: integer("next_action_due_at", { mode: "timestamp_ms" }),
   lostReason: text("lost_reason"),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
@@ -48,36 +41,36 @@ export const leads = pgTable(
   projectType: text("project_type").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
-  services: text("services").array().notNull(),
-  answers: jsonb("answers").notNull(),
-  recommendedServices: text("recommended_services").array().notNull(),
-  files: jsonb("files").notNull(),
+  services: text("services", { mode: "json" }).$type<string[]>().notNull(),
+  answers: text("answers", { mode: "json" }).notNull(),
+  recommendedServices: text("recommended_services", { mode: "json" }).$type<string[]>().notNull(),
+  files: text("files", { mode: "json" }).notNull(),
   sourcePath: text("source_path"),
-  utm: jsonb("utm"),
+  utm: text("utm", { mode: "json" }),
   referrer: text("referrer"),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   calendlyInviteeUri: text("calendly_invitee_uri"),
-  consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
-  companyId: uuid("company_id"),
-  contactId: uuid("contact_id"),
-  siteId: uuid("site_id"),
-  opportunityId: uuid("opportunity_id"),
+  consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
+  companyId: text("company_id"),
+  contactId: text("contact_id"),
+  siteId: text("site_id"),
+  opportunityId: text("opportunity_id"),
   },
   (table) => [index("leads_organization_idx").on(table.organizationId)],
 );
 
-export const companies = pgTable(
+export const companies = sqliteTable(
   "companies",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   name: text("name").notNull(),
   email: text("email"),
@@ -88,20 +81,20 @@ export const companies = pgTable(
   (table) => [index("companies_organization_idx").on(table.organizationId)],
 );
 
-export const contacts = pgTable(
+export const contacts = sqliteTable(
   "contacts",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  companyId: uuid("company_id").references(() => companies.id),
+  companyId: text("company_id").references(() => companies.id),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
@@ -111,20 +104,20 @@ export const contacts = pgTable(
   (table) => [index("contacts_organization_idx").on(table.organizationId)],
 );
 
-export const sites = pgTable(
+export const sites = sqliteTable(
   "sites",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  companyId: uuid("company_id").references(() => companies.id),
+  companyId: text("company_id").references(() => companies.id),
   name: text("name").notNull(),
   city: text("city").notNull(),
   province: text("province").notNull(),
@@ -134,82 +127,82 @@ export const sites = pgTable(
   (table) => [index("sites_organization_idx").on(table.organizationId)],
 );
 
-export const opportunities = pgTable(
+export const opportunities = sqliteTable(
   "opportunities",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  companyId: uuid("company_id").references(() => companies.id),
-  contactId: uuid("contact_id").references(() => contacts.id),
-  siteId: uuid("site_id").references(() => sites.id),
-  sourceLeadId: uuid("source_lead_id").references(() => leads.id),
+  companyId: text("company_id").references(() => companies.id),
+  contactId: text("contact_id").references(() => contacts.id),
+  siteId: text("site_id").references(() => sites.id),
+  sourceLeadId: text("source_lead_id").references(() => leads.id),
   name: text("name").notNull(),
   stage: text("stage").notNull().default("qualification"),
   owner: text("owner"),
   source: text("source"),
-  services: text("services").array().notNull(),
+  services: text("services", { mode: "json" }).$type<string[]>().notNull(),
   projectType: text("project_type"),
-  projectId: uuid("project_id"),
+  projectId: text("project_id"),
   },
   (table) => [
     index("opportunities_organization_idx").on(table.organizationId),
   ],
 );
 
-export const organizations = pgTable("organizations", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+export const organizations = sqliteTable("organizations", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
 });
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+export const users = sqliteTable("users", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
   passwordHash: text("password_hash").notNull(),
-  active: boolean("active").notNull().default(true),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   sessionVersion: integer("session_version").notNull().default(1),
   createdBy: text("created_by").notNull(),
 });
 
-export const memberships = pgTable(
+export const memberships = sqliteTable(
   "memberships",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    organizationId: uuid("organization_id")
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
-    active: boolean("active").notNull().default(true),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     unique("memberships_organization_user_unique").on(
@@ -224,44 +217,43 @@ export const memberships = pgTable(
   ],
 );
 
-export const userEvents = pgTable(
+export const userEvents = sqliteTable(
   "user_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
     actor: text("actor").notNull(),
     kind: text("kind").notNull(),
     summary: text("summary").notNull(),
-    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    payload: text("payload", { mode: "json" }).notNull().default(sql`'{}'`),
   },
   (table) => [
     index("user_events_user_created_idx").on(table.userId, table.createdAt),
   ],
 );
 
-export const scheduleCalendars = pgTable(
+export const scheduleCalendars = sqliteTable(
   "schedule_calendars",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     updatedBy: text("updated_by").notNull(),
     name: text("name").notNull(),
     timeZone: text("time_zone").notNull(),
-    weekendDays: integer("weekend_days")
-      .array()
+    weekendDays: text("weekend_days", { mode: "json" }).$type<number[]>()
       .notNull()
-      .default(sql`'{0,6}'::integer[]`),
-    isDefault: boolean("is_default").notNull().default(false),
+      .default(sql`'[0,6]'`),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     uniqueIndex("schedule_calendars_single_default_idx")
@@ -270,23 +262,23 @@ export const scheduleCalendars = pgTable(
   ],
 );
 
-export const scheduleCalendarExceptions = pgTable(
+export const scheduleCalendarExceptions = sqliteTable(
   "schedule_calendar_exceptions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     updatedBy: text("updated_by").notNull(),
-    calendarId: uuid("calendar_id")
+    calendarId: text("calendar_id")
       .notNull()
       .references(() => scheduleCalendars.id, { onDelete: "cascade" }),
-    date: date("date", { mode: "string" }).notNull(),
+    date: text("date").notNull(),
     name: text("name").notNull(),
-    isWorkingDay: boolean("is_working_day").notNull().default(false),
+    isWorkingDay: integer("is_working_day", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     unique("schedule_calendar_exceptions_calendar_date_unique").on(
@@ -297,88 +289,88 @@ export const scheduleCalendarExceptions = pgTable(
   ],
 );
 
-export const projects = pgTable(
+export const projects = sqliteTable(
   "projects",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  companyId: uuid("company_id").references(() => companies.id),
-  siteId: uuid("site_id").references(() => sites.id),
-  opportunityId: uuid("opportunity_id").references(() => opportunities.id),
-  sourceLeadId: uuid("source_lead_id").references(() => leads.id),
+  companyId: text("company_id").references(() => companies.id),
+  siteId: text("site_id").references(() => sites.id),
+  opportunityId: text("opportunity_id").references(() => opportunities.id),
+  sourceLeadId: text("source_lead_id").references(() => leads.id),
   name: text("name").notNull(),
   status: text("status").notNull().default("active"),
   projectManager: text("project_manager"),
-  scheduleCalendarId: uuid("schedule_calendar_id").references(
+  scheduleCalendarId: text("schedule_calendar_id").references(
     () => scheduleCalendars.id,
   ),
   },
   (table) => [index("projects_organization_idx").on(table.organizationId)],
 );
 
-export const jobs = pgTable(
+export const jobs = sqliteTable(
   "jobs",
   {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  projectId: uuid("project_id").references(() => projects.id),
-  companyId: uuid("company_id").references(() => companies.id),
-  siteId: uuid("site_id").references(() => sites.id),
-  opportunityId: uuid("opportunity_id").references(() => opportunities.id),
+  projectId: text("project_id").references(() => projects.id),
+  companyId: text("company_id").references(() => companies.id),
+  siteId: text("site_id").references(() => sites.id),
+  opportunityId: text("opportunity_id").references(() => opportunities.id),
   name: text("name").notNull(),
   status: text("status").notNull().default("draft"),
   scope: text("scope"),
-  services: text("services").array().notNull(),
+  services: text("services", { mode: "json" }).$type<string[]>().notNull(),
   projectManager: text("project_manager"),
   foreman: text("foreman"),
-  plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
-  plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
+  plannedStartAt: integer("planned_start_at", { mode: "timestamp_ms" }),
+  plannedEndAt: integer("planned_end_at", { mode: "timestamp_ms" }),
   blockerNote: text("blocker_note"),
   },
   (table) => [index("jobs_organization_idx").on(table.organizationId)],
 );
 
-export const jobEvents = pgTable("job_events", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  jobId: uuid("job_id")
+export const jobEvents = sqliteTable("job_events", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  jobId: text("job_id")
     .notNull()
     .references(() => jobs.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   actor: text("actor").notNull(),
   kind: text("kind").notNull(),
   summary: text("summary").notNull(),
-  payload: jsonb("payload").notNull(),
+  payload: text("payload", { mode: "json" }).notNull(),
 });
 
-export const jobAssignments = pgTable(
+export const jobAssignments = sqliteTable(
   "job_assignments",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
     role: text("role").notNull(),
@@ -395,28 +387,28 @@ export const jobAssignments = pgTable(
   ],
 );
 
-export const dispatches = pgTable(
+export const dispatches = sqliteTable(
   "dispatches",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    workDate: date("work_date", { mode: "string" }).notNull(),
+    workDate: text("work_date").notNull(),
     status: text("status").notNull(),
     note: text("note").notNull().default(""),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -434,31 +426,31 @@ export const dispatches = pgTable(
   ],
 );
 
-export const laborEntries = pgTable(
+export const laborEntries = sqliteTable(
   "labor_entries",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    workDate: date("work_date", { mode: "string" }).notNull(),
+    workDate: text("work_date").notNull(),
     kind: text("kind").notNull(),
     minutes: integer("minutes"),
     quantity: integer("quantity"),
     unit: text("unit").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -493,19 +485,19 @@ export const laborEntries = pgTable(
   ],
 );
 
-export const productionEntries = pgTable(
+export const productionEntries = sqliteTable(
   "production_entries",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    workDate: date("work_date", { mode: "string" }).notNull(),
-    taskId: uuid("task_id").references(() => jobTasks.id),
-    workAreaId: uuid("work_area_id").references(() => workAreas.id),
+    workDate: text("work_date").notNull(),
+    taskId: text("task_id").references(() => jobTasks.id),
+    workAreaId: text("work_area_id").references(() => workAreas.id),
     trade: text("trade").notNull(),
     workType: text("work_type").notNull(),
     unit: text("unit").notNull(),
@@ -514,15 +506,15 @@ export const productionEntries = pgTable(
     status: text("status").notNull(),
     recordedBy: text("recorded_by").notNull(),
     verifiedBy: text("verified_by"),
-    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedAt: integer("verified_at", { mode: "timestamp_ms" }),
     sourceType: text("source_type"),
-    sourceId: uuid("source_id"),
+    sourceId: text("source_id"),
     version: integer("version").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -546,17 +538,17 @@ export const productionEntries = pgTable(
   ],
 );
 
-export const productionParticipants = pgTable(
+export const productionParticipants = sqliteTable(
   "production_participants",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    productionEntryId: uuid("production_entry_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    productionEntryId: text("production_entry_id")
       .notNull()
       .references(() => productionEntries.id),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
-    laborEntryId: uuid("labor_entry_id").references(() => laborEntries.id),
+    laborEntryId: text("labor_entry_id").references(() => laborEntries.id),
   },
   (table) => [
     unique("production_participants_entry_user_unique").on(
@@ -569,14 +561,14 @@ export const productionParticipants = pgTable(
   ],
 );
 
-export const productionAllocations = pgTable(
+export const productionAllocations = sqliteTable(
   "production_allocations",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    productionEntryId: uuid("production_entry_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    productionEntryId: text("production_entry_id")
       .notNull()
       .references(() => productionEntries.id),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id),
     quantity: integer("quantity").notNull(),
@@ -593,11 +585,11 @@ export const productionAllocations = pgTable(
   ],
 );
 
-export const productionTargets = pgTable(
+export const productionTargets = sqliteTable(
   "production_targets",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
     trade: text("trade").notNull(),
@@ -605,10 +597,10 @@ export const productionTargets = pgTable(
     unit: text("unit").notNull(),
     basis: text("basis").notNull(),
     rateMilli: integer("rate_milli").notNull(),
-    effectiveFrom: date("effective_from", { mode: "string" }).notNull(),
-    effectiveTo: date("effective_to", { mode: "string" }),
+    effectiveFrom: text("effective_from").notNull(),
+    effectiveTo: text("effective_to"),
     approvedBy: text("approved_by").notNull(),
-    approvedAt: timestamp("approved_at", { withTimezone: true }).notNull(),
+    approvedAt: integer("approved_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
     check(
@@ -633,17 +625,17 @@ export const productionTargets = pgTable(
   ],
 );
 
-export const workAreas = pgTable(
+export const workAreas = sqliteTable(
   "work_areas",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
     name: text("name").notNull(),
@@ -656,27 +648,27 @@ export const workAreas = pgTable(
   ],
 );
 
-export const jobTasks = pgTable(
+export const jobTasks = sqliteTable(
   "job_tasks",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    workAreaId: uuid("work_area_id"),
+    workAreaId: text("work_area_id"),
     title: text("title").notNull(),
     assignee: text("assignee"),
-    assigneeUserId: uuid("assignee_user_id").references(() => users.id),
-    dueAt: timestamp("due_at", { withTimezone: true }),
-    plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
-    plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
+    assigneeUserId: text("assignee_user_id").references(() => users.id),
+    dueAt: integer("due_at", { mode: "timestamp_ms" }),
+    plannedStartAt: integer("planned_start_at", { mode: "timestamp_ms" }),
+    plannedEndAt: integer("planned_end_at", { mode: "timestamp_ms" }),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
     status: text("status").notNull().default("open"),
     statedQuantity: integer("stated_quantity"),
     statedUnit: text("stated_unit"),
@@ -713,20 +705,20 @@ export const jobTasks = pgTable(
   ],
 );
 
-export const jobTaskDependencies = pgTable(
+export const jobTaskDependencies = sqliteTable(
   "job_task_dependencies",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    projectId: uuid("project_id")
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    predecessorTaskId: uuid("predecessor_task_id")
+    predecessorTaskId: text("predecessor_task_id")
       .notNull()
       .references(() => jobTasks.id, { onDelete: "cascade" }),
-    successorTaskId: uuid("successor_task_id")
+    successorTaskId: text("successor_task_id")
       .notNull()
       .references(() => jobTasks.id, { onDelete: "cascade" }),
     lagDays: integer("lag_days").notNull().default(0),
@@ -750,19 +742,19 @@ export const jobTaskDependencies = pgTable(
   ],
 );
 
-export const projectScheduleBaselines = pgTable(
+export const projectScheduleBaselines = sqliteTable(
   "project_schedule_baselines",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    projectId: uuid("project_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    capturedAt: timestamp("captured_at", { withTimezone: true })
-      .defaultNow()
+    capturedAt: integer("captured_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     capturedBy: text("captured_by").notNull(),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     deletedBy: text("deleted_by"),
   },
   (table) => [
@@ -770,18 +762,18 @@ export const projectScheduleBaselines = pgTable(
   ],
 );
 
-export const projectScheduleBaselineItems = pgTable(
+export const projectScheduleBaselineItems = sqliteTable(
   "project_schedule_baseline_items",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    baselineId: uuid("baseline_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    baselineId: text("baseline_id")
       .notNull()
       .references(() => projectScheduleBaselines.id, { onDelete: "cascade" }),
     entityType: text("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
-    plannedStartAt: timestamp("planned_start_at", { withTimezone: true }),
-    plannedEndAt: timestamp("planned_end_at", { withTimezone: true }),
-    dueAt: timestamp("due_at", { withTimezone: true }),
+    entityId: text("entity_id").notNull(),
+    plannedStartAt: integer("planned_start_at", { mode: "timestamp_ms" }),
+    plannedEndAt: integer("planned_end_at", { mode: "timestamp_ms" }),
+    dueAt: integer("due_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     check(
@@ -797,20 +789,20 @@ export const projectScheduleBaselineItems = pgTable(
   ],
 );
 
-export const jobDocuments = pgTable(
+export const jobDocuments = sqliteTable(
   "job_documents",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    workAreaId: uuid("work_area_id"),
+    workAreaId: text("work_area_id"),
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
@@ -820,8 +812,8 @@ export const jobDocuments = pgTable(
     uploadedBy: text("uploaded_by").notNull(),
     sheetKey: text("sheet_key").notNull().default(""),
     versionNumber: integer("version_number").notNull().default(1),
-    replacesDocumentId: uuid("replaces_document_id"),
-    supersededAt: timestamp("superseded_at", { withTimezone: true }),
+    replacesDocumentId: text("replaces_document_id"),
+    supersededAt: integer("superseded_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     foreignKey({
@@ -848,40 +840,40 @@ export const jobDocuments = pgTable(
   ],
 );
 
-export const jobPlanAnnotations = pgTable(
+export const jobPlanAnnotations = sqliteTable(
   "job_plan_annotations",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    documentId: uuid("document_id")
+    documentId: text("document_id")
       .notNull()
       .references(() => jobDocuments.id),
     pageNumber: integer("page_number").notNull().default(1),
-    x: doublePrecision("x").notNull(),
-    y: doublePrecision("y").notNull(),
+    x: real("x").notNull(),
+    y: real("y").notNull(),
     kind: text("kind").notNull().default("pin"),
-    geometry: jsonb("geometry")
+    geometry: text("geometry", { mode: "json" })
       .$type<Record<string, unknown>>()
       .notNull()
-      .default(sql`'{"type":"pin"}'::jsonb`),
+      .default(sql`'{"type":"pin"}'`),
     status: text("status").notNull().default("planned"),
     trade: text("trade"),
     title: text("title").notNull(),
     body: text("body"),
-    workAreaId: uuid("work_area_id"),
-    taskId: uuid("task_id").references(() => jobTasks.id),
+    workAreaId: text("work_area_id"),
+    taskId: text("task_id").references(() => jobTasks.id),
     createdBy: text("created_by").notNull(),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
     completedBy: text("completed_by"),
-    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedAt: integer("voided_at", { mode: "timestamp_ms" }),
     voidedBy: text("voided_by"),
   },
   (table) => [
@@ -918,19 +910,19 @@ export const jobPlanAnnotations = pgTable(
   ],
 );
 
-export const jobFieldNotes = pgTable(
+export const jobFieldNotes = sqliteTable(
   "job_field_notes",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    workAreaId: uuid("work_area_id"),
-    taskId: uuid("task_id").references(() => jobTasks.id),
-    annotationId: uuid("annotation_id").references(
+    workAreaId: text("work_area_id"),
+    taskId: text("task_id").references(() => jobTasks.id),
+    annotationId: text("annotation_id").references(
       () => jobPlanAnnotations.id,
       { onDelete: "set null" },
     ),
@@ -949,25 +941,25 @@ export const jobFieldNotes = pgTable(
   ],
 );
 
-export const purchaseOrders = pgTable(
+export const purchaseOrders = sqliteTable(
   "purchase_orders",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
     supplier: text("supplier").notNull(),
     note: text("note").notNull().default(""),
     status: text("status").notNull(),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -982,20 +974,20 @@ export const purchaseOrders = pgTable(
   ],
 );
 
-export const purchaseOrderLines = pgTable(
+export const purchaseOrderLines = sqliteTable(
   "purchase_order_lines",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    purchaseOrderId: uuid("purchase_order_id")
+    purchaseOrderId: text("purchase_order_id")
       .notNull()
       .references(() => purchaseOrders.id),
-    materialRequestId: uuid("material_request_id")
+    materialRequestId: text("material_request_id")
       .notNull()
       .references(() => jobFieldNotes.id),
-    activeMaterialRequestId: uuid("active_material_request_id"),
+    activeMaterialRequestId: text("active_material_request_id"),
     description: text("description").notNull(),
     quantity: integer("quantity"),
     unit: text("unit").notNull().default(""),
@@ -1032,14 +1024,14 @@ export const purchaseOrderLines = pgTable(
   ],
 );
 
-export const equipmentAssignments = pgTable(
+export const equipmentAssignments = sqliteTable(
   "equipment_assignments",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
     name: text("name").notNull(),
@@ -1047,11 +1039,11 @@ export const equipmentAssignments = pgTable(
     note: text("note").notNull().default(""),
     status: text("status").notNull(),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -1066,7 +1058,7 @@ export const equipmentAssignments = pgTable(
     ),
     check(
       "equipment_assignments_name_valid",
-      sql`char_length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND char_length(${table.note}) <= 500`,
+      sql`length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND length(${table.note}) <= 500`,
     ),
     index("equipment_assignments_job_idx").on(table.organizationId, table.jobId),
     index("equipment_assignments_active_idx")
@@ -1075,14 +1067,14 @@ export const equipmentAssignments = pgTable(
   ],
 );
 
-export const inspections = pgTable(
+export const inspections = sqliteTable(
   "inspections",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    jobId: uuid("job_id")
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
     name: text("name").notNull(),
@@ -1090,11 +1082,11 @@ export const inspections = pgTable(
     result: text("result").notNull(),
     note: text("note").notNull().default(""),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -1105,7 +1097,7 @@ export const inspections = pgTable(
     ),
     check(
       "inspections_name_valid",
-      sql`char_length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND char_length(${table.note}) <= 500`,
+      sql`length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND length(${table.note}) <= 500`,
     ),
     index("inspections_job_idx").on(table.organizationId, table.jobId),
     index("inspections_attention_idx")
@@ -1114,25 +1106,182 @@ export const inspections = pgTable(
   ],
 );
 
-export const jobVoiceNotes = pgTable(
-  "job_voice_notes",
+export const qualityRecords = sqliteTable(
+  "quality_records",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    jobId: uuid("job_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: text("job_id")
       .notNull()
       .references(() => jobs.id),
-    workAreaId: uuid("work_area_id"),
-    taskId: uuid("task_id").references(() => jobTasks.id),
-    annotationId: uuid("annotation_id").references(() => jobPlanAnnotations.id, {
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    status: text("status").notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("quality_records_slot_unique").on(
+      table.organizationId,
+      table.jobId,
+      table.kind,
+      table.nameKey,
+    ),
+    check(
+      "quality_records_kind_valid",
+      sql`${table.kind} IN ('deficiency', 'rework')`,
+    ),
+    check(
+      "quality_records_status_valid",
+      sql`${table.status} IN ('open', 'corrected', 'reopened')`,
+    ),
+    check(
+      "quality_records_name_valid",
+      sql`length(${table.name}) BETWEEN 1 AND 80 AND ${table.nameKey} = lower(${table.name}) AND length(${table.note}) <= 500`,
+    ),
+    index("quality_records_job_idx").on(table.organizationId, table.jobId),
+    index("quality_records_attention_idx")
+      .on(table.organizationId, table.status)
+      .where(sql`${table.status} IN ('open', 'reopened')`),
+  ],
+);
+
+export const closeouts = sqliteTable(
+  "closeouts",
+  {
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    status: text("status").notNull(),
+    note: text("note").notNull().default(""),
+    packetText: text("packet_text").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("closeouts_job_unique").on(table.organizationId, table.jobId),
+    check(
+      "closeouts_status_valid",
+      sql`${table.status} IN ('preparing', 'ready', 'signed')`,
+    ),
+    check("closeouts_note_valid", sql`length(${table.note}) <= 500`),
+    index("closeouts_job_idx").on(table.organizationId, table.jobId),
+    index("closeouts_attention_idx")
+      .on(table.organizationId, table.status)
+      .where(sql`${table.status} IN ('preparing', 'ready')`),
+  ],
+);
+
+export const insulationAssemblies = sqliteTable(
+  "insulation_assemblies",
+  {
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    location: text("location").notNull(),
+    existingRValue: text("existing_r_value").notNull().default(""),
+    targetRValue: text("target_r_value").notNull(),
+    areaSqFt: integer("area_sq_ft").notNull(),
+    depthInches: text("depth_inches").notNull().default(""),
+    product: text("product").notNull(),
+    manufacturer: text("manufacturer").notNull().default(""),
+    batch: text("batch").notNull().default(""),
+    lot: text("lot").notNull().default(""),
+    bagCount: integer("bag_count").notNull(),
+    airBarrier: text("air_barrier").notNull().default(""),
+    vaporBarrier: text("vapor_barrier").notNull().default(""),
+    blowerDoor: text("blower_door").notNull().default(""),
+    rebateProgram: text("rebate_program").notNull().default(""),
+    createdBy: text("created_by").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("insulation_assemblies_job_unique").on(table.organizationId, table.jobId),
+    check(
+      "insulation_assemblies_location_valid",
+      sql`${table.location} IN ('attic', 'wall', 'rim_joist', 'basement', 'crawlspace', 'roof')`,
+    ),
+    check(
+      "insulation_assemblies_measures_valid",
+      sql`${table.areaSqFt} > 0 AND ${table.areaSqFt} <= 1000000 AND ${table.bagCount} > 0 AND ${table.bagCount} <= 1000000 AND length(${table.product}) BETWEEN 1 AND 80 AND length(${table.targetRValue}) BETWEEN 1 AND 20`,
+    ),
+    index("insulation_assemblies_job_idx").on(table.organizationId, table.jobId),
+  ],
+);
+
+export const crewCapacities = sqliteTable(
+  "crew_capacities",
+  {
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    jobsPerDay: integer("jobs_per_day").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("crew_capacities_user_unique").on(table.organizationId, table.userId),
+    check(
+      "crew_capacities_jobs_per_day_valid",
+      sql`${table.jobsPerDay} >= 1 AND ${table.jobsPerDay} <= 3`,
+    ),
+  ],
+);
+
+export const jobVoiceNotes = sqliteTable(
+  "job_voice_notes",
+  {
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id),
+    workAreaId: text("work_area_id"),
+    taskId: text("task_id").references(() => jobTasks.id),
+    annotationId: text("annotation_id").references(() => jobPlanAnnotations.id, {
       onDelete: "set null",
     }),
-    documentId: uuid("document_id").references(() => jobDocuments.id, {
+    documentId: text("document_id").references(() => jobDocuments.id, {
       onDelete: "set null",
     }),
     source: text("source").notNull().default("job"),
@@ -1148,17 +1297,15 @@ export const jobVoiceNotes = pgTable(
     status: text("status").notNull().default("queued"),
     machineTranscript: text("machine_transcript"),
     transcript: text("transcript"),
-    confidence: doublePrecision("confidence"),
-    queuedAt: timestamp("queued_at", { withTimezone: true })
-      .defaultNow()
+    confidence: real("confidence"),
+    queuedAt: integer("queued_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    processingStartedAt: timestamp("processing_started_at", {
-      withTimezone: true,
-    }),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-    failedAt: timestamp("failed_at", { withTimezone: true }),
+    processingStartedAt: integer("processing_started_at", { mode: "timestamp_ms" }),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    failedAt: integer("failed_at", { mode: "timestamp_ms" }),
     error: text("error"),
-    consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
+    consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
     createdBy: text("created_by").notNull(),
   },
   (table) => [
@@ -1180,62 +1327,62 @@ export const jobVoiceNotes = pgTable(
   ],
 );
 
-export const estimateRequestTasks = pgTable("estimate_request_tasks", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  leadId: uuid("lead_id")
+export const estimateRequestTasks = sqliteTable("estimate_request_tasks", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  leadId: text("lead_id")
     .notNull()
     .references(() => leads.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   title: text("title").notNull(),
   assignee: text("assignee"),
-  dueAt: timestamp("due_at", { withTimezone: true }),
+  dueAt: integer("due_at", { mode: "timestamp_ms" }),
   status: text("status").notNull().default("open"),
   createdBy: text("created_by").notNull(),
 });
 
-export const estimateRequestComments = pgTable("estimate_request_comments", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  leadId: uuid("lead_id")
+export const estimateRequestComments = sqliteTable("estimate_request_comments", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  leadId: text("lead_id")
     .notNull()
     .references(() => leads.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   actor: text("actor").notNull(),
   body: text("body").notNull(),
 });
 
-export const estimateRequestEvents = pgTable("estimate_request_events", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  leadId: uuid("lead_id")
+export const estimateRequestEvents = sqliteTable("estimate_request_events", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  leadId: text("lead_id")
     .notNull()
     .references(() => leads.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
     .notNull(),
   actor: text("actor").notNull(),
   kind: text("kind").notNull(),
   summary: text("summary").notNull(),
-  payload: jsonb("payload").notNull(),
+  payload: text("payload", { mode: "json" }).notNull(),
 });
 
-export const priceBookItems = pgTable(
+export const priceBookItems = sqliteTable(
   "price_book_items",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     trade: text("trade").notNull(),
     name: text("name").notNull(),
@@ -1245,9 +1392,9 @@ export const priceBookItems = pgTable(
     itemKind: text("item_kind"),
     supplier: text("supplier"),
     unitCostCents: integer("unit_cost_cents"),
-    active: boolean("active").notNull().default(true),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdBy: text("created_by").notNull(),
-    currentApprovedVersionId: uuid("current_approved_version_id"),
+    currentApprovedVersionId: text("current_approved_version_id"),
   },
   (table) => [
     check(
@@ -1278,19 +1425,19 @@ export const priceBookItems = pgTable(
   ],
 );
 
-export const priceBookItemVersions = pgTable(
+export const priceBookItemVersions = sqliteTable(
   "price_book_item_versions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    itemId: uuid("item_id")
+    itemId: text("item_id")
       .notNull()
       .references(() => priceBookItems.id),
     versionNumber: integer("version_number").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     trade: text("trade").notNull(),
     description: text("description").notNull(),
@@ -1298,10 +1445,10 @@ export const priceBookItemVersions = pgTable(
     unitPriceCents: integer("unit_price_cents").notNull(),
     unitCostCents: integer("unit_cost_cents"),
     status: text("status").notNull().default("draft"),
-    effectiveAt: timestamp("effective_at", { withTimezone: true }),
+    effectiveAt: integer("effective_at", { mode: "timestamp_ms" }),
     createdBy: text("created_by").notNull(),
     approvedBy: text("approved_by"),
-    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedAt: integer("approved_at", { mode: "timestamp_ms" }),
     contentHash: text("content_hash").notNull(),
   },
   (table) => [
@@ -1338,26 +1485,26 @@ export const priceBookItemVersions = pgTable(
 
 export type PriceBookItemVersionRow = typeof priceBookItemVersions.$inferSelect;
 
-export const estimates = pgTable(
+export const estimates = sqliteTable(
   "estimates",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    opportunityId: uuid("opportunity_id")
+    opportunityId: text("opportunity_id")
       .notNull()
       .references(() => opportunities.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     number: text("number").notNull(),
     title: text("title").notNull(),
     createdBy: text("created_by").notNull(),
-    currentVersionId: uuid("current_version_id"),
+    currentVersionId: text("current_version_id"),
   },
   (table) => [
     unique("estimates_organization_number_unique").on(table.organizationId, table.number),
@@ -1365,19 +1512,19 @@ export const estimates = pgTable(
   ],
 );
 
-export const estimateVersions = pgTable(
+export const estimateVersions = sqliteTable(
   "estimate_versions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateId: uuid("estimate_id")
+    estimateId: text("estimate_id")
       .notNull()
       .references(() => estimates.id),
     versionNumber: integer("version_number").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     createdBy: text("created_by").notNull(),
     overheadBasisPoints: integer("overhead_basis_points").notNull(),
@@ -1398,19 +1545,19 @@ export const estimateVersions = pgTable(
   ],
 );
 
-export const estimateAlternates = pgTable(
+export const estimateAlternates = sqliteTable(
   "estimate_alternates",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     name: text("name").notNull(),
     description: text("description").notNull(),
-    included: boolean("included").notNull(),
+    included: integer("included", { mode: "boolean" }).notNull(),
     sortOrder: integer("sort_order").notNull(),
   },
   (table) => [
@@ -1418,14 +1565,14 @@ export const estimateAlternates = pgTable(
   ],
 );
 
-export const estimateLines = pgTable(
+export const estimateLines = sqliteTable(
   "estimate_lines",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     sortOrder: integer("sort_order").notNull(),
@@ -1434,15 +1581,15 @@ export const estimateLines = pgTable(
     trade: text("trade").notNull(),
     location: text("location"),
     method: text("method").notNull(),
-    quantity: numeric("quantity", { precision: 14, scale: 4 }),
+    quantity: text("quantity"),
     unit: text("unit"),
     unitPriceCents: integer("unit_price_cents"),
     basisPoints: integer("basis_points"),
-    basisCategories: jsonb("basis_categories").$type<string[]>().notNull(),
-    taxable: boolean("taxable").notNull(),
-    alternateId: uuid("alternate_id").references(() => estimateAlternates.id),
-    priceBookItemId: uuid("price_book_item_id").references(() => priceBookItems.id),
-    priceBookVersionId: uuid("price_book_version_id").references(() => priceBookItemVersions.id),
+    basisCategories: text("basis_categories", { mode: "json" }).$type<string[]>().notNull(),
+    taxable: integer("taxable", { mode: "boolean" }).notNull(),
+    alternateId: text("alternate_id").references(() => estimateAlternates.id),
+    priceBookItemId: text("price_book_item_id").references(() => priceBookItems.id),
+    priceBookVersionId: text("price_book_version_id").references(() => priceBookItemVersions.id),
     lineTotalCents: integer("line_total_cents").notNull(),
   },
   (table) => [
@@ -1458,14 +1605,14 @@ export const estimateLines = pgTable(
   ],
 );
 
-export const estimateClauses = pgTable(
+export const estimateClauses = sqliteTable(
   "estimate_clauses",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     kind: text("kind").notNull(),
@@ -1481,14 +1628,14 @@ export const estimateClauses = pgTable(
   ],
 );
 
-export const estimateJobPackages = pgTable(
+export const estimateJobPackages = sqliteTable(
   "estimate_job_packages",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     name: text("name").notNull(),
@@ -1501,14 +1648,14 @@ export const estimateJobPackages = pgTable(
   ],
 );
 
-export const estimateJobWorkAreas = pgTable(
+export const estimateJobWorkAreas = sqliteTable(
   "estimate_job_work_areas",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    packageId: uuid("package_id")
+    packageId: text("package_id")
       .notNull()
       .references(() => estimateJobPackages.id),
     name: text("name").notNull(),
@@ -1520,17 +1667,17 @@ export const estimateJobWorkAreas = pgTable(
   ],
 );
 
-export const estimateJobTasks = pgTable(
+export const estimateJobTasks = sqliteTable(
   "estimate_job_tasks",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    packageId: uuid("package_id")
+    packageId: text("package_id")
       .notNull()
       .references(() => estimateJobPackages.id),
-    workAreaId: uuid("work_area_id").references(() => estimateJobWorkAreas.id),
+    workAreaId: text("work_area_id").references(() => estimateJobWorkAreas.id),
     title: text("title").notNull(),
     sortOrder: integer("sort_order").notNull(),
   },
@@ -1539,22 +1686,22 @@ export const estimateJobTasks = pgTable(
   ],
 );
 
-export const estimateLineSources = pgTable(
+export const estimateLineSources = sqliteTable(
   "estimate_line_sources",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    lineId: uuid("line_id")
+    lineId: text("line_id")
       .notNull()
       .references(() => estimateLines.id),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
     pageNumber: integer("page_number").notNull(),
     sheetLabel: text("sheet_label"),
-    chunkId: uuid("chunk_id")
+    chunkId: text("chunk_id")
       .notNull()
       .references(() => documentChunks.id),
     contentHash: text("content_hash").notNull(),
@@ -1576,23 +1723,23 @@ export type EstimateJobWorkAreaRow = typeof estimateJobWorkAreas.$inferSelect;
 export type EstimateJobTaskRow = typeof estimateJobTasks.$inferSelect;
 export type EstimateLineSourceRow = typeof estimateLineSources.$inferSelect;
 
-export const auditEvents = pgTable(
+export const auditEvents = sqliteTable(
   "audit_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     actor: text("actor").notNull(),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
+    entityId: text("entity_id").notNull(),
     result: text("result").notNull(),
-    correlationId: uuid("correlation_id").notNull(),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    correlationId: text("correlation_id").notNull(),
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
   },
   (table) => [
     check(
@@ -1613,22 +1760,22 @@ export const auditEvents = pgTable(
 
 export type AuditEventRow = typeof auditEvents.$inferSelect;
 
-export const outboxEvents = pgTable(
+export const outboxEvents = sqliteTable(
   "outbox_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     kind: text("kind").notNull(),
     aggregateType: text("aggregate_type").notNull(),
-    aggregateId: uuid("aggregate_id").notNull(),
+    aggregateId: text("aggregate_id").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-    publishedAt: timestamp("published_at", { withTimezone: true }),
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     unique("outbox_events_organization_idempotency_unique").on(
@@ -1642,30 +1789,30 @@ export const outboxEvents = pgTable(
   ],
 );
 
-export const backgroundJobs = pgTable(
+export const backgroundJobs = sqliteTable(
   "background_jobs",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     kind: text("kind").notNull(),
     aggregateType: text("aggregate_type").notNull(),
-    aggregateId: uuid("aggregate_id").notNull(),
+    aggregateId: text("aggregate_id").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     status: text("status").notNull().default("queued"),
     attempts: integer("attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull().default(5),
-    checkpoint: jsonb("checkpoint").$type<Record<string, unknown> | null>(),
+    checkpoint: text("checkpoint", { mode: "json" }).$type<Record<string, unknown> | null>(),
     lockedBy: text("locked_by"),
-    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    nextRunAt: integer("next_run_at", { mode: "timestamp_ms" }),
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
     lastError: text("last_error"),
   },
   (table) => [
@@ -1685,40 +1832,40 @@ export const backgroundJobs = pgTable(
   ],
 );
 
-export const deadLetterJobs = pgTable(
+export const deadLetterJobs = sqliteTable(
   "dead_letter_jobs",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    backgroundJobId: uuid("background_job_id")
+    backgroundJobId: text("background_job_id")
       .notNull()
       .references(() => backgroundJobs.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     kind: text("kind").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     attempts: integer("attempts").notNull(),
-    checkpoint: jsonb("checkpoint").$type<Record<string, unknown> | null>(),
+    checkpoint: text("checkpoint", { mode: "json" }).$type<Record<string, unknown> | null>(),
     lastError: text("last_error"),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
   },
   (table) => [
     index("dead_letter_jobs_organization_idx").on(table.organizationId),
   ],
 );
 
-export const documents = pgTable(
+export const documents = sqliteTable(
   "documents",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     title: text("title").notNull(),
     createdBy: text("created_by").notNull(),
@@ -1726,19 +1873,19 @@ export const documents = pgTable(
   (table) => [index("documents_organization_idx").on(table.organizationId)],
 );
 
-export const documentVersions = pgTable(
+export const documentVersions = sqliteTable(
   "document_versions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    documentId: uuid("document_id")
+    documentId: text("document_id")
       .notNull()
       .references(() => documents.id),
     versionNumber: integer("version_number").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
@@ -1770,21 +1917,21 @@ export const documentVersions = pgTable(
   ],
 );
 
-export const documentLinks = pgTable(
+export const documentLinks = sqliteTable(
   "document_links",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
     entityType: text("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
+    entityId: text("entity_id").notNull(),
     purpose: text("purpose").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -1806,14 +1953,14 @@ export const documentLinks = pgTable(
   ],
 );
 
-export const documentExtractions = pgTable(
+export const documentExtractions = sqliteTable(
   "document_extractions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
     status: text("status").notNull().default("queued"),
@@ -1822,11 +1969,11 @@ export const documentExtractions = pgTable(
     pageProgress: integer("page_progress").notNull().default(0),
     pageCount: integer("page_count"),
     error: text("error"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -1841,17 +1988,17 @@ export const documentExtractions = pgTable(
   ],
 );
 
-export const documentPages = pgTable(
+export const documentPages = sqliteTable(
   "document_pages",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
-    extractionId: uuid("extraction_id")
+    extractionId: text("extraction_id")
       .notNull()
       .references(() => documentExtractions.id),
     pageNumber: integer("page_number").notNull(),
@@ -1867,24 +2014,24 @@ export const documentPages = pgTable(
   ],
 );
 
-export const documentChunks = pgTable(
+export const documentChunks = sqliteTable(
   "document_chunks",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
-    pageId: uuid("page_id")
+    pageId: text("page_id")
       .notNull()
       .references(() => documentPages.id),
     startOffset: integer("start_offset").notNull(),
     endOffset: integer("end_offset").notNull(),
     contentHash: text("content_hash").notNull(),
     text: text("text").notNull(),
-    bbox: jsonb("bbox").$type<{
+    bbox: text("bbox", { mode: "json" }).$type<{
       x: number;
       y: number;
       width: number;
@@ -1906,40 +2053,40 @@ export type DocumentExtractionRow = typeof documentExtractions.$inferSelect;
 export type DocumentPageRow = typeof documentPages.$inferSelect;
 export type DocumentChunkRow = typeof documentChunks.$inferSelect;
 
-export const commercialApprovalRules = pgTable("commercial_approval_rules", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+export const commercialApprovalRules = sqliteTable("commercial_approval_rules", {
+  id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id),
   name: text("name").notNull(),
-  active: boolean("active").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull(),
   secondApproverTotalCents: integer("second_approver_total_cents"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
 });
 
-export const estimateApprovals = pgTable(
+export const estimateApprovals = sqliteTable(
   "estimate_approvals",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateId: uuid("estimate_id")
+    estimateId: text("estimate_id")
       .notNull()
       .references(() => estimates.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     versionNumber: integer("version_number").notNull(),
     contentHash: text("content_hash").notNull(),
-    ruleId: uuid("rule_id")
+    ruleId: text("rule_id")
       .notNull()
       .references(() => commercialApprovalRules.id),
     actorEmail: text("actor_email").notNull(),
     decision: text("decision").notNull(),
     comment: text("comment").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("estimate_approvals_actor_version_unique").on(
@@ -1953,17 +2100,17 @@ export const estimateApprovals = pgTable(
 export type CommercialApprovalRuleRow = typeof commercialApprovalRules.$inferSelect;
 export type EstimateApprovalRow = typeof estimateApprovals.$inferSelect;
 
-export const proposals = pgTable(
+export const proposals = sqliteTable(
   "proposals",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    estimateId: uuid("estimate_id")
+    estimateId: text("estimate_id")
       .notNull()
       .references(() => estimates.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     versionNumber: integer("version_number").notNull(),
@@ -1971,10 +2118,10 @@ export const proposals = pgTable(
     pdfSha256: text("pdf_sha256").notNull(),
     pdfBase64: text("pdf_base64").notNull(),
     tokenHash: text("token_hash").notNull(),
-    publicSnapshot: jsonb("public_snapshot").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    publicSnapshot: text("public_snapshot", { mode: "json" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("proposals_token_hash_unique").on(table.tokenHash),
@@ -1982,14 +2129,14 @@ export const proposals = pgTable(
   ],
 );
 
-export const proposalEvents = pgTable(
+export const proposalEvents = sqliteTable(
   "proposal_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    proposalId: uuid("proposal_id")
+    proposalId: text("proposal_id")
       .notNull()
       .references(() => proposals.id),
     kind: text("kind").notNull(),
@@ -2001,7 +2148,7 @@ export const proposalEvents = pgTable(
     attestation: text("attestation"),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     check(
@@ -2012,20 +2159,20 @@ export const proposalEvents = pgTable(
   ],
 );
 
-export const estimateAcceptances = pgTable(
+export const estimateAcceptances = sqliteTable(
   "estimate_acceptances",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    proposalId: uuid("proposal_id")
+    proposalId: text("proposal_id")
       .notNull()
       .references(() => proposals.id),
-    estimateId: uuid("estimate_id")
+    estimateId: text("estimate_id")
       .notNull()
       .references(() => estimates.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     contentHash: text("content_hash").notNull(),
@@ -2034,7 +2181,7 @@ export const estimateAcceptances = pgTable(
     attestation: text("attestation").notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("estimate_acceptances_proposal_unique").on(table.proposalId),
@@ -2046,30 +2193,30 @@ export type ProposalRow = typeof proposals.$inferSelect;
 export type ProposalEventRow = typeof proposalEvents.$inferSelect;
 export type EstimateAcceptanceRow = typeof estimateAcceptances.$inferSelect;
 
-export const estimateConversions = pgTable(
+export const estimateConversions = sqliteTable(
   "estimate_conversions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    acceptanceId: uuid("acceptance_id")
+    acceptanceId: text("acceptance_id")
       .notNull()
       .references(() => estimateAcceptances.id),
-    estimateId: uuid("estimate_id")
+    estimateId: text("estimate_id")
       .notNull()
       .references(() => estimates.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     contentHash: text("content_hash").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     payloadHash: text("payload_hash").notNull(),
-    projectId: uuid("project_id")
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id),
-    jobIds: jsonb("job_ids").$type<string[]>().notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    jobIds: text("job_ids", { mode: "json" }).$type<string[]>().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("estimate_conversions_acceptance_unique").on(table.acceptanceId),
@@ -2081,22 +2228,22 @@ export const estimateConversions = pgTable(
   ],
 );
 
-export const projectBudgets = pgTable(
+export const projectBudgets = sqliteTable(
   "project_budgets",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    projectId: uuid("project_id")
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
     contentHash: text("content_hash").notNull(),
     totalCents: integer("total_cents").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("project_budgets_project_unique").on(table.projectId),
@@ -2104,23 +2251,23 @@ export const projectBudgets = pgTable(
   ],
 );
 
-export const projectBudgetLines = pgTable(
+export const projectBudgetLines = sqliteTable(
   "project_budget_lines",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    budgetId: uuid("budget_id")
+    budgetId: text("budget_id")
       .notNull()
       .references(() => projectBudgets.id),
-    estimateLineId: uuid("estimate_line_id")
+    estimateLineId: text("estimate_line_id")
       .notNull()
       .references(() => estimateLines.id),
-    estimateVersionId: uuid("estimate_version_id")
+    estimateVersionId: text("estimate_version_id")
       .notNull()
       .references(() => estimateVersions.id),
-    priceBookVersionId: uuid("price_book_version_id").references(() => priceBookItemVersions.id),
+    priceBookVersionId: text("price_book_version_id").references(() => priceBookItemVersions.id),
     description: text("description").notNull(),
     amountCents: integer("amount_cents").notNull(),
     sortOrder: integer("sort_order").notNull(),
@@ -2130,14 +2277,14 @@ export const projectBudgetLines = pgTable(
   ],
 );
 
-export const changeOrders = pgTable(
+export const changeOrders = sqliteTable(
   "change_orders",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    projectId: uuid("project_id")
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id),
     number: text("number").notNull(),
@@ -2147,8 +2294,8 @@ export const changeOrders = pgTable(
     status: text("status").notNull(),
     contentHash: text("content_hash").notNull(),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("change_orders_project_number_unique").on(table.projectId, table.number),
@@ -2160,25 +2307,25 @@ export const changeOrders = pgTable(
   ],
 );
 
-export const changeOrderApprovals = pgTable(
+export const changeOrderApprovals = sqliteTable(
   "change_order_approvals",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    changeOrderId: uuid("change_order_id")
+    changeOrderId: text("change_order_id")
       .notNull()
       .references(() => changeOrders.id),
     contentHash: text("content_hash").notNull(),
-    ruleId: uuid("rule_id")
+    ruleId: text("rule_id")
       .notNull()
       .references(() => commercialApprovalRules.id),
     actorEmail: text("actor_email").notNull(),
     decision: text("decision").notNull(),
     comment: text("comment").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("change_order_approvals_actor_unique").on(table.changeOrderId, table.actorEmail),
@@ -2190,26 +2337,26 @@ export const changeOrderApprovals = pgTable(
   ],
 );
 
-export const changeOrderBudgetEffects = pgTable(
+export const changeOrderBudgetEffects = sqliteTable(
   "change_order_budget_effects",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    projectId: uuid("project_id")
+    projectId: text("project_id")
       .notNull()
       .references(() => projects.id),
-    changeOrderId: uuid("change_order_id")
+    changeOrderId: text("change_order_id")
       .notNull()
       .references(() => changeOrders.id),
-    approvalId: uuid("approval_id")
+    approvalId: text("approval_id")
       .notNull()
       .references(() => changeOrderApprovals.id),
     contentHash: text("content_hash").notNull(),
     priceCents: integer("price_cents").notNull(),
     scheduleImpactDays: integer("schedule_impact_days").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("change_order_budget_effects_order_unique").on(table.changeOrderId),
@@ -2217,11 +2364,11 @@ export const changeOrderBudgetEffects = pgTable(
   ],
 );
 
-export const aiRuns = pgTable(
+export const aiRuns = sqliteTable(
   "ai_runs",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
     capabilityId: text("capability_id").notNull(),
@@ -2232,11 +2379,11 @@ export const aiRuns = pgTable(
     actorEmail: text("actor_email"),
     service: text("service"),
     contentHash: text("content_hash").notNull(),
-    selectedSourceIds: jsonb("selected_source_ids").$type<string[]>().notNull(),
+    selectedSourceIds: text("selected_source_ids", { mode: "json" }).$type<string[]>().notNull(),
     status: text("status").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     error: text("error"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("ai_runs_idempotency_unique").on(table.organizationId, table.idempotencyKey),
@@ -2246,23 +2393,23 @@ export const aiRuns = pgTable(
   ],
 );
 
-export const aiProposals = pgTable(
+export const aiProposals = sqliteTable(
   "ai_proposals",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    runId: uuid("run_id")
+    runId: text("run_id")
       .notNull()
       .references(() => aiRuns.id),
-    opportunityId: uuid("opportunity_id")
+    opportunityId: text("opportunity_id")
       .notNull()
       .references(() => opportunities.id),
     contentHash: text("content_hash").notNull(),
-    output: jsonb("output").notNull(),
+    output: text("output", { mode: "json" }).notNull(),
     status: text("status").notNull().default("proposed"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("ai_proposals_run_unique").on(table.runId),
@@ -2271,21 +2418,21 @@ export const aiProposals = pgTable(
   ],
 );
 
-export const aiCitations = pgTable(
+export const aiCitations = sqliteTable(
   "ai_citations",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    proposalId: uuid("proposal_id")
+    proposalId: text("proposal_id")
       .notNull()
       .references(() => aiProposals.id),
     itemPath: text("item_path").notNull(),
-    documentVersionId: uuid("document_version_id")
+    documentVersionId: text("document_version_id")
       .notNull()
       .references(() => documentVersions.id),
-    chunkId: uuid("chunk_id")
+    chunkId: text("chunk_id")
       .notNull()
       .references(() => documentChunks.id),
     contentHash: text("content_hash").notNull(),
@@ -2296,19 +2443,19 @@ export const aiCitations = pgTable(
   (table) => [index("ai_citations_proposal_idx").on(table.organizationId, table.proposalId)],
 );
 
-export const aiToolExecutions = pgTable(
+export const aiToolExecutions = sqliteTable(
   "ai_tool_executions",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    runId: uuid("run_id")
+    runId: text("run_id")
       .notNull()
       .references(() => aiRuns.id),
     toolName: text("tool_name").notNull(),
     status: text("status").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [index("ai_tool_executions_run_idx").on(table.organizationId, table.runId)],
 );
@@ -2325,24 +2472,17 @@ export type PurchaseOrderRow = typeof purchaseOrders.$inferSelect;
 export type PurchaseOrderLineRow = typeof purchaseOrderLines.$inferSelect;
 export type EquipmentAssignmentRow = typeof equipmentAssignments.$inferSelect;
 export type InspectionRow = typeof inspections.$inferSelect;
+export type QualityRecordRow = typeof qualityRecords.$inferSelect;
 
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType() {
-    return "bytea";
-  },
-});
-
-export const privateSchema = pgSchema("private");
-
-export const dataImportBatches = privateSchema.table(
-  "data_import_batches",
+export const dataImportBatches = sqliteTable(
+  "private_data_import_batches",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
     createdBy: text("created_by").notNull(),
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
@@ -2352,9 +2492,9 @@ export const dataImportBatches = privateSchema.table(
     status: text("status").notNull(),
     revision: integer("revision").notNull().default(1),
     previewHash: text("preview_hash"),
-    durable: boolean("durable").notNull().default(false),
-    summary: jsonb("summary").notNull(),
-    fileBytes: bytea("file_bytes"),
+    durable: integer("durable", { mode: "boolean" }).notNull().default(false),
+    summary: text("summary", { mode: "json" }).notNull(),
+    fileBytes: blob("file_bytes"),
   },
   (table) => [
     unique("data_import_batches_org_idempotency_unique").on(
@@ -2369,18 +2509,18 @@ export const dataImportBatches = privateSchema.table(
   ],
 );
 
-export const dataImportSheets = privateSchema.table(
-  "data_import_sheets",
+export const dataImportSheets = sqliteTable(
+  "private_data_import_sheets",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    batchId: uuid("batch_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    batchId: text("batch_id")
       .notNull()
       .references(() => dataImportBatches.id, { onDelete: "cascade" }),
-    organizationId: uuid("organization_id").notNull(),
+    organizationId: text("organization_id").notNull(),
     sheetName: text("sheet_name").notNull(),
     entityType: text("entity_type"),
     rowCount: integer("row_count").notNull(),
-    headers: jsonb("headers").notNull(),
+    headers: text("headers", { mode: "json" }).notNull(),
   },
   (table) => [
     unique("data_import_sheets_batch_name_unique").on(table.batchId, table.sheetName),
@@ -2388,23 +2528,23 @@ export const dataImportSheets = privateSchema.table(
   ],
 );
 
-export const dataImportRows = privateSchema.table(
-  "data_import_rows",
+export const dataImportRows = sqliteTable(
+  "private_data_import_rows",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    batchId: uuid("batch_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    batchId: text("batch_id")
       .notNull()
       .references(() => dataImportBatches.id, { onDelete: "cascade" }),
-    organizationId: uuid("organization_id").notNull(),
+    organizationId: text("organization_id").notNull(),
     sheetName: text("sheet_name").notNull(),
     rowNumber: integer("row_number").notNull(),
     entityType: text("entity_type").notNull(),
     sourceKey: text("source_key").notNull(),
     status: text("status").notNull(),
     operation: text("operation").notNull().default("create"),
-    values: jsonb("values").notNull(),
-    messages: jsonb("messages").notNull(),
-    targetId: uuid("target_id"),
+    values: text("values", { mode: "json" }).notNull(),
+    messages: text("messages", { mode: "json" }).notNull(),
+    targetId: text("target_id"),
   },
   (table) => [
     unique("data_import_rows_batch_row_unique").on(
@@ -2416,16 +2556,16 @@ export const dataImportRows = privateSchema.table(
   ],
 );
 
-export const dataImportMappingProfiles = privateSchema.table(
-  "data_import_mapping_profiles",
+export const dataImportMappingProfiles = sqliteTable(
+  "private_data_import_mapping_profiles",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id").notNull(),
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id").notNull(),
     name: text("name").notNull(),
     entityType: text("entity_type").notNull(),
     headerSignature: text("header_signature").notNull(),
-    mapping: jsonb("mapping").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    mapping: text("mapping", { mode: "json" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("data_import_profiles_signature_unique").on(
@@ -2436,16 +2576,16 @@ export const dataImportMappingProfiles = privateSchema.table(
   ],
 );
 
-export const externalRecordKeys = privateSchema.table(
-  "external_record_keys",
+export const externalRecordKeys = sqliteTable(
+  "private_external_record_keys",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id").notNull(),
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    organizationId: text("organization_id").notNull(),
     sourceSystem: text("source_system").notNull(),
     entityType: text("entity_type").notNull(),
     sourceKey: text("source_key").notNull(),
-    targetId: uuid("target_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    targetId: text("target_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
   },
   (table) => [
     unique("external_record_keys_unique").on(
@@ -2458,30 +2598,30 @@ export const externalRecordKeys = privateSchema.table(
   ],
 );
 
-export const dataImportEvents = privateSchema.table(
-  "data_import_events",
+export const dataImportEvents = sqliteTable(
+  "private_data_import_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    batchId: uuid("batch_id")
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    batchId: text("batch_id")
       .notNull()
       .references(() => dataImportBatches.id, { onDelete: "cascade" }),
-    organizationId: uuid("organization_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
     actor: text("actor").notNull(),
     kind: text("kind").notNull(),
     summary: text("summary").notNull(),
-    payload: jsonb("payload").notNull(),
+    payload: text("payload", { mode: "json" }).notNull(),
   },
   (table) => [index("data_import_events_org_idx").on(table.organizationId, table.batchId)],
 );
 
-export const calendlyUnmatchedEvents = pgTable(
+export const calendlyUnmatchedEvents = sqliteTable(
   "calendly_unmatched_events",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    receivedAt: timestamp("received_at", { withTimezone: true })
-      .defaultNow()
+    id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
+    receivedAt: integer("received_at", { mode: "timestamp_ms" })
+      .$defaultFn(() => new Date())
       .notNull(),
-    payload: jsonb("payload").notNull(),
+    payload: text("payload", { mode: "json" }).notNull(),
   },
 );

@@ -24,6 +24,8 @@ import { resolveLaborAccess } from "@/lib/ops/labor-authorization";
 import { listLabor } from "@/lib/ops/labor-store";
 import { getOpsNow } from "@/lib/ops/ops-now";
 import { listActiveFieldUsers, listJobs, listUsers } from "@/lib/ops/store";
+import { saveCrewCapacity } from "./capacity-actions";
+import { listCrewCapacities } from "@/lib/ops/crew-capacity-store";
 import { cancelDayDispatch, scheduleDayDispatch } from "./actions";
 import { recordDayLabor, removeDayLabor } from "./labor-actions";
 
@@ -54,12 +56,13 @@ export default async function DispatchPage({
   const workDate = requested.ok
     ? requested.value
     : workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE);
-  const [jobs, people, fieldUsers, dispatches, labor] = await Promise.all([
+  const [jobs, people, fieldUsers, dispatches, labor, capacities] = await Promise.all([
     listJobs(),
     listUsers(),
     listActiveFieldUsers(),
     listDispatches(access.organizationId, workDate),
     listLabor(access.organizationId, workDate),
+    listCrewCapacities(access.organizationId),
   ]);
   const day = buildDispatchDay({
     organizationId: access.organizationId,
@@ -97,6 +100,44 @@ export default async function DispatchPage({
           Show day
         </Button>
       </form>
+
+      {canEdit ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Crew capacity</CardTitle>
+            <CardDescription>
+              How many jobs one field member can be scheduled on in a day. The default is 1.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionForm action={saveCrewCapacity} className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="capacity-user">Field member</Label>
+                <NativeSelect id="capacity-user" name="userId" className="h-11">
+                  {fieldUsers.map((person) => (
+                    <option key={person.userId} value={person.userId}>
+                      {person.displayName} · {capacities.find((row) => row.userId === person.userId)?.jobsPerDay ?? 1} / day
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capacity-jobs">Jobs per day</Label>
+                <NativeSelect id="capacity-jobs" name="jobsPerDay" defaultValue="1" className="h-11">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                </NativeSelect>
+              </div>
+              <div className="flex items-end">
+                <SubmitButton pendingLabel="Saving…" className="min-h-11">
+                  Save capacity
+                </SubmitButton>
+              </div>
+            </ActionForm>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {day.doubleBooked.length > 0 ? (
         <p

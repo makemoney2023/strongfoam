@@ -208,11 +208,12 @@ export default async function FieldLandingPage({
           <div>
             <h2 id="my-performance-heading" className="text-lg font-semibold">My performance</h2>
             <p className="text-sm text-muted-foreground">
-              Your verified production only. Quality is not available yet, and no one else&apos;s ranking is shown.
+              Your verified production only. Quality: {performance?.quality ?? "not available"}. No ranking is shown.
             </p>
           </div>
           {performance ? (
             <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10 text-sm">
+              <li className="px-4 py-3">Quality: {performance.quality}</li>
               <li className="px-4 py-3">{performance.nextAction}</li>
               <li className="px-4 py-3">
                 Today: {performance.today.segments.map((segment) => formatProductionQuantity(segment.quantity, segment.unit)).join(", ") || "No verified production"}

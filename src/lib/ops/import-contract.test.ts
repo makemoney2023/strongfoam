@@ -63,7 +63,7 @@ describe("import contract", () => {
   it("requires an organization on every import query", () => {
     for (const kind of IMPORT_QUERY_KINDS) {
       const clause = importScopeClause(kind, STRONG_FOAM_ORGANIZATION_ID);
-      expect(clause.text).toContain("organization_id = $1");
+      expect(clause.text).toContain("organization_id = ?");
       expect(clause.organizationId).toBe(STRONG_FOAM_ORGANIZATION_ID);
     }
     expect(() => importScopeClause("batches", "")).toThrow(/organization/);

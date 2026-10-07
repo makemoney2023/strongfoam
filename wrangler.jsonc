@@ -1,0 +1,75 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "strongfoam",
+  "main": "cloudflare-worker.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "account_id": "6f6959ecba86d1de4d6cf6aa0b34528d",
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  },
+  "alias": {
+    "server-only": "./node_modules/server-only/empty.js"
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "strongfoam" }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "strongfoam",
+      "database_id": "91cb6932-3463-4431-830c-bb3e05b6fe6f",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "strongfoam"
+    }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "JOBS", "queue": "strongfoam-jobs" }
+    ],
+    "consumers": [
+      {
+        "queue": "strongfoam-jobs",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "strongfoam-jobs-dlq"
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "STRONGFOAM_AGENT", "class_name": "StrongfoamAgent" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StrongfoamAgent"]
+    }
+  ],
+  "triggers": {
+    "crons": ["15 9 * * *"]
+  },
+  "vars": {
+    "AI_GATEWAY_ID": "strongfoam",
+    "AI_GATEWAY_ACCOUNT_ID": "6f6959ecba86d1de4d6cf6aa0b34528d",
+    "AI_GATEWAY_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  }
+}

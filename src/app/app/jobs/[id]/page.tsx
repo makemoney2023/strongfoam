@@ -18,7 +18,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CopyDraftButton } from "@/components/ops/copy-draft-button";
 import { EquipmentPanel } from "@/components/ops/equipment-assignments";
+import { CloseoutPacketPanel } from "@/components/ops/closeout-packet";
+import { CloseoutPanel } from "@/components/ops/closeout";
+import { DispatchRecommendationPanel } from "@/components/ops/dispatch-recommendation-panel";
 import { InspectionPanel } from "@/components/ops/inspections";
+import { QualityRecordPanel } from "@/components/ops/quality-records";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { JobAiPanel } from "@/components/ops/job-ai-panel";
 import { ScheduleDiffPanel } from "@/components/ops/schedule-diff-panel";
@@ -116,12 +120,27 @@ import {
 import { formatRequestNumber, formatServices } from "@/lib/ops/workflow";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { listJobEquipment } from "@/lib/ops/equipment-store";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
+import { listJobAssembly } from "@/lib/ops/assembly-store";
+import { resolveCloseoutAccess } from "@/lib/ops/closeout-authorization";
+import { listJobCloseout, previewCloseoutPacket } from "@/lib/ops/closeout-store";
+import { listCrewCapacities } from "@/lib/ops/crew-capacity-store";
+import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
+import { resolveDispatchAccess } from "@/lib/ops/dispatch-authorization";
+import { listDispatches } from "@/lib/ops/dispatch-store";
+import { recommendDispatch } from "@/lib/ops/dispatch-recommendation";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
 import { listJobInspections } from "@/lib/ops/inspection-store";
+import { resolveQualityAccess } from "@/lib/ops/quality-authorization";
+import { listJobQualityRecords } from "@/lib/ops/quality-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { assignJobEquipment, releaseJobEquipment } from "../equipment-actions";
+import { recordJobAssembly, recordJobCloseout, saveJobCloseoutPacket } from "../closeout-actions";
+import { acceptDispatchRecommendation } from "../dispatch-recommendation-actions";
 import { recordJobInspection } from "../inspection-actions";
+import { recordJobQuality } from "../quality-actions";
 import {
   cancelJobPurchaseOrder,
   draftPurchaseOrder,
@@ -272,6 +291,51 @@ export default async function JobDetailPage({
   const jobInspections = inspectionRead.ok
     ? await listJobInspections(inspectionRead.organizationId, job.id)
     : [];
+  const qualityRead = resolveQualityAccess(session, "quality.read");
+  const canEditQuality = resolveQualityAccess(session, "quality.edit").ok;
+  const jobQuality = qualityRead.ok
+    ? await listJobQualityRecords(qualityRead.organizationId, job.id)
+    : [];
+  const closeoutRead = resolveCloseoutAccess(session, "closeout.read");
+  const canEditCloseout = resolveCloseoutAccess(session, "closeout.edit").ok;
+  const jobCloseout = closeoutRead.ok
+    ? await listJobCloseout(closeoutRead.organizationId, job.id)
+    : null;
+  const jobAssembly = closeoutRead.ok
+    ? await listJobAssembly(closeoutRead.organizationId, job.id)
+    : null;
+  const packetPreview = closeoutRead.ok
+    ? await previewCloseoutPacket(closeoutRead.organizationId, job.id)
+    : null;
+  const dispatchRead = resolveDispatchAccess(session, "dispatch.read");
+  const canEditDispatch = resolveDispatchAccess(session, "dispatch.edit").ok;
+  const openTask = commandTasks.find(
+    (task) => task.status !== "done" && !task.assigneeUserId,
+  );
+  const recommendation = dispatchRead.ok && openTask
+    ? recommendDispatch({
+        task: {
+          id: openTask.id,
+          title: openTask.title,
+          status: openTask.status,
+          assigneeUserId: openTask.assigneeUserId,
+        },
+        people: fieldUsers
+          .filter((person) => person.organizationId === dispatchRead.organizationId)
+          .map((person) => ({
+            userId: person.userId,
+            displayName: person.displayName,
+            role: person.role,
+            active: person.active,
+          })),
+        capacities: await listCrewCapacities(dispatchRead.organizationId),
+        dispatches: await listDispatches(
+          dispatchRead.organizationId,
+          workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE),
+        ),
+        workDate: workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE),
+      })
+    : null;
   const claimedMaterialRequests = new Set(
     purchaseOrders.flatMap((order) =>
       order.lines
@@ -1334,6 +1398,48 @@ export default async function JobDetailPage({
               canEdit={canEditInspections}
               jobClosed={job.status === "closed"}
               recordAction={recordJobInspection}
+            />
+          ) : null}
+
+          {qualityRead.ok ? (
+            <QualityRecordPanel
+              jobId={job.id}
+              records={jobQuality}
+              canEdit={canEditQuality}
+              jobClosed={job.status === "closed"}
+              recordAction={recordJobQuality}
+            />
+          ) : null}
+
+          {closeoutRead.ok ? (
+            <CloseoutPanel
+              jobId={job.id}
+              closeout={jobCloseout}
+              canEdit={canEditCloseout}
+              jobClosed={job.status === "closed"}
+              recordAction={recordJobCloseout}
+            />
+          ) : null}
+
+          {closeoutRead.ok ? (
+            <CloseoutPacketPanel
+              jobId={job.id}
+              assembly={jobAssembly}
+              draft={packetPreview?.ok ? packetPreview.draft : null}
+              draftError={packetPreview && !packetPreview.ok ? packetPreview.error : null}
+              canEdit={canEditCloseout}
+              jobClosed={job.status === "closed"}
+              recordAction={recordJobAssembly}
+              saveAction={saveJobCloseoutPacket}
+            />
+          ) : null}
+
+          {dispatchRead.ok ? (
+            <DispatchRecommendationPanel
+              jobId={job.id}
+              recommendation={recommendation?.ok ? recommendation.recommendation : null}
+              reason={recommendation && !recommendation.ok ? recommendation.error : openTask ? null : "Every open task already has a person."}
+              acceptAction={canEditDispatch ? acceptDispatchRecommendation : undefined}
             />
           ) : null}
 

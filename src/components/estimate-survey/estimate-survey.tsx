@@ -1,6 +1,6 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
+import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import { useEffect, useMemo, useState } from "react";
 import {
   CONSENT_LABEL,
@@ -279,8 +279,7 @@ export function EstimateSurvey() {
       const uploaded: string[] = [];
       for (const file of files) {
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        const result = await upload(`leads/${draftId}/${safeName}`, file, {
-          access: "private",
+        const result = await uploadPrivateFile(`leads/${draftId}/${safeName}`, file, {
           handleUploadUrl: "/api/uploads",
           clientPayload: JSON.stringify({ draftId }),
         });

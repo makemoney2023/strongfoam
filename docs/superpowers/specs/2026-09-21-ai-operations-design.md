@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-21  
 **Product:** Strong Foam Operations Platform  
-**Status:** Release A implementation-ready; Releases B and C tracked  
+**Status:** Release A shipped. Runtime hosting is specified in `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`  
 **PRD requirements:** AI-001 through AI-026, RPT-001  
 **Primary surfaces:** `/app/jobs/[id]`, `/app`, `/app/field/jobs/[id]`
 
@@ -47,10 +47,11 @@ set, a portal or inbox, or an accounting system.
 
 ## Provider
 
-Release A calls the Vercel AI Gateway from the Next.js server. The model id
-comes from `AI_GATEWAY_MODEL`. When `AI_GATEWAY_API_KEY` or the model id is
-missing, every AI action returns a disabled result and the pages render the
-manual workflow.
+Release A behavior is unchanged: a missing model configuration returns a
+disabled result, and demo mode stays local. Production model calls are
+specified to go through `StrongfoamAgent` and Cloudflare AI Gateway
+`strongfoam`, in `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`.
+The model id still comes from `AI_GATEWAY_MODEL`.
 
 Demo mode (`OPS_DEMO`) uses a deterministic local draft built from the evidence
 pack. It does not call the gateway.

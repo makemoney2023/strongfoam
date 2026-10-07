@@ -312,8 +312,8 @@ async function listPostgresAttention(organizationId: string) {
   const counts = await db
     .select({
       batchId: dataImportRows.batchId,
-      price: sql<number>`count(*) filter (where ${dataImportRows.entityType} = 'price_book_item' and ${dataImportRows.operation} in ('create', 'update'))::int`,
-      users: sql<number>`count(*) filter (where ${dataImportRows.entityType} = 'workforce_user' and ${dataImportRows.operation} = 'create')::int`,
+      price: sql<number>`sum(case when ${dataImportRows.entityType} = 'price_book_item' and ${dataImportRows.operation} in ('create', 'update') then 1 else 0 end)`,
+      users: sql<number>`sum(case when ${dataImportRows.entityType} = 'workforce_user' and ${dataImportRows.operation} = 'create' then 1 else 0 end)`,
     })
     .from(dataImportRows)
     .where(eq(dataImportRows.organizationId, organizationId))
@@ -374,7 +374,7 @@ async function retainPostgresImports(organizationId: string, now: Date) {
         select 1 from ${dataImportRows}
         where ${dataImportRows.batchId} = ${dataImportBatches.id}
           and ${dataImportRows.organizationId} = ${organizationId}
-          and ${dataImportRows.values} <> '{}'::jsonb
+          and ${dataImportRows.values} != '{}'
       )`,
     })
     .from(dataImportBatches)
@@ -416,7 +416,7 @@ async function retainPostgresImports(organizationId: string, now: Date) {
           .where(and(
             eq(dataImportRows.organizationId, organizationId),
             eq(dataImportRows.batchId, subject.id),
-            sql`${dataImportRows.values} <> '{}'::jsonb`,
+            sql`${dataImportRows.values} != '{}'`,
           ))
           .returning({ id: dataImportRows.id });
         if (cleared.length > 0) {
@@ -512,7 +512,7 @@ function limitRows(batch: ImportBatchDetail, rowLimit?: number): ImportBatchDeta
 }
 
 async function persistImportRowResults(
-  tx: Pick<ReturnType<typeof getDb>, "execute">,
+  tx: Pick<ReturnType<typeof getDb>, "update">,
   organizationId: string,
   batchId: string,
   results: Array<{ sheetName: string; rowNumber: number; operation: string; targetId: string }>,
@@ -521,25 +521,16 @@ async function persistImportRowResults(
   if (missing) {
     throw new Error(`Import row ${missing.sheetName} ${missing.rowNumber} has no record id.`);
   }
-  const chunkSize = 200;
-  for (let index = 0; index < results.length; index += chunkSize) {
-    const chunk = results.slice(index, index + chunkSize);
-    const tuples = sql.join(
-      chunk.map(
-        (result) =>
-          sql`(${result.sheetName}, ${result.rowNumber}::int, ${result.operation}, ${result.targetId}::uuid)`,
-      ),
-      sql`, `,
-    );
-    await tx.execute(sql`
-      update ${dataImportRows} as row
-      set operation = input.operation, target_id = input.target_id
-      from (values ${tuples}) as input(sheet_name, row_number, operation, target_id)
-      where row.organization_id = ${organizationId}
-        and row.batch_id = ${batchId}
-        and row.sheet_name = input.sheet_name
-        and row.row_number = input.row_number
-    `);
+  for (const result of results) {
+    await tx
+      .update(dataImportRows)
+      .set({ operation: result.operation, targetId: result.targetId })
+      .where(and(
+        eq(dataImportRows.organizationId, organizationId),
+        eq(dataImportRows.batchId, batchId),
+        eq(dataImportRows.sheetName, result.sheetName),
+        eq(dataImportRows.rowNumber, result.rowNumber),
+      ));
   }
 }
 
@@ -820,7 +811,6 @@ async function commitPostgresBatch(
   const db = getDb();
   try {
     await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${input.organizationId}:data-import`}, 0))`);
       const domain = await loadImportDomain(tx, input.organizationId);
       const applied = applyImportRows({
         domain,

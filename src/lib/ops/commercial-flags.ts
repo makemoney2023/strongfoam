@@ -149,10 +149,10 @@ function scannerConfigured(env: CommercialEnv): boolean {
 }
 
 function modelConfigured(env: CommercialEnv): boolean {
-  return Boolean(
-    env.AI_GATEWAY_API_KEY?.trim() &&
-      (env.AI_COMMERCIAL_MODEL?.trim() || env.AI_GATEWAY_MODEL?.trim()),
-  );
+  const model = env.AI_COMMERCIAL_MODEL?.trim() || env.AI_GATEWAY_MODEL?.trim();
+  if (!model) return false;
+  if (model.startsWith("@cf/") || model.startsWith("workers-ai/")) return true;
+  return Boolean(env.AI_GATEWAY_API_KEY?.trim());
 }
 
 export function commercialAiGateReasons(input: CommercialControlInput): string[] {

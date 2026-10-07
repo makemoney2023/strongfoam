@@ -1,6 +1,6 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
+import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
@@ -146,13 +146,12 @@ export function BidPackageUploader({
           continue;
         }
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-        await upload(
+        setProgress(Math.round((index / files.length) * 100));
+        await uploadPrivateFile(
           `opportunities/${organizationId}/${opportunityId}/${index}-${safeName}`,
           file,
           {
-            access: "private",
             handleUploadUrl: "/api/ops/opportunity-uploads",
-            multipart: file.size > 5 * 1024 * 1024,
             clientPayload: JSON.stringify({
               opportunityId,
               documentId: null,
@@ -160,9 +159,6 @@ export function BidPackageUploader({
               revisionLabel: parsed.value.revisionLabel,
               filename: parsed.value.filename,
             }),
-            onUploadProgress: ({ percentage }) => {
-              setProgress(Math.round(((index + percentage / 100) / files.length) * 100));
-            },
           },
         );
         uploaded.push(file.name);

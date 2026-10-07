@@ -1,4 +1,9 @@
-import { getLeadFilesById, requireEnv, resolveFileUrl } from "@/lib/leads/adapters";
+import {
+  getLeadFilesById,
+  readStoredFile,
+  requireEnv,
+  resolveFileUrl,
+} from "@/lib/leads/adapters";
 import { verifyLeadId } from "@/lib/leads/hmac";
 
 export type FileLookup = { pathname: string };
@@ -6,6 +11,9 @@ export type FileLookup = { pathname: string };
 export type FilesGetDeps = {
   getLead: (leadId: string) => Promise<{ files: FileLookup[] } | null>;
   resolveFileUrl: (pathname: string) => Promise<string>;
+  readStoredFile?: (
+    pathname: string,
+  ) => Promise<{ body: Uint8Array; contentType: string } | null>;
   secret: string;
 };
 
@@ -34,6 +42,13 @@ export async function handleFilesGet(
   }
 
   const signedUrl = await deps.resolveFileUrl(file.pathname);
+  if (signedUrl.startsWith("r2:")) {
+    const stored = await deps.readStoredFile?.(signedUrl.slice(3));
+    if (!stored) return new Response(null, { status: 404 });
+    return new Response(Buffer.from(stored.body), {
+      headers: { "content-type": stored.contentType },
+    });
+  }
   return Response.redirect(signedUrl, 302);
 }
 
@@ -45,6 +60,7 @@ export async function GET(
   return handleFilesGet(request, params, {
     getLead: getLeadFilesById,
     resolveFileUrl,
+    readStoredFile,
     secret: requireEnv("LEAD_THANKS_SECRET"),
   });
 }

@@ -35,10 +35,10 @@ export async function handleLeadPost(
 
 export async function POST(request: Request): Promise<Response> {
   return handleLeadPost(request, {
-    createLead: (args) =>
+    createLead: async (args) =>
       createLead({
         ...args,
-        limiter: getRateLimiter(),
+        limiter: await getRateLimiter(),
         store: getLeadStore(),
         mailer: getMailer(),
         thanksSecret: requireEnv("LEAD_THANKS_SECRET"),

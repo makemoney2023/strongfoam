@@ -1,4 +1,6 @@
 import { del, head } from "@vercel/blob";
+import { isDirectUpload, readDirectUpload } from "@/lib/cloudflare/direct-upload";
+import { deletePrivateObject, writePrivateObject } from "@/lib/cloudflare/private-objects";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getOpsSession } from "@/lib/ops/auth";
 import {
@@ -87,10 +89,74 @@ const defaultDeps: JobUploadPostDeps = {
   blobToken: process.env.BLOB_READ_WRITE_TOKEN,
 };
 
+export async function handleDirectJobUpload(
+  request: Request,
+  deps: JobUploadPostDeps = defaultDeps,
+): Promise<Response> {
+  const session = await deps.getSession();
+  if (!session) return Response.json({ error: "Unauthorized." }, { status: 401 });
+  const upload = await readDirectUpload(request);
+  if (!isDirectUpload(upload)) {
+    return Response.json({ error: upload.error }, { status: 400 });
+  }
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(upload.clientPayload || "{}") as Record<string, unknown>;
+  } catch {
+    return Response.json({ error: "invalid_job_upload" }, { status: 400 });
+  }
+  const payload = parsePayload(JSON.stringify({ ...raw, actor: session.email }));
+  if (!payload || !isOwnedJobUploadPath(payload.jobId, upload.pathname)) {
+    return Response.json({ error: "invalid_job_upload" }, { status: 400 });
+  }
+  if (!(await deps.getJob(payload.jobId))) {
+    return Response.json({ error: "job_not_found" }, { status: 404 });
+  }
+  if (upload.bytes.byteLength > MAX_UPLOAD_BYTES) {
+    return Response.json({ error: "file_too_large" }, { status: 400 });
+  }
+  const stored = await writePrivateObject(upload.pathname, upload.bytes, upload.contentType);
+  if (!stored) {
+    return Response.json({ error: "Job document storage is not configured." }, { status: 503 });
+  }
+  const parsed = parseJobDocumentInput({
+    filename: payload.filename,
+    contentType: upload.contentType,
+    sizeBytes: upload.bytes.byteLength,
+    kind: payload.kind,
+    workAreaId: payload.workAreaId ?? "",
+    replacesDocumentId: payload.replacesDocumentId ?? "",
+  });
+  if (!parsed.ok) {
+    await deletePrivateObject(upload.pathname);
+    return Response.json({ error: parsed.error }, { status: 400 });
+  }
+  try {
+    const document = await deps.recordDocument({
+      jobId: payload.jobId,
+      actor: payload.actor,
+      input: parsed.value,
+      pathname: upload.pathname,
+      storage: stored,
+    });
+    if (!document) throw new Error("job_document_not_saved");
+  } catch (error) {
+    await deletePrivateObject(upload.pathname);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "job_document_not_saved" },
+      { status: 400 },
+    );
+  }
+  return Response.json({ pathname: upload.pathname });
+}
+
 export async function handleJobUploadPost(
   request: Request,
   deps: JobUploadPostDeps = defaultDeps,
 ): Promise<Response> {
+  if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    return handleDirectJobUpload(request, deps);
+  }
   if (!deps.blobToken) {
     return Response.json(
       { error: "Job document storage is not configured." },

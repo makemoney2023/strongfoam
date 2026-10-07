@@ -14,7 +14,9 @@ import {
   demoChangeOrderSeed,
   demoDispatchSeed,
   demoEquipmentSeed,
+  demoCloseoutSeed,
   demoInspectionSeed,
+  demoQualitySeed,
   demoLaborSeed,
   demoOperationsAsOf,
   demoProductionSeed,
@@ -24,8 +26,11 @@ import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
 import { resetDispatchMemory } from "@/lib/ops/dispatch-access";
 import { buildEquipmentAttention } from "@/lib/ops/equipment";
 import { equipmentMemory, resetEquipmentMemory } from "@/lib/ops/equipment-access";
+import { buildCloseoutAttention } from "@/lib/ops/closeout";
+import { buildQualityAttention } from "@/lib/ops/quality";
 import { buildInspectionAttention } from "@/lib/ops/inspection";
 import { inspectionMemory, resetInspectionMemory } from "@/lib/ops/inspection-access";
+import { qualityMemory, resetQualityMemory } from "@/lib/ops/quality-access";
 import { isUuid } from "@/lib/ops/job-workspace";
 import { resetLaborForTests } from "@/lib/ops/labor-store";
 import { resetProductionForTests } from "@/lib/ops/production-store";
@@ -42,6 +47,7 @@ afterEach(() => {
   resetProductionForTests();
   resetChangeOrdersForTests();
   resetInspectionMemory();
+  resetQualityMemory();
 });
 
 describe("demo operations sample", () => {
@@ -91,10 +97,15 @@ describe("demo operations sample", () => {
       people: [{ userId: DEMO_FIELD_USER_ID, displayName: "Jordan Field", role: "field_worker" }],
       jobs: jobs.map((job) => ({ id: job.id, name: job.name })),
       dispatches: demoDispatchSeed(),
+      qualityRecords: demoQualitySeed(),
     });
     const jordan = board.workers.find((worker) => worker.userId === DEMO_FIELD_USER_ID);
     expect(jordan?.twentyEightDay.shifts).toBe(3);
     expect(jordan?.twentyEightDay.efficiency).toBe(100);
+    expect(jordan?.ranked).toBe(false);
+    expect(board.ranked).toBe(false);
+    expect(jordan?.quality).toBe("Open deficiency · Podium edge");
+    expect(board.exceptions.some((row) => row.kind === "quality")).toBe(true);
     expect(board.crews).toHaveLength(1);
     expect(board.crews[0]?.efficiency).toBeCloseTo((40 / 6 / 8) * 100);
     expect(board.drafts.map((draft) => draft.quantity)).toEqual([36]);
@@ -126,6 +137,27 @@ describe("demo operations sample", () => {
       "open:Lift inspection:North elevation spray foam",
     ]);
 
+    const qualityAttention = buildQualityAttention({
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobs,
+      records: demoQualitySeed(),
+    });
+    expect(qualityAttention.map((item) => `${item.status}:${item.kind}:${item.name}:${item.jobName}`)).toEqual([
+      "reopened:deficiency:Rim gap:Mechanical room fireproofing",
+      "open:deficiency:Podium edge:North elevation spray foam",
+      "open:rework:Second pass:Mechanical room fireproofing",
+    ]);
+
+    const closeoutAttention = buildCloseoutAttention({
+      organizationId: DEMO_ORGANIZATION_ID,
+      jobs,
+      closeouts: demoCloseoutSeed(),
+    });
+    expect(closeoutAttention.map((item) => `${item.status}:${item.jobName}`)).toEqual([
+      "ready:Mechanical room fireproofing",
+      "preparing:North elevation spray foam",
+    ]);
+
     const ids = [
       ...purchase.orders.map((row) => row.id),
       ...purchase.lines.map((row) => row.id),
@@ -135,14 +167,18 @@ describe("demo operations sample", () => {
       ...production.entries.map((row) => row.id),
       ...orders.orders.map((row) => row.id),
       ...demoInspectionSeed().map((row) => row.id),
+      ...demoCloseoutSeed().map((row) => row.id),
+      ...demoQualitySeed().map((row) => row.id),
     ];
     expect(ids.every((id) => isUuid(id))).toBe(true);
 
     delete (globalThis as { __strongfoamEquipment?: unknown }).__strongfoamEquipment;
     delete (globalThis as { __strongfoamPurchaseOrders?: unknown }).__strongfoamPurchaseOrders;
     delete (globalThis as { __strongfoamInspections?: unknown }).__strongfoamInspections;
+    delete (globalThis as { __strongfoamQuality?: unknown }).__strongfoamQuality;
     expect(equipmentMemory().assignments.some((row) => row.jobId === DEMO_JOB_ID)).toBe(true);
     expect(purchaseOrderMemory().orders).toHaveLength(2);
     expect(inspectionMemory().rows.some((row) => row.jobId === DEMO_JOB_ID)).toBe(true);
+    expect(qualityMemory().rows.some((row) => row.jobId === DEMO_JOB_ID)).toBe(true);
   });
 });

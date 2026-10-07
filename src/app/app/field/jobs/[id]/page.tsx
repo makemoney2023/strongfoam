@@ -34,8 +34,12 @@ import { Label } from "@/components/ui/label";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { listJobEquipment } from "@/lib/ops/equipment-store";
+import { resolveCloseoutAccess } from "@/lib/ops/closeout-authorization";
+import { listJobCloseout } from "@/lib/ops/closeout-store";
 import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
 import { listJobInspections } from "@/lib/ops/inspection-store";
+import { resolveQualityAccess } from "@/lib/ops/quality-authorization";
+import { listJobQualityRecords } from "@/lib/ops/quality-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
 import { buildMorningBrief } from "@/lib/ops/morning-brief";
@@ -90,7 +94,9 @@ import {
   uploadFieldDocument,
 } from "@/app/field/actions";
 import { EquipmentPanel } from "@/components/ops/equipment-assignments";
+import { CloseoutPanel } from "@/components/ops/closeout";
 import { InspectionPanel } from "@/components/ops/inspections";
+import { QualityRecordPanel } from "@/components/ops/quality-records";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
@@ -216,6 +222,14 @@ export default async function FieldJobPage({
   const fieldInspections = inspectionRead.ok
     ? await listJobInspections(inspectionRead.organizationId, job.id)
     : [];
+  const qualityRead = resolveQualityAccess(session, "quality.read");
+  const fieldQuality = qualityRead.ok
+    ? await listJobQualityRecords(qualityRead.organizationId, job.id)
+    : [];
+  const closeoutRead = resolveCloseoutAccess(session, "closeout.read");
+  const fieldCloseout = closeoutRead.ok
+    ? await listJobCloseout(closeoutRead.organizationId, job.id)
+    : null;
   const returnTo = `/field/jobs/${job.id}`;
   const areaOptions = areas.map(({ id: areaId, name }) => ({ id: areaId, name }));
   const taskOptions = tasks.map(({ id: taskId, title }) => ({ id: taskId, title }));
@@ -414,6 +428,24 @@ export default async function FieldJobPage({
         <InspectionPanel
           jobId={job.id}
           inspections={fieldInspections}
+          canEdit={false}
+          jobClosed={job.status === "closed"}
+        />
+      ) : null}
+
+      {fieldQuality.length > 0 ? (
+        <QualityRecordPanel
+          jobId={job.id}
+          records={fieldQuality}
+          canEdit={false}
+          jobClosed={job.status === "closed"}
+        />
+      ) : null}
+
+      {fieldCloseout ? (
+        <CloseoutPanel
+          jobId={job.id}
+          closeout={fieldCloseout}
           canEdit={false}
           jobClosed={job.status === "closed"}
         />

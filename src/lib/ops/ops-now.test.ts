@@ -11,12 +11,9 @@ describe("getOpsNow", () => {
     expect(getOpsNow({})).toEqual(new Date(DEMO_SCHEDULE_NOW));
   });
 
-  it("uses a fresh wall-clock Date in production mode", () => {
+  it("uses a fresh wall-clock Date when Cloudflare D1 is connected", () => {
     const wallClock = new Date("2032-04-05T06:07:08.009Z");
-    const result = getOpsNow(
-      { DATABASE_URL: "postgres://example" },
-      () => wallClock,
-    );
+    const result = getOpsNow({}, () => wallClock, { prepare() {} });
 
     expect(result).toEqual(wallClock);
     expect(result).not.toBe(wallClock);

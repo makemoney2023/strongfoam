@@ -38,9 +38,15 @@ import { listDispatches } from "@/lib/ops/dispatch-store";
 import { resolveEquipmentAccess } from "@/lib/ops/equipment-authorization";
 import { formatEquipmentConflict } from "@/lib/ops/equipment";
 import { listEquipmentAttention } from "@/lib/ops/equipment-store";
+import { resolveCloseoutAccess } from "@/lib/ops/closeout-authorization";
+import { formatCloseoutAttention } from "@/lib/ops/closeout";
+import { listCloseoutAttention } from "@/lib/ops/closeout-store";
 import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
 import { formatInspectionAttention } from "@/lib/ops/inspection";
 import { listInspectionAttention } from "@/lib/ops/inspection-store";
+import { resolveQualityAccess } from "@/lib/ops/quality-authorization";
+import { formatQualityAttention } from "@/lib/ops/quality";
+import { listQualityAttention } from "@/lib/ops/quality-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listPurchaseAttention } from "@/lib/ops/purchase-order-store";
 import { loadWorkforceBoard } from "@/lib/ops/production-store";
@@ -222,6 +228,16 @@ export default async function OpsHomePage() {
     ? await listInspectionAttention(inspectionAccess.organizationId)
     : null;
   const inspectionShown = inspectionAttention?.slice(0, 8) ?? [];
+  const qualityAccess = resolveQualityAccess(session, "quality.read");
+  const qualityAttention = qualityAccess.ok
+    ? await listQualityAttention(qualityAccess.organizationId)
+    : null;
+  const qualityShown = qualityAttention?.slice(0, 8) ?? [];
+  const closeoutAccess = resolveCloseoutAccess(session, "closeout.read");
+  const closeoutAttention = closeoutAccess.ok
+    ? await listCloseoutAttention(closeoutAccess.organizationId)
+    : null;
+  const closeoutShown = closeoutAttention?.slice(0, 8) ?? [];
   const workforceAccess = resolveWorkforceAccess(session, "workforce.read");
   const workforceExceptions =
     workforcePerformanceEnabled() && workforceAccess.ok
@@ -564,6 +580,76 @@ export default async function OpsHomePage() {
           {inspectionAttention.length > inspectionShown.length ? (
             <p className="text-sm text-muted-foreground">
               {inspectionAttention.length} inspections. Showing {inspectionShown.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {qualityAttention ? (
+        <section aria-labelledby="quality-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="quality-attention-heading" className="text-lg font-semibold">
+              Quality
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Open and reopened deficiencies and rework on jobs that are still open. Inspections stay on their own list.
+            </p>
+          </div>
+          {qualityShown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No open deficiencies or rework.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {qualityShown.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    href={`/app/jobs/${item.jobId}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{formatQualityAttention(item)}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {qualityAttention.length > qualityShown.length ? (
+            <p className="text-sm text-muted-foreground">
+              {qualityAttention.length} quality records. Showing {qualityShown.length}.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {closeoutAttention ? (
+        <section aria-labelledby="closeout-attention-heading" className="space-y-3">
+          <div>
+            <h2 id="closeout-attention-heading" className="text-lg font-semibold">
+              Closeout
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Preparing and ready closeouts on jobs that are still open.
+            </p>
+          </div>
+          {closeoutShown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No closeouts waiting.</p>
+          ) : (
+            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+              {closeoutShown.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    href={`/app/jobs/${item.jobId}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-muted/40"
+                  >
+                    <span>{formatCloseoutAttention(item)}</span>
+                    <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {closeoutAttention.length > closeoutShown.length ? (
+            <p className="text-sm text-muted-foreground">
+              {closeoutAttention.length} closeouts. Showing {closeoutShown.length}.
             </p>
           ) : null}
         </section>

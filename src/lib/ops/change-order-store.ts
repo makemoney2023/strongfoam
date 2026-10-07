@@ -528,7 +528,6 @@ async function persistFreshDecision(input: {
       .where(
         and(eq(changeOrders.id, input.orderId), eq(changeOrders.organizationId, input.organizationId)),
       )
-      .for("update")
       .limit(1);
     const order = locked[0] ? orderFromRow(locked[0]) : null;
     if (!order) return { ok: false, error: "That change order was not found." };

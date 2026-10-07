@@ -1,19 +1,16 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { appPostgresOptions, serializePostgresQueries } from "@/db/client-options";
+import { drizzle, type AnyD1Database } from "drizzle-orm/d1";
 import * as schema from "@/db/schema";
-import { parseAppDatabaseConfig } from "@/db/config";
+import { readWorkerDatabase } from "@/lib/ops/demo-mode";
 
-function createDb() {
-  const config = parseAppDatabaseConfig(process.env);
-  if (!config.ok) throw new Error(config.error);
-  const client = serializePostgresQueries(postgres(config.value.appUrl, appPostgresOptions));
-  return drizzle(client, { schema });
-}
+type OpsDatabase = ReturnType<typeof drizzle<typeof schema>>;
 
-let db: ReturnType<typeof createDb> | null = null;
+let db: OpsDatabase | null = null;
 
-export function getDb() {
-  if (!db) db = createDb();
+export function getDb(): OpsDatabase {
+  if (!db) {
+    const d1 = readWorkerDatabase();
+    if (!d1) throw new Error("Cloudflare D1 binding DB is not available.");
+    db = drizzle(d1 as AnyD1Database, { schema });
+  }
   return db;
 }

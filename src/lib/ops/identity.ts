@@ -104,6 +104,34 @@ export const EQUIPMENT_ROLE_PERMISSIONS: Record<
   field_worker: ["equipment.read"],
 };
 
+export const CLOSEOUT_PERMISSIONS = ["closeout.read", "closeout.edit"] as const;
+
+export type CloseoutPermission = (typeof CLOSEOUT_PERMISSIONS)[number];
+
+export const CLOSEOUT_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly CloseoutPermission[]
+> = {
+  administrator: CLOSEOUT_PERMISSIONS,
+  office: CLOSEOUT_PERMISSIONS,
+  field_lead: ["closeout.read"],
+  field_worker: ["closeout.read"],
+};
+
+export const QUALITY_PERMISSIONS = ["quality.read", "quality.edit"] as const;
+
+export type QualityPermission = (typeof QUALITY_PERMISSIONS)[number];
+
+export const QUALITY_ROLE_PERMISSIONS: Record<
+  MembershipRole,
+  readonly QualityPermission[]
+> = {
+  administrator: QUALITY_PERMISSIONS,
+  office: QUALITY_PERMISSIONS,
+  field_lead: ["quality.read"],
+  field_worker: ["quality.read"],
+};
+
 export const INSPECTION_PERMISSIONS = ["inspection.read", "inspection.edit"] as const;
 
 export type InspectionPermission = (typeof INSPECTION_PERMISSIONS)[number];

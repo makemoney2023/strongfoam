@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-22
 **Product:** Strong Foam Operations Platform
-**Status:** Proposed, implementation-ready
+**Status:** Proposed. Plan measurement is AI-027 in `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`. This document still rejects a model-supplied quantity.
 **PRD requirements:** EST-006, EST-008, EST-010, JOB-001 through JOB-003,
 QTE-001 through QTE-006, BID-001 through BID-015, DOC-002 through DOC-004,
 AI-016 through AI-018, RT-004 through RT-006

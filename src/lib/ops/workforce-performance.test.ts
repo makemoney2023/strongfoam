@@ -209,4 +209,52 @@ describe("workforce performance", () => {
     expect(jordanRow?.nextAction).toBe("Today's verified production is on the target.");
     expect(jordanRow?.personalBests[0]?.label).toBe("spray foam · wall · bags");
   });
+
+  it("shows deficiency and rework as quality without changing efficiency or rank", () => {
+    const shift = entry({ id: "shift", workDate: asOf, quantity: 40, attributionMode: "individual" });
+    const otherJob = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+    const base = {
+      asOf,
+      entries: [shift],
+      participants: [participant("shift", jordan)],
+      allocations: [allocation("shift", jordan, 40)],
+      targets: [target("person_hour")],
+      labor: [labor("shift-hours", jordan, asOf, 480)],
+      people,
+      jobs: [
+        { id: jobId, name: "North elevation spray foam" },
+        { id: otherJob, name: "Mechanical room fireproofing" },
+      ],
+      dispatches: [{ userId: alex, jobId: otherJob, workDate: asOf, status: "scheduled" as const }],
+    };
+    const withoutQuality = buildWorkforcePerformance(base);
+    const withQuality = buildWorkforcePerformance({
+      ...base,
+      qualityRecords: [
+        { jobId, kind: "deficiency", name: "Lift path", status: "corrected" },
+        { jobId, kind: "deficiency", name: "Podium edge", status: "open" },
+        { jobId: otherJob, kind: "rework", name: "Second pass", status: "open" },
+      ],
+    });
+    const before = withoutQuality.workers.find((worker) => worker.userId === jordan);
+    const jordanRow = withQuality.workers.find((worker) => worker.userId === jordan);
+    const alexRow = withQuality.workers.find((worker) => worker.userId === alex);
+    expect(jordanRow?.twentyEightDay.efficiency).toBe(before?.twentyEightDay.efficiency);
+    expect(jordanRow?.twentyEightDay.efficiency).toBeCloseTo(100, 5);
+    expect(jordanRow?.quality).toBe("Open deficiency · Podium edge");
+    expect(jordanRow?.ranked).toBe(false);
+    expect(withQuality.ranked).toBe(false);
+    expect(alexRow?.quality).toBe("Open rework · Second pass");
+    expect(alexRow?.twentyEightDay.efficiency).toBeNull();
+    expect(withQuality.exceptions.some((row) => row.kind === "quality" && row.label.includes("Jordan Field"))).toBe(true);
+    expect(withQuality.exceptions.some((row) => row.kind === "quality" && row.label.includes("Alex Field"))).toBe(false);
+
+    const clear = buildWorkforcePerformance({
+      ...base,
+      qualityRecords: [{ jobId, kind: "deficiency", name: "Lift path", status: "corrected" }],
+    });
+    expect(clear.workers.find((worker) => worker.userId === jordan)?.quality).toBe("clear");
+    expect(clear.workers.find((worker) => worker.userId === jordan)?.twentyEightDay.efficiency).toBeCloseTo(100, 5);
+    expect(clear.exceptions.some((row) => row.kind === "quality")).toBe(false);
+  });
 });

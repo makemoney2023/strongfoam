@@ -1,4 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { isDirectUpload, readDirectUpload } from "@/lib/cloudflare/direct-upload";
+import { writePrivateObject } from "@/lib/cloudflare/private-objects";
 import {
   ALLOWED_UPLOAD_TYPES,
   isOwnedUploadPath,
@@ -60,6 +62,39 @@ export async function handleUploadPost(
   }
 }
 
+export async function handleDirectLeadUpload(request: Request): Promise<Response> {
+  const upload = await readDirectUpload(request);
+  if (!isDirectUpload(upload)) {
+    return Response.json({ error: upload.error }, { status: 400 });
+  }
+  if (upload.bytes.byteLength > MAX_UPLOAD_BYTES) {
+    return Response.json({ error: "file_too_large" }, { status: 400 });
+  }
+  if (upload.contentType && !ALLOWED_UPLOAD_TYPES.includes(upload.contentType as never)) {
+    return Response.json({ error: "invalid_content_type" }, { status: 400 });
+  }
+  let draftId: unknown;
+  try {
+    draftId = (JSON.parse(upload.clientPayload || "{}") as { draftId?: unknown }).draftId;
+  } catch {
+    return Response.json({ error: "invalid_client_payload" }, { status: 400 });
+  }
+  if (typeof draftId !== "string" || !DRAFT_ID_PATTERN.test(draftId)) {
+    return Response.json({ error: "invalid_draft_id" }, { status: 400 });
+  }
+  if (!isOwnedUploadPath(draftId, upload.pathname)) {
+    return Response.json({ error: "invalid_pathname" }, { status: 400 });
+  }
+  const stored = await writePrivateObject(upload.pathname, upload.bytes, upload.contentType);
+  if (!stored) {
+    return Response.json({ error: "File storage is not configured." }, { status: 503 });
+  }
+  return Response.json({ pathname: upload.pathname });
+}
+
 export async function POST(request: Request): Promise<Response> {
+  if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    return handleDirectLeadUpload(request);
+  }
   return handleUploadPost(request);
 }
