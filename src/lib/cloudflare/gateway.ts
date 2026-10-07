@@ -30,6 +30,9 @@ export function readModelContent(payload: unknown): string {
     choices?: Array<{ message?: { content?: unknown } }>;
   };
   if (typeof record.response === "string") return record.response.trim();
+  if (record.response && typeof record.response === "object") {
+    return JSON.stringify(record.response);
+  }
   const content = record.choices?.[0]?.message?.content;
   return typeof content === "string" ? content.trim() : "";
 }
@@ -43,25 +46,47 @@ export function gatewayHeaders(env: GatewayEnv): Record<string, string> {
   return headers;
 }
 
-type WorkersAi = {
+export type WorkersAi = {
   run: (
     model: string,
-    input: { messages: ChatMessage[] },
+    input: { messages: ChatMessage[]; response_format?: { type: "json_object" } },
     options: { gateway: { id: string } },
   ) => Promise<unknown>;
 };
 
-export async function completeWithWorkersAi(args: {
-  ai: WorkersAi;
+export class ModelUnavailableError extends Error {
+  constructor(model: string) {
+    super(`model-unavailable: ${model || "no model configured"}`);
+    this.name = "ModelUnavailableError";
+  }
+}
+
+export async function completeThroughGateway(args: {
+  ai?: WorkersAi;
+  env: GatewayEnv;
   model: string;
   messages: ChatMessage[];
-  gatewayId?: string;
+  json?: boolean;
+  fetchImpl?: typeof fetch;
 }): Promise<string> {
-  const model = args.model.startsWith("@cf/") ? args.model : WORKERS_AI_MODEL;
-  const result = await args.ai.run(
-    model,
-    { messages: args.messages },
-    { gateway: { id: args.gatewayId?.trim() || AI_GATEWAY_ID } },
-  );
-  return readModelContent(result);
+  const model = args.model.trim();
+  if (!model) throw new ModelUnavailableError(model);
+  const responseFormat = args.json ? { response_format: { type: "json_object" as const } } : {};
+  if (model.startsWith("@cf/")) {
+    if (!args.ai) throw new ModelUnavailableError(model);
+    const result = await args.ai.run(
+      model,
+      { messages: args.messages, ...responseFormat },
+      { gateway: { id: args.env.AI_GATEWAY_ID?.trim() || AI_GATEWAY_ID } },
+    );
+    return readModelContent(result);
+  }
+  if (!args.env.AI_GATEWAY_API_KEY?.trim()) throw new ModelUnavailableError(model);
+  const response = await (args.fetchImpl ?? fetch)(cloudflareChatCompletionsUrl(args.env), {
+    method: "POST",
+    headers: gatewayHeaders(args.env),
+    body: JSON.stringify({ model, messages: args.messages, ...responseFormat }),
+  });
+  if (!response.ok) throw new Error(`AI Gateway returned ${response.status}.`);
+  return readModelContent(await response.json());
 }

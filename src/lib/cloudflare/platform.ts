@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/lib/cloudflare/gateway";
+import type { AgentNamespace } from "@/lib/cloudflare/agent-session";
 import type { ObjectBucket } from "@/lib/cloudflare/objects";
 import type { RateLimitDb } from "@/lib/cloudflare/rate-limit";
 
@@ -6,18 +6,11 @@ export type JobQueueBinding = {
   send(message: { kind: string; data?: Record<string, unknown> }): Promise<void>;
 };
 
-export type StrongfoamAgentBinding = {
-  idFromName(name: string): unknown;
-  get(id: unknown): {
-    draft(input: { model: string; messages: ChatMessage[] }): Promise<string>;
-  };
-};
-
 export type CloudflareBindings = {
   DB?: RateLimitDb;
   FILES?: ObjectBucket;
   JOBS?: JobQueueBinding;
-  STRONGFOAM_AGENT?: StrongfoamAgentBinding;
+  STRONGFOAM_AGENT?: AgentNamespace;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_MODEL?: string;
   AI_GATEWAY_ACCOUNT_ID?: string;

@@ -21,6 +21,10 @@ const pack = buildJobEvidencePack({
   now: new Date("2026-09-19T16:00:00.000Z"),
 });
 
+const ORG = "6f1c2a3b-4d5e-4f60-8a1b-2c3d4e5f6a7b";
+const JOB = "0a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d";
+const uuidPack = { ...pack, job: { ...pack.job, id: JOB } };
+
 describe("job AI gateway", () => {
   const previous = {
     demo: process.env.OPS_DEMO,
@@ -42,7 +46,7 @@ describe("job AI gateway", () => {
     delete process.env.AI_GATEWAY_API_KEY;
     delete process.env.AI_GATEWAY_MODEL;
     const fetchImpl = vi.fn();
-    const result = await requestJobAi({ pack, purpose: "summary", fetchImpl });
+    const result = await requestJobAi({ pack, organizationId: ORG, purpose: "summary", fetchImpl });
     expect(result).toEqual({ status: "disabled" });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -50,7 +54,7 @@ describe("job AI gateway", () => {
   it("uses a deterministic demo draft whose citations are in the pack", async () => {
     process.env.OPS_DEMO = "1";
     const fetchImpl = vi.fn();
-    const result = await requestJobAi({ pack, purpose: "daily_report", fetchImpl });
+    const result = await requestJobAi({ pack, organizationId: ORG, purpose: "daily_report", fetchImpl });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(result.status).toBe("demo");
     if (result.status !== "demo") return;
@@ -93,6 +97,7 @@ describe("job AI gateway", () => {
     });
     const result = await requestJobAi({
       pack,
+      organizationId: ORG,
       purpose: "summary",
       fetchImpl,
     });
@@ -105,30 +110,81 @@ describe("job AI gateway", () => {
     expect(body.messages[0].content).toContain("what is missing");
   });
 
-  it("asks the Strongfoam agent and keeps only citations in the pack", async () => {
+  it("asks the named job instance of the Strongfoam agent and keeps only cited text", async () => {
     delete process.env.OPS_DEMO;
-    process.env.AI_GATEWAY_MODEL = "test-model";
+    process.env.AI_GATEWAY_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
     const fetchImpl = vi.fn();
+    const draft = vi.fn(async () =>
+      JSON.stringify({
+        paragraph: "Podium is moving.",
+        bullets: [
+          { text: "Real task.", citations: [{ kind: "task", id: "task-1" }] },
+          { text: "Invented.", citations: [{ kind: "task", id: "nope" }] },
+        ],
+        sections: { completed: [], held: [], material: [], next: [] },
+      }),
+    );
+    const stub = { __unsafe_ensureInitialized: vi.fn(async () => undefined), draft };
+    const agentNamespace = {
+      idFromName: vi.fn((name: string) => name),
+      get: vi.fn(() => stub),
+    };
     const result = await requestJobAi({
-      pack,
+      pack: { ...uuidPack },
+      organizationId: ORG,
       purpose: "summary",
       fetchImpl,
-      agent: {
-        draft: async () =>
-          JSON.stringify({
-            paragraph: "Podium is moving.",
-            bullets: [
-              { text: "Real task.", citations: [{ kind: "task", id: "task-1" }] },
-            ],
-            sections: { completed: [], held: [], material: [], next: [] },
-          }),
-      },
+      agentNamespace,
     });
     expect(fetchImpl).not.toHaveBeenCalled();
+    expect(agentNamespace.idFromName).toHaveBeenCalledWith(`org:${ORG}:job:${JOB}`);
+    expect(draft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purpose: "summary",
+        model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        json: true,
+        runId: expect.any(String),
+      }),
+    );
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.provider).toBe("cloudflare-agent");
     expect(result.bullets.map((bullet) => bullet.text)).toEqual(["Real task."]);
+  });
+
+  it("never uses one shared instance name", async () => {
+    delete process.env.OPS_DEMO;
+    process.env.AI_GATEWAY_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+    const agentNamespace = { idFromName: vi.fn(), get: vi.fn() };
+    const result = await requestJobAi({
+      pack,
+      organizationId: "not-a-uuid",
+      purpose: "summary",
+      agentNamespace,
+    });
+    expect(result.status).toBe("failed");
+    expect(agentNamespace.idFromName).not.toHaveBeenCalled();
+  });
+
+  it("returns a failed draft when the agent reports the model is unavailable", async () => {
+    delete process.env.OPS_DEMO;
+    process.env.AI_GATEWAY_MODEL = "openai/gpt-5-mini";
+    const stub = {
+      __unsafe_ensureInitialized: vi.fn(async () => undefined),
+      draft: vi.fn(async () => {
+        throw new Error("model-unavailable: openai/gpt-5-mini");
+      }),
+    };
+    const result = await requestJobAi({
+      pack: uuidPack,
+      organizationId: ORG,
+      purpose: "daily_report",
+      agentNamespace: { idFromName: (name: string) => name, get: () => stub },
+    });
+    expect(result).toEqual({
+      status: "failed",
+      message: "The daily report could not be drafted.",
+    });
   });
 
   it("returns a failed draft when the gateway cannot be reached", async () => {
@@ -140,6 +196,7 @@ describe("job AI gateway", () => {
     });
     const result = await requestJobAi({
       pack,
+      organizationId: ORG,
       purpose: "daily_report",
       fetchImpl,
     });

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   COMMERCIAL_AI_SYSTEM_INSTRUCTIONS,
+  commercialModelTransport,
   deterministicBidProposal,
   recordCommercialDraft,
   requestCommercialProposal,
@@ -133,5 +134,55 @@ describe("commercial AI gateway", () => {
     expect(second.proposalId).toBe(first.proposalId);
     expect(state.proposals).toHaveLength(1);
     expect(JSON.stringify(state.runs[0])).not.toMatch(/chainOfThought|reasoning/);
+  });
+});
+
+describe("commercial model transport", () => {
+  const request = { model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", system: "system", pack };
+
+  it("asks the named opportunity instance of the agent and does not call fetch", async () => {
+    const draft = vi.fn(async () => '```json\n{"lines":[]}\n```');
+    const stub = { __unsafe_ensureInitialized: vi.fn(async () => undefined), draft };
+    const agentNamespace = { idFromName: vi.fn((name: string) => name), get: vi.fn(() => stub) };
+    const fetchImpl = vi.fn();
+    const output = await commercialModelTransport(request, { agentNamespace, fetchImpl });
+    expect(output).toEqual({ lines: [] });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(agentNamespace.idFromName).toHaveBeenCalledWith(
+      `org:${pack.organizationId}:opportunity:${pack.opportunityId}`,
+    );
+    expect(draft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purpose: "commercial_proposal",
+        model: request.model,
+        json: true,
+        messages: [
+          { role: "system", content: "system" },
+          { role: "user", content: JSON.stringify(pack) },
+        ],
+      }),
+    );
+  });
+
+  it("uses the gateway over HTTP when there is no agent binding", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ choices: [{ message: { content: '{"lines":[]}' } }] }), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+    await expect(commercialModelTransport(request, { fetchImpl })).resolves.toEqual({ lines: [] });
+  });
+
+  it("reports model-unavailable when the agent returns nothing", async () => {
+    const stub = {
+      __unsafe_ensureInitialized: vi.fn(async () => undefined),
+      draft: vi.fn(async () => ""),
+    };
+    await expect(
+      commercialModelTransport(request, {
+        agentNamespace: { idFromName: (name: string) => name, get: () => stub },
+      }),
+    ).rejects.toThrow("model-unavailable");
   });
 });

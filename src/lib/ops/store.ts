@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDb } from "@/db";
-import { publishQueuedJob } from "@/lib/cloudflare/platform";
+import { getPlatform, publishQueuedJob } from "@/lib/cloudflare/platform";
 import { isObjectStorage } from "@/lib/cloudflare/objects";
 import {
   deletePrivateObject,
@@ -6743,10 +6743,13 @@ export async function runCommercialDraftJob(args: {
   });
   if (!packed.ok) return packed;
   const model = process.env.AI_COMMERCIAL_MODEL?.trim() || null;
+  const agentNamespace = model ? (await getPlatform())?.STRONGFOAM_AGENT : undefined;
   const drafted = await requestCommercialProposal({
     pack: packed.pack,
     model,
-    transport: model ? (request) => commercialModelTransport(request) : undefined,
+    transport: model
+      ? (request) => commercialModelTransport(request, { agentNamespace })
+      : undefined,
   });
   if (!drafted.ok) return drafted;
   const memory: DraftMemory = { runs: [], proposals: [], citations: [], toolExecutions: [] };

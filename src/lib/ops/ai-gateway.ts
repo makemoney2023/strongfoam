@@ -6,6 +6,7 @@ import {
   readModelContent,
   type ChatMessage,
 } from "@/lib/cloudflare/gateway";
+import { namedAgent, type AgentNamespace } from "@/lib/cloudflare/agent-session";
 import { getPlatform } from "@/lib/cloudflare/platform";
 import {
   filterCitations,
@@ -189,40 +190,33 @@ function parseJobDraft(
 
 export async function requestJobAi(args: {
   pack: JobEvidencePack;
+  organizationId: string;
   purpose: GatewayPurpose;
   env?: Record<string, string | undefined>;
   fetchImpl?: typeof fetch;
-  agent?: {
-    draft(input: { model: string; messages: ChatMessage[] }): Promise<string>;
-  };
+  agentNamespace?: AgentNamespace;
 }): Promise<AiGatewayResult> {
   const env = args.env ?? process.env;
   if (env.OPS_DEMO === "1") return demoAiResult(args.pack);
   const model = env.AI_GATEWAY_MODEL?.trim();
-  if (!model && !args.agent) return { status: "disabled" };
+  if (!model) return { status: "disabled" };
 
   const messages = jobMessages(args.purpose, args.pack);
   try {
-    let agent = args.agent;
-    if (!agent && !args.fetchImpl) {
-      const platform = await getPlatform();
-      const namespace = platform?.STRONGFOAM_AGENT;
-      if (namespace) {
-        const stub = namespace.get(namespace.idFromName("strongfoam"));
-        agent = stub;
-      }
+    const namespace =
+      args.agentNamespace ??
+      (args.fetchImpl ? undefined : (await getPlatform())?.STRONGFOAM_AGENT);
+    if (namespace) {
+      const agent = await namedAgent(namespace, "job", args.organizationId, args.pack.job.id);
+      const content = await agent.draft({
+        runId: crypto.randomUUID(),
+        purpose: args.purpose,
+        model,
+        messages,
+        json: true,
+      });
+      return parseJobDraft(content, args.pack, args.purpose, "cloudflare-agent", model);
     }
-    if (agent) {
-      const content = await agent.draft({ model: model || "strongfoam", messages });
-      return parseJobDraft(
-        content,
-        args.pack,
-        args.purpose,
-        "cloudflare-agent",
-        model || "strongfoam",
-      );
-    }
-    if (!model) return { status: "disabled" };
     const fetchImpl = args.fetchImpl ?? fetch;
     const response = await fetchImpl(cloudflareChatCompletionsUrl(env), {
       method: "POST",

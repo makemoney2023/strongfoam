@@ -23,8 +23,8 @@ The site deploys as its own Worker, `strongfoam`, on the Abracadabra account
 `npm run deploy` builds with OpenNext and publishes that Worker. It does not
 redeploy `abracadabra-marketing`, `handoff`, `handoff-hq`, or `readiness-check`.
 
-Model drafts are specified to go through `StrongfoamAgent` and AI Gateway
-`strongfoam`. The design is
+Job summaries and commercial drafts call `StrongfoamAgent` through AI Gateway
+`strongfoam`, one instance per organization and record. The design is
 `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`. The
 implementation plan is
 `docs/superpowers/plans/2026-10-06-cloudflare-agents.md`. D1 stays the system

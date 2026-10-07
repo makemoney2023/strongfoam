@@ -210,7 +210,7 @@ review time, not a wrong estimate.
 
 - Section 24.8 requires per-organization usage limits. Agent instances are per record, so the limit lives in D1 or the gateway, not in agent state.
 - AI Gateway logging can capture document and transcript text. Set its log retention before commercial documents go through it.
-- Durable Object placement and gateway logs must satisfy open decision 10 on Canadian data residency before production use of bid documents.
+- Storage in the United States is acceptable. Canadian residency is not required.
 
 ## Sequence
 

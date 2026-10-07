@@ -12,7 +12,11 @@ import {
   type AiCitedText,
   type AiGatewayResult,
 } from "@/lib/ops/ai-gateway";
-import { getOpsSession, type OpsSession } from "@/lib/ops/auth";
+import {
+  getOpsSession,
+  organizationIdForOpsSession,
+  type OpsSession,
+} from "@/lib/ops/auth";
 import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
 import { isOfficeMembershipRole } from "@/lib/ops/identity";
 import { getOpsNow } from "@/lib/ops/ops-now";
@@ -48,9 +52,12 @@ function sectionText(items: AiCitedText[]): string {
   return items.map((item) => item.text).join(" ");
 }
 
-async function loadJobEvidence(jobId: string): Promise<JobEvidencePack | null> {
+async function loadJobEvidence(
+  jobId: string,
+  organizationId: string,
+): Promise<JobEvidencePack | null> {
   const job = await getJob(jobId);
-  if (!job) return null;
+  if (!job || job.organizationId !== organizationId) return null;
   const [tasks, fieldNotes, voiceNotes, events, marks, documents, calendar] =
     await Promise.all([
       listJobTasks(jobId),
@@ -136,9 +143,10 @@ async function requestCapability(
   capabilityId: "AI-008" | "AI-009",
 ): Promise<AiGatewayResult> {
   const session = await requireOfficeSession();
-  const pack = await loadJobEvidence(jobId);
+  const organizationId = organizationIdForOpsSession(session);
+  const pack = await loadJobEvidence(jobId, organizationId);
   if (!pack) return { status: "failed", message: "That job could not be found." };
-  const result = await requestJobAi({ pack, purpose });
+  const result = await requestJobAi({ pack, organizationId, purpose });
   if (result.status === "demo" || result.status === "ready") {
     await recordAiJobEvent({
       jobId,

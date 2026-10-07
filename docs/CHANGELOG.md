@@ -2,6 +2,15 @@
 
 ## 2026-10-06
 
+- **What changed** — Job summaries and commercial drafts call a named `StrongfoamAgent` instance. A requested model is used, or the run fails. Queue and cron handlers run inside the Worker request context. The PRD architecture now describes the Cloudflare Worker, and United States storage is the accepted location.
+- **Why** — One shared agent name and a silent model swap would mix records and hide the model that actually ran. Queue jobs could not see D1 outside a request. The requirements still told the next step to build Render and Supabase.
+- **Code touchpoints** — `src/lib/cloudflare/agent.ts`, `src/lib/cloudflare/agent-session.ts`, `src/lib/cloudflare/gateway.ts`, `src/lib/ops/ai-gateway.ts`, `src/lib/ops/commercial-ai.ts`, `cloudflare-worker.ts`, `docs/strongfoam-crm-erp-prd.md`
+- **Data-flow impact** — A job draft names `org:{organizationId}:job:{jobId}` after the session's organization matches the job. A commercial draft names the opportunity instance. Business rows still change only on confirm.
+- **API / schema impact** — None. No new table. `measureTakeoff` calculates square feet, linear feet, or a count and is not on a screen yet.
+- **Verification** — `npx vitest run` 728 passed before takeoff. Takeoff tests then passed (7). `npx tsc --noEmit` passed. Deployed Worker version `f13ebfc1-a90c-4895-89b3-4574f40b4866`. Home, staff login, and `/app/jobs` returned success. The live database has no job to draft.
+
+## 2026-10-06
+
 - **What changed** — The agent spec and plan were checked against the code and corrected. Drafts stay in D1 (`ai_runs`, `ai_proposals`), and agent state only tracks runs in progress. Instances are reached with `getAgentByName`. A model that can't be served now fails instead of being replaced. The plan adds confirm and dismiss on the screens, a per-organization run limit, a live check, and a fuller takeoff design: page size, two-point calibration, a takeoff record, a vision model, and an evaluation set. AI-016 and AI-018 are now marked partly built.
 - **Why** — The earlier plan would have duplicated the existing draft store, overwritten drafts that share an instance, silently swapped models, measured fractions of a page as if they were page points, and left confirm and dismiss unwired.
 - **Code touchpoints** — `docs/superpowers/specs/2026-10-06-cloudflare-agents-design.md`, `docs/superpowers/plans/2026-10-06-cloudflare-agents.md`, `docs/strongfoam-crm-erp-prd.md`

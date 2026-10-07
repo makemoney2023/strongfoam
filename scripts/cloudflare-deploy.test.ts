@@ -114,11 +114,14 @@ describe("Cloudflare Worker deploy config", () => {
     expect(worker).toContain("fetch: handler.fetch");
     expect(worker).toContain("StrongfoamAgent");
     expect(worker).toContain("queue(batch");
-    expect(worker).toContain("scheduled()");
+    expect(worker).toContain("scheduled(");
+    expect(worker).toContain('from "./.open-next/cloudflare/init.js"');
+    expect(worker.match(/runWithCloudflareRequestContext\(/g)?.length).toBe(2);
 
     const agent = readFileSync("src/lib/cloudflare/agent.ts", "utf8");
     expect(agent).toContain("extends Agent");
-    expect(agent).toContain("completeWithWorkersAi");
+    expect(agent).toContain("completeThroughGateway");
+    expect(agent).toContain("startAgentRun");
 
     const nextConfig = readFileSync("next.config.ts", "utf8");
     expect(nextConfig).toContain("initOpenNextCloudflareForDev");

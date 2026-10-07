@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { AgentNamespace } from "@/lib/cloudflare/agent-session";
 import type { CommercialEvidencePack } from "@/lib/ops/commercial-ai-evidence";
 
 export const COMMERCIAL_PROMPT_TEMPLATE_VERSION = "bid-estimate-v1";
@@ -293,24 +294,43 @@ export function deterministicBidProposal(pack: CommercialEvidencePack): BidEstim
 
 export async function commercialModelTransport(
   request: { model: string; system: string; pack: CommercialEvidencePack },
-  fetchImpl: typeof fetch = fetch,
+  options: { fetchImpl?: typeof fetch; agentNamespace?: AgentNamespace } = {},
 ): Promise<unknown> {
   const { cloudflareChatCompletionsUrl, compatModelName, gatewayHeaders, readModelContent } =
     await import("@/lib/cloudflare/gateway");
-  const response = await fetchImpl(cloudflareChatCompletionsUrl(process.env), {
-    method: "POST",
-    headers: gatewayHeaders(process.env),
-    body: JSON.stringify({
-      model: compatModelName(request.model),
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: request.system },
-        { role: "user", content: JSON.stringify(request.pack) },
-      ],
-    }),
-  });
-  if (!response.ok) throw new Error("model-unavailable");
-  const content = readModelContent(await response.json());
+  const messages = [
+    { role: "system" as const, content: request.system },
+    { role: "user" as const, content: JSON.stringify(request.pack) },
+  ];
+  let content: string;
+  if (options.agentNamespace) {
+    const { namedAgent } = await import("@/lib/cloudflare/agent-session");
+    const agent = await namedAgent(
+      options.agentNamespace,
+      "opportunity",
+      request.pack.organizationId,
+      request.pack.opportunityId,
+    );
+    content = await agent.draft({
+      runId: crypto.randomUUID(),
+      purpose: "commercial_proposal",
+      model: request.model,
+      messages,
+      json: true,
+    });
+  } else {
+    const response = await (options.fetchImpl ?? fetch)(cloudflareChatCompletionsUrl(process.env), {
+      method: "POST",
+      headers: gatewayHeaders(process.env),
+      body: JSON.stringify({
+        model: compatModelName(request.model),
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+    if (!response.ok) throw new Error("model-unavailable");
+    content = readModelContent(await response.json());
+  }
   if (!content) throw new Error("model-unavailable");
   return JSON.parse(content.replace(/^```json\s*/i, "").replace(/```$/, ""));
 }

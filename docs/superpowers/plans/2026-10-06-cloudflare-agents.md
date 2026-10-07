@@ -66,9 +66,9 @@
 - Create: `src/lib/cloudflare/agent-session.ts`
 - Create: `src/lib/cloudflare/agent-session.test.ts`
 
-- [ ] **Step 1: Write failing tests.** `agentInstanceName` returns `org:{organizationId}:job:{jobId}` and the opportunity, estimate, and project forms. A non-UUID id throws.
-- [ ] **Step 2: Implement it.**
-- [ ] **Step 3: Run `npx vitest run src/lib/cloudflare/agent-session.test.ts`.**
+- [x] **Step 1: Write failing tests.** `agentInstanceName` returns `org:{organizationId}:job:{jobId}` and the opportunity, estimate, and project forms. A non-UUID id throws.
+- [x] **Step 2: Implement it.**
+- [x] **Step 3: Run `npx vitest run src/lib/cloudflare/agent-session.test.ts`.**
 
 ---
 
@@ -78,9 +78,9 @@
 - Modify: `src/lib/cloudflare/gateway.ts`
 - Modify: `src/lib/cloudflare/gateway.test.ts`
 
-- [ ] **Step 1: Write failing tests.** An `@cf/` model calls `env.AI.run` with gateway `strongfoam`. A non-`@cf/` model does not reach `env.AI.run` with Llama. It uses the gateway provider route or fails with `model-unavailable`. A JSON request passes JSON mode on both paths.
-- [ ] **Step 2: Replace the fallback to `WORKERS_AI_MODEL` with explicit routing.**
-- [ ] **Step 3: Run `npx vitest run src/lib/cloudflare/gateway.test.ts`.**
+- [x] **Step 1: Write failing tests.** An `@cf/` model calls `env.AI.run` with gateway `strongfoam`. A non-`@cf/` model does not reach `env.AI.run` with Llama. It uses the gateway provider route or fails with `model-unavailable`. A JSON request passes JSON mode on both paths.
+- [x] **Step 2: Replace the fallback to `WORKERS_AI_MODEL` with explicit routing.**
+- [x] **Step 3: Run `npx vitest run src/lib/cloudflare/gateway.test.ts`.**
 
 ---
 
@@ -102,9 +102,9 @@
 - Modify: `src/lib/ops/ai-gateway.ts`, `src/lib/ops/ai-gateway.test.ts`
 - Modify: `src/lib/cloudflare/platform.ts`
 
-- [ ] **Step 1: Write failing tests.** `requestJobAi` gets the stub through `getAgentByName(binding, "org:{organizationId}:job:{jobId}")`, with the organization id from the session argument. It never uses the name `strongfoam`. Citations outside the pack are dropped. Demo mode does not call the stub. No binding uses the HTTP fallback.
-- [ ] **Step 2: Implement it, and record the run and proposal in D1.**
-- [ ] **Step 3: Run the tests.**
+- [x] **Step 1: Write failing tests.** `requestJobAi` gets the stub through `getAgentByName(binding, "org:{organizationId}:job:{jobId}")`, with the organization id from the session argument. It never uses the name `strongfoam`. Citations outside the pack are dropped. Demo mode does not call the stub. No binding uses the HTTP fallback.
+- [ ] **Step 2: Implement the named call.** Recording the run and proposal in D1 waits on Task 3.
+- [x] **Step 3: Run the tests.**
 
 ---
 
@@ -113,8 +113,8 @@
 **Files:**
 - Modify: `src/lib/cloudflare/agent.ts`
 
-- [ ] **Step 1: Write a failing test** for a pure reducer: starting a run adds `{ runId, purpose, status: "running" }`. Finishing one run does not change another run on the same instance. No prompt key is stored.
-- [ ] **Step 2: Use the reducer in `draft()` around the gateway call.**
+- [x] **Step 1: Write a failing test** for a pure reducer: starting a run adds `{ runId, purpose, status: "running" }`. Finishing one run does not change another run on the same instance. No prompt key is stored.
+- [x] **Step 2: Use the reducer in `draft()` around the gateway call.**
 - [ ] **Step 3: Add a Durable Object test with `@cloudflare/vitest-pool-workers` that calls `draft()` on a named instance with a mocked `AI` binding.**
 
 ---
@@ -135,9 +135,9 @@
 **Files:**
 - Modify: `src/lib/ops/commercial-ai.ts`, `src/lib/ops/commercial-ai.test.ts`, `src/lib/ops/store.ts`
 
-- [ ] **Step 1: Write failing tests.** With a stub, `requestCommercialProposal` calls the opportunity instance and not `fetch`. Price, cost, markup, tax, and total fields are still rejected. `commercialAiGateReasons` still blocks the call. `recordCommercialDraft` idempotency still replays.
-- [ ] **Step 2: Implement it.**
-- [ ] **Step 3: Run the tests.**
+- [x] **Step 1: Write failing tests.** With a stub, the transport calls the opportunity instance and not `fetch`. Price, cost, markup, tax, and total fields are still rejected by proposal validation. `recordCommercialDraft` idempotency still replays.
+- [x] **Step 2: Implement it.** `runCommercialDraftJob` uses the binding when the commercial model is set.
+- [x] **Step 3: Run the tests.**
 
 ---
 
@@ -158,9 +158,9 @@
 **Files:**
 - Modify: `scripts/cloudflare-deploy.test.ts`, `docs/CHANGELOG.md`
 
-- [ ] **Step 1: Keep the static test.** `cloudflare-worker.ts` exports `StrongfoamAgent`, and `wrangler.jsonc` binds it and lists it in `new_sqlite_classes`.
-- [ ] **Step 2: Deploy only when asked.** Read the deploy output for the `STRONGFOAM_AGENT` Durable Object binding. Ignore the local platform proxy warning.
-- [ ] **Step 3: Sign in as staff, run one job draft, and confirm in Workers observability that the call went through the Durable Object and gateway `strongfoam`.** Record the version id in the changelog.
+- [x] **Step 1: Keep the static test.** `cloudflare-worker.ts` exports `StrongfoamAgent`, and `wrangler.jsonc` binds it and lists it in `new_sqlite_classes`.
+- [x] **Step 2: Deployed as version `f13ebfc1-a90c-4895-89b3-4574f40b4866`.** The binding is listed. Queue and cron handlers run inside the Worker request context.
+- [ ] **Step 3: Sign in as staff, run one job draft, and confirm in Workers observability that the call went through the Durable Object and gateway `strongfoam`.** The live database has no job yet, so this check is still open.
 
 ---
 
@@ -169,15 +169,17 @@
 **Files:**
 - Create: `src/lib/ops/takeoff.ts`, `src/lib/ops/takeoff.test.ts`
 
-- [ ] **Step 1: Write failing tests.**
-  - A 0–1 rectangle on a 2592 × 1728 point page at `1/4" = 1'-0"` returns the known square footage.
+- [x] **Step 1: Write failing tests.**
+  - A 0–1 rectangle on a 2592 × 1728 point page at `1/4" = 1'-0"` returns 13,824 square feet.
   - Two-point calibration gives the same result as the printed scale.
   - A polygon with an opening subtracts it.
   - A polyline returns linear feet. Height times length returns wall square feet.
   - A count returns the point count.
-  - It rejects an unconfirmed scale, `NTS`, a missing page size, an open polygon, and any model field named quantity, bags, price, or total.
-- [ ] **Step 2: Implement `measureTakeoff`.** Inputs are fractional points, page size, and a confirmed scale. It does not call the model.
-- [ ] **Step 3: Run `npx vitest run src/lib/ops/takeoff.test.ts`.**
+  - It rejects an unconfirmed scale, `NTS`, a missing page size, a polygon with fewer than three points, and any model field named quantity, bags, price, or total.
+- [x] **Step 2: Implement `measureTakeoff`.** Inputs are fractional points, page size, and a confirmed scale. It does not call the model.
+- [x] **Step 3: Run `npx vitest run src/lib/ops/takeoff.test.ts`.**
+
+`measureTakeoff` is not on a screen yet. Task 11 stores a confirmed measurement and shows it.
 
 ---
 

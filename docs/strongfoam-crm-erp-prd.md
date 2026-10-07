@@ -3,7 +3,7 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.42
+**Version:** 1.43
 **Created:** 2026-09-18
 **Last updated:** 2026-10-06
 
@@ -113,14 +113,12 @@ job warn when installed field quantities of that unit are ahead of the amount
 still stated on open tasks (AI-014). The warning does not state dollars,
 margin, or a price. Office users keep a price book of reusable unit prices
 by trade, in bags, square feet, hours, or each. A retired item stays in the
-book. Assemblies, scope templates, estimate versions, proposals, and approvals
-are not stored yet. AI-016 through AI-026 remain specified and
-are not built. A cited bid-package-to-estimate-to-job workflow is specified,
-but opportunity documents, durable document extraction, estimate versions,
-approvals, proposals, and accepted-work conversion are not built. Supabase
-staging and production databases have been provisioned. The application still
-needs to move its runtime driver, private storage, and worker connections onto
-Supabase before real business imports are durable. A governed spreadsheet
+book. Estimate versions, proposals, change orders, and commercial approval
+rules are stored. Assemblies and scope templates are not. AI-016 and AI-018
+store drafts. AI-017, AI-019, AI-022, AI-024, AI-025, and AI-026 are not built.
+Production runs on the Cloudflare Worker `strongfoam`, with D1 as the database
+and R2 as private file storage. Storage in the United States is acceptable.
+A governed spreadsheet
 Import Center is now specified for customers, workforce, price book,
 opportunities, projects, jobs, assignments, work areas, and tasks. The full
 permission matrix, crews, durable offline sync, and financial workflows remain
@@ -1813,168 +1811,124 @@ mode.
 
 ### 23.1 Chosen platform
 
-The target production topology is:
+Production runs on Cloudflare, on one Worker named `strongfoam`, built with
+OpenNext (`npm run deploy`).
 
 ```text
-strongfoam.com / app.strongfoam.com
-Vercel CDN + Next.js frontend and thin BFF
-                    │ authenticated HTTPS
-                    ▼
-api.strongfoam.com
-Render TypeScript API
-        │                    │
-        ▼                    ▼
-Supabase                 Render worker
-PostgreSQL + Auth        AI, transcription, embeddings,
-Storage + pgvector       exports, notifications, integrations
+strongfoam.abracadabra-ai.workers.dev (custom domain later)
+Worker strongfoam: Next.js App Router (OpenNext)
+  ├── D1 strongfoam            system of record
+  ├── R2 strongfoam            private uploads
+  ├── Queue strongfoam-jobs    background jobs, consumed by the same Worker
+  ├── Cron 15 9 * * *          import retention
+  ├── Durable Object           StrongfoamAgent, one instance per organization and record
+  └── Workers AI + AI Gateway  gateway id strongfoam
 ```
 
-Platform responsibilities:
-
-| Platform | Responsibility |
+| Piece | Responsibility |
 |---|---|
-| Vercel | Public site, survey UI, authenticated office/field UI, SSR, static assets, thin same-origin BFF |
-| Render web service | Authoritative domain API, authorization enforcement, webhooks, AI streaming, and job submission |
-| Render worker | Durable transcription, embedding, document generation, notifications, integrations, and approved AI automation |
-| Supabase | PostgreSQL, Auth, private Storage, Row Level Security, backups, Realtime where useful, and `pgvector` |
+| Worker `strongfoam` | Public site, estimate survey, staff and field app, server actions, API routes, queue consumer, cron |
+| D1 `strongfoam` | Organizations, users, CRM, jobs, estimates, documents, AI runs and proposals, rate limits |
+| R2 `strongfoam` | Plans, photos, recordings, bid documents, and closeout files. Private |
+| Queue `strongfoam-jobs` | Scan, extraction, commercial draft, and import work, with dead-letter queue `strongfoam-jobs-dlq` |
+| `StrongfoamAgent` | Runs model calls for one record and tracks runs in progress. It does not store business records |
+| AI Gateway `strongfoam` | Every model call, with logging, caching, and limits |
 
-**Database decision:** use Supabase PostgreSQL instead of Neon for the expanded
-product. Neon already serves the small lead system well, but Supabase reduces
-administration by consolidating authentication, private files, PostgreSQL,
-row-level security, realtime events, backups, and vector search. Migrating now
-is less costly than migrating after CRM and field data proliferate.
+**Database decision:** D1 replaces the earlier Supabase plan. The schema is
+Drizzle on SQLite, and migrations live in `migrations/`. Retrieval for AI-022
+uses Cloudflare AI Search instead of pgvector.
+
+**Data location decision (2026-10-06):** Canadian residency is not required.
+Storage in the United States is acceptable. The live D1 database has no
+jurisdiction, and the R2 bucket is in Eastern North America. Cloudflare D1,
+R2, and Durable Objects offer EU, US, and FedRAMP jurisdictions, not a
+Canada-only one.
 
 ### 23.2 Application boundaries
 
-- The browser must not receive service-role credentials or unrestricted
-  database access.
-- Business mutations flow through typed domain commands on the Render API.
-- The Vercel BFF authenticates same-origin browser requests and forwards short
-  operations; it does not perform long-running work.
-- Long operations return a job identifier and process asynchronously.
-- Direct-to-Supabase Storage uploads use short-lived, object-scoped permission.
-- Supabase RLS provides defense in depth and is not a substitute for domain
-  authorization.
-- The public marketing site remains usable if the Render API or AI provider is
-  degraded.
+- The browser never receives D1, R2, or gateway credentials.
+- Business writes go through server actions and API routes that check the
+  staff or field session, then the organization of the record.
+- Long work goes on `strongfoam-jobs` and returns a job identifier.
+- Uploads go to R2 through short-lived, object-scoped access.
+- A model draft never writes a business row. A person confirms, and the
+  existing command writes.
+- The public site keeps working when the model or the queue is degraded.
 
-### 23.3 Render services
+### 23.3 Background work
 
-The Render API must:
+- The queue consumer and the cron run inside OpenNext's request context, so
+  they reach D1, R2, and settings the same way a page does.
+- Each handler is idempotent and retries with backoff. Exhausted messages go to
+  `strongfoam-jobs-dlq` and show on Home.
+- A commercial draft runs on the queue and calls the opportunity agent
+  instance.
+- **Gap:** the commercial gate needs a worker heartbeat. The heartbeat came
+  from a long-running Node worker that does not exist on Cloudflare. A
+  scheduled heartbeat from the queue consumer must replace it before
+  commercial AI can turn on.
 
-- Run as a paid, stateless web service bound to `0.0.0.0:$PORT`.
-- Expose `/health/live` and `/health/ready`.
-- Use graceful shutdown and deployment-safe request draining.
-- Version public contracts under `/v1`.
-- Verify webhook signatures and replay identifiers.
-- Use idempotency keys for retryable mutations.
-- Store no durable files on Render's ephemeral filesystem.
+### 23.4 Data services
 
-Use a separate paid Render background worker. The initial durable queue will use
-`pg-boss` on Supabase PostgreSQL to avoid operating another datastore. A
-transactional outbox will commit a business change and its pending event
-together. Workers must checkpoint, retry with backoff, enforce provider rate
-limits, and move exhausted work into a visible dead-letter queue.
-
-Render cron jobs may enqueue reconciliation and scheduled work but must not
-perform full long-running jobs themselves.
-
-### 23.4 Supabase data services
-
-- Enable `vector`/pgvector through a reviewed migration.
-- Use separate least-privilege roles for API runtime, workers, migrations, and
-  backup operations.
-- Use pooled connections for application traffic and a direct connection for
-  migrations and supported maintenance.
-- Use a transaction-capable worker connection for pg-boss and bounded import
-  transactions; an HTTP-only driver that cannot open transactions is not
-  sufficient for authoritative import.
-- Make storage buckets private and use immutable object keys for plans,
-  recordings, evidence, proposals, import sources, reconciliation artifacts,
-  and closeout documents.
-- Keep import staging and source-key crosswalks in a non-exposed private
-  schema. Browser clients must not query staged rows through the Data API.
-- Enforce organization and record scope in RLS policies.
-- Use Realtime only for bounded status and activity updates initially, not
-  collaborative plan drawing.
-- Provision paid backups and point-in-time recovery before production business
-  records are accepted.
+- D1 is the only system of record. JSON columns are stored as text.
+- R2 objects use immutable keys for plans, recordings, evidence, proposals,
+  import sources, and closeout documents.
+- Every query filters by organization. D1 has no row-level security, so the
+  server check is the only check and is tested for cross-organization access.
+- D1 Time Travel restores the database to any minute in the last 30 days on the Workers Paid plan, or 7 days on Free.
+- **Gap:** production has no malware scanner. Uploaded bid documents stay
+  quarantined until a scanner the Worker can reach is configured.
 
 ### 23.5 Environment and release strategy
 
-Production, staging, preview, and local environments must not share databases,
-storage buckets, queues, credentials, or webhook destinations.
+| Environment | Runtime |
+|---|---|
+| Production | Worker `strongfoam`, D1 `strongfoam`, R2 `strongfoam`, queue `strongfoam-jobs` |
+| Local | `next dev` with OpenNext's dev bindings, or `OPS_DEMO=1` with no database |
 
-```text
-Production: Vercel production + Render production + Supabase production
-Staging:    persistent Vercel/Render/Supabase staging
-Preview:    Vercel preview + on-demand backend preview + synthetic database
-Local:      local frontend/API/worker + isolated development database
-```
+A staging Worker with its own D1, R2, and queue is required before financial
+workflows launch. Environments never share a database, bucket, queue, or secret.
 
 Required release checks:
 
-- Frozen-lockfile install, lint, type check, tests, and production builds.
-- Migration validation against an isolated database.
-- Frontend/API contract compatibility.
-- Authorization and cross-organization isolation tests.
-- Playwright smoke tests for changed full-stack workflows.
-- Dependency, secret, and infrastructure validation.
+- Install, lint, type check, tests, and an OpenNext build.
+- `wrangler deploy --dry-run` lists every binding, including `STRONGFOAM_AGENT`.
+- New D1 migrations apply locally before `--remote`.
+- Authorization and cross-organization tests pass.
 
-Production uses expand/contract migrations:
+Migrations are additive first. Apply the migration, deploy the Worker, then
+remove obsolete columns only in a later release.
 
-1. Back up the database.
-2. Apply an additive migration.
-3. Deploy the Render API.
-4. Deploy workers and verify queue health.
-5. Deploy and test the Vercel candidate.
-6. Promote the verified Vercel deployment.
-7. Remove obsolete schema only in a later release.
+Secrets are set with `npx wrangler secret put` and never committed:
+`OPS_SESSION_SECRET`, `OPS_STAFF_EMAILS`, `OPS_STAFF_PASSWORD`, and, when used,
+`AI_GATEWAY_API_KEY`.
 
-A paid Vercel plan and paid Render services are production requirements. Free
-services that sleep or expire must never carry production CRM/ERP traffic.
+### 23.6 Migration from earlier infrastructure
 
-### 23.6 Migration from current infrastructure
+The Vercel, Neon, Render, and Supabase plan is retired. The steps still open:
 
-1. Add versioned Drizzle migrations and baseline the existing lead schema.
-2. Verify the provisioned Supabase staging and production PostgreSQL projects
-   are isolated and configure Auth, private Storage, and pgvector as required.
-3. Replace the Neon HTTP runtime driver with transaction-capable pooled
-   Supabase application and worker connections; reserve the direct connection
-   for migrations and supported maintenance.
-4. Copy existing Neon lead and Calendly records while preserving IDs.
-5. Verify counts, checksums, qualification behavior, transaction rollback, and
-   signed-file access.
-6. Move business logic and webhooks to the Render API.
-7. Move email delivery to the transactional outbox and worker.
-8. Migrate private Vercel Blob objects to Supabase Storage with a rollback
-   window; do not dual-write indefinitely.
-9. Rehearse the Import Center with a sanitized Strong Foam workbook in staging.
-10. Import master and operational records with source-key crosswalks and
-    reconcile every count before production sign-off.
-11. Switch the frontend through an environment-controlled API endpoint.
-12. Remove obsolete production database credentials and authoritative business
-    logic from Vercel after cutover.
+1. Import Strong Foam's master and operational records through the Import
+   Center, with source-key crosswalks and reconciled counts.
+2. Move any remaining private files to R2.
+3. Point `strongfoam.com` at the Worker.
+4. Remove unused Vercel and Neon credentials after cutover.
 
 ### 23.7 Observability and recovery
 
-All services must propagate a correlation ID, organization ID, authenticated
-actor ID, deployment version, and job/event ID without logging sensitive
-payloads.
+Workers observability and traces are on. Logs carry the organization id,
+actor, deployment version, and job id, and no document text or prompts.
 
-Operational dashboards and alerts must cover:
+Watch:
 
-- API availability, latency, and error rate.
-- Queue depth, oldest-job age, retries, and dead letters.
-- Worker health and duration by workload.
-- Database connections, slow queries, storage, and vector-index performance.
-- Failed uploads, webhooks, notifications, transcriptions, and AI actions.
-- Version skew between frontend, API, workers, and database schema.
+- Worker errors and latency.
+- Queue backlog, retries, and dead letters.
+- D1 query time and size.
+- Failed uploads, scans, extractions, and AI runs.
+- AI Gateway errors, cost, and log retention.
 
-Initial recovery targets are RPO of 15 minutes or less and RTO of four hours or
-less. Perform encrypted backups to a separate failure domain and test a restore
-at least quarterly. Final retention and recovery targets must be approved
-before financial workflows launch.
+Recovery: D1 Time Travel for the last 30 days, and a periodic D1 export to R2
+for longer retention. Recovery targets stay RPO 15 minutes or less and RTO four
+hours or less, and a restore is tested quarterly.
 
 ### 23.8 API rules
 
@@ -1992,8 +1946,8 @@ Estimate versions, bid-document extraction, signed proposals, accepted-estimate
 conversion, and commercial AI each have an organization-scoped flag. Manual
 estimates can stay on while commercial AI is off. Commercial AI cannot turn on
 until manual estimate, approval, proposal, and conversion checks have passed,
-the Render worker heartbeat is healthy, the scanner and a data-residency-approved
-extraction model and gateway model are configured, the evaluation suite has
+the queue worker heartbeat is healthy, the scanner and the extraction model and
+gateway model are configured, the evaluation suite has
 rejected geometry, price, prompt injection, bad citations, and cross-organization
 output, and cost and rate limits are set.
 
@@ -2445,21 +2399,29 @@ policy and human review.
 
 ### Foundation
 
-1. Add version-controlled database migrations.
-2. Use and verify the provisioned isolated Supabase staging and production
-   projects.
-3. Establish organization, user, membership, role, RLS, and audit-event models.
-4. Add Supabase Auth and server-side authorization.
-5. Establish the Render API, worker, transactional outbox, and health checks.
-6. Separate public, office, and field application boundaries on Vercel.
-7. Preserve and test the existing lead intake contract during migration.
+1. Add version-controlled D1 migrations (done).
+2. Run production on Worker `strongfoam` with its own D1 database and R2
+   bucket (done). A separate staging Worker is still required before financial
+   workflows.
+3. Establish organization, user, membership, role, and audit-event models
+   (done for the current staff and field roles). D1 has no row-level security,
+   so every query checks the organization in server code.
+4. Keep staff and field sessions on signed cookies. Individual database users
+   exist beside the bootstrap staff login.
+5. Run background work on queue `strongfoam-jobs`, with a dead-letter queue
+   (done). Replace the missing long-running worker heartbeat before commercial
+   AI turns on.
+6. Keep the public site, office app, and field app in the one Worker, with
+   separate routes and sessions (done).
+7. Preserve and test the existing lead intake contract (done for the current
+   survey).
 
 ### Data onboarding and import
 
-1. Move application and worker database traffic to transaction-capable
-   Supabase connections; keep migrations on a direct connection.
-2. Create a private `data-imports` bucket and a non-exposed import staging
-   schema.
+1. Keep application and queue traffic on the D1 binding. Apply migrations with
+   Wrangler, not through request traffic.
+2. Store import files in the private R2 bucket `strongfoam` and keep staged
+   rows out of any public response.
 3. Add item codes, item kinds, supplier, internal cost, and selling-price
    snapshots to immutable price-book revisions before importing products or
    labour rates.
@@ -2523,7 +2485,8 @@ policy and human review.
 4. Add session-version checks to Office and Field cookies so credential and
    access changes invalidate existing sessions.
 5. Record and display append-only user lifecycle events.
-6. Preserve these contracts when identity moves to Supabase Auth and RLS.
+6. Keep these contracts on the signed staff and field sessions. There is no
+   separate auth provider to migrate to.
 
 ### Usability pass
 
@@ -2570,8 +2533,9 @@ policy and human review.
 
 ### Commercial and operational expansion
 
-1. Finish organization authorization, audit, the Render worker, transactional
-   outbox, retry, and dead-letter visibility required by commercial files.
+1. Finish organization authorization, audit, queue retry, and dead-letter
+   visibility required by commercial files. The queue already exists. The
+   worker heartbeat and malware scanner do not.
 2. Add quarantined opportunity bid documents, immutable versions/links, text
    extraction, OCR, page/sheet citations, and human correction.
 3. Harden price-book items with immutable approved revisions, then add manual
@@ -2648,19 +2612,19 @@ operational monitoring, and user acceptance criteria.
 | Financial or status edits lack traceability | Append-only audit and version records |
 | Marketing performance declines as app grows | Maintain route, data, and bundle boundaries |
 | Trade-specific fields fragment the platform | Shared core entities plus configurable trade templates |
-| AI exposes another organization's records | Authorization prefilter, RLS, source-level ACLs, and adversarial tests |
+| AI exposes another organization's records | Authorization prefilter, organization checks on every query, and adversarial tests |
 | Prompt injection triggers an unsafe action | Narrow typed tools, server authorization, and untrusted-content boundaries |
 | AI creates duplicate or stale changes | Idempotency, optimistic locking, payload-bound approval, and undo |
 | Cross-platform releases create version skew | Versioned contracts and expand/contract deployment |
-| Supabase migration disrupts lead intake | Staging rehearsal, ID preservation, verification, and rollback window |
+| A later import disrupts lead intake | Rehearse on a separate database, preserve ids, verify counts, and keep a rollback export |
 | Spreadsheet import duplicates or mislinks records | Stable source keys, durable crosswalks, exact protected matches, human conflict resolution, and zero-orphan reconciliation |
 | Import fails after creating part of a project graph | Bounded batches, organization advisory lock, one transaction, injected-failure tests, and idempotent replay |
 | Spreadsheet PII or pricing is exposed | Private Storage, non-exposed staging schema, scoped authorization, audit redaction, and retention deletion |
 | Workforce spreadsheet creates insecure accounts | Reject password columns, create inactive identities, and require separate administrator activation |
 | Internal labour costs are mistaken for payroll wages | Generic estimating-rate items only; individual compensation requires a separate restricted model |
 | Raw or self-reported production creates a misleading worker ranking | Verify one authoritative production quantity, separate crew from individual attribution, normalize only comparable work, require a minimum sample, show quality context, and prohibit automated employment decisions |
-| Render worker stops during processing | Checkpointed jobs, graceful shutdown, retries, and dead-letter queue |
-| Infrastructure stores Canadian data outside Canada | Confirm contractual residency and transfer requirements before provisioning |
+| A queue job stops during processing | Idempotent handlers, retries, and the dead-letter queue |
+| Stored data leaves the United States | D1, R2, and the agent stay without a foreign jurisdiction. US storage is the accepted decision |
 
 ## 30. Open decisions
 
@@ -2682,7 +2646,9 @@ These decisions are required before their respective implementation stage:
 9. Organization defaults for markup, overhead, tax jurisdiction, approval
    thresholds above the required administrator approval, proposal expiry, and
    legal acceptance copy.
-10. Final data residency, retention, backup, and disaster-recovery policies.
+10. Data residency is decided: United States storage is acceptable, and a
+    Canada-only store is not required. Retention, backup, and disaster-recovery
+    policy are still open. D1 Time Travel covers the recent window.
 11. Which workbook/source system is authoritative after the initial cutover,
     who owns source-freeze sign-off, and whether recurring synchronization is
     needed.
@@ -2758,11 +2724,13 @@ These decisions are required before their respective implementation stage:
 | 2026-10-06 | Record deficiencies and rework as workforce quality | QAL-001 through QAL-007 store one deficiency or rework row per job and name. Quality is a separate label on the performance view. A missing source stays “not available.” Inspections stay out of the score. Efficiency and the unranked office list stay as they are |
 | 2026-10-06 | Run every model draft through one Cloudflare agent | `StrongfoamAgent` is one class with an instance per organization and record. Model calls use AI Gateway `strongfoam`. D1 stays the system of record. A person confirms. The agent does not set a price, send a message, or change the workforce score. AI-022 uses AI Search instead of pgvector |
 | 2026-10-06 | Measure plan takeoff after a person confirms the scale | AI-027 lets the agent propose a scale and one region. The server calculates square feet, linear feet, or a count. The model does not supply the stored quantity or the price. An unscaled sheet stays Takeoff required. AI-016 and AI-018 still cite written quantities only |
+| 2026-10-06 | Accept United States storage | Cloudflare cannot keep D1, R2, or Durable Objects inside Canada. The live database has no jurisdiction and the file bucket is in Eastern North America. That is accepted. Retention and restore testing stay open |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.43 | 2026-10-06 | Replaced the Vercel, Render, and Supabase architecture with the Cloudflare Worker, D1, R2, and queue that are deployed. United States storage is accepted. The delivery sequence no longer starts by provisioning Supabase |
 | 1.42 | 2026-10-06 | Reviewed the agent plan against the code. AI-016 and AI-018 are partly built and already store drafts in D1. Drafts stay in D1, not agent state. Plan takeoff adds page size, two-point calibration, a takeoff record, a vision model, and an evaluation set |
 | 1.41 | 2026-10-06 | Specified AI-027 plan takeoff. The agent proposes a scale and a region. The server calculates the quantity after a person confirms both. The model does not set the quantity or the price |
 | 1.40 | 2026-10-06 | Specified the Cloudflare agent runtime for the whole application. One `StrongfoamAgent` class, AI Gateway `strongfoam`, and D1 as the system of record. AI-022 retrieval is Cloudflare AI Search. The design and the implementation plan are linked from section 24 |

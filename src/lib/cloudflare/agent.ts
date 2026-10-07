@@ -1,41 +1,54 @@
 import { Agent } from "agents";
 import {
-  AI_GATEWAY_ID,
-  completeWithWorkersAi,
-  type ChatMessage,
+  completeThroughGateway,
+  type WorkersAi,
 } from "@/lib/cloudflare/gateway";
-
-export type StrongfoamAgentState = {
-  drafts: number;
-  lastModel: string;
-};
+import {
+  finishAgentRun,
+  startAgentRun,
+  type AgentDraftInput,
+  type StrongfoamAgentState,
+} from "@/lib/cloudflare/agent-session";
 
 type AgentEnv = {
-  AI: {
-    run: (
-      model: string,
-      input: { messages: ChatMessage[] },
-      options: { gateway: { id: string } },
-    ) => Promise<unknown>;
-  };
+  AI: WorkersAi;
   AI_GATEWAY_ID?: string;
-  AI_GATEWAY_MODEL?: string;
+  AI_GATEWAY_ACCOUNT_ID?: string;
+  AI_GATEWAY_API_KEY?: string;
 };
 
 export class StrongfoamAgent extends Agent<AgentEnv, StrongfoamAgentState> {
-  initialState: StrongfoamAgentState = { drafts: 0, lastModel: "" };
+  initialState: StrongfoamAgentState = { runs: [] };
 
-  async draft(input: { model: string; messages: ChatMessage[] }): Promise<string> {
-    const content = await completeWithWorkersAi({
-      ai: this.env.AI,
-      model: input.model || this.env.AI_GATEWAY_MODEL || "",
-      messages: input.messages,
-      gatewayId: this.env.AI_GATEWAY_ID || AI_GATEWAY_ID,
-    });
-    this.setState({
-      drafts: this.state.drafts + 1,
-      lastModel: input.model,
-    });
-    return content;
+  async draft(input: AgentDraftInput): Promise<string> {
+    this.setState(
+      startAgentRun(this.state, {
+        runId: input.runId,
+        purpose: input.purpose,
+        at: new Date().toISOString(),
+      }),
+    );
+    try {
+      const content = await completeThroughGateway({
+        ai: this.env.AI,
+        env: {
+          AI_GATEWAY_ID: this.env.AI_GATEWAY_ID,
+          AI_GATEWAY_ACCOUNT_ID: this.env.AI_GATEWAY_ACCOUNT_ID,
+          AI_GATEWAY_API_KEY: this.env.AI_GATEWAY_API_KEY,
+        },
+        model: input.model,
+        messages: input.messages,
+        json: input.json,
+      });
+      this.setState(
+        finishAgentRun(this.state, input.runId, "completed", new Date().toISOString()),
+      );
+      return content;
+    } catch (error) {
+      this.setState(
+        finishAgentRun(this.state, input.runId, "failed", new Date().toISOString()),
+      );
+      throw error;
+    }
   }
 }
