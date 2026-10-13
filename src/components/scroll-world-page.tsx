@@ -346,16 +346,19 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
 
       <section data-home-section="hero" data-hero id="hero" className="hero-act">
         <div className="hero-stage">
-          <Image
+          <video
             data-hero-media
-            src={model.cinematicMedia.hero}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
             className="hero-media"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster={model.cinematicMedia.heroPoster}
             aria-hidden="true"
-          />
+          >
+            <source src={model.cinematicMedia.heroVideo} type="video/mp4" />
+          </video>
           <div className="hero-corner-scrim" aria-hidden="true" />
           <div data-hero-copy className="hero-copy">
             <p data-hero-meta className="hero-label">
@@ -501,15 +504,19 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       </section>
 
       <section data-home-section="sectors" data-sectors id="sectors" className="sectors-act">
-        <Image
+        <video
           data-sector-media
-          src={model.cinematicMedia.sector}
-          alt=""
-          fill
-          sizes="100vw"
           className="sectors-media"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster={model.cinematicMedia.sectorPoster}
           aria-hidden="true"
-        />
+        >
+          <source src={model.cinematicMedia.sectorVideo} type="video/mp4" />
+        </video>
         <div className="sectors-column-scrim" aria-hidden="true" />
         <div data-sectors-copy className="sectors-copy">
           <p data-sector-line className="section-kicker">

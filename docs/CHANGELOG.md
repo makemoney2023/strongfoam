@@ -2,6 +2,9 @@
 
 ## 2026-10-13
 
+- **What changed** — Restored scroll-driven video in the homepage hero and sector chapters using muted 12 s derivatives of approved shortlist clips `IMG_9677.mov` and `IMG_3398.m4v`, with posters for reduced motion.
+- **Why** — The marketing-pages merge replaced the hero and sector videos with stills.
+
 - **What changed** — Removed the held admin address from public pages, kept reduced-motion text and the operations camera visible, aligned the homepage section list with the rendered Scroll Craft page, and kept held partner names on the server.
 - **Why** — Phase 3 and Phase 4 reviews found public content and motion fallbacks that did not match the publication rules.
 - **Code touchpoints** — `src/content/site.ts`, `src/content/partners.ts`, `src/content/partner-publication.ts`, `src/components/scroll-world-page.tsx`, `src/components/marketing/site-footer.tsx`, `src/app/globals.css`, `src/app/(marketing)/contact/page.tsx`, `src/app/(marketing)/request-estimate/page.tsx`.
