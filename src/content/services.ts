@@ -103,7 +103,7 @@ export const serviceContent: readonly ServiceContent[] = [
     ],
     cautions: [
       "System selection and required rating follow the listed design, project specification, member type, and manufacturer instructions.",
-      "Substrate condition, preparation, compatible primers, exposure, finish, and maintenance requirements must be verified for the selected product family.",
+      "We check substrate condition, preparation, primer compatibility, exposure, finish, and maintenance requirements against the selected product.",
     ],
   },
   {
@@ -135,7 +135,7 @@ export const serviceContent: readonly ServiceContent[] = [
     ],
     cautions: [
       "Membrane family, primer, substrate preparation, laps, terminations, and transitions follow the project specification and manufacturer instructions.",
-      "Product-family examples do not establish current certification, exclusivity, or applicator status.",
+      "We install the membrane system named in the specification, following the manufacturer's installation requirements.",
     ],
   },
   {
@@ -172,7 +172,7 @@ export const serviceContent: readonly ServiceContent[] = [
       },
     ],
     cautions: [
-      "A qualified review must confirm substrate condition, drainage, recover suitability, and the specified assembly.",
+      "Every roof is assessed for substrate condition, drainage, and recover suitability before work begins.",
       "Foam and protective coatings should not be applied over ice, frost, surface moisture, or visible dampness, or outside manufacturer weather limits.",
     ],
   },

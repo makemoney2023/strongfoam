@@ -45,7 +45,7 @@ export function SiteFooter() {
         </section>
 
         <section aria-labelledby="footer-locations">
-          <h2 id="footer-locations">Public location</h2>
+          <h2 id="footer-locations">Location</h2>
           {publicLocations.map((location) =>
             location.address ? (
               <address key={location.id}>

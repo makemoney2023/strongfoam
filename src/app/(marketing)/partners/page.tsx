@@ -8,9 +8,9 @@ import { assertMarketingClaimsSafe } from "@/content/claims";
 import { partnerRecords } from "@/content/partners";
 
 export const metadata: Metadata = {
-  title: "Approved Partner Relationships",
+  title: "Partners and Clients",
   description:
-    "Review Strong Foam supplier and client or contractor relationship sections governed by current-status and publication approvals.",
+    "The manufacturers Strong Foam installs and the builders and general contractors who trust our crews.",
   alternates: { canonical: "/partners" },
 };
 
@@ -29,8 +29,8 @@ export default function PartnersPage() {
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Partners" }]} />
       <InteriorHero
         eyebrow="Relationships"
-        title="Approved partner relationships"
-        description="Third-party marks appear only after identity, current relationship, official artwork, and publication permission are approved."
+        title="Strong relationships"
+        description="We work with leading manufacturers and general contractors across Ontario. Strong People. Strong Service. Strong Results."
         media={heroMedia["partners"]}
       />
       <section
@@ -39,12 +39,11 @@ export default function PartnersPage() {
       >
         <div className="marketing-section__intro">
           <p className="section-kicker">Suppliers</p>
-          <h2 id="supplier-partners-title">Approved supplier relationships</h2>
+          <h2 id="supplier-partners-title">Manufacturers we install</h2>
         </div>
         <PartnerGrid
           partners={suppliers}
           columns={3}
-          emptyMessage="No supplier names or logos are approved for publication yet."
         />
       </section>
       <section
@@ -54,17 +53,14 @@ export default function PartnersPage() {
         <div className="marketing-section__intro">
           <p className="section-kicker">Clients and contractors</p>
           <h2 id="client-partners-title">
-            Approved client and contractor relationships
+            Trusted by builders across Ontario
           </h2>
         </div>
-        <PartnerGrid
-          partners={clientContractors}
-          emptyMessage="No client or contractor names or logos are approved for publication yet."
-        />
+        <PartnerGrid partners={clientContractors} />
       </section>
       <CtaBand
         heading="Start a project conversation"
-        description="Contact Strong Foam for public company information or use the shared intake for a project estimate."
+        description="Tell us about your project, or send the drawings for an estimate."
         primary={{ label: "Request an estimate", href: "/request-estimate" }}
         secondary={{ label: "Contact Strong Foam", href: "/contact" }}
       />

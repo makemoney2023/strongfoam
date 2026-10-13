@@ -128,6 +128,11 @@ describe("server-compatible marketing components", () => {
     expect(populated).toContain("Approved fixture");
     expect(populated).not.toContain("Held fixture");
     expect(empty).toContain("Partner approvals are in progress.");
+    expect(
+      renderToStaticMarkup(
+        <PartnerGrid partners={partnerRecords.filter((p) => p.publicationStatus === "hold")} />,
+      ),
+    ).toBe("");
   });
 
   it("renders only locations with every public approval", () => {

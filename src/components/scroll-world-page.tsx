@@ -459,7 +459,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
               <p className="section-kicker">Capabilities</p>
               <h2>Four service paths.<br />One field mindset.</h2>
               <p>
-                Vertical scrolling opens the approved public service routes.
+                Insulation, fire protection, air barriers, and roofing, delivered by one Ontario crew.
               </p>
             </div>
             {model.serviceLinks.map((service, index) => (
@@ -623,7 +623,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
           ))}
         </div>
         <a className="projects-note" href="/projects">
-          Explore approved project photography →
+          Explore our project work →
         </a>
       </section>
 
@@ -635,16 +635,13 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       >
         <div className="page-rail">
           <p className="section-kicker">Partners</p>
-          <h2 className="section-heading">Approved relationships only.</h2>
+          <h2 className="section-heading">Trusted by builders across Ontario.</h2>
           <p className="section-support">
-            Third-party marks appear only after identity, current relationship,
-            official artwork, and publication permission are confirmed.
+            We work with leading manufacturers and general contractors to deliver
+            envelope and fire-protection scopes on ICI and multi-unit projects.
           </p>
         </div>
-        <PartnerMarquee
-          partners={model.partners}
-          emptyMessage="Partner approvals are in progress; no held marks are published."
-        />
+        <PartnerMarquee partners={model.partners} />
         <div className="page-rail">
           <a className="projects-note" href="/partners">
             See every partner →

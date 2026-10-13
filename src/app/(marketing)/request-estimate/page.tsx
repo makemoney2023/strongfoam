@@ -15,7 +15,7 @@ import { site } from "@/content/site";
 export const metadata: Metadata = {
   title: "Request an Estimate or Ask a Question",
   description:
-    "Start a project estimate with Strong Foam or use the public contact channels for a general inquiry about the company and its services.",
+    "Start a project estimate with Strong Foam or call or email our team for a general inquiry about the company and its services.",
   alternates: { canonical: "/request-estimate" },
   openGraph: {
     title: "Request an Estimate or Ask a Question",
@@ -38,9 +38,9 @@ export default function RequestEstimatePage() {
   return (
     <main id="main-content" className="flex-1 bg-[color:var(--sf-ink)]">
       <InteriorHero
-        eyebrow="Shared intake"
+        eyebrow="Get started"
         title="Request an estimate or ask a question"
-        description="Use the survey below for a project estimate. For a general inquiry, call or email the public team."
+        description="Use the survey below for a project estimate. For a general inquiry, call or email our team."
         media={heroMedia["request-estimate"]}
       />
       <section
@@ -48,7 +48,7 @@ export default function RequestEstimatePage() {
         aria-labelledby="request-paths-title"
       >
         <div className="marketing-section__intro">
-          <p className="section-kicker">Choose the current path</p>
+          <p className="section-kicker">How can we help?</p>
           <h2 id="request-paths-title">Project details or a general question</h2>
         </div>
         <div className="marketing-card-grid">
