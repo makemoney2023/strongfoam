@@ -64,6 +64,21 @@ export const projectRecords: readonly ProjectRecord[] = [
     publicationReason:
       "The media audit approved this first-party image and its generic trade description.",
   },
+  {
+    id: "project-completed-exterior",
+    category: "building-envelope",
+    approvedManifestReference: "media-33a625218ed2af16",
+    media: {
+      sourcePath: "SFI- IMAGES/IMG_7930.jpeg",
+      alt: "Completed multi-storey building exterior",
+      decorative: false,
+    },
+    permissionSafeCaption:
+      "Completed multi-storey building exterior after envelope work.",
+    publicationStatus: "publish",
+    publicationReason:
+      "The media audit approved this first-party project-gallery image.",
+  },
 ] as const;
 
 assertMarketingClaimsSafe(projectRecords, "typed project content");

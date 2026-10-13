@@ -7,6 +7,7 @@ export const MEDIA_FOLDERS = [
   "backgrounds",
   "brand",
   "projects",
+  "services",
 ];
 
 /**

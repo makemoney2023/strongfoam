@@ -26,9 +26,9 @@ describe("site content for scroll overlays", () => {
   });
 
   it("exposes light and dark brand logos for app and marketing chrome", () => {
-    expect(site.brandLogos.onLight).toBe("/media/brand/SFI-Logo-Jpeg-EDIT.jpg");
+    expect(site.brandLogos.onLight).toBe("/media/brand/strongfoam-logo.svg");
     expect(site.brandLogos.onDark).toBe(
-      "/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png",
+      "/media/brand/strongfoam-logo.svg",
     );
   });
 

@@ -2,6 +2,9 @@
 
 ## 2026-10-13
 
+- **What changed** — Added approved field photos and portrait spray-foam videos to the spray foam and air-vapour barrier pages, a third approved project image, an approved spray-foam process image on the homepage, and vector Strong Foam / Strong Fire lockups from the supplied PDF masters.
+- **Why** — The supplied media review approved these files; interior pages had no imagery and the header used a 280 px raster logo.
+
 - **What changed** — Restored scroll-driven video in the homepage hero and sector chapters using muted 12 s derivatives of approved shortlist clips `IMG_9677.mov` and `IMG_3398.m4v`, with posters for reduced motion.
 - **Why** — The marketing-pages merge replaced the hero and sector videos with stills.
 

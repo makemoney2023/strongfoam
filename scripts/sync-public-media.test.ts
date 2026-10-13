@@ -11,6 +11,7 @@ describe("syncPublicMedia", () => {
       "backgrounds",
       "brand",
       "projects",
+      "services",
     ]);
   });
 

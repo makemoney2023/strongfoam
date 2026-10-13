@@ -493,7 +493,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
           <figure data-process-image className="process-image">
             <Image
               src={model.cinematicMedia.process}
-              alt="Commercial building envelope work in progress"
+              alt={model.cinematicMedia.processAlt}
               fill
               sizes="(max-width: 900px) 100vw, 48vw"
               className="object-cover"
@@ -643,9 +643,9 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       <section data-home-section="contact" id="contact" className="contact-act">
         <div className="contact-inner">
           <Image
-            src="/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png"
-            width={280}
-            height={67}
+            src={site.brandLogos.onDark}
+            width={252}
+            height={52}
             alt="Strong Foam Insulation"
             className="contact-logo"
           />

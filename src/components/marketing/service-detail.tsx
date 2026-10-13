@@ -9,6 +9,8 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
 import type { ServiceContent } from "@/content/services";
+import { ServiceMediaGallery } from "@/components/marketing/service-media";
+import { brandLockups, serviceMedia } from "@/content/page-media";
 
 export function ServiceMarketingPage({
   service,
@@ -29,7 +31,26 @@ export function ServiceMarketingPage({
         title={service.title}
         description={service.summary}
       />
+      {service.endorsement ? (
+        <div className="page-rail service-lockup">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG lockup */}
+          <img
+            src={brandLockups.strongFire.src}
+            width={brandLockups.strongFire.width}
+            height={brandLockups.strongFire.height}
+            alt="Strong Fire Protection"
+            className="service-lockup__img"
+          />
+        </div>
+      ) : null}
       <ServiceDetail service={service} />
+      {serviceMedia[service.slug] ? (
+        <ServiceMediaGallery
+          slug={service.slug}
+          title={service.title}
+          media={serviceMedia[service.slug]!}
+        />
+      ) : null}
       <CtaBand
         heading={`Discuss your ${service.title.toLowerCase()} scope`}
         description="Share the drawings, specification, access, and schedule details needed to review project fit."

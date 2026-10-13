@@ -64,7 +64,9 @@ commit in this repo must use author and committer
 - `SFI-Logo-Jpeg-EDIT_00-removebg-preview.png`: real Strong Foam mark used
   in the header and estimating close on dark surfaces.
 - `IMG_7880.jpeg`: approved commercial-envelope hero and project evidence.
-- `IMG_7879.jpg`: approved field-process, sector, and project evidence.
+- `IMG_7879.jpg`: approved project evidence and reduced-motion sector still.
+- `services/IMG_9636-1600.webp`: approved spray-foam field-process image.
+- `brand/strongfoam-logo.svg`: vector Strong Foam lockup from the supplied PDF master.
 - Hero video: `animated/16x9/sf-hero-envelope-spray.mp4` (+ `-poster.jpg`),
   a 12 s muted loop cut from approved shortlist `IMG_9677.mov` (0:01–0:13):
   spray foam applied to a high-rise exterior wall.

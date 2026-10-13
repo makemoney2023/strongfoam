@@ -1,3 +1,4 @@
+import { processImage } from "@/content/page-media";
 import {
   filterPublishablePartners,
   partnerRecords,
@@ -38,6 +39,7 @@ const PUBLIC_PROJECT_IMAGE_PATHS: Partial<
 > = {
   "project-commercial-envelope": "/media/projects/IMG_7879.jpg",
   "project-multi-storey-envelope": "/media/projects/IMG_7880.jpeg",
+  "project-completed-exterior": "/media/projects/IMG_7930-1600.webp",
 };
 
 export type MarketingProject = ProjectRecord & {
@@ -110,7 +112,8 @@ export function buildMarketingPageModel({
     projects: selectedProjects,
     cinematicMedia: {
       hero: heroProject.publicImagePath,
-      process: fieldProject.publicImagePath,
+      process: processImage.base + "-1600.webp",
+      processAlt: processImage.alt,
       sector: fieldProject.publicImagePath,
       heroVideo: HOMEPAGE_VIDEOS.hero.src,
       heroPoster: HOMEPAGE_VIDEOS.hero.poster,
