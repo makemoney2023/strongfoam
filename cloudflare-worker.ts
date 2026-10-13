@@ -3,7 +3,9 @@ import { runWithCloudflareRequestContext } from "./.open-next/cloudflare/init.js
 import { StrongfoamAgent } from "./src/lib/cloudflare/agent";
 import { dispatchJobBatch, type JobMessage } from "./src/lib/cloudflare/jobs";
 import { schedulePlan } from "./src/lib/ops/automation-schedule";
+import type { CloudflareBindings } from "./src/lib/cloudflare/platform";
 import type { WorkerHandler } from "./src/worker/registry";
+import { bucketPut, handleRoutingEmail, type RoutingMessage } from "./src/worker/inbound-email";
 
 type QueueMessage = {
   body: JobMessage;
@@ -47,6 +49,27 @@ export default {
           if (!handler) throw new Error(`${message.kind} is not registered.`);
           await handler({ id: message.kind, data: message.data });
         }
+      },
+    );
+  },
+  async email(message: RoutingMessage, env: unknown, ctx: unknown) {
+    await runWithCloudflareRequestContext(
+      new Request(`${BACKGROUND_REQUEST_URL}email`),
+      env,
+      ctx,
+      async () => {
+        const bindings = env as CloudflareBindings;
+        await handleRoutingEmail(message, {
+          putObject: bucketPut(bindings),
+          enqueue: async (proposal) => {
+            if (!bindings.JOBS?.send) return false;
+            await bindings.JOBS.send({
+              kind: "leads.inbound",
+              data: { proposal },
+            });
+            return true;
+          },
+        });
       },
     );
   },

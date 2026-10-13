@@ -204,6 +204,7 @@ Cron triggers, in UTC:
 - `30 21 * * *` fans out daily-report drafts (about 17:30 EDT)
 
 Those drafts are proposals. They do not send mail, set a price, or approve.
+Inbound mail is the Worker `email` handler. Email Routing must send `estimates@` to the `strongfoam` Worker. The handler stores one `leads.inbound` proposal per message, writes allowed PDF and image attachments to R2 under `inbound/{organizationId}/{dedupeKey}/`, and does not reply, forward, or send. Accepting the match on `/app/requests/inbound` records an estimate request with `notifyStatus` `held`. An administrator confirms the stored draft before `EMAIL.send` runs.
 Commercial AI stays disabled until the heartbeat is newer than 3 minutes.
 The Analytics Engine binding `AI_USAGE` writes dataset `ai_usage`. Set
 `AI_GATEWAY_FALLBACK_MODEL=off` to stop the second model attempt. Leave

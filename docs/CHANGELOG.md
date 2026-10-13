@@ -2,6 +2,13 @@
 
 ## 2026-10-13
 
+- **What changed** — Email Routing can deliver mail to the Worker `email` handler. A repeated message stores one proposal, allowed attachments go to R2, and a small-model triage keeps only facts that appear in the message. The review screen records an estimate request without sending mail. An administrator confirms the first-reply draft before it is sent.
+- **Why** — Estimating mail should become a request a person accepts, and the first reply should wait for the owner.
+- **Code touchpoints** — `src/lib/leads/inbound-mail.ts`, `src/lib/leads/inbound-store.ts`, `src/worker/inbound-email.ts`, `cloudflare-worker.ts`, `src/app/app/requests/inbound/page.tsx`.
+- **Data-flow impact** — Intake does not call `reply`, `forward`, `setReject`, or `EMAIL.send`. Accept sets `notifyStatus` to `held`.
+- **API / schema impact** — No migration. Proposals are `background_jobs` rows of kind `leads.inbound`.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 159 files, 869 tests, 1 skipped.
+
 - **What changed** — Model calls through AI Gateway now carry metadata, a timeout, retries, an optional cache key, and a fallback model chosen by task. Usage is written to Analytics Engine. A golden-set harness runs offline. Cron fans out daily-report, morning-brief, and stale-sweep proposals. Bid extraction tries Workers AI `toMarkdown`. ClamAV fails closed on Workers. The pg-boss process is gone. Turnstile protects `/request-estimate` and `/contact` when keys exist. Estimate versions explain what changed (AI-017).
 - **Why** — Drafts were one model with no per-call policy, schedules did not run, and the public forms had no bot check.
 - **Code touchpoints** — `src/lib/cloudflare/gateway.ts`, `src/lib/cloudflare/model-routing.ts`, `src/lib/ops/automation-schedule.ts`, `src/lib/ops/estimate-revision.ts`, `src/lib/leads/turnstile.ts`, `cloudflare-worker.ts`, `wrangler.jsonc`.

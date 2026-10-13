@@ -63,9 +63,14 @@ export default async function EstimateRequestsPage({
         title="Estimate requests"
         description="Review survey submissions, assign an owner, and keep the next action visible."
         actions={
-          <p className="text-sm text-muted-foreground">
-            {requests.length} request{requests.length === 1 ? "" : "s"}
-          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/app/requests/inbound" className="text-sm underline underline-offset-4">
+              Inbound mail
+            </Link>
+            <p className="text-sm text-muted-foreground">
+              {requests.length} request{requests.length === 1 ? "" : "s"}
+            </p>
+          </div>
         }
       />
 
