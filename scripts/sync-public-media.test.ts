@@ -11,6 +11,7 @@ describe("syncPublicMedia", () => {
       "animated",
       "backgrounds",
       "brand",
+      "heroes",
       "home",
       "partners",
       "projects",

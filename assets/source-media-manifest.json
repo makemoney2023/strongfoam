@@ -6771,13 +6771,13 @@
       "decision": {
         "id": "media-17b8dd1165128f03",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -6785,22 +6785,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Completed mid-rise envelope beside a building wrapped in green barrier",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/projects."
       }
     },
     {
@@ -10659,13 +10659,13 @@
       "decision": {
         "id": "media-2a0551e0c8f2f086",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -10673,22 +10673,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Flat commercial roof deck with rooftop guardrails",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/spf-roofing."
       }
     },
     {
@@ -10713,13 +10713,13 @@
       "decision": {
         "id": "media-a0f7ce51bffccac7",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -10727,22 +10727,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Aerial view over a Waterloo Region neighbourhood from a high-rise jobsite",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/locations."
       }
     },
     {
@@ -11037,13 +11037,13 @@
       "decision": {
         "id": "media-9e2130e6b0c9082e",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -11051,22 +11051,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Exposed steel roof joists and deck awaiting fire protection",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/fire-protection."
       }
     },
     {
@@ -21537,13 +21537,13 @@
       "decision": {
         "id": "media-6ed87f94eadb7b94",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -21551,22 +21551,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Applicator on a lift detailing a blue air barrier on a mid-rise exterior",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/request-estimate."
       }
     },
     {
@@ -23999,13 +23999,13 @@
       "decision": {
         "id": "media-d27474e5b380f70b",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -24013,22 +24013,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Crew on a lift detailing a green and blue air barrier on a multi-storey wall",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/air-vapour."
       }
     },
     {
@@ -27405,13 +27405,13 @@
       "decision": {
         "id": "media-e9dd51eb4d81b6fd",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -27419,22 +27419,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Strong Foam box truck parked outside a commercial building",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/about."
       }
     },
     {
@@ -27675,13 +27675,13 @@
       "decision": {
         "id": "media-3f220138c17caeb3",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -27689,22 +27689,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Strong Foam site banner on a multi-unit construction project",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/partners."
       }
     },
     {
@@ -28107,13 +28107,13 @@
       "decision": {
         "id": "media-403ed9815ca8e271",
         "category": "project",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
@@ -28121,22 +28121,22 @@
           "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Strong Foam truck on a residential jobsite",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/contact."
       }
     },
     {
@@ -28833,36 +28833,36 @@
       "decision": {
         "id": "media-0f1b35e06bec45d6",
         "category": "video",
-        "placement": "none",
+        "placement": "page-hero",
         "quality": {
-          "resolution": "approved-for-source-review",
-          "crop": "reviewed",
-          "exposure": "reviewed",
-          "blur": "reviewed",
-          "orientation": "reviewed"
+          "resolution": "approved",
+          "crop": "approved",
+          "exposure": "approved",
+          "blur": "approved",
+          "orientation": "approved"
         },
         "rights": {
           "ownership": "owner-supplied-first-party",
           "publicationPermission": "approved",
-          "basis": "Owner blanket approval on 2026-10-13 for every file in the supplied SFI WEBSITE Google Drive folder."
+          "basis": "Owner-supplied first-party media approved by the user instruction to incorporate all useful material after visual review."
         },
         "relationshipApproval": {
-          "identity": "not-applicable",
+          "identity": "known-first-party",
           "currentRelationship": "not-applicable"
         },
         "safetyPrivacy": {
-          "ppe": "reviewed-not-cleared",
-          "faces": "reviewed-not-cleared",
-          "plates": "reviewed-not-cleared",
-          "signage": "reviewed-not-cleared",
-          "addresses": "reviewed-not-cleared",
-          "sensitiveDetails": "reviewed-not-cleared",
-          "result": "not-cleared-for-publication"
+          "ppe": "approved-or-not-applicable",
+          "faces": "none-distant-or-obscured",
+          "plates": "none-readable",
+          "signage": "none-sensitive-readable",
+          "addresses": "none-readable",
+          "sensitiveDetails": "none-observed",
+          "result": "approved"
         },
-        "alt": "",
-        "decorative": true,
-        "status": "hold",
-        "reason": "Owner-approved 2026-10-13; not yet placed on the site."
+        "alt": "Applicator spraying foam insulation into exposed roof framing",
+        "decorative": false,
+        "status": "publish",
+        "reason": "Owner-approved 2026-10-13; published as heroes/services."
       }
     },
     {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import { ProjectGallery } from "@/components/marketing/project-gallery";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { projectRecords } from "@/content/projects";
@@ -23,6 +24,7 @@ export default function ProjectsPage() {
         eyebrow="Projects"
         title="Approved project photography"
         description="This gallery uses reviewed first-party media and generic trade descriptions without unapproved client names, addresses, or performance claims."
+        media={heroMedia["projects"]}
       />
       <section
         className="marketing-section page-rail"

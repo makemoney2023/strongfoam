@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ export default function ServicesPage() {
         eyebrow="Services"
         title="Specialty insulation and fire-protection services"
         description="Four public service families connect building-envelope and passive-fire scopes to project specifications, assemblies, and site conditions."
+        media={heroMedia["services"]}
       />
       <section
         className="marketing-section page-rail"

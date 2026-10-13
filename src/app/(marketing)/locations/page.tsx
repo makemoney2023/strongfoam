@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import { LocationCards } from "@/components/marketing/location-cards";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { locationRecords } from "@/content/marketing-governance";
@@ -23,6 +24,7 @@ export default function LocationsPage() {
         eyebrow="Locations"
         title="Strong Foam locations"
         description="Only current locations with approved public labels, addresses, active status, and service wording appear here."
+        media={heroMedia["locations"]}
       />
       <section
         className="marketing-section page-rail"

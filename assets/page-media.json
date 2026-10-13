@@ -411,6 +411,156 @@
    "manifestId": "media-9d0f126b3c49539a",
    "width": 1600,
    "height": 1200
+  },
+  {
+   "id": "hero-services",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9575.mov",
+   "out": "heroes/services",
+   "alt": "Applicator spraying foam insulation into exposed roof framing",
+   "manifestId": "media-0f1b35e06bec45d6",
+   "start": 8,
+   "duration": 12,
+   "height": 720,
+   "width": 1280
+  },
+  {
+   "id": "hero-spray-foam",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9574.mov",
+   "out": "heroes/spray-foam",
+   "alt": "Technician applying spray foam in a wood-framed room",
+   "manifestId": "media-d212e319fcbeb81d",
+   "start": 4,
+   "duration": 12,
+   "height": 720,
+   "width": 1280
+  },
+  {
+   "id": "hero-fire-protection",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_0572.jpeg",
+   "out": "heroes/fire-protection",
+   "alt": "Exposed steel roof joists and deck awaiting fire protection",
+   "manifestId": "media-9e2130e6b0c9082e",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-air-vapour",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_8002.jpeg",
+   "out": "heroes/air-vapour",
+   "alt": "Crew on a lift detailing a green and blue air barrier on a multi-storey wall",
+   "manifestId": "media-d27474e5b380f70b",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "hero-spf-roofing",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_00000012.jpg",
+   "out": "heroes/spf-roofing",
+   "alt": "Flat commercial roof deck with rooftop guardrails",
+   "manifestId": "media-2a0551e0c8f2f086",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
+  },
+  {
+   "id": "hero-projects",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5919 (1).jpeg",
+   "out": "heroes/projects",
+   "alt": "Completed mid-rise envelope beside a building wrapped in green barrier",
+   "manifestId": "media-17b8dd1165128f03",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1272
+  },
+  {
+   "id": "hero-partners",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9428 2.jpeg",
+   "out": "heroes/partners",
+   "alt": "Strong Foam site banner on a multi-unit construction project",
+   "manifestId": "media-3f220138c17caeb3",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-about",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9001.jpeg",
+   "out": "heroes/about",
+   "alt": "Strong Foam box truck parked outside a commercial building",
+   "manifestId": "media-e9dd51eb4d81b6fd",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-locations",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_00000013.jpg",
+   "out": "heroes/locations",
+   "alt": "Aerial view over a Waterloo Region neighbourhood from a high-rise jobsite",
+   "manifestId": "media-a0f7ce51bffccac7",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
+  },
+  {
+   "id": "hero-contact",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9558.jpeg",
+   "out": "heroes/contact",
+   "alt": "Strong Foam truck on a residential jobsite",
+   "manifestId": "media-403ed9815ca8e271",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "hero-request-estimate",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_7853.jpeg",
+   "out": "heroes/request-estimate",
+   "alt": "Applicator on a lift detailing a blue air barrier on a mid-rise exterior",
+   "manifestId": "media-6ed87f94eadb7b94",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
   }
  ]
 }

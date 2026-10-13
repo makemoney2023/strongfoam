@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EstimateSurvey } from "@/components/estimate-survey/estimate-survey";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import {
   Card,
   CardContent,
@@ -40,6 +41,7 @@ export default function RequestEstimatePage() {
         eyebrow="Shared intake"
         title="Request an estimate or ask a question"
         description="Use the survey below for a project estimate. For a general inquiry, call or email the public team."
+        media={heroMedia["request-estimate"]}
       />
       <section
         className="marketing-section page-rail"

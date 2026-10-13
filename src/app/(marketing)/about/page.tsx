@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import {
   Card,
   CardContent,
@@ -38,6 +39,7 @@ export default function AboutPage() {
         eyebrow="Company"
         title="About Strong Foam"
         description={companyContent.story}
+        media={heroMedia["about"]}
       />
       <section
         className="marketing-section page-rail"

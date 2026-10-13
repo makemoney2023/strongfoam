@@ -172,6 +172,21 @@ export const railImages: Record<ServiceRouteSlug, ResponsiveImage> = {
   "spf-roofing": planImage("rail-spf-roofing"),
 };
 
+/** One page-topic hero per interior page (image or 12 s muted loop). */
+export const heroMedia = {
+  services: planVideo("hero-services"),
+  "spray-foam-insulation": planVideo("hero-spray-foam"),
+  "fire-protection": planImage("hero-fire-protection"),
+  "air-vapour-barriers": planImage("hero-air-vapour"),
+  "spf-roofing": planImage("hero-spf-roofing"),
+  projects: planImage("hero-projects"),
+  partners: planImage("hero-partners"),
+  about: planImage("hero-about"),
+  locations: planImage("hero-locations"),
+  contact: planImage("hero-contact"),
+  "request-estimate": planImage("hero-request-estimate"),
+} as const;
+
 export const aboutImages: readonly ResponsiveImage[] = [
   planImage("about-truck"),
   planImage("about-site-banner"),
