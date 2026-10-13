@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { PhoneIcon } from "lucide-react";
 import { CalendlyEmbed } from "@/components/estimate-survey/calendly-embed";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { site } from "@/content/site";
 import { getLeadById } from "@/lib/leads/adapters";
 import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Request received",
@@ -51,16 +50,16 @@ export default async function ThanksPage({
           </p>
         )}
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <a
-            href={`tel:${site.phoneE164}`}
-            className={cn(
-              buttonVariants({ size: "lg", variant: "outline" }),
-              "brand-button brand-button--outline",
-            )}
+          <Button
+            render={<a href={`tel:${site.phoneE164}`} />}
+            nativeButton={false}
+            size="lg"
+            variant="outline"
+            className="brand-button brand-button--outline"
           >
             <PhoneIcon aria-hidden="true" />
             {site.phoneDisplay}
-          </a>
+          </Button>
           <a
             href={`mailto:${site.emailEstimating}`}
             className="text-sm text-[color:var(--sf-cyan)] underline-offset-4 hover:underline"

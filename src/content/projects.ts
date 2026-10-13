@@ -76,6 +76,11 @@ type ManifestRecord = {
     decorative: boolean;
     status: "publish" | "hold" | "duplicate" | "reject";
   };
+  derivatives: readonly {
+    profile: string;
+    width: number;
+    publicDestination: string;
+  }[];
 };
 
 const approvedManifestRecords = new Map(
@@ -103,4 +108,22 @@ export function filterPublishableProjects(
       );
     },
   );
+}
+
+export function publicProjectImagePath(
+  record: ProjectRecord,
+  preferredProfile: "gallery" | "hero" = "gallery",
+): `/media/projects/${string}` | null {
+  const manifestRecord = approvedManifestRecords.get(
+    record.approvedManifestReference,
+  );
+  const candidates = manifestRecord?.derivatives
+    .filter((derivative) => derivative.profile === preferredProfile)
+    .sort((left, right) => right.width - left.width);
+  const selected = candidates?.[0];
+
+  if (!selected?.publicDestination.startsWith("projects/generated/")) {
+    return null;
+  }
+  return `/media/projects/${selected.publicDestination.slice("projects/".length)}`;
 }

@@ -1,34 +1,44 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { assertMarketingClaimsSafe } from "@/content/claims";
 import { site } from "@/content/site";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/contact",
   title: "Contact Strong Foam",
   description:
     "Call or email Strong Foam for approved public company information, project-estimating questions, and the shared request intake.",
-  alternates: { canonical: "/contact" },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /contact");
+});
 
 export default function ContactPage() {
+  const description =
+    "Use the public channels below for company questions, estimating coordination, or the shared project intake.";
+  const jsonLd = marketingPageGraph({
+    path: "/contact",
+    name: "Contact Strong Foam",
+    description,
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Contact" }],
+    includeLocalBusiness: true,
+  });
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Contact" }]} />
       <InteriorHero
         eyebrow="Contact"
         title="Contact Strong Foam"
-        description="Use the public channels below for company questions, estimating coordination, or the shared project intake."
+        description={description}
       />
       <section
         className="marketing-section page-rail"

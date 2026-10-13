@@ -48,7 +48,7 @@ function reject(reason: string): never {
 }
 
 function feetPerPoint(scale: TakeoffScale, page: TakeoffInput["page"]): number {
-  if (!scale.confirmed || scale.method === "nts") reject("scale-unconfirmed");
+  if (scale.method === "nts" || !scale.confirmed) reject("scale-unconfirmed");
   if (scale.method === "title_block") {
     if (scale.paperInches <= 0 || scale.realFeet <= 0) reject("scale-unconfirmed");
     return scale.realFeet / scale.paperInches / POINTS_PER_INCH;

@@ -899,10 +899,18 @@ npx vitest run \
 
 ### Framework documentation gate
 
-- [ ] Before editing metadata code, read the installed Next.js 16.3.8 guides
+- [x] Before editing metadata code, read the installed Next.js 16.3.8 guides
   under `node_modules/next/dist/docs/` for metadata, sitemap, robots, route
   groups, and image behavior.
-- [ ] Record the exact guide paths consulted in the implementation review.
+- [x] Record the exact guide paths consulted in the implementation review.
+
+Implementation review — framework guides consulted:
+
+- `node_modules/next/dist/docs/01-app/01-getting-started/14-metadata-and-og-images.md`
+- `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/01-metadata/sitemap.md`
+- `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/01-metadata/robots.md`
+- `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route-groups.md`
+- `node_modules/next/dist/docs/01-app/01-getting-started/12-images.md`
 
 ### Files
 
@@ -921,19 +929,19 @@ npx vitest run \
 
 ### 6.1 Schema graph tests
 
-- [ ] Write failing tests for stable `Organization` and `WebSite` IDs and
+- [x] Write failing tests for stable `Organization` and `WebSite` IDs and
   applicable `LocalBusiness`, `Service`, `FAQPage`, `BreadcrumbList`,
   `ContactPoint`, and `WebPage` nodes.
-- [ ] Assert all URLs are canonical `https://strongfoam.com` URLs.
-- [ ] Assert service schema uses visible service copy and stored/display
+- [x] Assert all URLs are canonical `https://strongfoam.com` URLs.
+- [x] Assert service schema uses visible service copy and stored/display
   mappings correctly.
-- [ ] Assert held locations, unapproved partners, internal-only email
+- [x] Assert held locations, unapproved partners, internal-only email
   recipients, and banned claims cannot enter JSON-LD.
-- [ ] Implement composable graph helpers in `src/lib/site-schema.ts`.
-- [ ] Run each completed JSON-LD graph through
+- [x] Implement composable graph helpers in `src/lib/site-schema.ts`.
+- [x] Run each completed JSON-LD graph through
   `assertMarketingClaimsSafe(graph, "json-ld")` from
   `src/content/claims.ts`.
-- [ ] Run:
+- [x] Run:
 
 ```bash
 npx vitest run src/lib/site-schema.test.ts src/content/site.test.ts
@@ -941,24 +949,24 @@ npx vitest run src/lib/site-schema.test.ts src/content/site.test.ts
 
 ### 6.2 Metadata, sitemap, and robots
 
-- [ ] Extend the route matrix with failing assertions for unique title,
+- [x] Extend the route matrix with failing assertions for unique title,
   description, canonical, Open Graph, and Twitter metadata using approved
   media.
-- [ ] In `src/app/(marketing)/request-estimate/page.test.tsx`, assert the
+- [x] In `src/app/(marketing)/request-estimate/page.test.tsx`, assert the
   request page's title, description, canonical, Open Graph, and Twitter data
   explicitly describe both estimate and general-inquiry paths and reference
   only approved media.
-- [ ] Add failing tests in `src/app/sitemap.test.ts` for every indexable
+- [x] Add failing tests in `src/app/sitemap.test.ts` for every indexable
   marketing route and exclusion of `/request-estimate/thanks`, staff, field,
   proposal-token, and API routes.
-- [ ] Add failing tests in `src/app/robots.test.ts` that permit public
+- [x] Add failing tests in `src/app/robots.test.ts` that permit public
   marketing routes and preserve protection/exclusion for nonpublic surfaces.
-- [ ] Implement `src/app/sitemap.ts`, `src/app/robots.ts`, root defaults, and
+- [x] Implement `src/app/sitemap.ts`, `src/app/robots.ts`, root defaults, and
   route-specific metadata.
-- [ ] Run every completed metadata object through
+- [x] Run every completed metadata object through
   `assertMarketingClaimsSafe(metadata, "metadata")`.
-- [ ] Add page-specific JSON-LD scripts generated from typed content.
-- [ ] Run:
+- [x] Add page-specific JSON-LD scripts generated from typed content.
+- [x] Run:
 
 ```bash
 npx vitest run \
@@ -987,18 +995,18 @@ npx vitest run \
 
 ### 7.1 Derivative contract
 
-- [ ] Add failing audit tests that every published media reference has a
+- [x] Add failing audit tests that every published media reference has a
   source master, expected derivative dimensions/format, public destination,
   alt/decorative decision, and existing output file.
-- [ ] Define explicit derivative profiles for hero, section, card, gallery,
+- [x] Define explicit derivative profiles for hero, section, card, gallery,
   logo, poster, and social-share use in the audit script.
-- [ ] Use `sharp` for image resize/format conversion and metadata stripping.
+- [x] Use `sharp` for image resize/format conversion and metadata stripping.
   Use `ffmpeg` for MP4/WebM transcodes, poster extraction, and removal of unused
   audio; use `ffprobe` to verify codec, dimensions, duration, and audio streams.
-- [ ] Generate derivatives only for `publish` records; assert `hold`,
+- [x] Generate derivatives only for `publish` records; assert `hold`,
   `duplicate`, and `reject` records never produce public outputs.
 - [ ] Preserve source masters in curated `assets/` folders.
-- [ ] Run:
+- [x] Run:
 
 ```bash
 npx vitest run \
@@ -1018,7 +1026,7 @@ npx vitest run \
 
 ### 7.3 Video
 
-- [ ] For each approved video, decide whether the source audio is required.
+- [x] For each approved video, decide whether the source audio is required.
 - [ ] Create web-safe MP4/WebM encodes where browser support or file size
   warrants them, strip unused audio, and generate an approved poster.
 - [ ] Ensure meaningful video content has captions or equivalent nearby text.
@@ -1044,6 +1052,22 @@ node scripts/audit-sfi-media.mjs check \
   internal review artifact is publicly served.
 - [ ] Confirm Cloudflare/OpenNext image behavior from current documentation and
   runtime output; do not assume Vercel's image optimization service.
+
+### Phase 7 handoff blocker
+
+The repository checkout does not contain the external read-only
+`SFI WEBSITE/SFI- IMAGES/` source directory. The derivative contract,
+generator, publication allowlist, and fixture verification are complete, but
+the 19 approved source masters and 60 contracted derivatives cannot be
+generated or checked into `assets/` until those approved source files are
+available locally. Run:
+
+```bash
+node scripts/audit-sfi-media.mjs generate \
+  --source "SFI WEBSITE" \
+  --manifest assets/source-media-manifest.json \
+  --assets-root assets
+```
 
 ---
 

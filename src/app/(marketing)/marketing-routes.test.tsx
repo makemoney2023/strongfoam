@@ -35,6 +35,7 @@ import SprayFoamInsulationPage, {
 } from "@/app/(marketing)/services/spray-foam-insulation/page";
 import { homepageMarketingModel } from "@/components/marketing/marketing-page-model";
 import { getServiceBySlug } from "@/content/services";
+import { site } from "@/content/site";
 
 type RouteCase = {
   path: string;
@@ -139,6 +140,32 @@ function canonicalOf(metadata: Metadata): string {
   return typeof canonical === "string" ? canonical : "";
 }
 
+function expectCompleteRouteMetadata(path: string, metadata: Metadata) {
+  const canonicalPath = path === "/" ? "/" : path;
+
+  expect(metadata.description).toEqual(expect.any(String));
+  expect(canonicalOf(metadata)).toBe(canonicalPath);
+  expect(metadata.openGraph).toMatchObject({
+    title: titleOf(metadata),
+    description: metadata.description,
+    url: canonicalPath,
+    siteName: site.brand,
+    type: "website",
+  });
+  expect(metadata.openGraph?.images).toEqual([
+    expect.objectContaining({
+      url: expect.stringMatching(/^\/media\/social\//),
+      alt: expect.any(String),
+    }),
+  ]);
+  expect(metadata.twitter).toMatchObject({
+    card: "summary_large_image",
+    title: titleOf(metadata),
+    description: metadata.description,
+    images: [expect.stringMatching(/^\/media\/social\//)],
+  });
+}
+
 describe("marketing route contracts", () => {
   it.each(interiorRoutes)(
     "renders $path with one main, one route-specific H1, metadata, and contextual links",
@@ -149,9 +176,10 @@ describe("marketing route contracts", () => {
       expect(html).toContain('<main id="main-content"');
       expect(html.match(/<h1\b/g)).toHaveLength(1);
       expect(html).toContain(`<h1>${h1}</h1>`);
+      expect(html).toContain('type="application/ld+json"');
+      expect(html).toContain("https://schema.org");
       expect(titleOf(metadata)).not.toBe("");
-      expect(metadata.description).toEqual(expect.any(String));
-      expect(canonicalOf(metadata)).toBe(path);
+      expectCompleteRouteMetadata(path, metadata);
       for (const href of links) {
         expect(html).toContain(`href="${href}"`);
       }
@@ -159,10 +187,13 @@ describe("marketing route contracts", () => {
   );
 
   it("keeps the cinematic homepage behind the typed overview model", () => {
+    const html = renderToStaticMarkup(<HomePage />);
+
     expect(HomePage).toEqual(expect.any(Function));
+    expect(html).toContain('type="application/ld+json"');
+    expect(html).toContain('"@type":"FAQPage"');
     expect(titleOf(homeMetadata)).not.toBe("");
-    expect(homeMetadata.description).toEqual(expect.any(String));
-    expect(canonicalOf(homeMetadata)).toBe("/");
+    expectCompleteRouteMetadata("/", homeMetadata);
     expect(homepageMarketingModel.serviceLinks).toHaveLength(4);
     expect(homepageMarketingModel.serviceLinks.map((service) => service.href)).toEqual([
       "/services/spray-foam-insulation",

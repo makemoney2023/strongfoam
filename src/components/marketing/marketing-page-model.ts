@@ -6,6 +6,7 @@ import {
 import {
   filterPublishableProjects,
   projectRecords,
+  publicProjectImagePath,
   type ProjectRecord,
 } from "@/content/projects";
 import { serviceContent } from "@/content/services";
@@ -33,13 +34,6 @@ export const HOMEPAGE_SECTION_ORDER = [
   "contact",
 ] as const;
 
-const PUBLIC_PROJECT_IMAGE_PATHS: Partial<
-  Record<ProjectRecord["id"], `/media/projects/${string}`>
-> = {
-  "project-commercial-envelope": "/media/projects/IMG_7879.jpg",
-  "project-multi-storey-envelope": "/media/projects/IMG_7880.jpeg",
-};
-
 export type MarketingProject = ProjectRecord & {
   publicImagePath: `/media/projects/${string}`;
 };
@@ -48,7 +42,10 @@ export function selectMarketingProjects(
   records: readonly ProjectRecord[],
 ): readonly MarketingProject[] {
   return filterPublishableProjects(records).flatMap((project) => {
-    const publicImagePath = PUBLIC_PROJECT_IMAGE_PATHS[project.id];
+    const publicImagePath = publicProjectImagePath(
+      project,
+      project.id === "project-multi-storey-envelope" ? "hero" : "gallery",
+    );
     return publicImagePath ? [{ ...project, publicImagePath }] : [];
   });
 }

@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
+  copyFile,
   mkdir,
   readFile,
   readdir,
@@ -12,7 +13,8 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import sharp from "sharp";
-import { assertMarketingClaimsSafe } from "../src/content/claims.ts";
+import { assertMarketingClaimsSafe } from "../src/content/claims-runtime.mjs";
+import { PUBLIC_STATIC_MEDIA } from "./sync-public-media.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,6 +42,64 @@ const LOW_RESOLUTION_EDGE = 720;
 const INVENTORY_SCHEMA_VERSION = 1;
 const MANIFEST_SCHEMA_VERSION = 1;
 const DUPLICATE_POLICY_VERSION = "pixel-area_bytes_path-v1";
+
+export const DERIVATIVE_PROFILES = Object.freeze({
+  hero: Object.freeze({
+    width: 1920,
+    height: 1080,
+    format: "webp",
+    fit: "cover",
+  }),
+  section: Object.freeze({
+    width: 1600,
+    height: 900,
+    format: "webp",
+    fit: "cover",
+  }),
+  card: Object.freeze({
+    width: 800,
+    height: 600,
+    format: "webp",
+    fit: "cover",
+  }),
+  gallery: Object.freeze({
+    widths: Object.freeze([480, 960, 1600]),
+    format: "webp",
+    fit: "inside",
+  }),
+  logo: Object.freeze({
+    widths: Object.freeze([280, 560]),
+    format: "png",
+    fit: "inside",
+    withoutEnlargement: true,
+    transparentPadding: 24,
+  }),
+  poster: Object.freeze({
+    width: 1280,
+    height: 720,
+    format: "webp",
+    fit: "contain",
+  }),
+  "social-share": Object.freeze({
+    width: 1200,
+    height: 630,
+    format: "jpeg",
+    fit: "cover",
+  }),
+  "video-mp4": Object.freeze({
+    format: "mp4",
+    videoCodec: "h264",
+    pixelFormat: "yuv420p",
+  }),
+  "video-webm": Object.freeze({
+    format: "webm",
+    videoCodec: "vp9",
+  }),
+});
+
+const SOCIAL_SHARE_SOURCE_ID = "media-a6dbc55c9f3bccb1";
+const HERO_SOURCE_ID = "media-93e698a55726cd71";
+const SECTION_SOURCE_ID = "media-da889acd7dfb11ec";
 
 export const APPROVED_SOURCE_BASELINE = Object.freeze({
   totalFiles: 576,
@@ -680,6 +740,23 @@ export function validateDecisions(inventory, decisionDocument) {
       );
     }
 
+    if (
+      decision.status === "publish" &&
+      !approvedValue(decision.rights?.publicationPermission)
+    ) {
+      throw new Error(
+        `Published media ${decision.id} requires publication permission`,
+      );
+    }
+    if (
+      decision.status === "publish" &&
+      !approvedValue(decision.safetyPrivacy?.result)
+    ) {
+      throw new Error(
+        `Published media ${decision.id} requires safety and privacy approval`,
+      );
+    }
+
     if (decision.status === "publish" && decision.category === "logo") {
       if (!approvedValue(decision.relationshipApproval?.identity)) {
         throw new Error(`Published logo ${decision.id} requires known identity`);
@@ -709,6 +786,19 @@ export function validateDecisions(inventory, decisionDocument) {
     }
 
     if (decision.status === "publish") {
+      if (file?.error) {
+        throw new Error(
+          `Published media ${decision.id} cannot have an inspection error`,
+        );
+      }
+      if (
+        file?.kind === "video" &&
+        typeof decision.audioRequired !== "boolean"
+      ) {
+        throw new Error(
+          `Published video ${decision.id} requires audioRequired: true or false`,
+        );
+      }
       assertMarketingClaimsSafe(
         {
           alt: decision.alt ?? "",
@@ -730,6 +820,152 @@ export function validateDecisions(inventory, decisionDocument) {
   return decisions;
 }
 
+function derivativeDimensions(file, width, height, fit) {
+  if (fit === "inside") {
+    const scale = Math.min(1, width / file.width);
+    return {
+      width: Math.max(1, Math.round(file.width * scale)),
+      height: Math.max(1, Math.round(file.height * scale)),
+    };
+  }
+  return { width, height };
+}
+
+function derivativeExtension(format) {
+  return format === "jpeg" ? "jpg" : format;
+}
+
+function imageDerivative(file, decision, profileName, profile, variant = "") {
+  const dimensions = derivativeDimensions(
+    file,
+    profile.width,
+    profile.height,
+    profile.fit,
+  );
+  const extension = derivativeExtension(profile.format);
+  const slug = reviewSlug(file.path);
+  const suffix = variant ? `-${variant}` : "";
+  const relativePath =
+    profileName === "social-share"
+      ? "social/strong-foam-envelope.jpg"
+      : `projects/generated/${file.id}-${slug}-${profileName}${suffix}-${dimensions.width}x${dimensions.height}.${extension}`;
+
+  return {
+    profile: profileName,
+    width: dimensions.width,
+    height: dimensions.height,
+    format: profile.format,
+    fit: profile.fit,
+    assetPath: relativePath,
+    publicDestination: relativePath,
+    alt: decision.alt,
+    decorative: decision.decorative,
+  };
+}
+
+function imageDerivativeContracts(file, decision) {
+  const contracts = DERIVATIVE_PROFILES.gallery.widths.map((width) =>
+    imageDerivative(
+      file,
+      decision,
+      "gallery",
+      { ...DERIVATIVE_PROFILES.gallery, width, height: file.height },
+      `${width}w`,
+    ),
+  );
+
+  if (file.id === HERO_SOURCE_ID) {
+    contracts.push(
+      imageDerivative(
+        file,
+        decision,
+        "hero",
+        DERIVATIVE_PROFILES.hero,
+      ),
+    );
+  }
+  if (file.id === SECTION_SOURCE_ID) {
+    contracts.push(
+      imageDerivative(
+        file,
+        decision,
+        "section",
+        DERIVATIVE_PROFILES.section,
+      ),
+    );
+  }
+  if (file.id === SOCIAL_SHARE_SOURCE_ID) {
+    contracts.push(
+      imageDerivative(
+        file,
+        decision,
+        "social-share",
+        DERIVATIVE_PROFILES["social-share"],
+      ),
+    );
+  }
+  return contracts;
+}
+
+function videoDerivativeContracts(file, decision) {
+  const portrait = file.height > file.width;
+  const width = portrait ? 720 : 1280;
+  const height = portrait ? 1280 : 720;
+  const slug = reviewSlug(file.path);
+  const base = `animated/generated/${file.id}-${slug}`;
+  const common = {
+    width,
+    height,
+    durationSeconds: file.durationSeconds,
+    alt: decision.alt,
+    decorative: decision.decorative,
+    audioRequired: decision.audioRequired,
+  };
+  return [
+    {
+      ...common,
+      profile: "video-mp4",
+      format: "mp4",
+      videoCodec: "h264",
+      assetPath: `${base}.mp4`,
+      publicDestination: `${base}.mp4`,
+    },
+    {
+      ...common,
+      profile: "video-webm",
+      format: "webm",
+      videoCodec: "vp9",
+      assetPath: `${base}.webm`,
+      publicDestination: `${base}.webm`,
+    },
+    {
+      ...common,
+      profile: "poster",
+      format: "webp",
+      assetPath: `${base}-poster.webp`,
+      publicDestination: `${base}-poster.webp`,
+    },
+  ];
+}
+
+function publicationContract(file, decision) {
+  if (decision.status !== "publish") {
+    return { sourceMaster: null, derivatives: [] };
+  }
+
+  const masterFolder = file.kind === "video" ? "animated" : "projects";
+  return {
+    sourceMaster: {
+      assetPath: `${masterFolder}/masters/${file.id}-${basename(file.path)}`,
+      sha256: file.sha256,
+    },
+    derivatives:
+      file.kind === "video"
+        ? videoDerivativeContracts(file, decision)
+        : imageDerivativeContracts(file, decision),
+  };
+}
+
 function buildCompiledManifest(inventory, decisionDocument) {
   const decisions = validateDecisions(inventory, decisionDocument);
   const byId = new Map(decisions.map((decision) => [decision.id, decision]));
@@ -742,6 +978,7 @@ function buildCompiledManifest(inventory, decisionDocument) {
     return {
       ...file,
       decision,
+      ...publicationContract(file, decision),
     };
   });
 
@@ -785,12 +1022,215 @@ export async function compileManifest({
   return manifest;
 }
 
+async function listRelativeFiles(root, current = root) {
+  const entries = await readdir(current, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolutePath = join(current, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listRelativeFiles(root, absolutePath)));
+    } else if (entry.isFile()) {
+      files.push(relative(root, absolutePath).split(sep).join("/"));
+    }
+  }
+  return files;
+}
+
+async function assertFileExists(path, message) {
+  try {
+    if ((await stat(path)).isFile()) return;
+  } catch {
+    // The caller receives the publication-specific message below.
+  }
+  throw new Error(message);
+}
+
+function safeChild(root, relativePath, label) {
+  const absoluteRoot = resolve(root);
+  const child = resolve(absoluteRoot, relativePath);
+  if (
+    child === absoluteRoot ||
+    !child.startsWith(`${absoluteRoot}${sep}`)
+  ) {
+    throw new Error(`Unsafe ${label} path: ${relativePath}`);
+  }
+  return child;
+}
+
+async function verifyPublishedOutputs({
+  manifest,
+  manifestPath,
+  publicRoot,
+  env,
+}) {
+  const assetsRoot = dirname(resolve(manifestPath));
+  const absolutePublicRoot = resolve(publicRoot);
+  const binaries = await preflightMediaBinaries({ env });
+  const published = manifest.records.filter(
+    (record) => record.decision.status === "publish",
+  );
+  const approvedAssetPaths = new Set();
+  const approvedPublicPaths = new Set(PUBLIC_STATIC_MEDIA);
+
+  for (const record of published) {
+    const masterPath = record.sourceMaster.assetPath;
+    approvedAssetPaths.add(masterPath);
+    const absoluteMaster = safeChild(
+      assetsRoot,
+      masterPath,
+      "curated asset",
+    );
+    await assertFileExists(
+      absoluteMaster,
+      `Missing approved source master: ${masterPath}`,
+    );
+    if ((await sha256File(absoluteMaster)) !== record.sourceMaster.sha256) {
+      throw new Error(`Source master hash mismatch: ${record.id}`);
+    }
+
+    for (const derivative of record.derivatives) {
+      approvedAssetPaths.add(derivative.assetPath);
+      approvedPublicPaths.add(derivative.publicDestination);
+      const absoluteDerivative = safeChild(
+        assetsRoot,
+        derivative.assetPath,
+        "curated asset",
+      );
+      const absolutePublicDerivative = safeChild(
+        absolutePublicRoot,
+        derivative.publicDestination,
+        "public media",
+      );
+      await assertFileExists(
+        absoluteDerivative,
+        `Missing approved derivative: ${derivative.assetPath}`,
+      );
+      await assertFileExists(
+        absolutePublicDerivative,
+        `Missing public derivative: ${derivative.publicDestination}`,
+      );
+      if (record.kind === "video" && derivative.profile !== "poster") {
+        const inspected = await inspectVideo(
+          absoluteDerivative,
+          binaries.ffprobe.path,
+          env,
+        );
+        if (
+          inspected.error ||
+          inspected.width !== derivative.width ||
+          inspected.height !== derivative.height ||
+          inspected.codec !== derivative.videoCodec ||
+          inspected.hasAudio !== derivative.audioRequired
+        ) {
+          throw new Error(
+            `Approved video derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+        if (
+          Math.abs(
+            inspected.durationSeconds - derivative.durationSeconds,
+          ) > 0.25
+        ) {
+          throw new Error(
+            `Approved video derivative duration mismatch: ${derivative.assetPath}`,
+          );
+        }
+      } else {
+        let metadata;
+        try {
+          metadata = await sharp(absoluteDerivative).metadata();
+        } catch {
+          throw new Error(
+            `Approved image derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+        if (
+          metadata.width !== derivative.width ||
+          metadata.height !== derivative.height ||
+          metadata.format !== derivative.format
+        ) {
+          throw new Error(
+            `Approved image derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+      }
+      if (
+        (await sha256File(absoluteDerivative)) !==
+        (await sha256File(absolutePublicDerivative))
+      ) {
+        throw new Error(
+          `Public derivative hash mismatch: ${derivative.publicDestination}`,
+        );
+      }
+    }
+  }
+
+  for (const staticPath of PUBLIC_STATIC_MEDIA) {
+    const absoluteStaticAsset = safeChild(
+      assetsRoot,
+      staticPath,
+      "curated asset",
+    );
+    const absoluteStaticPublic = safeChild(
+      absolutePublicRoot,
+      staticPath,
+      "public media",
+    );
+    await assertFileExists(
+      absoluteStaticAsset,
+      `Missing static curated media: ${staticPath}`,
+    );
+    await assertFileExists(
+      absoluteStaticPublic,
+      `Missing static public media: ${staticPath}`,
+    );
+    if (
+      (await sha256File(absoluteStaticAsset)) !==
+      (await sha256File(absoluteStaticPublic))
+    ) {
+      throw new Error(`Static public media hash mismatch: ${staticPath}`);
+    }
+  }
+
+  let publicFiles;
+  try {
+    publicFiles = await listRelativeFiles(absolutePublicRoot);
+  } catch (error) {
+    throw new Error(`Unable to inspect public media root: ${error.message}`);
+  }
+  const unexpectedPublic = publicFiles.filter(
+    (path) => !approvedPublicPaths.has(path),
+  );
+  if (unexpectedPublic.length > 0) {
+    throw new Error(`Unexpected public media: ${unexpectedPublic.join(", ")}`);
+  }
+
+  const curatedPrefixes = [
+    "animated/generated/",
+    "animated/masters/",
+    "projects/generated/",
+    "projects/masters/",
+    "social/",
+  ];
+  const unexpectedAssets = (await listRelativeFiles(assetsRoot)).filter(
+    (path) =>
+      curatedPrefixes.some((prefix) => path.startsWith(prefix)) &&
+      !approvedAssetPaths.has(path),
+  );
+  if (unexpectedAssets.length > 0) {
+    throw new Error(
+      `Unexpected curated media: ${unexpectedAssets.join(", ")}`,
+    );
+  }
+}
+
 /**
  * @param {{
  *   source: string;
  *   inventoryPath: string;
  *   decisionsPath?: string;
  *   manifestPath?: string;
+ *   publicRoot?: string;
  *   enforceBaseline?: boolean;
  *   env?: NodeJS.ProcessEnv;
  * }} options
@@ -800,6 +1240,7 @@ export async function checkAudit({
   inventoryPath,
   decisionsPath,
   manifestPath,
+  publicRoot,
   enforceBaseline = false,
   env = process.env,
 } = {}) {
@@ -834,6 +1275,14 @@ export async function checkAudit({
   if (manifestBytes !== serialize(expectedManifest)) {
     throw new Error("Manifest drift detected");
   }
+  if (publicRoot) {
+    await verifyPublishedOutputs({
+      manifest: expectedManifest,
+      manifestPath,
+      publicRoot,
+      env,
+    });
+  }
 }
 
 function safeSourcePath(source, sourceRelativePath) {
@@ -846,6 +1295,229 @@ function safeSourcePath(source, sourceRelativePath) {
     throw new Error(`Unsafe inventory path: ${sourceRelativePath}`);
   }
   return absoluteFile;
+}
+
+async function writeImageDerivative(sourcePath, outputPath, derivative) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  let pipeline = sharp(sourcePath).autoOrient();
+  pipeline =
+    derivative.fit === "inside"
+      ? pipeline.resize({
+          width: derivative.width,
+          withoutEnlargement: true,
+        })
+      : pipeline.resize(derivative.width, derivative.height, {
+          fit: derivative.fit,
+          position: "attention",
+          withoutEnlargement: derivative.withoutEnlargement === true,
+          background: { r: 17, g: 24, b: 39, alpha: 0 },
+        });
+  if (derivative.format === "jpeg") {
+    pipeline = pipeline.jpeg({ quality: 86, mozjpeg: true });
+  } else if (derivative.format === "png") {
+    pipeline = pipeline.png({ compressionLevel: 9 });
+  } else {
+    pipeline = pipeline.webp({ quality: 84 });
+  }
+  await pipeline.toFile(outputPath);
+
+  const metadata = await sharp(outputPath).metadata();
+  if (
+    metadata.width !== derivative.width ||
+    metadata.height !== derivative.height ||
+    metadata.format !== derivative.format
+  ) {
+    throw new Error(`Generated image does not match contract: ${outputPath}`);
+  }
+}
+
+function videoFilter(width, height) {
+  return [
+    `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
+    `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black`,
+  ].join(",");
+}
+
+async function writeVideoDerivative(
+  sourcePath,
+  outputPath,
+  derivative,
+  binaries,
+  env,
+) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  const codecArgs =
+    derivative.format === "mp4"
+      ? [
+          "-c:v",
+          "libx264",
+          "-preset",
+          "medium",
+          "-crf",
+          "24",
+          "-pix_fmt",
+          "yuv420p",
+          "-movflags",
+          "+faststart",
+        ]
+      : ["-c:v", "libvpx-vp9", "-crf", "34", "-b:v", "0"];
+  const audioArgs = derivative.audioRequired
+    ? ["-map", "0:a:0?"]
+    : ["-an"];
+
+  await execFileAsync(
+    binaries.ffmpeg.path,
+    [
+      "-loglevel",
+      "error",
+      "-i",
+      sourcePath,
+      "-map",
+      "0:v:0",
+      ...audioArgs,
+      "-vf",
+      videoFilter(derivative.width, derivative.height),
+      ...codecArgs,
+      "-y",
+      outputPath,
+    ],
+    { env, maxBuffer: 10 * 1024 * 1024 },
+  );
+
+  const inspected = await inspectVideo(outputPath, binaries.ffprobe.path, env);
+  if (
+    inspected.error ||
+    inspected.width !== derivative.width ||
+    inspected.height !== derivative.height ||
+    inspected.codec !== derivative.videoCodec ||
+    inspected.hasAudio !== derivative.audioRequired
+  ) {
+    throw new Error(`Generated video does not match contract: ${outputPath}`);
+  }
+  if (
+    Math.abs(inspected.durationSeconds - derivative.durationSeconds) > 0.25
+  ) {
+    throw new Error(
+      `Generated video duration does not match contract: ${outputPath}`,
+    );
+  }
+}
+
+async function writePosterDerivative(
+  sourcePath,
+  outputPath,
+  derivative,
+  file,
+  binaries,
+  env,
+) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  const { stdout } = await execFileAsync(
+    binaries.ffmpeg.path,
+    [
+      "-loglevel",
+      "error",
+      "-ss",
+      Math.max(0, file.durationSeconds / 2).toFixed(6),
+      "-i",
+      sourcePath,
+      "-map",
+      "0:v:0",
+      "-frames:v",
+      "1",
+      "-f",
+      "image2pipe",
+      "-vcodec",
+      "png",
+      "pipe:1",
+    ],
+    { env, encoding: "buffer", maxBuffer: 30 * 1024 * 1024 },
+  );
+  await sharp(stdout)
+    .autoOrient()
+    .resize(derivative.width, derivative.height, {
+      fit: "contain",
+      background: "#111827",
+    })
+    .webp({ quality: 84 })
+    .toFile(outputPath);
+}
+
+/**
+ * Generate source masters and delivery derivatives for publish records only.
+ * @param {{
+ *   source: string;
+ *   manifestPath: string;
+ *   assetsRoot: string;
+ *   env?: NodeJS.ProcessEnv;
+ * }} options
+ */
+export async function generateDerivatives({
+  source,
+  manifestPath,
+  assetsRoot,
+  env = process.env,
+} = {}) {
+  if (!source || !manifestPath || !assetsRoot) {
+    throw new Error(
+      "Derivative generation requires --source, --manifest, and --assets-root",
+    );
+  }
+  const binaries = await preflightMediaBinaries({ env });
+  const manifest = await readJson(manifestPath, "manifest");
+  const published = manifest.records.filter(
+    (record) => record.decision.status === "publish",
+  );
+  let generatedDerivatives = 0;
+
+  for (const record of published) {
+    const sourcePath = safeSourcePath(source, record.path);
+    const masterPath = safeChild(
+      assetsRoot,
+      record.sourceMaster.assetPath,
+      "curated asset",
+    );
+    await mkdir(dirname(masterPath), { recursive: true });
+    await copyFile(sourcePath, masterPath);
+    if ((await sha256File(masterPath)) !== record.sourceMaster.sha256) {
+      throw new Error(`Source master hash mismatch: ${record.id}`);
+    }
+
+    for (const derivative of record.derivatives) {
+      const outputPath = safeChild(
+        assetsRoot,
+        derivative.assetPath,
+        "curated asset",
+      );
+      if (record.kind === "image") {
+        await writeImageDerivative(sourcePath, outputPath, derivative);
+      } else if (derivative.profile === "poster") {
+        await writePosterDerivative(
+          sourcePath,
+          outputPath,
+          derivative,
+          record,
+          binaries,
+          env,
+        );
+      } else {
+        await writeVideoDerivative(
+          sourcePath,
+          outputPath,
+          derivative,
+          binaries,
+          env,
+        );
+      }
+      generatedDerivatives += 1;
+    }
+  }
+
+  return {
+    publishedRecords: published.length,
+    sourceMasters: published.length,
+    generatedDerivatives,
+  };
 }
 
 function escapeXml(value) {
@@ -1129,6 +1801,7 @@ export async function main(args = process.argv.slice(2)) {
       inventoryPath: options.inventory,
       decisionsPath: options.decisions,
       manifestPath: options.manifest,
+      publicRoot: options.publicRoot,
       enforceBaseline: !options.skipBaseline,
     });
     return;
@@ -1141,8 +1814,16 @@ export async function main(args = process.argv.slice(2)) {
     });
     return;
   }
+  if (command === "generate") {
+    await generateDerivatives({
+      source: options.source,
+      manifestPath: options.manifest,
+      assetsRoot: options.assetsRoot,
+    });
+    return;
+  }
   throw new Error(
-    "Usage: audit-sfi-media.mjs <inventory|compile|check|review> [options]",
+    "Usage: audit-sfi-media.mjs <inventory|compile|check|review|generate> [options]",
   );
 }
 

@@ -1,28 +1,37 @@
-import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
 import { ProjectGallery } from "@/components/marketing/project-gallery";
-import { assertMarketingClaimsSafe } from "@/content/claims";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import { projectRecords } from "@/content/projects";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/projects",
   title: "Approved Project Photography",
   description:
     "View reviewed first-party photography with permission-safe trade descriptions for Strong Foam building-envelope work.",
-  alternates: { canonical: "/projects" },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /projects");
+});
 
 export default function ProjectsPage() {
+  const description =
+    "This gallery uses reviewed first-party media and generic trade descriptions without unapproved client names, addresses, or performance claims.";
+  const jsonLd = marketingPageGraph({
+    path: "/projects",
+    name: "Approved project photography",
+    description,
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Projects" }],
+  });
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Projects" }]} />
       <InteriorHero
         eyebrow="Projects"
         title="Approved project photography"
-        description="This gallery uses reviewed first-party media and generic trade descriptions without unapproved client names, addresses, or performance claims."
+        description={description}
       />
       <section
         className="marketing-section page-rail"

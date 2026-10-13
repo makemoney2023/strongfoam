@@ -1328,7 +1328,8 @@
       "alt": "Technician applying spray foam insulation inside a framed wall",
       "decorative": false,
       "status": "publish",
-      "reason": "Clear close-range application footage selected for the spray foam service page."
+      "reason": "Clear close-range application footage selected for the spray foam service page.",
+      "audioRequired": false
     },
     {
       "id": "media-d1fec13bb75f21ff",
@@ -1464,7 +1465,8 @@
       "alt": "Technician applying spray foam insulation overhead",
       "decorative": false,
       "status": "publish",
-      "reason": "Clear overhead application footage with protective equipment selected for the spray foam service page."
+      "reason": "Clear overhead application footage with protective equipment selected for the spray foam service page.",
+      "audioRequired": false
     },
     {
       "id": "media-909cda1cbdf4ed52",
@@ -9930,7 +9932,8 @@
       "alt": "Technician applying fire-protection material to an overhead structure",
       "decorative": false,
       "status": "publish",
-      "reason": "Clear fire-protection application footage with full protective equipment selected for the fire protection service page."
+      "reason": "Clear fire-protection application footage with full protective equipment selected for the fire protection service page.",
+      "audioRequired": false
     },
     {
       "id": "media-517074f3c302a1e8",
@@ -17988,7 +17991,8 @@
       "alt": "Technician applying spray foam in a wood-framed room",
       "decorative": false,
       "status": "publish",
-      "reason": "Clear residential application footage with protective equipment selected for the spray foam service page."
+      "reason": "Clear residential application footage with protective equipment selected for the spray foam service page.",
+      "audioRequired": false
     },
     {
       "id": "media-0f1b35e06bec45d6",
@@ -18702,7 +18706,8 @@
       "alt": "Technician applying spray foam around interior window openings",
       "decorative": false,
       "status": "publish",
-      "reason": "Clear high-rise interior application footage with protective equipment selected for the spray foam service page."
+      "reason": "Clear high-rise interior application footage with protective equipment selected for the spray foam service page.",
+      "audioRequired": false
     },
     {
       "id": "media-4cbf4080d9384adf",

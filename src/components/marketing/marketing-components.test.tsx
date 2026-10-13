@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -149,5 +150,24 @@ describe("server-compatible marketing components", () => {
     expect(html).toContain('href="/request-estimate"');
     expect(html).not.toContain("LEAD_NOTIFY_TO");
     expect(html).not.toContain("notification");
+  });
+
+  it("gives sticky homepage fill images absolute positioning containers", async () => {
+    const [componentSource, stylesheet] = await Promise.all([
+      readFile(new URL("../scroll-world-page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../../app/globals.css", import.meta.url), "utf8"),
+    ]);
+
+    expect(componentSource).toContain('className="hero-media-frame"');
+    expect(componentSource).toContain('className="process-image-media"');
+    expect(stylesheet).toMatch(
+      /\.hero-media-frame\s*\{[\s\S]*?position:\s*absolute;[^}]*\}/,
+    );
+    expect(stylesheet).toMatch(
+      /\.process-image-media\s*\{[\s\S]*?position:\s*absolute;[^}]*\}/,
+    );
+    expect(stylesheet).not.toMatch(
+      /\.hero-media,\s*\.sectors-media\s*\{\s*display:\s*none;/,
+    );
   });
 });

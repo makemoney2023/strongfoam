@@ -6,7 +6,9 @@ import {
   scrollSections,
   services,
   site,
+  socialShareImage,
 } from "@/content/site";
+import sourceMediaManifest from "../../assets/source-media-manifest.json";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import {
   contentApprovals,
@@ -30,6 +32,19 @@ describe("site content for scroll overlays", () => {
     expect(site.brandLogos.onDark).toBe(
       "/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png",
     );
+  });
+
+  it("maps social metadata to an approved source without exposing its raw path", () => {
+    const record = sourceMediaManifest.records.find(
+      (entry) => entry.id === socialShareImage.approvedManifestReference,
+    );
+
+    expect(record?.path).toBe(socialShareImage.sourcePath);
+    expect(record?.decision.status).toBe("publish");
+    expect(record?.decision.rights.publicationPermission).toBe("approved");
+    expect(record?.decision.safetyPrivacy.result).toBe("approved");
+    expect(socialShareImage.publicPath).toMatch(/^\/media\/social\//);
+    expect(socialShareImage.publicPath).not.toContain(record?.path ?? "");
   });
 
   it("covers all five homepage service anchors", () => {

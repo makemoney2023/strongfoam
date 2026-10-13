@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { signLeadId } from "@/lib/leads/hmac";
 import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
@@ -34,5 +35,16 @@ describe("resolveThanksView", () => {
     });
     expect(view.showCalendly).toBe(true);
     expect(view.email).toBe("alex@gc.example");
+  });
+
+  it("renders shadcn buttons without calling client exports from the server page", async () => {
+    const source = await readFile(
+      new URL("./page.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("buttonVariants");
+    expect(source).toContain("<Button");
+    expect(source).toContain("nativeButton={false}");
   });
 });

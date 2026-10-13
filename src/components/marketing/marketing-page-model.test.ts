@@ -74,21 +74,25 @@ describe("marketing page model", () => {
     expect(model.projects.map((project) => project.id)).toEqual([
       "project-commercial-envelope",
       "project-multi-storey-envelope",
+      "project-spray-foam-interior",
     ]);
     expect(
       model.projects.every(
         (project) =>
           project.publicationStatus === "publish" &&
-          project.publicImagePath.startsWith("/media/projects/"),
+          project.publicImagePath.startsWith("/media/projects/generated/"),
       ),
     ).toBe(true);
   });
 
   it("uses approved public project media for every cinematic still", () => {
     expect(homepageMarketingModel.cinematicMedia).toEqual({
-      hero: "/media/projects/IMG_7880.jpeg",
-      process: "/media/projects/IMG_7879.jpg",
-      sector: "/media/projects/IMG_7879.jpg",
+      hero:
+        "/media/projects/generated/media-93e698a55726cd71-img-7880-hero-1920x1080.webp",
+      process:
+        "/media/projects/generated/media-da889acd7dfb11ec-img-7879-gallery-1600w-1600x778.webp",
+      sector:
+        "/media/projects/generated/media-da889acd7dfb11ec-img-7879-gallery-1600w-1600x778.webp",
     });
     expect(
       Object.values(homepageMarketingModel.cinematicMedia).every((path) =>

@@ -95,14 +95,28 @@ only:
 node scripts/audit-sfi-media.mjs inventory \
   --source "/absolute/path/to/SFI WEBSITE" \
   --inventory assets/source-media-inventory.json
+node scripts/audit-sfi-media.mjs compile \
+  --inventory assets/source-media-inventory.json \
+  --decisions assets/source-media-decisions.json \
+  --manifest assets/source-media-manifest.json
+node scripts/audit-sfi-media.mjs generate \
+  --source "/absolute/path/to/SFI WEBSITE" \
+  --manifest assets/source-media-manifest.json \
+  --assets-root assets
+npm run media:sync
 node scripts/audit-sfi-media.mjs check \
   --source "/absolute/path/to/SFI WEBSITE" \
-  --inventory assets/source-media-inventory.json
+  --inventory assets/source-media-inventory.json \
+  --decisions assets/source-media-decisions.json \
+  --manifest assets/source-media-manifest.json \
+  --public-root public/media
 ```
 
 Human publication decisions remain separate from structural inventory data.
 See [`docs/sfi-media-audit.md`](docs/sfi-media-audit.md) for review, compile,
-and full non-mutating check commands.
+generation, public sync, and full non-mutating check commands. Generation copies
+only manifest-approved masters and derivatives; the raw source directory remains
+untracked.
 
 ## Estimate survey
 

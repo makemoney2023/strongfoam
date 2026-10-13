@@ -1,24 +1,23 @@
-import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { assertMarketingClaimsSafe } from "@/content/claims";
 import { companyContent } from "@/content/site";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/about",
   title: "About Strong Foam Insulation",
   description:
     "Learn how Strong Foam approaches ICI and multi-unit work, employee culture, safe field practices, service, and long-term relationships.",
-  alternates: { canonical: "/about" },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /about");
+});
 
 const commitments = [
   ["Mission", companyContent.mission],
@@ -29,8 +28,16 @@ const commitments = [
 ] as const;
 
 export default function AboutPage() {
+  const jsonLd = marketingPageGraph({
+    path: "/about",
+    name: "About Strong Foam",
+    description: companyContent.story,
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "About" }],
+  });
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "About" }]} />
       <InteriorHero
         eyebrow="Company"

@@ -35,15 +35,13 @@ yarn-error.log*
 !.env.example
 
 # Omni / media scratch
+/SFI WEBSITE/
 assets/animated/.cache/
 assets/animated/bridges/
 *.log
 
-# generated copies of assets/ for Next public serving
-/public/media/animated/
-/public/media/backgrounds/
-/public/media/brand/
-/public/media/projects/
+# generated allowlisted copies of assets/ for Next public serving
+/public/media/
 
 # local agent scratch
 .superpowers/

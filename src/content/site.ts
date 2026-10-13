@@ -32,6 +32,19 @@ export const site = {
   taglineLegacy: "Creating STRONG Relationships",
 } as const;
 
+/**
+ * Phase 7 generates this social derivative from the approved first-party
+ * source identified here. Route metadata never references the raw source path.
+ */
+export const socialShareImage = {
+  approvedManifestReference: "media-a6dbc55c9f3bccb1",
+  sourcePath: "SFI- IMAGES/IMG_7881.jpeg",
+  publicPath: "/media/social/strong-foam-envelope.jpg",
+  alt: "Exterior insulation installed across a commercial wall assembly",
+  width: 1200,
+  height: 630,
+} as const;
+
 export type PublicRoute =
   | {
       path:
@@ -293,6 +306,7 @@ assertMarketingClaimsSafe(
     services,
     faqItems,
     scrollSections,
+    socialShareImage,
   },
   "typed site content",
 );

@@ -49,7 +49,7 @@ export const serviceContent: readonly ServiceContent[] = [
       "Spray polyurethane foam can support insulation and air-sealing goals as part of a specified commercial or multi-unit assembly.",
     storedServiceIds: ["spray-foam"],
     metadata: {
-      title: "Commercial Spray Foam Insulation | Strong Foam",
+      title: "Commercial Spray Foam Insulation",
       description:
         "Explore specification-led spray foam insulation for commercial, industrial, and multi-unit building-envelope assemblies in Ontario.",
     },
@@ -81,7 +81,7 @@ export const serviceContent: readonly ServiceContent[] = [
       "Specification-led cementitious passive fire protection and intumescent coatings for suitable commercial, industrial, infrastructure, and maintenance scopes.",
     storedServiceIds: ["fireproofing", "intumescent"],
     metadata: {
-      title: "Strong Fire Protection Services | Strong Foam",
+      title: "Strong Fire Protection Services",
       description:
         "Review cementitious passive fire protection and intumescent coating scopes delivered as an endorsed Strong Foam service.",
     },

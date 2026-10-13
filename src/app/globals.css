@@ -222,6 +222,11 @@ body {
   background: #080d12;
 }
 
+.hero-media-frame {
+  position: absolute;
+  inset: 0;
+}
+
 .hero-media {
   position: absolute;
   inset: 0;
@@ -653,6 +658,11 @@ body {
   overflow: hidden;
   background: #cbd3d7;
   clip-path: inset(0);
+}
+
+.process-image-media {
+  position: absolute;
+  inset: 0;
 }
 
 .process-image figcaption,
@@ -1351,18 +1361,20 @@ body {
 
   .hero-media,
   .sectors-media {
-    display: none;
+    visibility: hidden;
   }
 
   .hero-stage {
     background:
       radial-gradient(90% 75% at 0 100%, rgb(7 13 18 / 94%), transparent 80%),
-      url("/media/projects/IMG_7880.jpeg") center / cover;
+      url("/media/projects/generated/media-93e698a55726cd71-img-7880-hero-1920x1080.webp")
+        center / cover;
   }
 
   .sectors-act {
     background:
       linear-gradient(90deg, rgb(7 13 18 / 94%), rgb(7 13 18 / 28%)),
-      url("/media/projects/IMG_7879.jpg") center / cover;
+      url("/media/projects/generated/media-da889acd7dfb11ec-img-7879-gallery-1600w-1600x778.webp")
+        center / cover;
   }
 }

@@ -23,6 +23,14 @@ third-party logo is approved; all supplied partner/client/supplier marks remain
 held for relationship and publication-permission confirmation. Raw source
 paths are provenance only and must never be referenced by application routes.
 
+The approved set is now materialized as 19 hash-verified masters and 60
+delivery derivatives: 45 responsive image/social outputs plus 5 silent MP4,
+5 silent WebM, and 5 poster outputs. `scripts/sync-public-media.mjs` publishes
+the derivatives, never the masters. The marketing content resolves project
+images from the compiled derivative destinations rather than legacy raw image
+paths. See `docs/sfi-media-audit.md` for the reproducible commands and the
+Cloudflare/OpenNext delivery decision.
+
 ## Summary
 
 - **Total images cataloged:** 120
