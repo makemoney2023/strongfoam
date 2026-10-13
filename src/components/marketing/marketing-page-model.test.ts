@@ -195,6 +195,7 @@ describe("marketing page model", () => {
     expect(rendered).toEqual([...homepageMarketingModel.sectionOrder]);
     expect(html).toContain("The crew installs the scope");
     expect(html).not.toContain("Qualified applicators");
-    expect(html).not.toContain("Genyk");
+    expect(html).toContain("Genyk logo");
+    expect(html).not.toContain("Demilec");
   });
 });

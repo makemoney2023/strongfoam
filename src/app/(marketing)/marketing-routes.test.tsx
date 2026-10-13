@@ -193,9 +193,9 @@ describe("marketing route contracts", () => {
     expect(html).not.toContain("Kitchener head office");
     expect(html).not.toContain("London branch");
     expect(html).not.toContain("GTA / Woodbridge");
-    expect(html).not.toContain("Genyk");
-    expect(html).not.toContain("Dakon Construction");
-    expect(html).not.toContain("Michael");
+    // Owner-approved partner logos render (2026-10-13); held ones do not.
+    expect(html).toContain("Dakon Construction logo");
+    expect(html).not.toContain("Demilec");
     expect(html).not.toContain("admin@strongfoam.com");
     expect(html).not.toContain("Qualified applicators");
     expect(html).not.toContain("322-72 St. Leger Street");

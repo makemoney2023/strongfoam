@@ -46,9 +46,9 @@ export const contentApprovals: {
     reason: "Current operating status and public NAP are not confirmed.",
   },
   namedClients: {
-    approved: false,
-    value: [],
-    reason: "No named client has current relationship and publication approval.",
+    approved: true,
+    value: ["Owner-approved client and contractor logos in src/content/partners.ts"],
+    reason: "The owner confirmed client/contractor relationships and logo permission on 2026-10-13. Logos only; no named-project claims.",
   },
   namedProjects: {
     approved: false,
@@ -56,10 +56,10 @@ export const contentApprovals: {
     reason: "No named project has client and publication approval.",
   },
   supplierRelationships: {
-    approved: false,
-    value: ["Genyk", "Henry", "Soprema"],
+    approved: true,
+    value: ["Genyk", "BASF", "Soprema", "Henry", "GCP / Grace", "Carboline", "Hilti", "Sherwin-Williams", "3M"],
     reason:
-      "Current supplier relationships and logo permissions are not confirmed.",
+      "The owner confirmed supplier relationships and logo permission on 2026-10-13 (Demilec held: no logo supplied).",
   },
   applicatorStatus: {
     approved: false,

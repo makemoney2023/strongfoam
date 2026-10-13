@@ -120,7 +120,7 @@ describe("server-compatible marketing components", () => {
     );
     const empty = renderToStaticMarkup(
       <PartnerGrid
-        partners={partnerRecords}
+        partners={partnerRecords.filter((p) => p.publicationStatus === "hold")}
         emptyMessage="Partner approvals are in progress."
       />,
     );

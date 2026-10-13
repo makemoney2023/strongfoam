@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   filterPublishablePartners,
@@ -7,22 +9,12 @@ import {
 
 describe("typed partner content", () => {
   it("records every relationship and logo approval gate explicitly", () => {
-    expect(partnerRecords.map((partner) => partner.id)).toEqual([
-      "partner-genyk",
-      "partner-basf",
-      "partner-soprema",
-      "partner-henry",
-      "partner-gcp-grace",
-      "partner-carboline",
-      "partner-hilti",
-      "partner-demilec",
-      "partner-sherwin-williams",
-      "partner-3m",
-      "partner-dakon-construction",
-      "partner-blockwall",
-      "partner-mcc",
-      "partner-sem-construction",
-    ]);
+    expect(partnerRecords).toHaveLength(30);
+    expect(
+      partnerRecords
+        .filter((partner) => partner.publicationStatus === "hold")
+        .map((partner) => partner.id),
+    ).toEqual(["partner-demilec"]);
     expect(new Set(partnerRecords.map((partner) => partner.id)).size).toBe(
       partnerRecords.length,
     );
@@ -93,9 +85,21 @@ describe("typed partner content", () => {
       publicationReason: "Current relationship approval is missing.",
     };
 
-    expect(filterPublishablePartners([...partnerRecords, approved, held])).toEqual([
-      approved,
-    ]);
-    expect(filterPublishablePartners(partnerRecords)).toEqual([]);
+    expect(filterPublishablePartners([approved, held])).toEqual([approved]);
+    expect(
+      filterPublishablePartners([...partnerRecords, approved, held]),
+    ).toContain(approved);
+    expect(filterPublishablePartners(partnerRecords)).toHaveLength(29);
+  });
+
+  it("ships a cleaned logo for every owner-approved partner", () => {
+    for (const partner of filterPublishablePartners(partnerRecords)) {
+      const path = partner.logo.approvedOfficialPath!;
+      expect(path).toMatch(/^\/media\/partners\/[a-z0-9-]+\.webp$/);
+      expect(
+        existsSync(join(process.cwd(), "assets", path.replace("/media/", ""))),
+      ).toBe(true);
+      expect(partner.publicationPermission.reason).toContain("2026-10-13");
+    }
   });
 });

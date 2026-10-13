@@ -168,9 +168,9 @@ describe("site content for scroll overlays", () => {
       fiftyYearsExperience: expect.objectContaining({ approved: false }),
       oneHundredYearsExperience: expect.objectContaining({ approved: false }),
       currentGtaStatus: expect.objectContaining({ approved: false }),
-      namedClients: expect.objectContaining({ approved: false }),
+      namedClients: expect.objectContaining({ approved: true }),
       namedProjects: expect.objectContaining({ approved: false }),
-      supplierRelationships: expect.objectContaining({ approved: false }),
+      supplierRelationships: expect.objectContaining({ approved: true }),
       applicatorStatus: expect.objectContaining({ approved: false }),
     });
     const visibleCopy = JSON.stringify(companyContent);

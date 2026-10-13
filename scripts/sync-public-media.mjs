@@ -6,6 +6,7 @@ export const MEDIA_FOLDERS = [
   "animated",
   "backgrounds",
   "brand",
+  "partners",
   "projects",
   "services",
 ];
