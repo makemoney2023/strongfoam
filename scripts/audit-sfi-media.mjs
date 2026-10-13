@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import sharp from "sharp";
 import { assertMarketingClaimsSafe } from "../src/content/claims-runtime.mjs";
+import { PUBLIC_STATIC_MEDIA } from "./sync-public-media.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -739,6 +740,23 @@ export function validateDecisions(inventory, decisionDocument) {
       );
     }
 
+    if (
+      decision.status === "publish" &&
+      !approvedValue(decision.rights?.publicationPermission)
+    ) {
+      throw new Error(
+        `Published media ${decision.id} requires publication permission`,
+      );
+    }
+    if (
+      decision.status === "publish" &&
+      !approvedValue(decision.safetyPrivacy?.result)
+    ) {
+      throw new Error(
+        `Published media ${decision.id} requires safety and privacy approval`,
+      );
+    }
+
     if (decision.status === "publish" && decision.category === "logo") {
       if (!approvedValue(decision.relationshipApproval?.identity)) {
         throw new Error(`Published logo ${decision.id} requires known identity`);
@@ -898,6 +916,7 @@ function videoDerivativeContracts(file, decision) {
   const common = {
     width,
     height,
+    durationSeconds: file.durationSeconds,
     alt: decision.alt,
     decorative: decision.decorative,
     audioRequired: decision.audioRequired,
@@ -1003,12 +1022,215 @@ export async function compileManifest({
   return manifest;
 }
 
+async function listRelativeFiles(root, current = root) {
+  const entries = await readdir(current, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolutePath = join(current, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listRelativeFiles(root, absolutePath)));
+    } else if (entry.isFile()) {
+      files.push(relative(root, absolutePath).split(sep).join("/"));
+    }
+  }
+  return files;
+}
+
+async function assertFileExists(path, message) {
+  try {
+    if ((await stat(path)).isFile()) return;
+  } catch {
+    // The caller receives the publication-specific message below.
+  }
+  throw new Error(message);
+}
+
+function safeChild(root, relativePath, label) {
+  const absoluteRoot = resolve(root);
+  const child = resolve(absoluteRoot, relativePath);
+  if (
+    child === absoluteRoot ||
+    !child.startsWith(`${absoluteRoot}${sep}`)
+  ) {
+    throw new Error(`Unsafe ${label} path: ${relativePath}`);
+  }
+  return child;
+}
+
+async function verifyPublishedOutputs({
+  manifest,
+  manifestPath,
+  publicRoot,
+  env,
+}) {
+  const assetsRoot = dirname(resolve(manifestPath));
+  const absolutePublicRoot = resolve(publicRoot);
+  const binaries = await preflightMediaBinaries({ env });
+  const published = manifest.records.filter(
+    (record) => record.decision.status === "publish",
+  );
+  const approvedAssetPaths = new Set();
+  const approvedPublicPaths = new Set(PUBLIC_STATIC_MEDIA);
+
+  for (const record of published) {
+    const masterPath = record.sourceMaster.assetPath;
+    approvedAssetPaths.add(masterPath);
+    const absoluteMaster = safeChild(
+      assetsRoot,
+      masterPath,
+      "curated asset",
+    );
+    await assertFileExists(
+      absoluteMaster,
+      `Missing approved source master: ${masterPath}`,
+    );
+    if ((await sha256File(absoluteMaster)) !== record.sourceMaster.sha256) {
+      throw new Error(`Source master hash mismatch: ${record.id}`);
+    }
+
+    for (const derivative of record.derivatives) {
+      approvedAssetPaths.add(derivative.assetPath);
+      approvedPublicPaths.add(derivative.publicDestination);
+      const absoluteDerivative = safeChild(
+        assetsRoot,
+        derivative.assetPath,
+        "curated asset",
+      );
+      const absolutePublicDerivative = safeChild(
+        absolutePublicRoot,
+        derivative.publicDestination,
+        "public media",
+      );
+      await assertFileExists(
+        absoluteDerivative,
+        `Missing approved derivative: ${derivative.assetPath}`,
+      );
+      await assertFileExists(
+        absolutePublicDerivative,
+        `Missing public derivative: ${derivative.publicDestination}`,
+      );
+      if (record.kind === "video" && derivative.profile !== "poster") {
+        const inspected = await inspectVideo(
+          absoluteDerivative,
+          binaries.ffprobe.path,
+          env,
+        );
+        if (
+          inspected.error ||
+          inspected.width !== derivative.width ||
+          inspected.height !== derivative.height ||
+          inspected.codec !== derivative.videoCodec ||
+          inspected.hasAudio !== derivative.audioRequired
+        ) {
+          throw new Error(
+            `Approved video derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+        if (
+          Math.abs(
+            inspected.durationSeconds - derivative.durationSeconds,
+          ) > 0.25
+        ) {
+          throw new Error(
+            `Approved video derivative duration mismatch: ${derivative.assetPath}`,
+          );
+        }
+      } else {
+        let metadata;
+        try {
+          metadata = await sharp(absoluteDerivative).metadata();
+        } catch {
+          throw new Error(
+            `Approved image derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+        if (
+          metadata.width !== derivative.width ||
+          metadata.height !== derivative.height ||
+          metadata.format !== derivative.format
+        ) {
+          throw new Error(
+            `Approved image derivative contract mismatch: ${derivative.assetPath}`,
+          );
+        }
+      }
+      if (
+        (await sha256File(absoluteDerivative)) !==
+        (await sha256File(absolutePublicDerivative))
+      ) {
+        throw new Error(
+          `Public derivative hash mismatch: ${derivative.publicDestination}`,
+        );
+      }
+    }
+  }
+
+  for (const staticPath of PUBLIC_STATIC_MEDIA) {
+    const absoluteStaticAsset = safeChild(
+      assetsRoot,
+      staticPath,
+      "curated asset",
+    );
+    const absoluteStaticPublic = safeChild(
+      absolutePublicRoot,
+      staticPath,
+      "public media",
+    );
+    await assertFileExists(
+      absoluteStaticAsset,
+      `Missing static curated media: ${staticPath}`,
+    );
+    await assertFileExists(
+      absoluteStaticPublic,
+      `Missing static public media: ${staticPath}`,
+    );
+    if (
+      (await sha256File(absoluteStaticAsset)) !==
+      (await sha256File(absoluteStaticPublic))
+    ) {
+      throw new Error(`Static public media hash mismatch: ${staticPath}`);
+    }
+  }
+
+  let publicFiles;
+  try {
+    publicFiles = await listRelativeFiles(absolutePublicRoot);
+  } catch (error) {
+    throw new Error(`Unable to inspect public media root: ${error.message}`);
+  }
+  const unexpectedPublic = publicFiles.filter(
+    (path) => !approvedPublicPaths.has(path),
+  );
+  if (unexpectedPublic.length > 0) {
+    throw new Error(`Unexpected public media: ${unexpectedPublic.join(", ")}`);
+  }
+
+  const curatedPrefixes = [
+    "animated/generated/",
+    "animated/masters/",
+    "projects/generated/",
+    "projects/masters/",
+    "social/",
+  ];
+  const unexpectedAssets = (await listRelativeFiles(assetsRoot)).filter(
+    (path) =>
+      curatedPrefixes.some((prefix) => path.startsWith(prefix)) &&
+      !approvedAssetPaths.has(path),
+  );
+  if (unexpectedAssets.length > 0) {
+    throw new Error(
+      `Unexpected curated media: ${unexpectedAssets.join(", ")}`,
+    );
+  }
+}
+
 /**
  * @param {{
  *   source: string;
  *   inventoryPath: string;
  *   decisionsPath?: string;
  *   manifestPath?: string;
+ *   publicRoot?: string;
  *   enforceBaseline?: boolean;
  *   env?: NodeJS.ProcessEnv;
  * }} options
@@ -1018,6 +1240,7 @@ export async function checkAudit({
   inventoryPath,
   decisionsPath,
   manifestPath,
+  publicRoot,
   enforceBaseline = false,
   env = process.env,
 } = {}) {
@@ -1052,6 +1275,14 @@ export async function checkAudit({
   if (manifestBytes !== serialize(expectedManifest)) {
     throw new Error("Manifest drift detected");
   }
+  if (publicRoot) {
+    await verifyPublishedOutputs({
+      manifest: expectedManifest,
+      manifestPath,
+      publicRoot,
+      env,
+    });
+  }
 }
 
 function safeSourcePath(source, sourceRelativePath) {
@@ -1068,14 +1299,19 @@ function safeSourcePath(source, sourceRelativePath) {
 
 async function writeImageDerivative(sourcePath, outputPath, derivative) {
   await mkdir(dirname(outputPath), { recursive: true });
-  let pipeline = sharp(sourcePath)
-    .autoOrient()
-    .resize(derivative.width, derivative.height, {
-      fit: derivative.fit,
-      position: "attention",
-      withoutEnlargement: true,
-      background: { r: 17, g: 24, b: 39, alpha: 0 },
-    });
+  let pipeline = sharp(sourcePath).autoOrient();
+  pipeline =
+    derivative.fit === "inside"
+      ? pipeline.resize({
+          width: derivative.width,
+          withoutEnlargement: true,
+        })
+      : pipeline.resize(derivative.width, derivative.height, {
+          fit: derivative.fit,
+          position: "attention",
+          withoutEnlargement: derivative.withoutEnlargement === true,
+          background: { r: 17, g: 24, b: 39, alpha: 0 },
+        });
   if (derivative.format === "jpeg") {
     pipeline = pipeline.jpeg({ quality: 86, mozjpeg: true });
   } else if (derivative.format === "png") {
@@ -1158,6 +1394,13 @@ async function writeVideoDerivative(
   ) {
     throw new Error(`Generated video does not match contract: ${outputPath}`);
   }
+  if (
+    Math.abs(inspected.durationSeconds - derivative.durationSeconds) > 0.25
+  ) {
+    throw new Error(
+      `Generated video duration does not match contract: ${outputPath}`,
+    );
+  }
 }
 
 async function writePosterDerivative(
@@ -1229,7 +1472,11 @@ export async function generateDerivatives({
 
   for (const record of published) {
     const sourcePath = safeSourcePath(source, record.path);
-    const masterPath = resolve(assetsRoot, record.sourceMaster.assetPath);
+    const masterPath = safeChild(
+      assetsRoot,
+      record.sourceMaster.assetPath,
+      "curated asset",
+    );
     await mkdir(dirname(masterPath), { recursive: true });
     await copyFile(sourcePath, masterPath);
     if ((await sha256File(masterPath)) !== record.sourceMaster.sha256) {
@@ -1237,7 +1484,11 @@ export async function generateDerivatives({
     }
 
     for (const derivative of record.derivatives) {
-      const outputPath = resolve(assetsRoot, derivative.assetPath);
+      const outputPath = safeChild(
+        assetsRoot,
+        derivative.assetPath,
+        "curated asset",
+      );
       if (record.kind === "image") {
         await writeImageDerivative(sourcePath, outputPath, derivative);
       } else if (derivative.profile === "poster") {
@@ -1550,6 +1801,7 @@ export async function main(args = process.argv.slice(2)) {
       inventoryPath: options.inventory,
       decisionsPath: options.decisions,
       manifestPath: options.manifest,
+      publicRoot: options.publicRoot,
       enforceBaseline: !options.skipBaseline,
     });
     return;

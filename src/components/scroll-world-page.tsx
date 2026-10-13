@@ -346,16 +346,18 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
 
       <section data-home-section="hero" data-hero id="hero" className="hero-act">
         <div className="hero-stage">
-          <Image
-            data-hero-media
-            src={model.cinematicMedia.hero}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="hero-media"
-            aria-hidden="true"
-          />
+          <div className="hero-media-frame">
+            <Image
+              data-hero-media
+              src={model.cinematicMedia.hero}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="hero-media"
+              aria-hidden="true"
+            />
+          </div>
           <div className="hero-corner-scrim" aria-hidden="true" />
           <div data-hero-copy className="hero-copy">
             <p data-hero-meta className="hero-label">
@@ -488,13 +490,15 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
             </ol>
           </div>
           <figure data-process-image className="process-image">
-            <Image
-              src={model.cinematicMedia.process}
-              alt="Commercial building envelope work in progress"
-              fill
-              sizes="(max-width: 900px) 100vw, 48vw"
-              className="object-cover"
-            />
+            <div className="process-image-media">
+              <Image
+                src={model.cinematicMedia.process}
+                alt="Commercial building envelope work in progress"
+                fill
+                sizes="(max-width: 900px) 100vw, 48vw"
+                className="object-cover"
+              />
+            </div>
             <figcaption>SPF application · wall assembly</figcaption>
           </figure>
         </div>

@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -26,6 +27,7 @@ import {
   validateDecisions,
   writeInventory,
 } from "./audit-sfi-media.mjs";
+import { syncPublicMedia } from "./sync-public-media.mjs";
 
 const exec = promisify(execFile);
 const cli = join(import.meta.dirname, "audit-sfi-media.mjs");
@@ -41,8 +43,8 @@ async function fixture() {
   const landscape = join(source, "Nested", "Space Name.JPG");
   await sharp({
     create: {
-      width: 1000,
-      height: 800,
+      width: 2016,
+      height: 980,
       channels: 3,
       background: "#009ee2",
     },
@@ -80,7 +82,7 @@ async function fixture() {
     "-f",
     "lavfi",
     "-i",
-    "color=c=blue:s=320x180:d=0.1",
+    "color=c=blue:s=320x180:d=1",
     "-c:v",
     "libx264",
     "-pix_fmt",
@@ -175,8 +177,8 @@ describe("audit-sfi-media inventory", () => {
       .toBe(true);
     expect(inventory.files.find((file) => file.path.endsWith("Space Name.JPG")))
       .toMatchObject({
-        width: 1000,
-        height: 800,
+        width: 2016,
+        height: 980,
         orientation: "landscape",
         lowResolution: false,
         sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -345,6 +347,28 @@ describe("audit-sfi-media decisions and compilation", () => {
         }),
       ),
     ).toThrow(/safetyPrivacy\.ppe/i);
+    expect(() =>
+      validateDecisions(
+        inventory,
+        replaceFirst({
+          rights: {
+            ...decisions[publishedIndex].rights,
+            publicationPermission: "not-approved",
+          },
+        }),
+      ),
+    ).toThrow(/published media.*publication permission/i);
+    expect(() =>
+      validateDecisions(
+        inventory,
+        replaceFirst({
+          safetyPrivacy: {
+            ...decisions[publishedIndex].safetyPrivacy,
+            result: "not-cleared-for-publication",
+          },
+        }),
+      ),
+    ).toThrow(/published media.*safety and privacy approval/i);
   });
 
   it("compiles fixtures and checks drift without mutating artifacts", async () => {
@@ -427,8 +451,8 @@ describe("audit-sfi-media approved derivatives", () => {
     await writeInventory({ source, inventoryPath, enforceBaseline: false });
     const inventory = JSON.parse(await readFile(inventoryPath, "utf8")) as Inventory;
     const decisionsPath = join(root, "audit", "decisions.json");
-    const manifestPath = join(root, "audit", "manifest.json");
     const assetsRoot = join(root, "assets");
+    const manifestPath = join(assetsRoot, "source-media-manifest.json");
     await mkdir(dirname(decisionsPath), { recursive: true });
     await writeFile(
       decisionsPath,
@@ -488,6 +512,21 @@ describe("audit-sfi-media approved derivatives", () => {
           record.sourceMaster === null && record.derivatives?.length === 0,
       ),
     ).toBe(true);
+    const publishedVideo = published.find(
+      (record: { kind: string }) => record.kind === "video",
+    );
+    expect(
+      publishedVideo.derivatives
+        .filter(
+          (derivative: { profile: string }) =>
+            derivative.profile === "video-mp4" ||
+            derivative.profile === "video-webm",
+        )
+        .every(
+          (derivative: { durationSeconds?: number }) =>
+            derivative.durationSeconds === publishedVideo.durationSeconds,
+        ),
+    ).toBe(true);
 
     const report = await generateDerivatives({
       source,
@@ -516,7 +555,231 @@ describe("audit-sfi-media approved derivatives", () => {
     for (const record of unpublished) {
       expect(generatedNames).not.toContain(record.id);
     }
+
+    await mkdir(join(assetsRoot, "brand"), { recursive: true });
+    await writeFile(join(assetsRoot, "brand", "SFI-Logo-Jpeg-EDIT.jpg"), "logo");
+    await writeFile(
+      join(assetsRoot, "brand", "SFI-Logo-Jpeg-EDIT_00-removebg-preview.png"),
+      "logo",
+    );
+    await syncPublicMedia({ root, manifestPath });
+    const publicRoot = join(root, "public", "media");
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).resolves.toBeUndefined();
+
+    const firstDerivative = published[0].derivatives[0];
+    const missingPublicPath = join(
+      publicRoot,
+      firstDerivative.publicDestination,
+    );
+    const approvedDerivativePath = join(
+      assetsRoot,
+      firstDerivative.assetPath,
+    );
+    const approvedDerivativeBytes = await readFile(approvedDerivativePath);
+    await writeFile(missingPublicPath, "stale derivative");
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/public derivative hash mismatch/i);
+    await copyFile(approvedDerivativePath, missingPublicPath);
+    await writeFile(approvedDerivativePath, "corrupt derivative");
+    await copyFile(approvedDerivativePath, missingPublicPath);
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/approved image derivative contract/i);
+    await writeFile(approvedDerivativePath, approvedDerivativeBytes);
+    await copyFile(approvedDerivativePath, missingPublicPath);
+
+    const videoDerivative = publishedVideo.derivatives.find(
+      (derivative: { profile: string }) =>
+        derivative.profile === "video-mp4",
+    );
+    const videoAssetPath = join(assetsRoot, videoDerivative.assetPath);
+    const videoPublicPath = join(
+      publicRoot,
+      videoDerivative.publicDestination,
+    );
+    const approvedVideoBytes = await readFile(videoAssetPath);
+    await exec("ffmpeg", [
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      `color=c=blue:s=${videoDerivative.width}x${videoDerivative.height}:d=0.1`,
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-y",
+      videoAssetPath,
+    ]);
+    await copyFile(videoAssetPath, videoPublicPath);
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/approved video derivative duration mismatch/i);
+    await writeFile(videoAssetPath, approvedVideoBytes);
+    await copyFile(videoAssetPath, videoPublicPath);
+
+    await rm(missingPublicPath);
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/missing public derivative/i);
+    await copyFile(
+      join(assetsRoot, firstDerivative.assetPath),
+      missingPublicPath,
+    );
+    await writeFile(join(publicRoot, "raw-review-artifact.jpg"), "not approved");
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/unexpected public media/i);
+    await rm(join(publicRoot, "raw-review-artifact.jpg"));
+    await writeFile(
+      join(assetsRoot, "projects", "generated", "unapproved.webp"),
+      "not approved",
+    );
+    await expect(
+      checkAudit({
+        source,
+        inventoryPath,
+        decisionsPath,
+        manifestPath,
+        publicRoot,
+        enforceBaseline: false,
+      }),
+    ).rejects.toThrow(/unexpected curated media/i);
   }, 60_000);
+
+  it("renders fixed cover profiles to the contracted canvas size", async () => {
+    const root = await mkdtemp(join(tmpdir(), "sfi-media-cover-"));
+    const source = join(root, "source");
+    const assetsRoot = join(root, "assets");
+    const manifestPath = join(root, "manifest.json");
+    const sourcePath = join(source, "hero.jpeg");
+    await mkdir(source);
+    await sharp({
+      create: {
+        width: 2016,
+        height: 980,
+        channels: 3,
+        background: "#009ee2",
+      },
+    })
+      .jpeg()
+      .toFile(sourcePath);
+    const [file] = (await buildInventory({ source })).files;
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        records: [
+          {
+            id: file.id,
+            kind: "image",
+            path: file.path,
+            decision: { status: "publish" },
+            sourceMaster: {
+              assetPath: `projects/masters/${file.id}-hero.jpeg`,
+              sha256: file.sha256,
+            },
+            derivatives: [
+              {
+                profile: "hero",
+                width: 1920,
+                height: 1080,
+                format: "webp",
+                fit: "cover",
+                assetPath: `projects/generated/${file.id}-hero.webp`,
+              },
+            ],
+          },
+        ],
+      }, null, 2)}\n`,
+    );
+
+    await generateDerivatives({ source, manifestPath, assetsRoot });
+
+    await expect(
+      sharp(join(assetsRoot, `projects/generated/${file.id}-hero.webp`))
+        .metadata(),
+    ).resolves.toMatchObject({ width: 1920, height: 1080, format: "webp" });
+  });
+
+  it("rejects manifest paths that escape the curated assets root", async () => {
+    const { root, source } = await fixture();
+    const file = (await buildInventory({ source })).files.find(
+      (candidate) => !candidate.error && candidate.isKeeper,
+    )!;
+    const assetsRoot = join(root, "assets");
+    const manifestPath = join(root, "manifest.json");
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({
+        records: [
+          {
+            id: file.id,
+            kind: "image",
+            path: file.path,
+            decision: { status: "publish" },
+            sourceMaster: {
+              assetPath: "../escaped-master.jpeg",
+              sha256: file.sha256,
+            },
+            derivatives: [],
+          },
+        ],
+      }, null, 2)}\n`,
+    );
+
+    await expect(
+      generateDerivatives({ source, manifestPath, assetsRoot }),
+    ).rejects.toThrow(/unsafe curated asset path/i);
+    await expect(stat(join(root, "escaped-master.jpeg"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
 });
 
 describe("audit-sfi-media review generation", () => {
@@ -533,7 +796,7 @@ describe("audit-sfi-media review generation", () => {
 
     expect(report).toMatchObject({
       uniqueImages: 4,
-      videoFrames: 5,
+      videoFrames: 3,
       videoContactSheets: 1,
     });
     expect(report.imageContactSheets).toBeGreaterThan(0);
