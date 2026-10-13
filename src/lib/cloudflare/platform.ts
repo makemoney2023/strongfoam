@@ -6,10 +6,21 @@ export type JobQueueBinding = {
   send(message: { kind: string; data?: Record<string, unknown> }): Promise<void>;
 };
 
+export type EmailBinding = {
+  send(message: {
+    to: string[];
+    from: string;
+    subject: string;
+    text: string;
+  }): Promise<{ messageId?: string } | void>;
+};
+
 export type CloudflareBindings = {
   DB?: RateLimitDb;
   FILES?: ObjectBucket;
   JOBS?: JobQueueBinding;
+  EMAIL?: EmailBinding;
+  EMAIL_FROM?: string;
   STRONGFOAM_AGENT?: AgentNamespace;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_MODEL?: string;

@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-13
+
+- **What changed** — Removed the held admin address from public pages, kept reduced-motion text and the operations camera visible, aligned the homepage section list with the rendered Scroll Craft page, and kept held partner names on the server.
+- **Why** — Phase 3 and Phase 4 reviews found public content and motion fallbacks that did not match the publication rules.
+- **Code touchpoints** — `src/content/site.ts`, `src/content/partners.ts`, `src/content/partner-publication.ts`, `src/components/scroll-world-page.tsx`, `src/components/marketing/site-footer.tsx`, `src/app/globals.css`, `src/app/(marketing)/contact/page.tsx`, `src/app/(marketing)/request-estimate/page.tsx`.
+- **Data-flow impact** — Public contact shows estimating email only. Partner publication filtering no longer imports the held partner catalog into the homepage client component.
+- **API / schema impact** — None.
+- **Verification** — Focused marketing, site, and request-estimate tests.
+
+- **What changed** — General inquiries use the existing lead record and R2 file binding. Office and visitor mail is sent through the Worker `EMAIL` binding.
+- **Why** — Intake, storage, and notification stay on the `strongfoam` Cloudflare Worker instead of a separate mail provider or raw object-storage keys.
+- **Code touchpoints** — `src/lib/leads/schema.ts`, `src/lib/leads/adapters.ts`, `src/lib/cloudflare/email.ts`, `src/lib/cloudflare/platform.ts`, `src/components/estimate-survey/survey-flow.ts`, `wrangler.jsonc`, `.env.example`.
+- **Data-flow impact** — A general inquiry stores `projectType: general_inquiry`, empty city, `province: not_applicable`, empty service and file arrays, and `answers.intakeType` plus `message` in D1. Files remain on the `FILES` R2 binding.
+- **API / schema impact** — No migration. `LEAD_NOTIFY_TO` is a comma-separated secret. The Worker config adds `send_email` binding `EMAIL`.
+- **Verification** — Focused lead, survey, workflow, and schema tests: 13 files and 66 tests passed. Typecheck has only the pre-existing `src/lib/ops/takeoff.ts` error.
+
+- **What changed** — Added the Phase 3 shared marketing UI: reducer-driven desktop/mobile header navigation, a public-contact footer, pure homepage selection model, server-renderable marketing components, and responsive/reduced-motion styling. The Scroll Craft/GSAP homepage remains the primary cinematic experience and now consumes the four approved service routes plus approved project, partner, and location selections.
+- **Why** — Dedicated marketing routes need consistent accessible chrome and reusable content sections without publishing held relationships, locations, or media or replacing the cinematic homepage.
+- **Code touchpoints** — `src/components/site-header.tsx`, `src/components/site-header-model.ts`, `src/components/marketing/`, `src/components/scroll-world-page.tsx`, `src/app/(marketing)/layout.tsx`, `src/app/globals.css`, and their focused tests.
+- **Data-flow impact** — Typed services, projects, partners, and locations flow through pure approval filters into shared server-compatible components; the header Sheet closes through a pure navigation action.
+- **API / schema impact** — None. No route pages, intake contracts, database schema, or media derivative pipeline changed.
+- **Verification** — Phase 3 focused Vitest: 5 files and 36 tests passed. Focused ESLint and `git diff --check` passed. TypeScript is clean for Phase 3 files; the repository-wide check remains blocked by the pre-existing `src/lib/ops/takeoff.ts:51` comparison error.
+
+- **What changed** — Added the shared recursive marketing-claims guard and completed the SFI media audit pipeline: deterministic inventory, duplicate/keeper analysis, fixture-only decision compilation, read-only drift checking, temporary contact-sheet/video-frame review, 576 final editorial decisions, and a compiled manifest.
+- **Why** — Raw client media must remain read-only and only useful, reviewed first-party media may enter curated/public assets.
+- **Code touchpoints** — `src/content/claims.ts`, `scripts/audit-sfi-media.mjs`, their focused tests, `assets/source-media-inventory.json`, `assets/source-media-decisions.json`, `assets/source-media-manifest.json`, `docs/sfi-media-audit.md`, `assets/MANIFEST.md`, `assets/SCROLL-BG-SHORTLIST.md`, `README.md`, `package.json`, and `package-lock.json`.
+- **Data-flow impact** — The external source is read into a source-relative structural inventory. Separate human decisions approve 14 images and 5 videos, hold uncertain rights and third-party logos, and compile into a deterministic manifest. Curated derivative generation/public sync remains a later gated phase.
+- **API / schema impact** — None. Added the local `sharp` dependency; no route, database, or public-media contract changed.
+- **Verification** — Baseline: 135 files and 735 tests passed. Focused claims/media audit: 2 files and 8 tests passed. The external inventory matched 576 total, 544 images, 32 videos, 484 exact-unique images, 47 duplicate groups, 60 redundant images, 34 low-resolution images, and zero corrupt images. The complete read-only `check` validated all decisions and manifest drift.
+
 ## 2026-10-06
 
 - **What changed** — Job summaries and commercial drafts call a named `StrongfoamAgent` instance. A requested model is used, or the run fails. Queue and cron handlers run inside the Worker request context. The PRD architecture now describes the Cloudflare Worker, and United States storage is the accepted location.

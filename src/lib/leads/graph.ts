@@ -1,13 +1,15 @@
 import type { ProjectType } from "@/lib/leads/types";
 
 export type SurveyStep =
+  | "branch"
   | "fit"
   | "location"
   | "notes"
   | "scope"
   | "project"
   | "files"
-  | "contact";
+  | "contact"
+  | "message";
 
 export function nextSurveyStep(
   current: SurveyStep,

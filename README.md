@@ -63,7 +63,7 @@ CI=1 npx wrangler d1 migrations apply strongfoam --remote
 | `src/lib/site-schema.ts` | Organization / WebSite / FAQ `@graph` |
 | `src/lib/leads/` | Estimate survey qualification, HMAC, rate limits |
 | `src/lib/ops/` | Staff auth, estimate-request review, workflow rules |
-| `src/components/` | Header, scroll page, estimate survey, shadcn/ui |
+| `src/components/` | Reducer-driven header, cinematic scroll page, shared server-compatible marketing UI/footer, estimate survey, shadcn/ui |
 | `assets/` | Brand / projects / Omni loops |
 | `public/media/*` | Copied from `assets/` on `predev` / `prebuild` |
 | `docs/` | Brief, dossier, recovered copy, SEO pack |
@@ -84,6 +84,25 @@ npm run omni:bg -- --priority   # or --all
 ```
 
 Requires `GEMINI_API_KEY` in `.env.local` (gitignored).
+
+## Source media audit
+
+The raw `SFI WEBSITE` directory stays outside the deployable asset tree. Audit
+it with an absolute source path; generated records retain source-relative paths
+only:
+
+```bash
+node scripts/audit-sfi-media.mjs inventory \
+  --source "/absolute/path/to/SFI WEBSITE" \
+  --inventory assets/source-media-inventory.json
+node scripts/audit-sfi-media.mjs check \
+  --source "/absolute/path/to/SFI WEBSITE" \
+  --inventory assets/source-media-inventory.json
+```
+
+Human publication decisions remain separate from structural inventory data.
+See [`docs/sfi-media-audit.md`](docs/sfi-media-audit.md) for review, compile,
+and full non-mutating check commands.
 
 ## Estimate survey
 
@@ -114,6 +133,9 @@ Production operations requirements:
   that reads those tables is serving traffic.
 - Private uploads use the `FILES` R2 binding. Job uploads fail closed when that
   binding is missing; they never use ephemeral process memory.
+- Estimate requests and general inquiries are stored in the `DB` D1 binding.
+  Office notification uses the Worker `EMAIL` binding and the comma-separated
+  `LEAD_NOTIFY_TO` secret. Do not put recipient addresses or R2 keys in git.
 
 ```bash
 npm test
@@ -127,8 +149,6 @@ DATABASE_URL
 WORKER_DATABASE_URL
 DIRECT_URL
 BLOB_READ_WRITE_TOKEN
-RESEND_API_KEY
-RESEND_FROM
 LEAD_NOTIFY_TO
 LEAD_THANKS_SECRET
 NEXT_PUBLIC_CALENDLY_URL

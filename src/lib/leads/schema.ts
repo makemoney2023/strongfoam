@@ -12,20 +12,24 @@ const contactFields = {
   companyWebsite: z.string().max(200),
   startedAt: z.number().int().positive(),
   draftId: uuid,
-  uploadPaths: z.array(z.string().max(500)).max(5),
 };
 
+const uploadPaths = z.array(z.string().max(500)).max(5);
+
 const shortSchema = z.object({
+  intakeType: z.literal("estimate"),
   projectType: z.literal("residential_other"),
   city: z.string().trim().min(1).max(80),
   province: z.enum(["ON", "outside_ontario"]),
   notes: z.string().max(2000).optional().default(""),
   company: z.string().trim().max(120).optional().default(""),
   services: z.array(z.never()).optional().default([]),
+  uploadPaths,
   ...contactFields,
 });
 
 const fullSchema = z.object({
+  intakeType: z.literal("estimate"),
   projectType: z.enum(["commercial_ici", "multi_unit", "industrial"]),
   city: z.string().trim().min(1).max(80),
   province: z.enum(["ON", "outside_ontario"]),
@@ -41,11 +45,20 @@ const fullSchema = z.object({
   drawingsReady: z.enum(["yes", "no", "later"]),
   notes: z.string().max(2000).optional().default(""),
   company: z.string().trim().min(1).max(120),
+  uploadPaths,
+  ...contactFields,
+});
+
+const generalSchema = z.object({
+  intakeType: z.literal("general"),
+  message: z.string().trim().min(1).max(2000),
+  company: z.string().trim().max(120).optional().default(""),
+  uploadPaths: uploadPaths.optional().default([]),
   ...contactFields,
 });
 
 export const leadPayloadSchema = z
-  .union([shortSchema, fullSchema])
+  .union([shortSchema, fullSchema, generalSchema])
   .transform(({ companyWebsite, ...data }) => {
     void companyWebsite;
     return data;

@@ -124,22 +124,22 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  video {
-    display: none;
-  }
-}
-
 /* Strong Foam scroll craft
    Grammar: rhythmic cutlist with one long services rail.
    Motion uses transform, opacity, and one full-frame clip-path reveal. */
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
 }
 
 body {
   overflow-x: clip;
+}
+
+:where(a, button, [tabindex]):focus-visible {
+  outline: 3px solid var(--sf-cyan);
+  outline-offset: 4px;
 }
 
 @media (min-width: 640px) {
@@ -521,6 +521,15 @@ body {
   line-height: 1.62;
 }
 
+.service-panel__link {
+  display: inline-block;
+  margin-top: 1.75rem;
+  color: var(--sf-cyan);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.35rem;
+}
+
 .service-rule {
   position: absolute;
   right: 0;
@@ -549,9 +558,37 @@ body {
 
 .process-act,
 .projects-act,
+.partners-act,
 .coverage-act,
 .faq-act {
   padding: clamp(6rem, 11vw, 11rem) var(--page-gutter);
+}
+
+.mission-strip {
+  padding-block: clamp(5rem, 9vw, 9rem);
+  border-block: 1px solid rgb(255 255 255 / 12%);
+  background: #111b23;
+}
+
+.mission-strip h2 {
+  max-width: 24ch;
+  margin-top: 1.5rem;
+  font: 600 clamp(2.2rem, 4.5vw, 4.8rem) / 1.02 var(--font-display);
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.mission-strip__slogans {
+  display: grid;
+  margin-top: 3rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.mission-strip__slogans p {
+  padding-top: 1rem;
+  border-top: 2px solid var(--sf-cyan);
+  color: #afbdc7;
 }
 
 .process-act {
@@ -722,6 +759,10 @@ body {
   grid-column: 2;
 }
 
+.projects-grid > .project-frame:nth-child(2):last-child {
+  grid-row: 1 / 3;
+}
+
 .project-frame::after {
   position: absolute;
   inset: 0;
@@ -737,10 +778,21 @@ body {
 }
 
 .projects-note {
+  display: inline-block;
   max-width: var(--page-max);
   margin: 1.5rem auto 0;
-  color: #788995;
-  font-size: 0.8rem;
+  color: var(--sf-cyan);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 0.35rem;
+}
+
+.partners-act {
+  background: #0d151c;
+}
+
+.partners-act .marketing-empty-state {
+  margin-top: 3rem;
 }
 
 .coverage-act {
@@ -833,8 +885,8 @@ body {
   min-height: 100svh;
   padding: 8rem var(--page-gutter) 2.5rem;
   background:
-    linear-gradient(rgb(8 14 19 / 88%), rgb(8 14 19 / 94%)),
-    url("/media/brand/strongfoam-bar.jpg") center / cover;
+    radial-gradient(circle at 80% 20%, rgb(0 158 226 / 13%), transparent 36%),
+    linear-gradient(145deg, #101820, #080d12);
 }
 
 .contact-inner {
@@ -879,6 +931,240 @@ body {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Shared marketing routes and components */
+.marketing-interior-hero {
+  padding-block: clamp(9rem, 16vw, 14rem) clamp(5rem, 9vw, 8rem);
+  background:
+    radial-gradient(circle at 80% 20%, rgb(0 158 226 / 16%), transparent 38%),
+    linear-gradient(145deg, #0b1218, #151c24);
+}
+
+.marketing-interior-hero__inner h1,
+.marketing-section__intro h2,
+.marketing-cta-band h2 {
+  margin-top: 1.25rem;
+  font: 650 clamp(2.75rem, 6vw, 6rem) / 0.94 var(--font-display);
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.marketing-interior-hero__inner > p:last-child,
+.marketing-section__intro > p,
+.marketing-cta-band__inner > div > p:last-child {
+  max-width: 64ch;
+  margin-top: 1.5rem;
+  color: #afbdc7;
+  font-size: clamp(1rem, 1.35vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.marketing-section {
+  padding-block: clamp(5rem, 9vw, 9rem);
+}
+
+.marketing-section__intro h2 {
+  max-width: 16ch;
+  font-size: clamp(2.25rem, 4.5vw, 4.75rem);
+}
+
+.marketing-endorsement {
+  color: var(--sf-cyan) !important;
+  font-weight: 700;
+}
+
+.marketing-card-grid,
+.marketing-project-grid,
+.marketing-partner-grid,
+.marketing-location-grid {
+  display: grid;
+  margin-top: 3rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.marketing-card,
+.marketing-project-card,
+.marketing-partner-card,
+.marketing-location-card,
+.marketing-cautions {
+  border: 1px solid rgb(255 255 255 / 12%);
+  background: #151c24;
+}
+
+.marketing-card h3,
+.marketing-cautions h3 {
+  font: 600 1.35rem/1.2 var(--font-display);
+}
+
+.marketing-card p,
+.marketing-cautions li,
+.marketing-location-card p,
+.marketing-location-card address {
+  color: #afbdc7;
+  line-height: 1.65;
+}
+
+.marketing-cautions {
+  margin-top: 1rem;
+}
+
+.marketing-cautions ul {
+  display: grid;
+  gap: 0.75rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.marketing-project-card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #25313a;
+}
+
+.marketing-project-card figcaption p,
+.marketing-partner-card p {
+  color: #8797a3;
+  text-transform: capitalize;
+}
+
+.marketing-partner-card__logo {
+  width: 100%;
+  height: 7rem;
+  object-fit: contain;
+}
+
+.marketing-location-card address {
+  font-style: normal;
+}
+
+.marketing-empty-state {
+  max-width: 58ch;
+  padding: 1.25rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: var(--radius);
+  color: #afbdc7;
+}
+
+.marketing-breadcrumbs {
+  padding-top: 6.5rem;
+}
+
+.marketing-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: #9dacb6;
+  font-size: 0.9rem;
+}
+
+.marketing-breadcrumbs li:not(:last-child)::after {
+  margin-left: 0.5rem;
+  content: "/";
+  color: #566672;
+}
+
+.marketing-breadcrumbs a:hover {
+  color: var(--sf-cyan);
+}
+
+.marketing-cta-band {
+  padding-block: clamp(4rem, 8vw, 7rem);
+  background: linear-gradient(135deg, #111b23, #0b1218);
+}
+
+.marketing-cta-band__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 3rem;
+}
+
+.marketing-cta-band h2 {
+  max-width: 16ch;
+  font-size: clamp(2.25rem, 4.5vw, 4.5rem);
+}
+
+.marketing-cta-band__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.marketing-link-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  padding-inline: 1.15rem;
+  font-weight: 700;
+}
+
+.marketing-link-button--primary {
+  background: var(--sf-red);
+  color: white;
+}
+
+.marketing-link-button--outline {
+  border-color: rgb(255 255 255 / 28%);
+  color: white;
+}
+
+.marketing-footer {
+  padding-block: 5rem 2rem;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+  background: #080d12;
+  color: #afbdc7;
+}
+
+.marketing-footer__grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr));
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.marketing-footer h2 {
+  margin-bottom: 1rem;
+  color: white;
+  font: 600 1rem/1.2 var(--font-display);
+}
+
+.marketing-footer ul {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.marketing-footer a:hover {
+  color: var(--sf-cyan);
+}
+
+.marketing-footer__brand p {
+  margin-top: 0.8rem;
+}
+
+.marketing-footer address {
+  font-style: normal;
+  line-height: 1.65;
+}
+
+.marketing-footer__base {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  font-size: 0.8rem;
+}
+
+.marketing-footer__base ul {
+  display: flex;
+  flex-wrap: wrap;
+  grid-auto-flow: column;
+  text-transform: capitalize;
 }
 
 @media (max-width: 899px) {
@@ -948,9 +1234,14 @@ body {
   }
 
   .project-frame--tall,
-  .project-frame--wide {
+  .project-frame--wide,
+  .projects-grid > .project-frame:nth-child(2):last-child {
     grid-row: auto;
     grid-column: auto;
+  }
+
+  .marketing-footer__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -998,9 +1289,42 @@ body {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .mission-strip__slogans,
+  .marketing-card-grid,
+  .marketing-project-grid,
+  .marketing-partner-grid,
+  .marketing-location-grid,
+  .marketing-cta-band__inner,
+  .marketing-footer__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-cta-band__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marketing-link-button {
+    width: 100%;
+  }
+
+  .marketing-footer__base {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   html {
     scroll-behavior: auto;
   }
@@ -1015,10 +1339,6 @@ body {
     margin-block: 1.5rem;
   }
 
-  .trust-lines p:not(:first-child) {
-    display: none;
-  }
-
   .services-act {
     height: auto;
   }
@@ -1026,6 +1346,7 @@ body {
   .services-frame {
     height: auto;
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
   }
 
   .hero-media,
@@ -1036,12 +1357,12 @@ body {
   .hero-stage {
     background:
       radial-gradient(90% 75% at 0 100%, rgb(7 13 18 / 94%), transparent 80%),
-      url("/media/backgrounds/02-SFI1004_00.jpg") center / cover;
+      url("/media/projects/IMG_7880.jpeg") center / cover;
   }
 
   .sectors-act {
     background:
       linear-gradient(90deg, rgb(7 13 18 / 94%), rgb(7 13 18 / 28%)),
-      url("/media/backgrounds/07-SFI1007.jpg") center / cover;
+      url("/media/projects/IMG_7879.jpg") center / cover;
   }
 }

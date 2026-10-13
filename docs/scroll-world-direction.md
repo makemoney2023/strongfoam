@@ -11,17 +11,19 @@ watching a generic construction reel. Each scroll behavior has a job:
 2. **Trust hold:** reduce the offer to three large, sequential proof statements.
    A low-contrast structural grid and cyan/red datum line give the light field
    depth without competing with the typography.
-3. **Capability rail:** reveal the five scopes as one coordinated horizontal
-   package. Cropping at the rail edges is intentional.
+3. **Capability rail:** reveal the four public service routes as one
+   coordinated horizontal package, followed by the endorsed Strong Fire
+   feature. Cropping at the rail edges is intentional.
 4. **Field process:** reveal the original `SFI1006.jpeg` upward like an installed
    layer while drawings become field steps.
 5. **Sector frame:** use fireproofing footage as depth behind commercial, ICI,
    and multi-unit positioning.
 6. **Project evidence:** return to still photography so the viewer can inspect
    real work without motion competing for attention.
-7. **Ontario route:** draw the operating footprint from Kitchener through London
-   and the GTA.
-8. **Close:** make the estimating handoff the visual peak, not an afterthought.
+7. **Approved relationships:** retain the chapter even when no third-party mark
+   has completed every publication gate; held marks never render.
+8. **Ontario route:** draw only the approved Kitchener operations record.
+9. **Close:** make the estimating handoff the visual peak, not an afterthought.
 
 This is a chaptered film grammar with one deliberate horizontal chapter. It
 avoids repeating one reveal recipe across every section.
@@ -39,6 +41,14 @@ avoids repeating one reveal recipe across every section.
 - Reduced-motion users get settled copy, static poster frames, and a native
   service rail.
 - Motion is cleaned up through `gsap.context()` when the route unmounts.
+- `marketing-page-model.ts` is the pure selection contract for section order,
+  four service links, approved project/partner/location records, and fallback
+  flags. GSAP consumes that model without becoming the content source.
+
+The shared marketing layout keeps `SiteHeader` as the small interactive client
+boundary and renders a server-compatible footer from public contact channels.
+Interior routes reuse the components under `src/components/marketing/`; they do
+not replace or flatten this homepage.
 
 `public/media` is a generated copy of `assets/` (not a symlink). Relative
 symlinks caused Vercel’s `next build` public-file copy to fail with “Cannot
@@ -53,14 +63,11 @@ commit in this repo must use author and committer
 
 - `SFI-Logo-Jpeg-EDIT_00-removebg-preview.png`: real Strong Foam mark used
   in the header and estimating close on dark surfaces.
-- `SFI1006.jpeg`: field-process chapter. The legacy site used this image beside
-  its company story.
-- `SFI1007.jpg`: multi-unit project evidence.
-- `IMG_7880.jpeg`: commercial / ICI project evidence.
-- `strongfoam-bar.jpg`: brand-owned installation texture in the estimating
-  close, darkened for copy contrast.
-- Omni `02` and `07` loops: slow, muted environmental motion in the hero and
-  sector frame.
+- `IMG_7880.jpeg`: approved commercial-envelope hero and project evidence.
+- `IMG_7879.jpg`: approved field-process, sector, and project evidence.
+- Until Phase 7 creates derivatives for the newly approved video shortlist,
+  the cinematic chapters use GSAP movement on these approved stills. Legacy
+  Omni loops and held/duplicate source images are not rendered.
 
 Product marks remain evidence only. They should appear in systems or product
 context after current applicator relationships and permissions are confirmed.
@@ -69,7 +76,7 @@ context after current applicator relationships and permissions are confirmed.
 
 - Replace generic project labels only after project names and client permissions
   are confirmed.
-- Confirm active London / Dorchester and Woodbridge branch NAP before the GEO
-  content freeze.
+- London / Dorchester and Woodbridge remain omitted until each address, active
+  status, public label, and service-area wording is approved.
 - Confirm exact product SKUs and applicator status before publishing product
   relationship claims.

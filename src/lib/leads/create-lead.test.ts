@@ -39,6 +39,7 @@ class MemoryStore implements LeadStore {
 
 function body(overrides: Record<string, unknown> = {}) {
   return {
+    intakeType: "estimate",
     projectType: "commercial_ici",
     city: "Kitchener",
     province: "ON",
@@ -186,6 +187,48 @@ describe("createLead", () => {
 
     expect(result).toEqual({ ok: false, error: "invalid" });
     expect(store.rows).toHaveLength(0);
+  });
+
+  it("stores a general inquiry as secondary and never offers Calendly", async () => {
+    const now = Date.now();
+    const store = new MemoryStore(now);
+    const messages = mailer();
+
+    const result = await createLead({
+      body: {
+        intakeType: "general",
+        message: "Please call about a partnership question.",
+        company: "Example Co",
+        companyWebsite: "",
+        startedAt: now - 9000,
+        draftId: "11111111-1111-4111-8111-111111111111",
+        firstName: "Alex",
+        lastName: "Lee",
+        email: "alex@example.com",
+        phone: "519-555-0100",
+        consent: true,
+      },
+      ip: "1.1.1.1",
+      now,
+      limiter: new MemoryRateLimiter(),
+      store,
+      mailer: messages,
+      thanksSecret: "test-secret-test-secret-test-secret",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(store.rows[0]?.status).toBe("secondary");
+    expect(store.rows[0]?.bookingStatus).toBe("none");
+    expect(messages.sendEstimating).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intakeType: "general",
+        calendlyOffered: false,
+        message: "Please call about a partnership question.",
+      }),
+    );
+    expect(messages.sendVisitor).toHaveBeenCalledWith(
+      expect.objectContaining({ intakeType: "general", calendlyOffered: false }),
+    );
   });
 
   it("returns rate_limited before parsing or storing", async () => {

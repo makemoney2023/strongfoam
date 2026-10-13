@@ -1,3 +1,4 @@
+import { assertMarketingClaimsSafe } from "@/content/claims";
 import { site } from "@/content/site";
 
 const orgId = `${site.url}/#organization`;
@@ -72,10 +73,12 @@ export function homeGraph(faq?: { question: string; answer: string }[]) {
     });
   }
 
-  return {
+  const completedGraph = {
     "@context": "https://schema.org",
     "@graph": graph,
   };
+  assertMarketingClaimsSafe(completedGraph, "json-ld");
+  return completedGraph;
 }
 
 export { orgId, websiteId };

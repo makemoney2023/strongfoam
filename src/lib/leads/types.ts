@@ -30,11 +30,16 @@ export const SERVICE_IDS = [
 ] as const;
 export type ListedServiceId = (typeof SERVICE_IDS)[number];
 
-export type QualifyInput = {
-  projectType: ProjectType;
-  province: Province;
-  services: ListedServiceId[];
-};
+export type QualifyInput =
+  | {
+      intakeType: "estimate";
+      projectType: ProjectType;
+      province: Province;
+      services: ListedServiceId[];
+    }
+  | {
+      intakeType: "general";
+    };
 
 export type QualifyResult = {
   status: "qualified" | "secondary";

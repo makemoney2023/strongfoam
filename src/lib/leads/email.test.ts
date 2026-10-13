@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildEstimatingEmail, buildVisitorEmail } from "@/lib/leads/email";
 
 const base = {
+  intakeType: "estimate" as const,
   status: "qualified" as const,
   firstName: "Alex",
   lastName: "Lee",
@@ -38,5 +39,34 @@ describe("lead emails", () => {
   it("mentions booking on the thanks page for qualified visitors", () => {
     const email = buildVisitorEmail(base);
     expect(email.text.toLowerCase()).toContain("thanks page");
+  });
+
+  it("uses a general-inquiry subject and does not offer a booking", () => {
+    const internal = buildEstimatingEmail({
+      ...base,
+      intakeType: "general",
+      status: "secondary",
+      company: "",
+      city: "",
+      services: [],
+      reasons: ["general_inquiry"],
+      fileLinks: [],
+      calendlyOffered: false,
+      message: "Can you call about a partnership?",
+    });
+    const visitor = buildVisitorEmail({
+      ...base,
+      intakeType: "general",
+      status: "secondary",
+      calendlyOffered: false,
+      message: "Can you call about a partnership?",
+    });
+
+    expect(internal.subject).toBe("General inquiry · Alex Lee");
+    expect(internal.text).toContain("Can you call about a partnership?");
+    expect(internal.text).toContain("Calendly offered: no");
+    expect(visitor.subject).toBe("Strong Foam received your inquiry");
+    expect(visitor.text.toLowerCase()).toContain("reply");
+    expect(visitor.text.toLowerCase()).not.toContain("thanks page");
   });
 });

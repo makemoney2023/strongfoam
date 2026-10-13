@@ -1,0 +1,933 @@
+{
+  "artifactType": "sfi-source-copy-decisions",
+  "schemaVersion": 1,
+  "reviewedOn": "2026-10-13",
+  "reviewBasis": "Every extracted DOCX paragraph requirement was human-reviewed against source precedence, the shared claims policy, explicit approval gates, the approved route architecture, and current typed-content destinations. Safe current facts are published; unsupported or approval-dependent claims are held; superseded, duplicate, editorial, or guarded copy is rejected.",
+  "decisions": [
+    {
+      "id": "copy-112312dc91ef6709",
+      "outcome": "published",
+      "reason": "The current source confirms the home destination in the approved route architecture.",
+      "typedField": "publicRoutes[0].path",
+      "routes": [
+        "/"
+      ]
+    },
+    {
+      "id": "copy-4ac1d50e130f6aed",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-e18682eefdf672b7",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-4ddeaf45e8d7938a",
+      "outcome": "published",
+      "reason": "The current source safely supports the employee-culture summary without publishing experience or performance claims.",
+      "typedField": "companyContent.culture",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-207886a978438535",
+      "outcome": "held",
+      "reason": "Hold the applicator-status and performance language until current qualifications and substantiation are approved.",
+      "missingApproval": "Current applicator qualifications and support for the stated results."
+    },
+    {
+      "id": "copy-e3205a16c2c2fffc",
+      "outcome": "rejected",
+      "reason": "Rejected as an editorial or asset instruction; the reviewed media manifest and approval gate control publication.",
+      "rejectedBy": "source-media-manifest-and-approval-gate"
+    },
+    {
+      "id": "copy-255d7d2ab74ecfcf",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-f987fed1eae1d4f0",
+      "outcome": "held",
+      "reason": "Hold because air-barrier vapour behaviour varies by assembly and product rather than applying universally.",
+      "missingApproval": "Assembly-specific technical review of vapour permeance and condensation wording."
+    },
+    {
+      "id": "copy-bea09e13f573293d",
+      "outcome": "published",
+      "reason": "The current source confirms the dedicated About destination.",
+      "typedField": "publicRoutes[1].path",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-95150418b18bcc5a",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-09876a4ef9dbc959",
+      "outcome": "published",
+      "reason": "The current revision supplies the Kitchener operations street used by typed NAP content.",
+      "typedField": "site.primaryOps.street",
+      "routes": [
+        "/locations",
+        "/contact"
+      ]
+    },
+    {
+      "id": "copy-906484b792359b5e",
+      "outcome": "rejected",
+      "reason": "Rejected because the approved typed-content contract supersedes this fragment, heading, or unsupported source instruction.",
+      "rejectedBy": "design-specification:approved-route-and-content-contract"
+    },
+    {
+      "id": "copy-716f572c46bddb5f",
+      "outcome": "held",
+      "reason": "Hold the proposed product-logo treatment until every third-party relationship and mark is approved.",
+      "missingApproval": "Identity, official artwork, current relationship, and publication permission for each logo."
+    },
+    {
+      "id": "copy-238125cb9901f0a0",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current Genyk relationship and logo publication permission."
+    },
+    {
+      "id": "copy-74af2ea74c89cbab",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current BASF relationship and logo publication permission."
+    },
+    {
+      "id": "copy-6056b0a13a343c21",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current Soprema relationship and logo publication permission."
+    },
+    {
+      "id": "copy-f1a0230becc55903",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current Henry relationship and logo publication permission."
+    },
+    {
+      "id": "copy-fefbbac0cd1b9e1c",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current GCP/Grace relationship and logo publication permission."
+    },
+    {
+      "id": "copy-20a661e34f147c27",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current Carboline relationship and logo publication permission."
+    },
+    {
+      "id": "copy-3380b1362ff2152f",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference until current relationship and publication permission are approved.",
+      "missingApproval": "Current Hilti relationship and logo publication permission."
+    },
+    {
+      "id": "copy-c30b7a958ace85c7",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-94e439654e700260",
+      "outcome": "published",
+      "reason": "The current source supports a dedicated public contact destination.",
+      "typedField": "publicRoutes[10].path",
+      "routes": [
+        "/contact"
+      ]
+    },
+    {
+      "id": "copy-1be29bda5e0301f1",
+      "outcome": "held",
+      "reason": "Hold as an internal notification requirement; the direct address must not enter public typed content.",
+      "missingApproval": "Phase 5 recipient validation and approved deployment-only notification configuration."
+    },
+    {
+      "id": "copy-a29d1f664ca879a0",
+      "outcome": "held",
+      "reason": "Hold as an internal notification fallback requirement; recipient values remain outside public content.",
+      "missingApproval": "Phase 5 recipient validation and approved deployment-only notification configuration."
+    },
+    {
+      "id": "copy-cbbf41bd8cd9b6bd",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-154e69852f413256",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-15c20df69de44c8a",
+      "outcome": "published",
+      "reason": "The edited mission source supplies the first half of the locked Go Beyond. Go Strong. slogan.",
+      "typedField": "companyContent.slogans[1]",
+      "routes": [
+        "/about",
+        "/"
+      ]
+    },
+    {
+      "id": "copy-970c326a490f18ca",
+      "outcome": "published",
+      "reason": "The edited mission source supplies the second half of the locked Go Beyond. Go Strong. slogan.",
+      "typedField": "companyContent.slogans[1]",
+      "routes": [
+        "/about",
+        "/"
+      ]
+    },
+    {
+      "id": "copy-336020bc58c33db6",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-a170d07881f3dc54",
+      "outcome": "rejected",
+      "reason": "Rejected because the approved typed-content contract supersedes this fragment, heading, or unsupported source instruction.",
+      "rejectedBy": "design-specification:approved-route-and-content-contract"
+    },
+    {
+      "id": "copy-7e4a163d4dc10242",
+      "outcome": "published",
+      "reason": "The edited mission source safely supports the family-oriented workplace purpose.",
+      "typedField": "companyContent.purpose",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-fb90dee574d0c182",
+      "outcome": "published",
+      "reason": "The edited mission source safely supports the integrity and openness promise.",
+      "typedField": "companyContent.promise",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-209fab4f830aed6c",
+      "outcome": "published",
+      "reason": "The edited mission source safely supports proven methods and collaboration as an objective.",
+      "typedField": "companyContent.objective",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-58ed8ab20c17079c",
+      "outcome": "published",
+      "reason": "The edited mission source safely supports the typed safety priority.",
+      "typedField": "companyContent.safety",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-6ad8eb295ac09ed5",
+      "outcome": "rejected",
+      "reason": "Rejected because the approved typed-content contract supersedes this fragment, heading, or unsupported source instruction.",
+      "rejectedBy": "design-specification:approved-route-and-content-contract"
+    },
+    {
+      "id": "copy-13d8cfa5136aa858",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-2babd31f93372042",
+      "outcome": "published",
+      "reason": "The edited mission source identifies the vision section implemented in typed company content.",
+      "typedField": "companyContent.vision",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-2418f5fefa1027df",
+      "outcome": "published",
+      "reason": "The edited mission source safely supports professional growth and adaptation in the typed vision.",
+      "typedField": "companyContent.vision",
+      "routes": [
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-2eca45c1ff036170",
+      "outcome": "published",
+      "reason": "The edited mission source supplies the Strong People slogan line.",
+      "typedField": "companyContent.slogans[2]",
+      "routes": [
+        "/about",
+        "/"
+      ]
+    },
+    {
+      "id": "copy-a13a7b379cf3b0ec",
+      "outcome": "published",
+      "reason": "The edited mission source supplies the Strong Service slogan line.",
+      "typedField": "companyContent.slogans[2]",
+      "routes": [
+        "/about",
+        "/"
+      ]
+    },
+    {
+      "id": "copy-6ac5a5363edc37f4",
+      "outcome": "published",
+      "reason": "The edited mission source supplies the Strong Results slogan line.",
+      "typedField": "companyContent.slogans[2]",
+      "routes": [
+        "/about",
+        "/"
+      ]
+    },
+    {
+      "id": "copy-46e7f54a2085a79c",
+      "outcome": "published",
+      "reason": "The edited mission source confirms the Strong Foam brand name.",
+      "typedField": "site.brand",
+      "routes": [
+        "/",
+        "/about"
+      ]
+    },
+    {
+      "id": "copy-c6b8aa2d2d3f4625",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-d6539ed73ca9c70b",
+      "outcome": "held",
+      "reason": "Hold the credential and schedule-performance language until evidence and approval are recorded.",
+      "missingApproval": "Evidence for certified evaluation, expert-advice status, and universal schedule delivery."
+    },
+    {
+      "id": "copy-ec8ba1f585e45acb",
+      "outcome": "held",
+      "reason": "Hold the energy-use and carbon-load claims until evidence supports the exact assembly and wording.",
+      "missingApproval": "Product-specific energy and environmental performance evidence."
+    },
+    {
+      "id": "copy-ba0ec2efa457ca76",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-9f2d595e3065b16a",
+      "outcome": "held",
+      "reason": "Hold comparative performance and mould-prevention language pending technical evidence.",
+      "missingApproval": "Product-specific R-value, air-leakage, and mould/moisture evidence."
+    },
+    {
+      "id": "copy-c28abd01a67fc964",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-8df24915d986c0b0",
+      "outcome": "held",
+      "reason": "Hold broad adhesion, gap-elimination, and comparative permeance claims pending product evidence.",
+      "missingApproval": "Product-specific substrate compatibility and tested permeance evidence."
+    },
+    {
+      "id": "copy-0f123e39f8a7830a",
+      "outcome": "published",
+      "reason": "The source safely confirms the spray foam service family.",
+      "typedField": "serviceContent[0].title",
+      "routes": [
+        "/services",
+        "/services/spray-foam-insulation"
+      ]
+    },
+    {
+      "id": "copy-eec17960d695fef4",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-ec8ba1f585e45acb.",
+      "rejectedBy": "copy-ec8ba1f585e45acb"
+    },
+    {
+      "id": "copy-0fbc4d0fff975401",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-5ad61df5353e25dc",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9f2d595e3065b16a.",
+      "rejectedBy": "copy-9f2d595e3065b16a"
+    },
+    {
+      "id": "copy-d160ec080ff5a235",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-4144d4fa4a91ca38",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-8df24915d986c0b0.",
+      "rejectedBy": "copy-8df24915d986c0b0"
+    },
+    {
+      "id": "copy-7ce3e395ae1e9aa9",
+      "outcome": "published",
+      "reason": "The source safely supports specification-led cementitious fire-protection work.",
+      "typedField": "serviceContent[1].technicalSections[0].body",
+      "routes": [
+        "/services/fire-protection"
+      ]
+    },
+    {
+      "id": "copy-9df085e4b8d4fc9b",
+      "outcome": "published",
+      "reason": "The source safely confirms the fireproofing section.",
+      "typedField": "serviceContent[1].technicalSections[0].title",
+      "routes": [
+        "/services/fire-protection"
+      ]
+    },
+    {
+      "id": "copy-975cf186077f931c",
+      "outcome": "published",
+      "reason": "The source safely explains the intended passive-fire-protection function with application-dependent wording.",
+      "typedField": "serviceContent[1].technicalSections[0].body",
+      "routes": [
+        "/services/fire-protection"
+      ]
+    },
+    {
+      "id": "copy-3b282db240145d97",
+      "outcome": "published",
+      "reason": "The source safely confirms the distinct intumescent coatings section.",
+      "typedField": "serviceContent[1].technicalSections[1].title",
+      "routes": [
+        "/services/fire-protection"
+      ]
+    },
+    {
+      "id": "copy-873e1b888087a571",
+      "outcome": "rejected",
+      "reason": "Rejected as editorial correspondence, placeholder text, or layout debris rather than public marketing copy.",
+      "rejectedBy": "design-specification:typed-content-contract"
+    },
+    {
+      "id": "copy-b0a4e551b544b9f4",
+      "outcome": "published",
+      "reason": "The source safely confirms the roofing service family.",
+      "typedField": "serviceContent[3].title",
+      "routes": [
+        "/services",
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-9325ab535b38869e",
+      "outcome": "held",
+      "reason": "Hold dated field-history and performance claims until authoritative evidence is cited.",
+      "missingApproval": "Evidence for roofing service-life history, energy performance, and maintenance-cost claims."
+    },
+    {
+      "id": "copy-9c73e4ad991530a1",
+      "outcome": "held",
+      "reason": "Hold exact roofing application dimensions and material behaviour pending product verification.",
+      "missingApproval": "Product-family verification for lift thickness, expansion, bonding, and covering details."
+    },
+    {
+      "id": "copy-2777d8c1c3e63cc3",
+      "outcome": "published",
+      "reason": "The source safely supports the requirement for UV-protective roofing coatings or coverings.",
+      "typedField": "serviceContent[3].technicalSections[0].body",
+      "routes": [
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-1ee265661c327cbd",
+      "outcome": "published",
+      "reason": "The source safely supports substrate evaluation and caution for recover applications.",
+      "typedField": "serviceContent[3].technicalSections[1].body",
+      "routes": [
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-1a2e06eaddcb71d7",
+      "outcome": "published",
+      "reason": "The source safely introduces the conditions that govern SPF roofing fit.",
+      "typedField": "serviceContent[3].technicalSections[2].title",
+      "routes": [
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-f208c14a4804ec13",
+      "outcome": "held",
+      "reason": "Hold broad suitability and operating-cost claims pending project and product evidence.",
+      "missingApproval": "Project-specific engineering support for wind, drainage, insulation, and owner-cost suitability."
+    },
+    {
+      "id": "copy-20349baddce4f60a",
+      "outcome": "published",
+      "reason": "The source safely supports the installer knowledge and experience caution.",
+      "typedField": "serviceContent[3].technicalSections[2].body",
+      "routes": [
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-c6d474346e317977",
+      "outcome": "published",
+      "reason": "The source safely supports substrate, humidity, dew-point, moisture, and wind limitations.",
+      "typedField": "serviceContent[3].cautions[1]",
+      "routes": [
+        "/services/spf-roofing"
+      ]
+    },
+    {
+      "id": "copy-9553f59310dad190",
+      "outcome": "held",
+      "reason": "Hold quantitative and named-source roofing performance claims until citations are approved.",
+      "missingApproval": "Authoritative citations for the named institutions, aged R-value, and energy claims."
+    },
+    {
+      "id": "copy-c8c6731259db503c",
+      "outcome": "held",
+      "reason": "Hold broad substrate and environmental outcome claims pending evidence.",
+      "missingApproval": "Product-specific adhesion evidence and support for the landfill-reduction claim."
+    },
+    {
+      "id": "copy-99676fc90057e7b2",
+      "outcome": "published",
+      "reason": "The source safely confirms the air-vapour barrier application service family.",
+      "typedField": "serviceContent[2].title",
+      "routes": [
+        "/services",
+        "/services/air-vapour-barriers"
+      ]
+    },
+    {
+      "id": "copy-1543f1e55e9d99bf",
+      "outcome": "held",
+      "reason": "Hold the proposed product-logo section until every third-party mark passes the partner gate.",
+      "missingApproval": "Identity, current relationship, official artwork, and logo publication permission."
+    },
+    {
+      "id": "copy-50975342d5777859",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Demilec relationship and logo publication permission."
+    },
+    {
+      "id": "copy-12d5842330dcbf9e",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current GCP/Grace relationship and logo publication permission."
+    },
+    {
+      "id": "copy-c28a6d15cbdea852",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Hilti relationship and logo publication permission."
+    },
+    {
+      "id": "copy-8ddd51a629aeaeb0",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Sherwin-Williams relationship and logo publication permission."
+    },
+    {
+      "id": "copy-85d65c0a9972dc3b",
+      "outcome": "held",
+      "reason": "Hold the duplicate named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Hilti relationship and logo publication permission."
+    },
+    {
+      "id": "copy-c621e59f2dcaf803",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Soprema relationship and logo publication permission."
+    },
+    {
+      "id": "copy-2a6c8bf0f2b3c10f",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current Henry relationship and logo publication permission."
+    },
+    {
+      "id": "copy-9025afbb508cc89b",
+      "outcome": "held",
+      "reason": "Hold the named supplier reference pending relationship and publication approval.",
+      "missingApproval": "Current 3M relationship and logo publication permission."
+    },
+    {
+      "id": "copy-5f919c23ec6a0f37",
+      "outcome": "held",
+      "reason": "Hold the older company narrative because its dates and experience claims require explicit approval.",
+      "missingApproval": "Explicit approval of the 2016 date and substantiation of the 50-year combined-experience claim."
+    },
+    {
+      "id": "copy-9e0cf0e4427b3dd8",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-345079d98688aa2d",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-46e7f54a2085a79c.",
+      "rejectedBy": "copy-46e7f54a2085a79c"
+    },
+    {
+      "id": "copy-f072bb010fbe0500",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-2eca45c1ff036170.",
+      "rejectedBy": "copy-2eca45c1ff036170"
+    },
+    {
+      "id": "copy-9c25f37ecc3ddd11",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-a13a7b379cf3b0ec.",
+      "rejectedBy": "copy-a13a7b379cf3b0ec"
+    },
+    {
+      "id": "copy-57fce134d6eac59c",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-6ac5a5363edc37f4.",
+      "rejectedBy": "copy-6ac5a5363edc37f4"
+    },
+    {
+      "id": "copy-bf578cc20d4d84d8",
+      "outcome": "rejected",
+      "reason": "Rejected because the edited mission source and locked typed slogans control the brand treatment.",
+      "rejectedBy": "STRONG FOAM MISSION STATEMENT CK EDITS.docx"
+    },
+    {
+      "id": "copy-b2664b5cb281457f",
+      "outcome": "rejected",
+      "reason": "Rejected because the edited mission source and locked typed slogans control the brand treatment.",
+      "rejectedBy": "STRONG FOAM MISSION STATEMENT CK EDITS.docx"
+    },
+    {
+      "id": "copy-dba8749009ed15fa",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-15c20df69de44c8a.",
+      "rejectedBy": "copy-15c20df69de44c8a"
+    },
+    {
+      "id": "copy-b272499b2c69d50c",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-970c326a490f18ca.",
+      "rejectedBy": "copy-970c326a490f18ca"
+    },
+    {
+      "id": "copy-f3668838a03a0eb8",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-336020bc58c33db6.",
+      "rejectedBy": "copy-336020bc58c33db6"
+    },
+    {
+      "id": "copy-663a9be4bd6d7109",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-a170d07881f3dc54.",
+      "rejectedBy": "copy-a170d07881f3dc54"
+    },
+    {
+      "id": "copy-d9678d66437e0a45",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-7e4a163d4dc10242.",
+      "rejectedBy": "copy-7e4a163d4dc10242"
+    },
+    {
+      "id": "copy-5ed3a6796bbf0e84",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-fb90dee574d0c182.",
+      "rejectedBy": "copy-fb90dee574d0c182"
+    },
+    {
+      "id": "copy-425311af67b4a4eb",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-209fab4f830aed6c.",
+      "rejectedBy": "copy-209fab4f830aed6c"
+    },
+    {
+      "id": "copy-7f382e7c058d088e",
+      "outcome": "rejected",
+      "reason": "Rejected because the edited mission document is the controlling higher-priority source.",
+      "rejectedBy": "STRONG FOAM MISSION STATEMENT CK EDITS.docx"
+    },
+    {
+      "id": "copy-a449b0bc8af53e3b",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-6ad8eb295ac09ed5.",
+      "rejectedBy": "copy-6ad8eb295ac09ed5"
+    },
+    {
+      "id": "copy-8e1aa99c6165c067",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-f499a8ffd060c52f",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-2babd31f93372042.",
+      "rejectedBy": "copy-2babd31f93372042"
+    },
+    {
+      "id": "copy-64374c34f2986076",
+      "outcome": "rejected",
+      "reason": "Rejected because the edited mission document is the controlling higher-priority source.",
+      "rejectedBy": "STRONG FOAM MISSION STATEMENT CK EDITS.docx"
+    },
+    {
+      "id": "copy-9e4c22599aa0c68f",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-2eca45c1ff036170.",
+      "rejectedBy": "copy-2eca45c1ff036170"
+    },
+    {
+      "id": "copy-e9218fcbfd1bb764",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-a13a7b379cf3b0ec.",
+      "rejectedBy": "copy-a13a7b379cf3b0ec"
+    },
+    {
+      "id": "copy-2621a801af15c86c",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-6ac5a5363edc37f4.",
+      "rejectedBy": "copy-6ac5a5363edc37f4"
+    },
+    {
+      "id": "copy-79fcd67abf2671fe",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-46e7f54a2085a79c.",
+      "rejectedBy": "copy-46e7f54a2085a79c"
+    },
+    {
+      "id": "copy-68cdc04330c48368",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-ff22577efdc420a9",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-ec8ba1f585e45acb.",
+      "rejectedBy": "copy-ec8ba1f585e45acb"
+    },
+    {
+      "id": "copy-41c0c03729715c6d",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-6aa22d46bcfb3412",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9f2d595e3065b16a.",
+      "rejectedBy": "copy-9f2d595e3065b16a"
+    },
+    {
+      "id": "copy-c69e20d687820ec3",
+      "outcome": "rejected",
+      "reason": "Rejected because the paragraph contains absolute, superiority, or universal-performance language prohibited from publication.",
+      "rejectedBy": "claims-guard:absolute-or-superiority-language"
+    },
+    {
+      "id": "copy-1139b6ed155508b9",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-8df24915d986c0b0.",
+      "rejectedBy": "copy-8df24915d986c0b0"
+    },
+    {
+      "id": "copy-439f16f5e2e9786b",
+      "outcome": "rejected",
+      "reason": "Rejected because Website Text 2.docx is the controlling higher-priority source for this service copy.",
+      "rejectedBy": "Website Text 2.docx"
+    },
+    {
+      "id": "copy-6f6c683130cf111f",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9df085e4b8d4fc9b.",
+      "rejectedBy": "copy-9df085e4b8d4fc9b"
+    },
+    {
+      "id": "copy-13d3b2e716ceda92",
+      "outcome": "rejected",
+      "reason": "Rejected because Website Text 2.docx is the controlling higher-priority source for this service copy.",
+      "rejectedBy": "Website Text 2.docx"
+    },
+    {
+      "id": "copy-2798494c729fdb9a",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-975cf186077f931c.",
+      "rejectedBy": "copy-975cf186077f931c"
+    },
+    {
+      "id": "copy-75106d0b090b0f2b",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-3b282db240145d97.",
+      "rejectedBy": "copy-3b282db240145d97"
+    },
+    {
+      "id": "copy-e3b7a18264c5ac49",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-873e1b888087a571.",
+      "rejectedBy": "copy-873e1b888087a571"
+    },
+    {
+      "id": "copy-31b9584efed0c1b4",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-b0a4e551b544b9f4.",
+      "rejectedBy": "copy-b0a4e551b544b9f4"
+    },
+    {
+      "id": "copy-4e88d1c32d32cacc",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9325ab535b38869e.",
+      "rejectedBy": "copy-9325ab535b38869e"
+    },
+    {
+      "id": "copy-fec39c9d9bc9b3b0",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9c73e4ad991530a1.",
+      "rejectedBy": "copy-9c73e4ad991530a1"
+    },
+    {
+      "id": "copy-332318e38bdbcad9",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-2777d8c1c3e63cc3.",
+      "rejectedBy": "copy-2777d8c1c3e63cc3"
+    },
+    {
+      "id": "copy-e5162c2928221c66",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-1ee265661c327cbd.",
+      "rejectedBy": "copy-1ee265661c327cbd"
+    },
+    {
+      "id": "copy-6b922f2d5dca6f9a",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-1a2e06eaddcb71d7.",
+      "rejectedBy": "copy-1a2e06eaddcb71d7"
+    },
+    {
+      "id": "copy-5495b40a1dd5f2c1",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-f208c14a4804ec13.",
+      "rejectedBy": "copy-f208c14a4804ec13"
+    },
+    {
+      "id": "copy-037bc6b06f567721",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-20349baddce4f60a.",
+      "rejectedBy": "copy-20349baddce4f60a"
+    },
+    {
+      "id": "copy-b26a4e1afacc398b",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-c6d474346e317977.",
+      "rejectedBy": "copy-c6d474346e317977"
+    },
+    {
+      "id": "copy-69ee7ac485129777",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9553f59310dad190.",
+      "rejectedBy": "copy-9553f59310dad190"
+    },
+    {
+      "id": "copy-07a2adef060750bb",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-c8c6731259db503c.",
+      "rejectedBy": "copy-c8c6731259db503c"
+    },
+    {
+      "id": "copy-74528c7589d59563",
+      "outcome": "rejected",
+      "reason": "Rejected because Website Text 2.docx is the controlling higher-priority source for this service copy.",
+      "rejectedBy": "Website Text 2.docx"
+    },
+    {
+      "id": "copy-30285847539904fb",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-1543f1e55e9d99bf.",
+      "rejectedBy": "copy-1543f1e55e9d99bf"
+    },
+    {
+      "id": "copy-1ce6defb62fa63f0",
+      "outcome": "rejected",
+      "reason": "Rejected because Website Text 2.docx is the controlling higher-priority source for this service copy.",
+      "rejectedBy": "Website Text 2.docx"
+    },
+    {
+      "id": "copy-052a686db96c743c",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-12d5842330dcbf9e.",
+      "rejectedBy": "copy-12d5842330dcbf9e"
+    },
+    {
+      "id": "copy-c7780f35d8d5d42c",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-c28a6d15cbdea852.",
+      "rejectedBy": "copy-c28a6d15cbdea852"
+    },
+    {
+      "id": "copy-fe245f5eb9445837",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-8ddd51a629aeaeb0.",
+      "rejectedBy": "copy-8ddd51a629aeaeb0"
+    },
+    {
+      "id": "copy-865c8a5e39ac9e11",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-c28a6d15cbdea852.",
+      "rejectedBy": "copy-c28a6d15cbdea852"
+    },
+    {
+      "id": "copy-102a17d9b84b7440",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-c621e59f2dcaf803.",
+      "rejectedBy": "copy-c621e59f2dcaf803"
+    },
+    {
+      "id": "copy-74654b946101079b",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-2a6c8bf0f2b3c10f.",
+      "rejectedBy": "copy-2a6c8bf0f2b3c10f"
+    },
+    {
+      "id": "copy-a9469d9f56cdf03e",
+      "outcome": "rejected",
+      "reason": "Rejected as duplicate or superseded copy controlled by the earlier higher-priority requirement copy-9025afbb508cc89b.",
+      "rejectedBy": "copy-9025afbb508cc89b"
+    }
+  ]
+}

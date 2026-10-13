@@ -25,8 +25,10 @@ import {
   formatCompany,
   formatFullName,
   formatRelativeAge,
+  formatRequestLocation,
   formatRequestNumber,
-  formatServices,
+  formatRequestServices,
+  formatRequestType,
 } from "@/lib/ops/workflow";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +113,7 @@ export default async function EstimateRequestsPage({
           <TableHeader>
             <TableRow>
               <TableHead>Request</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Services</TableHead>
@@ -123,7 +126,7 @@ export default async function EstimateRequestsPage({
           <TableBody>
             {requests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                   No estimate requests match these filters.
                 </TableCell>
               </TableRow>
@@ -143,6 +146,7 @@ export default async function EstimateRequestsPage({
                         {formatRelativeAge(request.createdAt)} ago
                       </p>
                     </TableCell>
+                    <TableCell>{formatRequestType(request.answers)}</TableCell>
                     <TableCell>
                       <p className="font-medium">{company}</p>
                       <p className="text-muted-foreground">
@@ -150,10 +154,11 @@ export default async function EstimateRequestsPage({
                       </p>
                     </TableCell>
                     <TableCell>
-                      {request.city}
-                      {request.province === "ON" ? ", ON" : " · Outside Ontario"}
+                      {formatRequestLocation(request)}
                     </TableCell>
-                    <TableCell>{formatServices(request.services)}</TableCell>
+                    <TableCell>
+                      {formatRequestServices(request) || "—"}
+                    </TableCell>
                     <TableCell>
                       <StatusBadge
                         status={request.status}

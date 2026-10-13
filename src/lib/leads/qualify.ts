@@ -2,6 +2,9 @@ import { QUALIFYING_PROJECT_TYPES, SERVICE_IDS } from "@/lib/leads/types";
 import type { QualifyInput, QualifyResult } from "@/lib/leads/types";
 
 export function qualifyLead(input: QualifyInput): QualifyResult {
+  if (input.intakeType === "general") {
+    return { status: "secondary", reasons: ["general_inquiry"] };
+  }
   const reasons: string[] = [];
   if (!QUALIFYING_PROJECT_TYPES.includes(input.projectType)) {
     reasons.push("project_type");

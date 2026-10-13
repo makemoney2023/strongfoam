@@ -91,3 +91,38 @@ export function formatFullName(firstName: string, lastName: string): string {
 export function formatCompany(company: string, fallback: string): string {
   return company.trim() || fallback;
 }
+
+export function requestIntakeType(answers: unknown): "estimate" | "general" {
+  if (
+    answers &&
+    typeof answers === "object" &&
+    !Array.isArray(answers) &&
+    (answers as { intakeType?: unknown }).intakeType === "general"
+  ) {
+    return "general";
+  }
+  return "estimate";
+}
+
+export function formatRequestType(answers: unknown): string {
+  return requestIntakeType(answers) === "general" ? "General inquiry" : "Estimate";
+}
+
+export function formatRequestLocation(input: {
+  city: string;
+  province: string;
+  answers: unknown;
+}): string {
+  if (requestIntakeType(input.answers) === "general") return "Location not supplied";
+  return input.province === "ON"
+    ? `${input.city}, ON`
+    : `${input.city} · Outside Ontario`;
+}
+
+export function formatRequestServices(input: {
+  services: string[];
+  answers: unknown;
+}): string {
+  if (requestIntakeType(input.answers) === "general") return "";
+  return formatServices(input.services);
+}
