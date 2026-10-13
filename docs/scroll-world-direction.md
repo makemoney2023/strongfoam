@@ -14,10 +14,10 @@ watching a generic construction reel. Each scroll behavior has a job:
 3. **Capability rail:** reveal the four public service routes as one
    coordinated horizontal package, followed by the endorsed Strong Fire
    feature. Cropping at the rail edges is intentional.
-4. **Field process:** reveal the original `SFI1006.jpeg` upward like an installed
-   layer while drawings become field steps.
-5. **Sector frame:** use fireproofing footage as depth behind commercial, ICI,
-   and multi-unit positioning.
+4. **Field process:** reveal the approved `IMG_7879` gallery derivative upward
+   like an installed layer while drawings become field steps.
+5. **Sector frame:** reuse that approved construction still as depth behind
+   commercial, ICI, and multi-unit positioning.
 6. **Project evidence:** return to still photography so the viewer can inspect
    real work without motion competing for attention.
 7. **Approved relationships:** retain the chapter even when no third-party mark
@@ -50,9 +50,9 @@ boundary and renders a server-compatible footer from public contact channels.
 Interior routes reuse the components under `src/components/marketing/`; they do
 not replace or flatten this homepage.
 
-`public/media` is a generated copy of `assets/` (not a symlink). Relative
-symlinks caused Vercel’s `next build` public-file copy to fail with “Cannot
-copy … to a subdirectory of itself.”
+`public/media` is a generated allowlisted copy of manifest derivatives plus the
+two approved static Strong Foam lockups (not a symlink). Masters, held assets,
+and review artifacts are never synchronized.
 
 Vercel Hobby blocks commits whose GitHub author is not `makemoney2023`. Every
 commit in this repo must use author and committer
@@ -63,11 +63,15 @@ commit in this repo must use author and committer
 
 - `SFI-Logo-Jpeg-EDIT_00-removebg-preview.png`: real Strong Foam mark used
   in the header and estimating close on dark surfaces.
-- `IMG_7880.jpeg`: approved commercial-envelope hero and project evidence.
-- `IMG_7879.jpg`: approved field-process, sector, and project evidence.
-- Until Phase 7 creates derivatives for the newly approved video shortlist,
-  the cinematic chapters use GSAP movement on these approved stills. Legacy
-  Omni loops and held/duplicate source images are not rendered.
+- `media-93e698a55726cd71-img-7880-hero-1920x1080.webp`: approved
+  commercial-envelope hero derivative.
+- `media-da889acd7dfb11ec-img-7879-gallery-1600w-1600x778.webp`: approved
+  field-process, sector, and project-evidence derivative.
+- The five approved videos have silent MP4/WebM encodes and poster derivatives,
+  but no video surface is currently rendered. Cinematic chapters continue to
+  use GSAP movement on approved stills; reduced-motion mode uses the same
+  reviewed images as static backgrounds. Legacy Omni loops and held/duplicate
+  source images are not rendered.
 
 Product marks remain evidence only. They should appear in systems or product
 context after current applicator relationships and permissions are confirmed.
