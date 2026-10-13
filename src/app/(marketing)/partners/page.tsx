@@ -43,6 +43,7 @@ export default function PartnersPage() {
         </div>
         <PartnerGrid
           partners={suppliers}
+          columns={3}
           emptyMessage="No supplier names or logos are approved for publication yet."
         />
       </section>
