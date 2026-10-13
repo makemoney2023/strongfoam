@@ -15,11 +15,13 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
   APPROVED_SOURCE_BASELINE,
+  DERIVATIVE_PROFILES,
   assertStructuralBaseline,
   buildInventory,
   calculateVideoSampleTimes,
   checkAudit,
   compileManifest,
+  generateDerivatives,
   generateReview,
   validateDecisions,
   writeInventory,
@@ -134,9 +136,12 @@ function decision(file: MediaFile, overrides: Record<string, unknown> = {}) {
     alt: `Approved view of ${file.path}`,
     decorative: false,
     status:
-      file.duplicateGroupId !== null && !file.isKeeper
+      file.error
+        ? "reject"
+        : file.duplicateGroupId !== null && !file.isKeeper
         ? "duplicate"
         : "publish",
+    ...(file.kind === "video" ? { audioRequired: false } : {}),
     reason: "Fixture approval.",
     ...overrides,
   };
@@ -273,9 +278,13 @@ describe("audit-sfi-media decisions and compilation", () => {
     const { source } = await fixture();
     const inventory = await buildInventory({ source });
     const decisions = inventory.files.map((file) => decision(file));
+    const publishedIndex = decisions.findIndex(
+      (entry) => entry.status === "publish",
+    );
     const replaceFirst = (replacement: Record<string, unknown>) => [
-      { ...decisions[0], ...replacement },
-      ...decisions.slice(1),
+      ...decisions.slice(0, publishedIndex),
+      { ...decisions[publishedIndex], ...replacement },
+      ...decisions.slice(publishedIndex + 1),
     ];
 
     expect(() => validateDecisions(inventory, decisions)).not.toThrow();
@@ -390,6 +399,124 @@ describe("audit-sfi-media decisions and compilation", () => {
     ).rejects.toThrow(/manifest drift/i);
     expect(await snapshot(allPaths)).toEqual(beforeFailedCheck);
   });
+});
+
+describe("audit-sfi-media approved derivatives", () => {
+  it("defines explicit web delivery profiles", () => {
+    expect(Object.keys(DERIVATIVE_PROFILES)).toEqual(
+      expect.arrayContaining([
+        "hero",
+        "section",
+        "card",
+        "gallery",
+        "logo",
+        "poster",
+        "social-share",
+      ]),
+    );
+    expect(DERIVATIVE_PROFILES["social-share"]).toMatchObject({
+      width: 1200,
+      height: 630,
+      format: "jpeg",
+    });
+    expect(DERIVATIVE_PROFILES.logo.withoutEnlargement).toBe(true);
+  });
+
+  it("generates only approved masters and image/video derivatives", async () => {
+    const { root, source, inventoryPath } = await fixture();
+    await writeInventory({ source, inventoryPath, enforceBaseline: false });
+    const inventory = JSON.parse(await readFile(inventoryPath, "utf8")) as Inventory;
+    const decisionsPath = join(root, "audit", "decisions.json");
+    const manifestPath = join(root, "audit", "manifest.json");
+    const assetsRoot = join(root, "assets");
+    await mkdir(dirname(decisionsPath), { recursive: true });
+    await writeFile(
+      decisionsPath,
+      `${JSON.stringify(
+        { decisions: inventory.files.map((file) => decision(file)) },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const manifest = await compileManifest({
+      inventoryPath,
+      decisionsPath,
+      manifestPath,
+    });
+    const published = manifest.records.filter(
+      (record: { decision: { status: string } }) =>
+        record.decision.status === "publish",
+    );
+    const unpublished = manifest.records.filter(
+      (record: { decision: { status: string } }) =>
+        record.decision.status !== "publish",
+    );
+
+    expect(published.length).toBeGreaterThan(0);
+    expect(
+      published.every(
+        (record: {
+          sourceMaster?: { assetPath?: string };
+          derivatives?: Array<{
+            width?: number;
+            height?: number;
+            format?: string;
+            assetPath?: string;
+            publicDestination?: string;
+            alt?: string;
+            decorative?: boolean;
+          }>;
+        }) =>
+          record.sourceMaster?.assetPath &&
+          record.derivatives?.length &&
+          record.derivatives.every(
+            (derivative) =>
+              derivative.width &&
+              derivative.height &&
+              derivative.format &&
+              derivative.assetPath &&
+              derivative.publicDestination &&
+              typeof derivative.alt === "string" &&
+              typeof derivative.decorative === "boolean",
+          ),
+      ),
+    ).toBe(true);
+    expect(
+      unpublished.every(
+        (record: { sourceMaster?: unknown; derivatives?: unknown[] }) =>
+          record.sourceMaster === null && record.derivatives?.length === 0,
+      ),
+    ).toBe(true);
+
+    const report = await generateDerivatives({
+      source,
+      manifestPath,
+      assetsRoot,
+    });
+    expect(report.publishedRecords).toBe(published.length);
+
+    for (const record of published) {
+      await expect(
+        stat(join(assetsRoot, record.sourceMaster.assetPath)),
+      ).resolves.toMatchObject({});
+      for (const derivative of record.derivatives) {
+        await expect(
+          stat(join(assetsRoot, derivative.assetPath)),
+        ).resolves.toMatchObject({});
+      }
+    }
+
+    const generatedNames = JSON.stringify(
+      published.flatMap(
+        (record: { derivatives: Array<{ assetPath: string }> }) =>
+          record.derivatives.map((derivative) => derivative.assetPath),
+      ),
+    );
+    for (const record of unpublished) {
+      expect(generatedNames).not.toContain(record.id);
+    }
+  }, 60_000);
 });
 
 describe("audit-sfi-media review generation", () => {

@@ -995,18 +995,18 @@ npx vitest run \
 
 ### 7.1 Derivative contract
 
-- [ ] Add failing audit tests that every published media reference has a
+- [x] Add failing audit tests that every published media reference has a
   source master, expected derivative dimensions/format, public destination,
   alt/decorative decision, and existing output file.
-- [ ] Define explicit derivative profiles for hero, section, card, gallery,
+- [x] Define explicit derivative profiles for hero, section, card, gallery,
   logo, poster, and social-share use in the audit script.
-- [ ] Use `sharp` for image resize/format conversion and metadata stripping.
+- [x] Use `sharp` for image resize/format conversion and metadata stripping.
   Use `ffmpeg` for MP4/WebM transcodes, poster extraction, and removal of unused
   audio; use `ffprobe` to verify codec, dimensions, duration, and audio streams.
-- [ ] Generate derivatives only for `publish` records; assert `hold`,
+- [x] Generate derivatives only for `publish` records; assert `hold`,
   `duplicate`, and `reject` records never produce public outputs.
 - [ ] Preserve source masters in curated `assets/` folders.
-- [ ] Run:
+- [x] Run:
 
 ```bash
 npx vitest run \
@@ -1026,7 +1026,7 @@ npx vitest run \
 
 ### 7.3 Video
 
-- [ ] For each approved video, decide whether the source audio is required.
+- [x] For each approved video, decide whether the source audio is required.
 - [ ] Create web-safe MP4/WebM encodes where browser support or file size
   warrants them, strip unused audio, and generate an approved poster.
 - [ ] Ensure meaningful video content has captions or equivalent nearby text.
@@ -1052,6 +1052,22 @@ node scripts/audit-sfi-media.mjs check \
   internal review artifact is publicly served.
 - [ ] Confirm Cloudflare/OpenNext image behavior from current documentation and
   runtime output; do not assume Vercel's image optimization service.
+
+### Phase 7 handoff blocker
+
+The repository checkout does not contain the external read-only
+`SFI WEBSITE/SFI- IMAGES/` source directory. The derivative contract,
+generator, publication allowlist, and fixture verification are complete, but
+the 19 approved source masters and 60 contracted derivatives cannot be
+generated or checked into `assets/` until those approved source files are
+available locally. Run:
+
+```bash
+node scripts/audit-sfi-media.mjs generate \
+  --source "SFI WEBSITE" \
+  --manifest assets/source-media-manifest.json \
+  --assets-root assets
+```
 
 ---
 
