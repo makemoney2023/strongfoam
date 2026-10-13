@@ -35,7 +35,7 @@ export function PartnerGrid({
               <Image
                 src={logoPath}
                 alt={partner.logo.alt}
-                width={240}
+                width={320}
                 height={120}
                 className="marketing-partner-card__logo"
               />

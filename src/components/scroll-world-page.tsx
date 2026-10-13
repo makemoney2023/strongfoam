@@ -6,6 +6,8 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PhoneIcon } from "lucide-react";
 import { PartnerGrid } from "@/components/marketing/partner-grid";
+import { ResponsivePicture } from "@/components/marketing/responsive-picture";
+import { brandLockups } from "@/content/page-media";
 import type { MarketingPageModel } from "@/components/marketing/marketing-page-model";
 import {
   Accordion,
@@ -437,6 +439,13 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
                   index % 2 === 1 && "service-panel--lower",
                 )}
               >
+                <div className="service-panel__media" aria-hidden="true">
+                  <ResponsivePicture
+                    image={service.image}
+                    sizes="(max-width: 900px) 80vw, 32vw"
+                    className="service-panel__img"
+                  />
+                </div>
                 <span>0{index + 1}</span>
                 <h3>{service.label}</h3>
                 <p>{service.summary}</p>
@@ -447,6 +456,14 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
               </article>
             ))}
             <div className="services-close">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG lockup */}
+              <img
+                src={brandLockups.strongFireOnDark.src}
+                width={brandLockups.strongFireOnDark.width}
+                height={brandLockups.strongFireOnDark.height}
+                alt="Strong Fire Protection"
+                className="services-close__lockup"
+              />
               <p>{model.strongFire.endorsement}</p>
               <a href={model.strongFire.canonicalPath}>
                 Explore Strong Fire →
@@ -493,7 +510,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
           <figure data-process-image className="process-image">
             <Image
               src={model.cinematicMedia.process}
-              alt="Commercial building envelope work in progress"
+              alt={model.cinematicMedia.processAlt}
               fill
               sizes="(max-width: 900px) 100vw, 48vw"
               className="object-cover"
@@ -542,7 +559,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       >
         <SectionIntro id="projects" />
         <div data-projects-grid className="projects-grid">
-          {model.projects.map((project, index) => (
+          {model.homeProjects.map((project, index) => (
             <figure
               data-project
               key={project.id}
@@ -643,9 +660,9 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       <section data-home-section="contact" id="contact" className="contact-act">
         <div className="contact-inner">
           <Image
-            src="/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png"
-            width={280}
-            height={67}
+            src={site.brandLogos.onDark}
+            width={252}
+            height={52}
             alt="Strong Foam Insulation"
             className="contact-logo"
           />

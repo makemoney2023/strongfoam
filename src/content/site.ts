@@ -7,8 +7,8 @@ export const site = {
   legalName: "Strong Foam Insulation Inc.",
   brand: "Strong Foam",
   brandLogos: {
-    onLight: "/media/brand/SFI-Logo-Jpeg-EDIT.jpg",
-    onDark: "/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png",
+    onLight: "/media/brand/strongfoam-logo.svg",
+    onDark: "/media/brand/strongfoam-logo.svg",
   },
   parent: "LioCorr Holdings Inc.",
   url: "https://strongfoam.com",

@@ -15,8 +15,8 @@ export function BrandLogo({
     <Image
       src={site.brandLogos[variant]}
       alt="Strong Foam Insulation"
-      width={280}
-      height={67}
+      width={252}
+      height={52}
       priority={priority}
       className={cn("h-8 w-auto max-w-full object-contain object-left", className)}
     />

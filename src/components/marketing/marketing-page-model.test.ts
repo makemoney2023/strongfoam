@@ -73,9 +73,14 @@ describe("marketing page model", () => {
       locations: locationRecords,
     });
 
-    expect(model.projects.map((project) => project.id)).toEqual([
-      "project-commercial-envelope",
-      "project-multi-storey-envelope",
+    expect(model.projects.map((project) => project.id)).not.toContain(
+      "project-held-fixture",
+    );
+    expect(model.projects.length).toBeGreaterThanOrEqual(14);
+    expect(model.homeProjects.map((project) => project.id)).toEqual([
+      "project-office-envelope",
+      "project-tower",
+      "project-midrise",
     ]);
     expect(
       model.projects.every(
@@ -111,11 +116,17 @@ describe("marketing page model", () => {
       homepageMarketingModel.cinematicMedia;
     expect({ hero, process: processImage, sector }).toEqual({
       hero: "/media/projects/IMG_7880.jpeg",
-      process: "/media/projects/IMG_7879.jpg",
+      process: "/media/home/process-spray-1200.webp",
       sector: "/media/projects/IMG_7879.jpg",
     });
+    expect(homepageMarketingModel.cinematicMedia.processAlt).toBe(
+      "Technician spraying foam insulation into a wall cavity",
+    );
     expect(
-      [hero, processImage, sector].every((path) =>
+      existsSync(join(process.cwd(), "assets/home/process-spray-1200.webp")),
+    ).toBe(true);
+    expect(
+      [hero, sector].every((path) =>
         homepageMarketingModel.projects.some(
           (project) => project.publicImagePath === path,
         ),
@@ -188,6 +199,7 @@ describe("marketing page model", () => {
     expect(rendered).toEqual([...homepageMarketingModel.sectionOrder]);
     expect(html).toContain("The crew installs the scope");
     expect(html).not.toContain("Qualified applicators");
-    expect(html).not.toContain("Genyk");
+    expect(html).toContain("Genyk logo");
+    expect(html).not.toContain("Demilec");
   });
 });

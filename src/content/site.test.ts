@@ -26,9 +26,9 @@ describe("site content for scroll overlays", () => {
   });
 
   it("exposes light and dark brand logos for app and marketing chrome", () => {
-    expect(site.brandLogos.onLight).toBe("/media/brand/SFI-Logo-Jpeg-EDIT.jpg");
+    expect(site.brandLogos.onLight).toBe("/media/brand/strongfoam-logo.svg");
     expect(site.brandLogos.onDark).toBe(
-      "/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png",
+      "/media/brand/strongfoam-logo.svg",
     );
   });
 
@@ -168,9 +168,10 @@ describe("site content for scroll overlays", () => {
       fiftyYearsExperience: expect.objectContaining({ approved: false }),
       oneHundredYearsExperience: expect.objectContaining({ approved: false }),
       currentGtaStatus: expect.objectContaining({ approved: false }),
-      namedClients: expect.objectContaining({ approved: false }),
+      namedClients: expect.objectContaining({ approved: true }),
       namedProjects: expect.objectContaining({ approved: false }),
-      supplierRelationships: expect.objectContaining({ approved: false }),
+      supplierRelationships: expect.objectContaining({ approved: true }),
+      sourceMedia: expect.objectContaining({ approved: true, approvedOn: "2026-10-13" }),
       applicatorStatus: expect.objectContaining({ approved: false }),
     });
     const visibleCopy = JSON.stringify(companyContent);
