@@ -94,63 +94,63 @@ Code declares the binding. The instance does not run until the Worker that expor
 
 **Files:** `src/lib/ops/proposal-followups.ts`, `src/lib/ops/proposal-followups.test.ts`
 
-- [ ] **Step 1: Write failing tests.** Three sleeps are `3 days`, `4 days`, then `7 days`. An open proposal saves a draft on each day and never calls `send`. A closed proposal after day 3 saves nothing further. The draft contains the estimate number and the day, and does not contain a price or the word approved. `accepted` from the model is dropped when the text has no accept language. A quote is a substring of the email. Match prefers one estimate number in the subject or body, then a unique recipient address. Two matches return no match. `create` uses the proposal id. `terminate` runs on cancel. A missing binding returns unavailable and does not throw.
-- [ ] **Step 2: Implement the pure functions.** Keyword classes: accept language → `accepted`; decline, another vendor, or no longer moving forward → `lost`; a question mark or clarify language → `question`; otherwise `other`.
-- [ ] **Step 3: Run `npx vitest run src/lib/ops/proposal-followups.test.ts`.**
+- [x] **Step 1: Write failing tests.** Three sleeps are `3 days`, `4 days`, then `7 days`. An open proposal saves a draft on each day and never calls `send`. A closed proposal after day 3 saves nothing further. The draft contains the estimate number and the day, and does not contain a price or the word approved. `accepted` from the model is dropped when the text has no accept language. A quote is a substring of the email. Match prefers one estimate number in the subject or body, then a unique recipient address. Two matches return no match. `create` uses the proposal id. `terminate` runs on cancel. A missing binding returns unavailable and does not throw.
+- [x] **Step 2: Implement the pure functions.** Keyword classes: accept language → `accepted`; decline, another vendor, or no longer moving forward → `lost`; a question mark or clarify language → `question`; otherwise `other`.
+- [x] **Step 3: Run `npx vitest run src/lib/ops/proposal-followups.test.ts`.**
 
 ### Task 2: Morning digest
 
 **Files:** `src/lib/ops/morning-digest.ts`, `src/lib/ops/morning-digest.test.ts`
 
-- [ ] **Step 1: Write failing tests.** An open request with a past next-action date is a stale lead. An open request untouched for seven days is a stale lead. A won request is not. A delivered or viewed proposal is a quote awaiting a decision. An accepted proposal is not. A blocked job and a job with a missing daily log are at risk. Pending drafts are listed. The staff message names those sections and does not include a price. `assertInternalRecipient` allows only an address on the opt-in list. A customer address is refused even if it appears in a lead.
-- [ ] **Step 2: Implement `buildMorningDigest` and `staffDigestMessage`.**
-- [ ] **Step 3: Run `npx vitest run src/lib/ops/morning-digest.test.ts`.**
+- [x] **Step 1: Write failing tests.** An open request with a past next-action date is a stale lead. An open request untouched for seven days is a stale lead. A won request is not. A delivered or viewed proposal is a quote awaiting a decision. An accepted proposal is not. A blocked job and a job with a missing daily log are at risk. Pending drafts are listed. The staff message names those sections and does not include a price. `assertInternalRecipient` allows only an address on the opt-in list. A customer address is refused even if it appears in a lead.
+- [x] **Step 2: Implement `buildMorningDigest` and `staffDigestMessage`.**
+- [x] **Step 3: Run `npx vitest run src/lib/ops/morning-digest.test.ts`.**
 
 ### Task 3: Batch decisions
 
 **Files:** `src/lib/ops/review-drafts.ts`, `src/lib/ops/review-drafts.test.ts`
 
-- [ ] **Step 1: Write failing tests.** Confirming a follow-up, morning brief, stale sweep, daily report, or digest sets status `confirmed` and returns no status event and no send. Confirming `status_change` `accepted` returns one `accepted` event and one cancel id. Confirming `lost` returns one `rejected` event and one cancel id. Confirming `question` or `other` returns neither. Dismiss sets `dismissed` and returns no event and no cancel. Unknown ids are ignored. The decision object has no `send` function.
-- [ ] **Step 2: Implement `applyBatchDecision`.**
-- [ ] **Step 3: Run `npx vitest run src/lib/ops/review-drafts.test.ts`.**
+- [x] **Step 1: Write failing tests.** Confirming a follow-up, morning brief, stale sweep, daily report, or digest sets status `confirmed` and returns no status event and no send. Confirming `status_change` `accepted` returns one `accepted` event and one cancel id. Confirming `lost` returns one `rejected` event and one cancel id. Confirming `question` or `other` returns neither. Dismiss sets `dismissed` and returns no event and no cancel. Unknown ids are ignored. The decision object has no `send` function.
+- [x] **Step 2: Implement `applyBatchDecision`.**
+- [x] **Step 3: Run `npx vitest run src/lib/ops/review-drafts.test.ts`.**
 
 ### Task 4: Workflow class and delivery hooks
 
 **Files:** `src/worker/proposal-followup-workflow.ts`, `src/types/cloudflare-workers.d.ts`, `cloudflare-worker.ts`, `wrangler.jsonc`, `src/lib/cloudflare/platform.ts`, `src/app/app/opportunities/[id]/estimates/actions.ts`, `scripts/cloudflare-deploy.test.ts`
 
-- [ ] **Step 1: Declare the module and the binding.** Workflow name `strongfoam-proposal-followup`, binding `PROPOSAL_FOLLOWUPS`, class `ProposalFollowupWorkflow`. Export the class from `cloudflare-worker.ts`. Do not import the class from a tested module.
-- [ ] **Step 2: After a successful delivery event, call `create` when the binding exists.** After a new revoke event, call `terminate`. A replayed revoke does not terminate again. A missing binding leaves the action success copy unchanged.
-- [ ] **Step 3: Extend `scripts/cloudflare-deploy.test.ts` so the workflows array is required.** Keep `runWithCloudflareRequestContext` at three. The reply matcher is passed inside the existing `email` callback.
-- [ ] **Step 4: Run `npx vitest run scripts/cloudflare-deploy.test.ts`.**
+- [x] **Step 1: Declare the module and the binding.** Workflow name `strongfoam-proposal-followup`, binding `PROPOSAL_FOLLOWUPS`, class `ProposalFollowupWorkflow`. Export the class from `cloudflare-worker.ts`. Do not import the class from a tested module.
+- [x] **Step 2: After a successful delivery event, call `create` when the binding exists.** After a new revoke event, call `terminate`. A replayed revoke does not terminate again. A missing binding leaves the action success copy unchanged.
+- [x] **Step 3: Extend `scripts/cloudflare-deploy.test.ts` so the workflows array is required.** Keep `runWithCloudflareRequestContext` at three. The reply matcher is passed inside the existing `email` callback.
+- [x] **Step 4: Run `npx vitest run scripts/cloudflare-deploy.test.ts`.**
 
 ### Task 5: Inbound reply branch
 
 **Files:** `src/worker/inbound-email.ts`, `src/worker/inbound-email.test.ts`, `cloudflare-worker.ts`
 
-- [ ] **Step 1: Write a failing test.** When `matchProposalReply` returns a proposal, the handler stores one status-change proposal, does not insert a lead proposal, and leaves `reply`, `forward`, `setReject`, and `send` at zero. When the matcher returns null, the existing lead path still stores one inbound proposal and still does not send.
-- [ ] **Step 2: Implement the branch before `prepareInboundProposal`.** Production `email` loads open proposals for the organization and passes the matcher. Classification uses the pure function. The small model may suggest a label; the pure function drops it unless the text supports it.
-- [ ] **Step 3: Run `npx vitest run src/worker/inbound-email.test.ts`.**
+- [x] **Step 1: Write a failing test.** When `matchProposalReply` returns a proposal, the handler stores one status-change proposal, does not insert a lead proposal, and leaves `reply`, `forward`, `setReject`, and `send` at zero. When the matcher returns null, the existing lead path still stores one inbound proposal and still does not send.
+- [x] **Step 2: Implement the branch before `prepareInboundProposal`.** Production `email` loads open proposals for the organization and passes the matcher. Classification uses the pure function. The small model may suggest a label; the pure function drops it unless the text supports it.
+- [x] **Step 3: Run `npx vitest run src/worker/inbound-email.test.ts`.**
 
 ### Task 6: Digest persistence, Home, and the morning cron
 
 **Files:** `src/lib/ops/proposal-followup-store.ts`, `src/lib/ops/automation-run.ts`, `src/app/app/page.tsx`, `src/app/app/automation/digest-actions.ts`
 
-- [ ] **Step 1: Store opt-in as kind `staff.digest-opt-in`, idempotency `staff.digest-opt-in:${userId}`, payload `{ userId, email, optedIn }`.** Listing opted-in addresses returns only rows with `optedIn: true` whose email is also an active user in the organization.
-- [ ] **Step 2: On the morning-brief fan-out, build one digest proposal for the organization and, when `EMAIL` exists, send `staffDigestMessage` only to those addresses.** A refused address is not passed to `send`.
-- [ ] **Step 3: Render the four sections on Home from the same pure builder, with a link to `/app/automation` and an opt-in form for the signed-in user.** A legacy session without `userId` does not show the opt-in form.
+- [x] **Step 1: Store opt-in as kind `staff.digest-opt-in`, idempotency `staff.digest-opt-in:${userId}`, payload `{ userId, email, optedIn }`.** Listing opted-in addresses returns only rows with `optedIn: true` whose email is also an active user in the organization.
+- [x] **Step 2: On the morning-brief fan-out, build one digest proposal for the organization and, when `EMAIL` exists, send `staffDigestMessage` only to those addresses.** A refused address is not passed to `send`.
+- [x] **Step 3: Render the four sections on Home from the same pure builder, with a link to `/app/automation` and an opt-in form for the signed-in user.** A legacy session without `userId` does not show the opt-in form.
 
 ### Task 7: Batch review screen
 
 **Files:** `src/app/app/automation/page.tsx`, `src/app/app/automation/actions.ts`, `src/components/ops/app-sidebar.tsx`
 
-- [ ] **Step 1: List proposed drafts for the session organization, including follow-ups and status changes.** Office roles can confirm or dismiss the checked ids. The action calls `applyBatchDecision`, writes status events only for the returned accepted or rejected rows, and terminates those proposal ids. It never calls `EMAIL.send`.
-- [ ] **Step 2: A follow-up send control is separate from the batch buttons.** It sends only when the session is an administrator, `confirmSend` is `yes`, and the body is the stored draft. The recipient is the address stored on that draft.
-- [ ] **Step 3: Add an Automation item in the sidebar.**
+- [x] **Step 1: List proposed drafts for the session organization, including follow-ups and status changes.** Office roles can confirm or dismiss the checked ids. The action calls `applyBatchDecision`, writes status events only for the returned accepted or rejected rows, and terminates those proposal ids. It never calls `EMAIL.send`.
+- [x] **Step 2: A follow-up send control is separate from the batch buttons.** It sends only when the session is an administrator, `confirmSend` is `yes`, and the body is the stored draft. The recipient is the address stored on that draft.
+- [x] **Step 3: Add an Automation item in the sidebar.**
 
 ### Task 8: Docs and the full check
 
-- [ ] **Step 1: Update README and CHANGELOG.** State the workflow binding, that follow-ups are drafts, that the digest email goes only to opted-in staff, and that batch confirm does not send.
-- [ ] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.**
+- [x] **Step 1: Update README and CHANGELOG.** State the workflow binding, that follow-ups are drafts, that the digest email goes only to opted-in staff, and that batch confirm does not send.
+- [x] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.**
 
 ## Rollout
 

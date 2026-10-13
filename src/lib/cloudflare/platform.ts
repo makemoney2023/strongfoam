@@ -3,6 +3,7 @@ import type { AgentNamespace } from "@/lib/cloudflare/agent-session";
 import type { WorkersAi } from "@/lib/cloudflare/gateway";
 import type { ObjectBucket } from "@/lib/cloudflare/objects";
 import type { RateLimitDb } from "@/lib/cloudflare/rate-limit";
+import type { FollowupBinding } from "@/lib/ops/proposal-followups";
 
 export type MarkdownConversion = {
   toMarkdown?: (files: Array<{ name: string; blob: Blob }>) => Promise<
@@ -34,8 +35,11 @@ export type CloudflareBindings = {
   AI_USAGE?: AiUsageDataset;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_MODEL?: string;
+  AI_GATEWAY_SMALL_MODEL?: string;
+  AI_GATEWAY_FALLBACK_MODEL?: string;
   AI_GATEWAY_ACCOUNT_ID?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  PROPOSAL_FOLLOWUPS?: FollowupBinding;
 };
 
 export async function getPlatform(): Promise<CloudflareBindings | null> {

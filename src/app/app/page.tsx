@@ -30,6 +30,9 @@ import {
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
 import { listAutomationProposals } from "@/lib/ops/automation-store";
+import { buildMorningDigest, leadDigestRow } from "@/lib/ops/morning-digest";
+import { listQuotesAwaitingDecision, readDigestOptIn } from "@/lib/ops/proposal-followup-store";
+import { setDigestOptIn } from "@/app/app/automation/actions";
 import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import { listUnapprovedChangeOrders } from "@/lib/ops/change-order-store";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
@@ -154,6 +157,35 @@ function formatScheduleEventDate(value: string): string {
   }).format(new Date(Date.UTC(year!, month! - 1, day!)));
 }
 
+function DigestList({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows: Array<{ href: string; label: string }>;
+  empty: string;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+      <h3 className="text-sm font-medium">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {rows.slice(0, 6).map((row, index) => (
+            <li key={`${title}-${row.href}-${index}`}>
+              <Link className="underline-offset-4 hover:underline" href={row.href}>
+                {row.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function scheduleHint(hint: string, partial: boolean): string {
   return partial
     ? `${hint} · Partial result — portfolio limit reached`
@@ -273,6 +305,36 @@ export default async function OpsHomePage() {
   const automationProposals = await listAutomationProposals(
     organizationIdForOpsSession(session),
   );
+  const homeOrganizationId = organizationIdForOpsSession(session);
+  const quotesAwaiting = await listQuotesAwaitingDecision(homeOrganizationId);
+  const missingDailyLogs = new Set(
+    operationsExceptions
+      .filter((exception) => exception.kind === "missing_daily_log")
+      .map((exception) => exception.href),
+  );
+  const morningDigest = buildMorningDigest({
+    now: opsNow,
+    leads: requests
+      .filter((request) => request.organizationId === homeOrganizationId)
+      .map(leadDigestRow),
+    quotes: quotesAwaiting,
+    jobs: jobs
+      .filter((job) => job.organizationId === homeOrganizationId)
+      .map((job) => ({
+        id: job.id,
+        name: job.name,
+        status: job.status,
+        missingDailyLog: missingDailyLogs.has(`/app/jobs/${job.id}#field-log`),
+        href: `/app/jobs/${job.id}`,
+      })),
+    drafts: automationProposals.map((proposal) => ({
+      id: proposal.recordId,
+      title: proposal.title,
+      kind: proposal.kind,
+    })),
+  });
+  const digestOptedIn =
+    "userId" in session ? await readDigestOptIn(homeOrganizationId, session.userId) : false;
   const exceptionTotal = countOperationsExceptions(exceptionInput);
   const projectOptions = projects
     .filter((project) => project.status !== "closed")
@@ -434,6 +496,39 @@ export default async function OpsHomePage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section aria-labelledby="morning-digest-heading" className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 id="morning-digest-heading" className="text-lg font-semibold">
+              Morning digest
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Stale leads, quotes waiting on a decision, jobs at risk, and drafts still waiting. Nothing here is sent to a customer.
+            </p>
+          </div>
+          <Button variant="outline" render={<Link href="/app/automation" />}>
+            Review drafts
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DigestList title="Stale leads" rows={morningDigest.staleLeads.map((lead) => ({ href: lead.href, label: lead.label }))} empty="No stale leads." />
+          <DigestList title="Quotes awaiting a decision" rows={morningDigest.quotesAwaitingDecision.map((quote) => ({ href: quote.href, label: quote.estimateNumber }))} empty="No open quotes." />
+          <DigestList title="At-risk jobs" rows={morningDigest.atRiskJobs.map((job) => ({ href: job.href, label: job.name }))} empty="No jobs at risk." />
+          <DigestList title="Pending automation drafts" rows={morningDigest.pendingDrafts.map((draft) => ({ href: "/app/automation", label: draft.title }))} empty="No pending drafts." />
+        </div>
+        {"userId" in session ? (
+          <form action={setDigestOptIn} className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="optedIn" value="yes" defaultChecked={digestOptedIn} />
+              Email this digest to me
+            </label>
+            <Button type="submit" size="sm" variant="outline">
+              Save
+            </Button>
+          </form>
+        ) : null}
       </section>
 
       <section aria-labelledby="automation-proposals-heading" className="space-y-3">

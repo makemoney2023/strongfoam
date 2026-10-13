@@ -1,12 +1,21 @@
 import { putObject } from "@/lib/cloudflare/objects";
 import type { CloudflareBindings } from "@/lib/cloudflare/platform";
 import {
+  inboundDedupeKey,
   parseRawEmail,
   prepareInboundProposal,
   type InboundProposal,
   type InboundRepository,
 } from "@/lib/leads/inbound-mail";
 import { drizzleInboundRepository } from "@/lib/leads/inbound-store";
+import { workingDayFor } from "@/lib/ops/automation-schedule";
+import {
+  classifyProposalReply,
+  statusChangeProposal,
+  type OpenProposalRef,
+  type ReplyClass,
+  type StatusChangeDraft,
+} from "@/lib/ops/proposal-followups";
 
 export type RoutingMessage = {
   from: string;
@@ -35,6 +44,16 @@ export async function handleRoutingEmail(
     enqueue?: (proposal: InboundProposal) => Promise<boolean>;
     send?: (message: unknown) => Promise<void>;
     now?: Date;
+    matchProposalReply?: (mail: {
+      fromEmail: string;
+      subject: string;
+      text: string;
+    }) => Promise<OpenProposalRef | null>;
+    saveStatusChange?: (draft: StatusChangeDraft) => Promise<void>;
+    classify?: (mail: {
+      subject: string;
+      text: string;
+    }) => Promise<{ classification: ReplyClass; quote: string }>;
   },
 ): Promise<InboundProposal | null> {
   const raw = await readRaw(message.raw);
@@ -49,6 +68,30 @@ export async function handleRoutingEmail(
   if (!parsed.subject && headerSubject) parsed.subject = headerSubject;
   const headerId = message.headers.get("message-id");
   if (!parsed.messageId && headerId) parsed.messageId = headerId.replace(/^<|>$/g, "");
+  if (deps?.matchProposalReply && parsed.fromEmail) {
+    const match = await deps.matchProposalReply({
+      fromEmail: parsed.fromEmail,
+      subject: parsed.subject,
+      text: parsed.text,
+    });
+    if (match) {
+      const classified = deps.classify
+        ? await deps.classify({ subject: parsed.subject, text: parsed.text })
+        : classifyProposalReply({ subject: parsed.subject, text: parsed.text });
+      const draft = statusChangeProposal({
+        match,
+        classification: classified.classification,
+        quote: classified.quote,
+        fromEmail: parsed.fromEmail,
+        subject: parsed.subject,
+        text: parsed.text,
+        workingDay: workingDayFor(deps.now ?? new Date()),
+        dedupeKey: inboundDedupeKey(parsed),
+      });
+      if (deps.saveStatusChange) await deps.saveStatusChange(draft);
+      return null;
+    }
+  }
   const repo = deps?.repo ?? drizzleInboundRepository();
   const prepared = await prepareInboundProposal(parsed, {
     repo,

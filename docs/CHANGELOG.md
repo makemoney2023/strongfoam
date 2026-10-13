@@ -2,6 +2,13 @@
 
 ## 2026-10-13
 
+- **What changed** — A recorded proposal delivery starts a Cloudflare Workflow that drafts a follow-up on day 3, 7, and 14 while the proposal is open. Those drafts are not sent. Revoke and a confirmed accepted or lost reply stop the workflow. A reply that matches an open proposal becomes a status-change draft. Home shows a morning digest, and staff who opt in can receive it by email. `/app/automation` confirms or dismisses many drafts without sending them.
+- **Why** — Open proposals need a durable reminder, and the morning list should reach the people who asked for it, without sending customer mail on its own.
+- **Code touchpoints** — `src/lib/ops/proposal-followups.ts`, `src/lib/ops/morning-digest.ts`, `src/lib/ops/review-drafts.ts`, `src/worker/proposal-followup-workflow.ts`, `src/app/app/automation/page.tsx`, `wrangler.jsonc`.
+- **Data-flow impact** — Follow-up and status drafts are `ops.proposal` rows. Batch confirm does not call `EMAIL.send`. The digest email is limited to opted-in staff addresses. Confirming accepted or lost appends that proposal event and does not create an estimate acceptance.
+- **API / schema impact** — No migration. Worker binding `PROPOSAL_FOLLOWUPS`, workflow `strongfoam-proposal-followup`, class `ProposalFollowupWorkflow`. The binding does nothing until that Worker is deployed.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 163 files, 888 tests, 1 skipped.
+
 - **What changed** — Email Routing can deliver mail to the Worker `email` handler. A repeated message stores one proposal, allowed attachments go to R2, and a small-model triage keeps only facts that appear in the message. The review screen records an estimate request without sending mail. An administrator confirms the first-reply draft before it is sent.
 - **Why** — Estimating mail should become a request a person accepts, and the first reply should wait for the owner.
 - **Code touchpoints** — `src/lib/leads/inbound-mail.ts`, `src/lib/leads/inbound-store.ts`, `src/worker/inbound-email.ts`, `cloudflare-worker.ts`, `src/app/app/requests/inbound/page.tsx`.

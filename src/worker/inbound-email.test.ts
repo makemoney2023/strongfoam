@@ -100,4 +100,44 @@ describe("routing email handler", () => {
     expect(send).not.toHaveBeenCalled();
     expect(reply).not.toHaveBeenCalled();
   });
+
+  it("stores a status change for a matched proposal and does not create a lead or send", async () => {
+    const { inbound, reply, forward, setReject } = message();
+    const send = vi.fn();
+    const insertProposal = vi.fn(async () => "created" as const);
+    const saveStatusChange = vi.fn();
+    const stored = await handleRoutingEmail(inbound, {
+      repo: { ...repo(), insertProposal },
+      send,
+      matchProposalReply: async () => ({
+        id: "proposal-1",
+        organizationId: "org-1",
+        estimateNumber: "E-100",
+        recipientEmail: "ada@example.com",
+        status: "delivered",
+      }),
+      saveStatusChange,
+    });
+    expect(stored).toBeNull();
+    expect(insertProposal).not.toHaveBeenCalled();
+    expect(saveStatusChange).toHaveBeenCalledOnce();
+    expect(saveStatusChange.mock.calls[0]?.[0].sendsToCustomer).toBe(false);
+    expect(reply).not.toHaveBeenCalled();
+    expect(forward).not.toHaveBeenCalled();
+    expect(setReject).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("keeps the lead path when the reply does not match an open proposal", async () => {
+    const { inbound, reply } = message();
+    const send = vi.fn();
+    const stored = await handleRoutingEmail(inbound, {
+      repo: repo(),
+      send,
+      matchProposalReply: async () => null,
+    });
+    expect(stored?.fromEmail).toBe("ada@example.com");
+    expect(reply).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
 });

@@ -9,6 +9,7 @@ import {
   BriefcaseBusinessIcon,
   Building2Icon,
   ClipboardListIcon,
+  ListChecksIcon,
   FileSpreadsheetIcon,
   FolderKanbanIcon,
   CalendarDaysIcon,
@@ -36,6 +37,7 @@ import {
 
 const nav = [
   { title: "Home", href: "/app", icon: HouseIcon, exact: true },
+  { title: "Automation", href: "/app/automation", icon: ListChecksIcon },
   { title: "Requests", href: "/app/requests", icon: ClipboardListIcon },
   { title: "Companies", href: "/app/companies", icon: Building2Icon },
   { title: "Opportunities", href: "/app/opportunities", icon: BriefcaseBusinessIcon },

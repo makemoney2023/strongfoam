@@ -61,6 +61,13 @@
       { "name": "STRONGFOAM_AGENT", "class_name": "StrongfoamAgent" }
     ]
   },
+  "workflows": [
+    {
+      "name": "strongfoam-proposal-followup",
+      "binding": "PROPOSAL_FOLLOWUPS",
+      "class_name": "ProposalFollowupWorkflow"
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",
