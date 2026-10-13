@@ -199,12 +199,13 @@ Cron triggers, in UTC:
 
 - `* * * * *` records `worker-heartbeat`
 - `15 9 * * *` retains import batches
-- `0 10 * * *` fans out morning-brief drafts (about 06:00 EDT)
+- `0 10 * * *` fans out morning-brief drafts and the morning digest (about 06:00 EDT)
 - `0 11 * * *` fans out the stale-record digest (about 07:00 EDT)
 - `30 21 * * *` fans out daily-report drafts (about 17:30 EDT)
 
-Those drafts are proposals. They do not send mail, set a price, or approve.
-Inbound mail is the Worker `email` handler. Email Routing must send `estimates@` to the `strongfoam` Worker. The handler stores one `leads.inbound` proposal per message, writes allowed PDF and image attachments to R2 under `inbound/{organizationId}/{dedupeKey}/`, and does not reply, forward, or send. Accepting the match on `/app/requests/inbound` records an estimate request with `notifyStatus` `held`. An administrator confirms the stored draft before `EMAIL.send` runs.
+Those drafts are proposals. They do not send mail, set a price, or approve. Home shows the morning digest: stale leads, quotes awaiting a decision, at-risk jobs, and pending drafts. Staff can opt in to an email of that digest. The message goes only to opted-in staff addresses. `/app/automation` confirms or dismisses many drafts at once and does not send them.
+A recorded proposal delivery starts Workflow `strongfoam-proposal-followup` on binding `PROPOSAL_FOLLOWUPS`. On day 3, 7, and 14 it stores a follow-up draft while the proposal is still open. It does not send that draft. Revoke, or a confirmed accepted or lost reply, terminates the instance. Until the Worker that exports `ProposalFollowupWorkflow` is deployed, create and terminate do nothing.
+Inbound mail is the Worker `email` handler. Email Routing must send `estimates@` to the `strongfoam` Worker. The handler stores one `leads.inbound` proposal per message, writes allowed PDF and image attachments to R2 under `inbound/{organizationId}/{dedupeKey}/`, and does not reply, forward, or send. A reply that matches one open proposal becomes a status-change draft instead of a new lead. Accepting an intake match on `/app/requests/inbound` records an estimate request with `notifyStatus` `held`. An administrator confirms a stored draft before `EMAIL.send` runs.
 Commercial AI stays disabled until the heartbeat is newer than 3 minutes.
 The Analytics Engine binding `AI_USAGE` writes dataset `ai_usage`. Set
 `AI_GATEWAY_FALLBACK_MODEL=off` to stop the second model attempt. Leave

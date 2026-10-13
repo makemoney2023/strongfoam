@@ -20,6 +20,10 @@ import {
 import { parseWorkspaceDraft } from "@/lib/ops/estimate-workspace";
 import { buildAppliedEstimateDraft, prepareEstimateVersion, type EstimateVersionDraft } from "@/lib/ops/estimates";
 import {
+  cancelProposalFollowup,
+  startProposalFollowup,
+} from "@/lib/ops/proposal-followup-store";
+import {
   appendProposalEvent,
   convertAcceptedEstimate,
   createEstimateVersion,
@@ -355,6 +359,14 @@ export async function recordProposalDeliveryAction(formData: FormData): Promise<
   });
   if (!recorded.ok) return fail(fallback, explain(recorded.error));
   await appendProposalEvent(recorded.event);
+  await startProposalFollowup({
+    organizationId: proposal.organizationId,
+    proposalId: proposal.id,
+    estimateId: proposal.estimateId,
+    estimateNumber: proposal.snapshot.estimateNumber,
+    recipientName: recorded.event.recipientName ?? "",
+    recipientEmail: recorded.event.recipientEmail ?? "",
+  });
   revalidatePath(fallback);
   return succeed(fallback, "Delivery recorded. Nothing was sent automatically.");
 }
@@ -382,7 +394,10 @@ export async function revokeProposalAction(formData: FormData): Promise<ActionSt
     now: new Date(),
   });
   if (!revoked.ok) return fail(fallback, explain(revoked.error));
-  if (!revoked.replayed) await appendProposalEvent(revoked.event);
+  if (!revoked.replayed) {
+    await appendProposalEvent(revoked.event);
+    await cancelProposalFollowup(proposal.id);
+  }
   revalidatePath(fallback);
   return succeed(fallback, revoked.replayed ? "This review link is already revoked." : "Review link revoked.");
 }

@@ -97,6 +97,7 @@ export async function runMorningBrief(
       if (!queued) proposals.push(...(await runMorningBrief(message.data)));
     }
   }
+  await deliverMorningDigest();
   return proposals;
 }
 
@@ -283,4 +284,80 @@ async function briefsForJob(organizationId: string, jobId: string) {
       plan: null,
     },
   }));
+}
+
+async function deliverMorningDigest(): Promise<void> {
+  try {
+    const { STRONG_FOAM_ORGANIZATION_ID } = await import("@/lib/ops/identity");
+    const organizationId = STRONG_FOAM_ORGANIZATION_ID;
+    const now = new Date();
+    const { listEstimateRequests, listHomeExceptionSource, listJobs, listUsers } = await import(
+      "@/lib/ops/store"
+    );
+    const { listOperationsExceptions } = await import("@/lib/ops/ai-exceptions");
+    const { listAutomationProposals } = await import("@/lib/ops/automation-store");
+    const { listDigestOptInRows, listQuotesAwaitingDecision, saveReviewDraft } = await import(
+      "@/lib/ops/proposal-followup-store"
+    );
+    const {
+      buildMorningDigest,
+      leadDigestRow,
+      morningDigestDraft,
+      optedInStaffEmails,
+      staffDigestMessage,
+    } = await import("@/lib/ops/morning-digest");
+    const requests = await listEstimateRequests();
+    const jobs = await listJobs();
+    const source = await listHomeExceptionSource();
+    const exceptions = listOperationsExceptions({
+      ...source,
+      now,
+      viewerOrganizationId: organizationId,
+    });
+    const missing = new Set(
+      exceptions.filter((row) => row.kind === "missing_daily_log").map((row) => row.href),
+    );
+    const digest = buildMorningDigest({
+      now,
+      leads: requests
+        .filter((request) => request.organizationId === organizationId)
+        .map(leadDigestRow),
+      quotes: await listQuotesAwaitingDecision(organizationId),
+      jobs: jobs
+        .filter((job) => job.organizationId === organizationId)
+        .map((job) => ({
+          id: job.id,
+          name: job.name,
+          status: job.status,
+          missingDailyLog: missing.has(`/app/jobs/${job.id}#field-log`),
+          href: `/app/jobs/${job.id}`,
+        })),
+      drafts: (await listAutomationProposals(organizationId)).map((proposal) => ({
+        id: proposal.recordId,
+        title: proposal.title,
+        kind: proposal.kind,
+      })),
+    });
+    await saveReviewDraft(
+      morningDigestDraft({ organizationId, workingDay: workingDayFor(now), digest }),
+    );
+    const { getPlatform } = await import("@/lib/cloudflare/platform");
+    const platform = await getPlatform();
+    if (!platform?.EMAIL) return;
+    const staff = (await listUsers())
+      .filter(
+        (user) => user.active && user.membershipActive && user.organizationId === organizationId,
+      )
+      .map((user) => user.email);
+    const allowed = optedInStaffEmails(await listDigestOptInRows(organizationId), staff);
+    const { sendThroughCloudflareEmail } = await import("@/lib/cloudflare/email");
+    const from = platform.EMAIL_FROM ?? "Strong Foam <estimates@strongfoam.com>";
+    for (const email of allowed) {
+      const message = staffDigestMessage(digest, email, allowed);
+      if (!message) continue;
+      await sendThroughCloudflareEmail(platform.EMAIL, { ...message, from });
+    }
+  } catch (error) {
+    console.error("Morning digest was not stored.", error);
+  }
 }

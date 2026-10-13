@@ -6,6 +6,7 @@ import { schedulePlan } from "./src/lib/ops/automation-schedule";
 import type { CloudflareBindings } from "./src/lib/cloudflare/platform";
 import type { WorkerHandler } from "./src/worker/registry";
 import { bucketPut, handleRoutingEmail, type RoutingMessage } from "./src/worker/inbound-email";
+import { ProposalFollowupWorkflow } from "./src/worker/proposal-followup-workflow";
 
 type QueueMessage = {
   body: JobMessage;
@@ -69,10 +70,32 @@ export default {
             });
             return true;
           },
+          matchProposalReply: async (mail) => {
+            const { STRONG_FOAM_ORGANIZATION_ID } = await import("./src/lib/ops/identity");
+            const { listOpenProposalRefs } = await import("./src/lib/ops/proposal-followup-store");
+            const { proposalReplyMatch } = await import("./src/lib/ops/proposal-followups");
+            const open = await listOpenProposalRefs(STRONG_FOAM_ORGANIZATION_ID);
+            return proposalReplyMatch({ ...mail, open });
+          },
+          saveStatusChange: async (draft) => {
+            const { saveReviewDraft } = await import("./src/lib/ops/proposal-followup-store");
+            await saveReviewDraft(draft);
+          },
+          classify: async (mail) => {
+            const { STRONG_FOAM_ORGANIZATION_ID } = await import("./src/lib/ops/identity");
+            const { classifyInboundReply } = await import("./src/lib/ops/proposal-reply-model");
+            return classifyInboundReply({
+              ...mail,
+              ai: bindings.AI,
+              env: bindings,
+              dataset: bindings.AI_USAGE,
+              organizationId: STRONG_FOAM_ORGANIZATION_ID,
+            });
+          },
         });
       },
     );
   },
 };
 
-export { DOQueueHandler, DOShardedTagCache, StrongfoamAgent };
+export { DOQueueHandler, DOShardedTagCache, StrongfoamAgent, ProposalFollowupWorkflow };

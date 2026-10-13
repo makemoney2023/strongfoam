@@ -74,6 +74,13 @@ describe("Cloudflare Worker deploy config", () => {
     expect(config.durable_objects).toEqual({
       bindings: [{ name: "STRONGFOAM_AGENT", class_name: "StrongfoamAgent" }],
     });
+    expect(config.workflows).toEqual([
+      {
+        name: "strongfoam-proposal-followup",
+        binding: "PROPOSAL_FOLLOWUPS",
+        class_name: "ProposalFollowupWorkflow",
+      },
+    ]);
     expect(config.triggers).toEqual({
       crons: ["* * * * *", "15 9 * * *", "0 10 * * *", "0 11 * * *", "30 21 * * *"],
     });
@@ -121,6 +128,8 @@ describe("Cloudflare Worker deploy config", () => {
     expect(worker).toContain("queue(batch");
     expect(worker).toContain("scheduled(");
     expect(worker).toContain("async email(");
+    expect(worker).toContain("ProposalFollowupWorkflow");
+    expect(worker).toContain("matchProposalReply");
     expect(worker).toContain('from "./.open-next/cloudflare/init.js"');
     expect(worker.match(/runWithCloudflareRequestContext\(/g)?.length).toBe(3);
 
