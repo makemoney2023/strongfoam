@@ -1,4 +1,5 @@
-import { processImage } from "@/content/page-media";
+import pageMediaPlan from "../../../assets/page-media.json";
+import { processImage, railImages } from "@/content/page-media";
 import {
   filterPublishablePartners,
   partnerRecords,
@@ -40,7 +41,22 @@ const PUBLIC_PROJECT_IMAGE_PATHS: Partial<
   "project-commercial-envelope": "/media/projects/IMG_7879.jpg",
   "project-multi-storey-envelope": "/media/projects/IMG_7880.jpeg",
   "project-completed-exterior": "/media/projects/IMG_7930-1600.webp",
+  ...Object.fromEntries(
+    pageMediaPlan.items
+      .filter((item) => item.out.startsWith("projects/"))
+      .map((item) => [
+        `project-${item.id.replace(/^project-/, "")}`,
+        `/media/${item.out}-${Math.max(...item.widths!)}.webp`,
+      ]),
+  ),
 };
+
+/** Homepage project frames: distinct from the hero, rail, and sector media. */
+export const HOMEPAGE_PROJECT_IDS = [
+  "project-office-envelope",
+  "project-tower",
+  "project-midrise",
+] as const;
 
 export type MarketingProject = ProjectRecord & {
   publicImagePath: `/media/projects/${string}`;
@@ -101,6 +117,7 @@ export function buildMarketingPageModel({
   return {
     sectionOrder: HOMEPAGE_SECTION_ORDER,
     serviceLinks: serviceContent.map((service) => ({
+      image: railImages[service.slug],
       id: service.slug,
       label: service.title,
       summary: service.summary,
@@ -110,9 +127,12 @@ export function buildMarketingPageModel({
     mission: companyContent.mission,
     slogans: companyContent.slogans,
     projects: selectedProjects,
+    homeProjects: HOMEPAGE_PROJECT_IDS.flatMap((id) =>
+      selectedProjects.filter((project) => project.id === id),
+    ),
     cinematicMedia: {
       hero: heroProject.publicImagePath,
-      process: processImage.base + "-1600.webp",
+      process: `${processImage.base}-${Math.max(...processImage.widths)}.webp`,
       processAlt: processImage.alt,
       sector: fieldProject.publicImagePath,
       heroVideo: HOMEPAGE_VIDEOS.hero.src,

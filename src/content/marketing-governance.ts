@@ -9,15 +9,24 @@ type HeldApproval<T> = {
   reason: string;
 };
 
+type OwnerApproval<T> = {
+  approved: true;
+  approvedBy: "owner";
+  approvedOn: string;
+  value: T;
+  reason: string;
+};
+
 export const contentApprovals: {
   founding2016: HeldApproval<number>;
   alternate2020Date: HeldApproval<number>;
   fiftyYearsExperience: HeldApproval<number>;
   oneHundredYearsExperience: HeldApproval<number>;
   currentGtaStatus: HeldApproval<string>;
-  namedClients: HeldApproval<readonly string[]>;
+  namedClients: OwnerApproval<readonly string[]>;
   namedProjects: HeldApproval<readonly string[]>;
-  supplierRelationships: HeldApproval<readonly string[]>;
+  supplierRelationships: OwnerApproval<readonly string[]>;
+  sourceMedia: OwnerApproval<string>;
   applicatorStatus: HeldApproval<readonly string[]>;
 } = {
   founding2016: {
@@ -47,6 +56,8 @@ export const contentApprovals: {
   },
   namedClients: {
     approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
     value: ["Owner-approved client and contractor logos in src/content/partners.ts"],
     reason: "The owner confirmed client/contractor relationships and logo permission on 2026-10-13. Logos only; no named-project claims.",
   },
@@ -55,8 +66,18 @@ export const contentApprovals: {
     value: [],
     reason: "No named project has client and publication approval.",
   },
+  sourceMedia: {
+    approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
+    value: "All files in the owner-supplied SFI WEBSITE Google Drive folder",
+    reason:
+      "The owner approved every image, video, and logo in the supplied Drive folder for site use on 2026-10-13.",
+  },
   supplierRelationships: {
     approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
     value: ["Genyk", "BASF", "Soprema", "Henry", "GCP / Grace", "Carboline", "Hilti", "Sherwin-Williams", "3M"],
     reason:
       "The owner confirmed supplier relationships and logo permission on 2026-10-13 (Demilec held: no logo supplied).",

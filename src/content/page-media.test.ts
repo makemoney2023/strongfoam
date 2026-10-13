@@ -1,8 +1,16 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../../assets/source-media-manifest.json";
-import { brandLockups, processImage, serviceMedia } from "@/content/page-media";
+import {
+  aboutImages,
+  brandLockups,
+  ownerMediaApproval,
+  pageMediaPlan,
+  processImage,
+  railImages,
+  serviceMedia,
+} from "@/content/page-media";
 
 type Rec = { id: string; path: string; decision: { status: string; alt: string } };
 const publish = new Map(
@@ -14,6 +22,8 @@ const asset = (p: string) => join(process.cwd(), "assets", p.replace(/^\/media\/
 
 const all = [
   processImage,
+  ...Object.values(railImages),
+  ...aboutImages,
   ...Object.values(serviceMedia).flatMap((m) => [...(m?.images ?? []), ...(m?.videos ?? [])]),
 ];
 
@@ -41,9 +51,30 @@ describe("page media", () => {
     for (const lockup of Object.values(brandLockups)) expect(existsSync(asset(lockup.src))).toBe(true);
   });
 
-  it("puts the portrait spray foam videos on the spray foam page only", () => {
-    expect(serviceMedia["spray-foam-insulation"]?.videos).toHaveLength(2);
-    expect(serviceMedia["air-vapour-barriers"]?.videos).toHaveLength(0);
-    expect(serviceMedia["fire-protection"]).toBeUndefined();
+  it("gives every service page its own field media", () => {
+    expect(serviceMedia["spray-foam-insulation"]?.videos).toHaveLength(3);
+    expect(serviceMedia["air-vapour-barriers"]?.videos).toHaveLength(1);
+    expect(serviceMedia["fire-protection"]?.videos).toHaveLength(1);
+    expect(serviceMedia["spf-roofing"]?.images.length).toBeGreaterThan(0);
+  });
+
+  it("never repeats a source file across prominent placements", () => {
+    const prominent = [
+      processImage,
+      ...Object.values(railImages),
+      ...aboutImages,
+      ...Object.values(serviceMedia).flatMap((m) => [...(m?.images ?? []), ...(m?.videos ?? [])]),
+    ].map((item) => item.sourcePath);
+    expect(new Set(prominent).size).toBe(prominent.length);
+  });
+
+  it("records the owner blanket approval for the Drive folder", () => {
+    expect(ownerMediaApproval).toMatchObject({ by: "owner", date: "2026-10-13" });
+  });
+
+  it("keeps every video derivative under 5 MB", () => {
+    for (const item of pageMediaPlan.filter((entry) => entry.kind === "video")) {
+      expect(statSync(asset(`/media/${item.out}.mp4`)).size).toBeLessThan(5 * 1024 * 1024);
+    }
   });
 });

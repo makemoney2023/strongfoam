@@ -73,10 +73,14 @@ describe("marketing page model", () => {
       locations: locationRecords,
     });
 
-    expect(model.projects.map((project) => project.id)).toEqual([
-      "project-commercial-envelope",
-      "project-multi-storey-envelope",
-      "project-completed-exterior",
+    expect(model.projects.map((project) => project.id)).not.toContain(
+      "project-held-fixture",
+    );
+    expect(model.projects.length).toBeGreaterThanOrEqual(14);
+    expect(model.homeProjects.map((project) => project.id)).toEqual([
+      "project-office-envelope",
+      "project-tower",
+      "project-midrise",
     ]);
     expect(
       model.projects.every(
@@ -112,14 +116,14 @@ describe("marketing page model", () => {
       homepageMarketingModel.cinematicMedia;
     expect({ hero, process: processImage, sector }).toEqual({
       hero: "/media/projects/IMG_7880.jpeg",
-      process: "/media/services/IMG_9636-1600.webp",
+      process: "/media/home/process-spray-1200.webp",
       sector: "/media/projects/IMG_7879.jpg",
     });
     expect(homepageMarketingModel.cinematicMedia.processAlt).toBe(
-      "Technician applying spray foam around an interior window opening",
+      "Technician spraying foam insulation into a wall cavity",
     );
     expect(
-      existsSync(join(process.cwd(), "assets/services/IMG_9636-1600.webp")),
+      existsSync(join(process.cwd(), "assets/home/process-spray-1200.webp")),
     ).toBe(true);
     expect(
       [hero, sector].every((path) =>

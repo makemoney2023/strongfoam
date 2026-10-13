@@ -171,6 +171,7 @@ describe("site content for scroll overlays", () => {
       namedClients: expect.objectContaining({ approved: true }),
       namedProjects: expect.objectContaining({ approved: false }),
       supplierRelationships: expect.objectContaining({ approved: true }),
+      sourceMedia: expect.objectContaining({ approved: true, approvedOn: "2026-10-13" }),
       applicatorStatus: expect.objectContaining({ approved: false }),
     });
     const visibleCopy = JSON.stringify(companyContent);
