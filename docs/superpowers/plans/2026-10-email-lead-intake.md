@@ -1,6 +1,6 @@
 # Email-to-lead intake and first-reply draft
 
-> **For agentic workers:** Implement task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Write the failing test first.
+> **For agentic workers:** Implement task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Write the failing test first.
 
 **Goal:** Turn mail that Email Routing delivers to the `strongfoam` Worker into a deduplicated estimate-request proposal, store allowed attachments in R2, draft a first reply, and send that reply only after an owner confirms it.
 
@@ -74,38 +74,38 @@ Code cannot turn Email Routing on. Do these in account `6f6959ecba86d1de4d6cf6aa
 
 **Files:** `src/lib/leads/inbound-mail.ts`, `src/lib/leads/inbound-mail.test.ts`
 
-- [ ] **Step 1: Write failing tests.** Message-ID dedupes. Missing Message-ID dedupes on sender, subject, and body. A different body does not. PDF and image attachments get an R2 key. An executable does not. Company, phone, and city from the model are kept only when they appear in the text. A price in the model output is dropped. The reply draft names the sender and subject, does not say the work is approved, and does not include a price.
-- [ ] **Step 2: Implement the pure functions.** Keyword intent is `estimate` when the text contains estimate, quote, bid, tender, drawing, or spec. Otherwise a non-empty body is `general`. An empty body is `other`.
-- [ ] **Step 3: Run `npx vitest run src/lib/leads/inbound-mail.test.ts`.**
+- [x] **Step 1: Write failing tests.** Message-ID dedupes. Missing Message-ID dedupes on sender, subject, and body. A different body does not. PDF and image attachments get an R2 key. An executable does not. Company, phone, and city from the model are kept only when they appear in the text. A price in the model output is dropped. The reply draft names the sender and subject, does not say the work is approved, and does not include a price.
+- [x] **Step 2: Implement the pure functions.** Keyword intent is `estimate` when the text contains estimate, quote, bid, tender, drawing, or spec. Otherwise a non-empty body is `general`. An empty body is `other`.
+- [x] **Step 3: Run `npx vitest run src/lib/leads/inbound-mail.test.ts`.**
 
 ### Task 2: Store, R2, and the lead insert
 
 **Files:** `src/lib/leads/inbound-store.ts`, tests beside the pure module
 
-- [ ] **Step 1: Write failing tests against a fake bucket and a fake job table.** The first save returns `created`. The second save with the same key returns `duplicate` and does not write the object again. Accept inserts one lead, copies the R2 keys onto `files`, sets `notifyStatus` to `held`, and does not call a mailer. A second accept returns the same lead id.
-- [ ] **Step 2: Implement the store with `onConflictDoNothing` on `(organization_id, idempotency_key)`.** Idempotency key is `leads.inbound:${dedupeKey}`.
-- [ ] **Step 3: Run the store tests.**
+- [x] **Step 1: Write failing tests against a fake bucket and a fake job table.** The first save returns `created`. The second save with the same key returns `duplicate` and does not write the object again. Accept inserts one lead, copies the R2 keys onto `files`, sets `notifyStatus` to `held`, and does not call a mailer. A second accept returns the same lead id.
+- [x] **Step 2: Implement the store with `onConflictDoNothing` on `(organization_id, idempotency_key)`.** Idempotency key is `leads.inbound:${dedupeKey}`.
+- [x] **Step 3: Run the store tests.**
 
 ### Task 3: Worker email handler
 
 **Files:** `src/worker/inbound-email.ts`, `cloudflare-worker.ts`, `src/worker/registry.ts`
 
-- [ ] **Step 1: Write a failing test.** Given a message with `reply` and `forward` spies, handling it stores the proposal and leaves both spies at zero calls. `EMAIL.send` is not called.
-- [ ] **Step 2: Export `email` from `cloudflare-worker.ts`.** Run it inside `runWithCloudflareRequestContext`. When `JOBS` exists, enqueue `leads.inbound` with the metadata and R2 keys only, after the bytes are stored. Without `JOBS`, write the proposal inline.
-- [ ] **Step 3: Run the handler test and `scripts/cloudflare-deploy.test.ts`.**
+- [x] **Step 1: Write a failing test.** Given a message with `reply` and `forward` spies, handling it stores the proposal and leaves both spies at zero calls. `EMAIL.send` is not called.
+- [x] **Step 2: Export `email` from `cloudflare-worker.ts`.** Run it inside `runWithCloudflareRequestContext`. When `JOBS` exists, enqueue `leads.inbound` with the metadata and R2 keys only, after the bytes are stored. Without `JOBS`, write the proposal inline.
+- [x] **Step 3: Run the handler test and `scripts/cloudflare-deploy.test.ts`.**
 
 ### Task 4: Review screen and confirmed send
 
 **Files:** `src/app/app/requests/inbound/page.tsx`, `src/app/app/requests/inbound/actions.ts`
 
-- [ ] **Step 1: Write a failing test for the send decision.** `confirmSend: false` does not call the binding. `confirmSend: true` from a non-administrator does not call it. An administrator confirmation sends the stored draft once, to the original sender, from `EMAIL_FROM`.
-- [ ] **Step 2: Render the list for a signed-in office user.** Accept and dismiss are office actions. Send uses the existing confirm dialog and an administrator session.
-- [ ] **Step 3: Run the send-decision test.**
+- [x] **Step 1: Write a failing test for the send decision.** `confirmSend: false` does not call the binding. `confirmSend: true` from a non-administrator does not call it. An administrator confirmation sends the stored draft once, to the original sender, from `EMAIL_FROM`.
+- [x] **Step 2: Render the list for a signed-in office user.** Accept and dismiss are office actions. Send uses the existing confirm dialog and an administrator session.
+- [x] **Step 3: Run the send-decision test.**
 
 ### Task 5: Docs
 
-- [ ] **Step 1: Update README and CHANGELOG** with the `email` handler, the R2 prefix, and the statement that intake does not send mail.
-- [ ] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.**
+- [x] **Step 1: Update README and CHANGELOG** with the `email` handler, the R2 prefix, and the statement that intake does not send mail.
+- [x] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.**
 
 ## Rollout
 

@@ -5,6 +5,7 @@ import {
   runStaleSweep,
 } from "@/lib/ops/automation-run";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
+import { persistQueuedInbound } from "@/worker/inbound-email";
 import { handleDraftBidEstimate } from "@/worker/handlers/draft-bid-estimate";
 import { handleRetainImport } from "@/worker/handlers/retain-import";
 import {
@@ -53,5 +54,8 @@ export const handlers: Record<string, WorkerHandler> = {
   },
   "ops.stale-sweep": async (job) => {
     await runStaleSweep(firstData(job));
+  },
+  "leads.inbound": async (job) => {
+    await persistQueuedInbound(firstData(job));
   },
 };
