@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { ContactInquiryForm } from "@/components/marketing/contact-inquiry-form";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ export default function ContactPage() {
         eyebrow="Contact"
         title="Contact Strong Foam"
         description="Use the public channels below for company questions, estimating coordination, or the shared project intake."
+        media={heroMedia["contact"]}
       />
       <section
         className="marketing-section page-rail"

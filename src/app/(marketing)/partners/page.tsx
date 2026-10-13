@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import { PartnerGrid } from "@/components/marketing/partner-grid";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { partnerRecords } from "@/content/partners";
@@ -30,6 +31,7 @@ export default function PartnersPage() {
         eyebrow="Relationships"
         title="Approved partner relationships"
         description="Third-party marks appear only after identity, current relationship, official artwork, and publication permission are approved."
+        media={heroMedia["partners"]}
       />
       <section
         className="marketing-section page-rail"
@@ -41,6 +43,7 @@ export default function PartnersPage() {
         </div>
         <PartnerGrid
           partners={suppliers}
+          columns={3}
           emptyMessage="No supplier names or logos are approved for publication yet."
         />
       </section>

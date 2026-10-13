@@ -943,6 +943,37 @@ body {
     linear-gradient(145deg, #0b1218, #151c24);
 }
 
+.marketing-interior-hero--media {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.marketing-interior-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.marketing-interior-hero__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(11 18 24 / 92%) 0%, rgb(11 18 24 / 72%) 48%, rgb(11 18 24 / 40%) 100%),
+    linear-gradient(0deg, #0b1218 0%, transparent 35%);
+}
+.marketing-interior-hero__media picture { display: block; width: 100%; height: 100%; }
+.marketing-interior-hero__still,
+.marketing-interior-hero__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing-interior-hero__video { display: none; }
+}
+
 .marketing-interior-hero__inner h1,
 .marketing-section__intro h2,
 .marketing-cta-band h2 {
@@ -1367,4 +1398,166 @@ body {
       linear-gradient(90deg, rgb(7 13 18 / 94%), rgb(7 13 18 / 28%)),
       url("/media/animated/16x9/sf-sector-deck-fireproofing-poster.jpg") center / cover;
   }
+}
+
+/* Service page field media */
+.service-lockup { padding-block: 1.5rem 0; }
+.service-lockup__img { display: block; width: min(20rem, 70vw); height: auto; }
+.service-media__grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  align-items: start;
+}
+.service-media__item { margin: 0; }
+.service-media__img,
+.service-media__video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  background: #080d12;
+}
+.service-media__video { aspect-ratio: 352 / 640; object-fit: cover; max-height: 36rem; }
+.service-media__item figcaption { margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.75; }
+@media (prefers-reduced-motion: reduce) {
+  .service-media__video { animation: none; }
+}
+
+/* Capability rail imagery */
+.service-panel { overflow: hidden; }
+.service-panel__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.service-panel__mask {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform;
+}
+.service-panel__mask picture { display: block; width: 100%; height: 100%; }
+.service-panel__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(17 27 35 / 55%) 0%, rgb(17 27 35 / 88%) 55%, #111b23 100%);
+}
+.service-panel__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.08);
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-panel__img { transform: none; will-change: auto; }
+  .service-panel__mask { will-change: auto; }
+}
+.service-panel > :not(.service-panel__media) { position: relative; z-index: 1; }
+.services-close__lockup { display: block; width: min(18rem, 60vw); height: auto; margin-bottom: 1.25rem; }
+
+/* Partner marks — brand logo-usage rules: reversed (white) marks on dark
+   surfaces, equal visual weight, generous clear space, no effects. */
+.partner-logo {
+  display: block;
+  width: var(--logo-w);
+  height: var(--logo-h);
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.partner-logo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 2.5rem;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+  border-left: 1px solid rgb(255 255 255 / 9%);
+  list-style: none;
+  padding: 0;
+}
+@media (min-width: 1025px) {
+  .partner-logo-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.partner-logo-grid__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  min-height: 10rem;
+  padding: 2rem 1.25rem 1.25rem;
+  border-right: 1px solid rgb(255 255 255 / 9%);
+  border-bottom: 1px solid rgb(255 255 255 / 9%);
+  transition: background-color 200ms ease;
+}
+.partner-logo-grid__cell:hover { background: rgb(255 255 255 / 3%); }
+.partner-logo-grid__cell .partner-logo { margin-top: auto; }
+.partner-logo-grid__name {
+  margin-top: auto;
+  color: #7f8e99;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.partner-marquee {
+  display: grid;
+  gap: 2.25rem;
+  margin: 3rem 0 2rem;
+}
+.partner-marquee__label {
+  width: min(100%, var(--page-max));
+  margin: 0 auto 1rem;
+  padding-inline: var(--page-inline);
+  color: #7f8e99;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.partner-marquee__viewport {
+  overflow: hidden;
+  padding: 0.75rem 0;
+  border-block: 1px solid rgb(255 255 255 / 8%);
+  mask-image: linear-gradient(90deg, transparent, #000 clamp(2.5rem, 8vw, 8rem), #000 calc(100% - clamp(2.5rem, 8vw, 8rem)), transparent);
+}
+.partner-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: partner-marquee var(--marquee-duration, 60s) linear infinite;
+}
+.partner-marquee__viewport--reverse .partner-marquee__track { animation-direction: reverse; }
+.partner-marquee__viewport:hover .partner-marquee__track,
+.partner-marquee__viewport:focus-within .partner-marquee__track { animation-play-state: paused; }
+.partner-marquee__list {
+  display: flex;
+  align-items: center;
+  gap: 4.5rem;
+  margin: 0;
+  padding: 0.75rem 2.25rem;
+  list-style: none;
+}
+.partner-marquee__list li { display: flex; align-items: center; height: 4.25rem; }
+@keyframes partner-marquee {
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partner-marquee__track { width: auto; animation: none; }
+  .partner-marquee__list { flex-wrap: wrap; justify-content: center; row-gap: 1.5rem; }
+  .partner-marquee__list--clone { display: none; }
+  .partner-marquee__viewport { mask-image: none; }
+}
+@media (max-width: 1024px) {
+  .partner-logo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .partner-logo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .partner-logo-grid__cell { min-height: 8.25rem; padding: 1.5rem 0.75rem 1rem; }
+  .partner-logo { width: calc(var(--logo-w) * 0.8); height: calc(var(--logo-h) * 0.8); }
+  .partner-marquee__list { gap: 3rem; }
+  .partner-marquee__list li { height: 3.5rem; }
 }

@@ -1,0 +1,566 @@
+{
+ "approval": {
+  "by": "owner",
+  "date": "2026-10-13",
+  "scope": "All files in the owner-supplied SFI WEBSITE Google Drive folder"
+ },
+ "items": [
+  {
+   "id": "rail-spray-foam",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_8207.jpeg",
+   "out": "home/rail-spray-foam",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Spray foam insulation sealing a vaulted timber roof",
+   "manifestId": "media-9cfac3e50653827e",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "rail-fire-protection",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_3400.m4v",
+   "out": "home/rail-fire-protection",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Applicator spraying fire-protection material overhead",
+   "manifestId": "media-57f8073f37a6c8c5",
+   "width": 1200,
+   "height": 1029,
+   "frameAt": 17.5,
+   "crop": [
+    420,
+    0,
+    1260,
+    1080
+   ]
+  },
+  {
+   "id": "rail-air-vapour",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_7257.jpeg",
+   "out": "home/rail-air-vapour",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Multi-storey building wrapped in green air and vapour barrier",
+   "manifestId": "media-57cedaff443c8e08",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "rail-spf-roofing",
+   "kind": "image",
+   "source": "SFI- IMAGES/roofing1.jpg",
+   "out": "home/rail-spf-roofing",
+   "widths": [
+    800
+   ],
+   "alt": "Applicator spraying polyurethane foam on a flat roof",
+   "manifestId": "media-b3c77acf9958bd69",
+   "width": 800,
+   "height": 450
+  },
+  {
+   "id": "process-spray",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9741 2.jpeg",
+   "out": "home/process-spray",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Technician spraying foam insulation into a wall cavity",
+   "downloadedAs": "SFI- IMAGES/IMG_9741.jpeg",
+   "manifestId": "media-06a8dabd44af85b6",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "project-office-envelope",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5917 (1).jpeg",
+   "out": "projects/project-office-envelope",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Mid-rise office building with a completed multi-colour envelope",
+   "manifestId": "media-6f495d48e8d2d22d",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "project-tower",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_2370.jpg",
+   "out": "projects/project-tower",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "High-rise residential tower beside a completed hotel",
+   "manifestId": "media-56dd28603567d93d",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "project-midrise",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5925.jpeg",
+   "out": "projects/project-midrise",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Completed mid-rise residential building",
+   "manifestId": "media-5bceec98926e7227",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "gallery-tower-west",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_2332.jpg",
+   "out": "projects/gallery-tower-west",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Residential tower under construction",
+   "manifestId": "media-ef1e669d15d1c331",
+   "width": 1200,
+   "height": 1812
+  },
+  {
+   "id": "gallery-tower-pair",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_2365.jpg",
+   "out": "projects/gallery-tower-pair",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Pair of completed residential towers",
+   "manifestId": "media-7f543fbab4197e4b",
+   "width": 1200,
+   "height": 1812
+  },
+  {
+   "id": "gallery-hotel",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_2366.jpg",
+   "out": "projects/gallery-hotel",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Completed multi-storey hotel exterior",
+   "manifestId": "media-752f80ad10343673",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "gallery-membrane-midrise",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5928.jpeg",
+   "out": "projects/gallery-membrane-midrise",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Mid-rise building with membrane-wrapped walls",
+   "manifestId": "media-202ad532284a645a",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "gallery-red-brick",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_8102.jpeg",
+   "out": "projects/gallery-red-brick",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Completed brick and panel residential building",
+   "manifestId": "media-43e4651687c967d2",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "gallery-commercial-glass",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_2670.JPG",
+   "out": "projects/gallery-commercial-glass",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Commercial building with glass and metal-panel envelope",
+   "manifestId": "media-0786563b915aa111",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "gallery-school",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_1070.jpeg",
+   "out": "projects/gallery-school",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Commercial building envelope during construction",
+   "manifestId": "media-c0f3d9fc74e922c0",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "gallery-brick-wing",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_3116.jpeg",
+   "out": "projects/gallery-brick-wing",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Completed brick commercial building wing",
+   "manifestId": "media-7226ff023445bd41",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "spray-interior",
+   "kind": "image",
+   "source": "SFI- IMAGES/B36EA202-0B08-4E5D-9528-433CEC6AF73E.jpeg",
+   "out": "services/spray-interior",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Spray foam insulation applied to interior walls around windows",
+   "manifestId": "media-775828969c9377ab",
+   "width": 1600,
+   "height": 1600
+  },
+  {
+   "id": "sf-spray-foam-roofline",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9576.mov",
+   "out": "services/sf-spray-foam-roofline",
+   "start": 6,
+   "duration": 12,
+   "height": 720,
+   "alt": "Technician spraying foam along a timber roofline",
+   "manifestId": "media-78c068a4e8ba3a9e",
+   "width": 1280
+  },
+  {
+   "id": "barrier-lift",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_7998.jpeg",
+   "out": "services/barrier-lift",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Crew applying blue air and vapour barrier from a lift",
+   "manifestId": "media-404855822a8be551",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "barrier-membrane-walls",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5946.jpeg",
+   "out": "services/barrier-membrane-walls",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Self-adhered membrane around windows on a mid-rise wall",
+   "manifestId": "media-c53c0a7be13f18a5",
+   "width": 1600,
+   "height": 1060
+  },
+  {
+   "id": "sf-barrier-install",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9647.mov",
+   "out": "services/sf-barrier-install",
+   "start": 3,
+   "duration": 12,
+   "height": 960,
+   "alt": "Installer applying an air and vapour barrier membrane from a lift",
+   "manifestId": "media-36da92c19102407f",
+   "width": 540
+  },
+  {
+   "id": "fire-steel-deck",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_0574.jpeg",
+   "out": "services/fire-steel-deck",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Spray-applied fireproofing crew under an open steel deck",
+   "manifestId": "media-91e2ae3ff49bc65c",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "sf-fireproofing-overhead",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_3400.m4v",
+   "out": "services/sf-fireproofing-overhead",
+   "start": 2,
+   "duration": 12,
+   "height": 1080,
+   "alt": "Applicator spraying fire-protection material overhead",
+   "manifestId": "media-57f8073f37a6c8c5",
+   "width": 1920
+  },
+  {
+   "id": "roof-spray",
+   "kind": "image",
+   "source": "SFI- IMAGES/63af8c77-1a27-4c23-8ff9-ad1b0b91df70.jpeg",
+   "out": "services/roof-spray",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Spray polyurethane foam roofing equipment on a commercial roof",
+   "manifestId": "media-2952439d6fcc40a7",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "roof-deck",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_00000011.jpg",
+   "out": "services/roof-deck",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Commercial roof deck prepared for spray foam roofing",
+   "manifestId": "media-7783ae0970076745",
+   "width": 1600,
+   "height": 1600
+  },
+  {
+   "id": "about-truck",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_8998.jpeg",
+   "out": "about/about-truck",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Strong Foam spray rig truck on site",
+   "manifestId": "media-fd82ba56e261bff9",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "about-site-banner",
+   "kind": "image",
+   "source": "SFI- IMAGES/BDF25049-A4D1-4654-A612-9A755126A578 2.jpeg",
+   "out": "about/about-site-banner",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Strong Foam banner on a multi-storey project fence",
+   "manifestId": "media-fbafc6cbf7072306",
+   "width": 1600,
+   "height": 1600
+  },
+  {
+   "id": "about-fleet-tower",
+   "kind": "image",
+   "source": "SFI- IMAGES/SFI1004.jpeg",
+   "out": "about/about-fleet-tower",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Strong Foam truck at a high-rise project",
+   "manifestId": "media-c1a5347d2ccf5eea",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "about-fleet",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9697.jpeg",
+   "out": "about/about-fleet",
+   "widths": [
+    960,
+    1600
+   ],
+   "alt": "Strong Foam fleet trucks",
+   "manifestId": "media-9d0f126b3c49539a",
+   "width": 1600,
+   "height": 1200
+  },
+  {
+   "id": "hero-services",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9575.mov",
+   "out": "heroes/services",
+   "alt": "Applicator spraying foam insulation into exposed roof framing",
+   "manifestId": "media-0f1b35e06bec45d6",
+   "start": 8,
+   "duration": 12,
+   "height": 720,
+   "width": 1280
+  },
+  {
+   "id": "hero-spray-foam",
+   "kind": "video",
+   "source": "SFI- IMAGES/IMG_9574.mov",
+   "out": "heroes/spray-foam",
+   "alt": "Technician applying spray foam in a wood-framed room",
+   "manifestId": "media-d212e319fcbeb81d",
+   "start": 4,
+   "duration": 12,
+   "height": 720,
+   "width": 1280
+  },
+  {
+   "id": "hero-fire-protection",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_0572.jpeg",
+   "out": "heroes/fire-protection",
+   "alt": "Exposed steel roof joists and deck awaiting fire protection",
+   "manifestId": "media-9e2130e6b0c9082e",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-air-vapour",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_8002.jpeg",
+   "out": "heroes/air-vapour",
+   "alt": "Crew on a lift detailing a green and blue air barrier on a multi-storey wall",
+   "manifestId": "media-d27474e5b380f70b",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "hero-spf-roofing",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_00000012.jpg",
+   "out": "heroes/spf-roofing",
+   "alt": "Flat commercial roof deck with rooftop guardrails",
+   "manifestId": "media-2a0551e0c8f2f086",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
+  },
+  {
+   "id": "hero-projects",
+   "kind": "image",
+   "source": "SFI- IMAGES/DSC_5919 (1).jpeg",
+   "out": "heroes/projects",
+   "alt": "Completed mid-rise envelope beside a building wrapped in green barrier",
+   "manifestId": "media-17b8dd1165128f03",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1272
+  },
+  {
+   "id": "hero-partners",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9428 2.jpeg",
+   "out": "heroes/partners",
+   "alt": "Strong Foam site banner on a multi-unit construction project",
+   "manifestId": "media-3f220138c17caeb3",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-about",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9001.jpeg",
+   "out": "heroes/about",
+   "alt": "Strong Foam box truck parked outside a commercial building",
+   "manifestId": "media-e9dd51eb4d81b6fd",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1440
+  },
+  {
+   "id": "hero-locations",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_00000013.jpg",
+   "out": "heroes/locations",
+   "alt": "Aerial view over a Waterloo Region neighbourhood from a high-rise jobsite",
+   "manifestId": "media-a0f7ce51bffccac7",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
+  },
+  {
+   "id": "hero-contact",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_9558.jpeg",
+   "out": "heroes/contact",
+   "alt": "Strong Foam truck on a residential jobsite",
+   "manifestId": "media-403ed9815ca8e271",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "hero-request-estimate",
+   "kind": "image",
+   "source": "SFI- IMAGES/IMG_7853.jpeg",
+   "out": "heroes/request-estimate",
+   "alt": "Applicator on a lift detailing a blue air barrier on a mid-rise exterior",
+   "manifestId": "media-6ed87f94eadb7b94",
+   "widths": [
+    960,
+    1920
+   ],
+   "width": 1920,
+   "height": 1920
+  }
+ ]
+}

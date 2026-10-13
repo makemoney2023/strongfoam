@@ -1,0 +1,233 @@
+{
+ "basf": {
+  "width": 313,
+  "height": 112,
+  "sourceWidth": 240,
+  "sourceHeight": 86,
+  "lowRes": false
+ },
+ "genyk": {
+  "width": 387,
+  "height": 112,
+  "sourceWidth": 550,
+  "sourceHeight": 162,
+  "lowRes": false
+ },
+ "soprema": {
+  "width": 134,
+  "height": 112,
+  "sourceWidth": 371,
+  "sourceHeight": 312,
+  "lowRes": false
+ },
+ "henry": {
+  "width": 319,
+  "height": 112,
+  "sourceWidth": 1277,
+  "sourceHeight": 448,
+  "lowRes": false
+ },
+ "gcp-grace": {
+  "width": 77,
+  "height": 112,
+  "sourceWidth": 407,
+  "sourceHeight": 444,
+  "lowRes": false
+ },
+ "carboline": {
+  "width": 307,
+  "height": 112,
+  "sourceWidth": 193,
+  "sourceHeight": 71,
+  "lowRes": false
+ },
+ "hilti": {
+  "width": 446,
+  "height": 112,
+  "sourceWidth": 463,
+  "sourceHeight": 109,
+  "lowRes": false
+ },
+ "sherwin-williams": {
+  "width": 398,
+  "height": 112,
+  "sourceWidth": 231,
+  "sourceHeight": 65,
+  "lowRes": false
+ },
+ "3m": {
+  "width": 215,
+  "height": 112,
+  "sourceWidth": 182,
+  "sourceHeight": 95,
+  "lowRes": false
+ },
+ "dakon-construction": {
+  "width": 573,
+  "height": 112,
+  "sourceWidth": 1072,
+  "sourceHeight": 207,
+  "lowRes": false
+ },
+ "blockwall": {
+  "width": 323,
+  "height": 84,
+  "sourceWidth": 160,
+  "sourceHeight": 42,
+  "lowRes": true
+ },
+ "mcc": {
+  "width": 332,
+  "height": 112,
+  "sourceWidth": 557,
+  "sourceHeight": 188,
+  "lowRes": false
+ },
+ "sem-construction": {
+  "width": 172,
+  "height": 112,
+  "sourceWidth": 137,
+  "sourceHeight": 89,
+  "lowRes": true
+ },
+ "southside-construction": {
+  "width": 340,
+  "height": 94,
+  "sourceWidth": 170,
+  "sourceHeight": 47,
+  "lowRes": true
+ },
+ "melloul-blamey": {
+  "width": 164,
+  "height": 112,
+  "sourceWidth": 326,
+  "sourceHeight": 224,
+  "lowRes": false
+ },
+ "graceview": {
+  "width": 188,
+  "height": 112,
+  "sourceWidth": 231,
+  "sourceHeight": 138,
+  "lowRes": false
+ },
+ "stonerise": {
+  "width": 393,
+  "height": 112,
+  "sourceWidth": 253,
+  "sourceHeight": 72,
+  "lowRes": false
+ },
+ "k-and-l-construction": {
+  "width": 115,
+  "height": 112,
+  "sourceWidth": 211,
+  "sourceHeight": 204,
+  "lowRes": false
+ },
+ "auburn-developments": {
+  "width": 295,
+  "height": 112,
+  "sourceWidth": 183,
+  "sourceHeight": 70,
+  "lowRes": false
+ },
+ "drewlo": {
+  "width": 428,
+  "height": 86,
+  "sourceWidth": 214,
+  "sourceHeight": 43,
+  "lowRes": true
+ },
+ "devlan-construction": {
+  "width": 365,
+  "height": 112,
+  "sourceWidth": 261,
+  "sourceHeight": 80,
+  "lowRes": false
+ },
+ "hayman-construction": {
+  "width": 49,
+  "height": 112,
+  "sourceWidth": 97,
+  "sourceHeight": 221,
+  "lowRes": true
+ },
+ "d-grant-construction": {
+  "width": 454,
+  "height": 112,
+  "sourceWidth": 381,
+  "sourceHeight": 94,
+  "lowRes": false
+ },
+ "zehr": {
+  "width": 377,
+  "height": 112,
+  "sourceWidth": 313,
+  "sourceHeight": 93,
+  "lowRes": false
+ },
+ "tonda": {
+  "width": 334,
+  "height": 112,
+  "sourceWidth": 307,
+  "sourceHeight": 103,
+  "lowRes": false
+ },
+ "magil-construction": {
+  "width": 329,
+  "height": 112,
+  "sourceWidth": 282,
+  "sourceHeight": 96,
+  "lowRes": false
+ },
+ "sierra-construction": {
+  "width": 415,
+  "height": 112,
+  "sourceWidth": 374,
+  "sourceHeight": 101,
+  "lowRes": false
+ },
+ "bronnenco-construction": {
+  "width": 523,
+  "height": 112,
+  "sourceWidth": 465,
+  "sourceHeight": 108,
+  "lowRes": false
+ },
+ "csl": {
+  "width": 394,
+  "height": 112,
+  "sourceWidth": 366,
+  "sourceHeight": 104,
+  "lowRes": false
+ },
+ "perlane-construction": {
+  "width": 617,
+  "height": 112,
+  "sourceWidth": 358,
+  "sourceHeight": 65,
+  "lowRes": false
+ },
+ "reid-deleye": {
+  "width": 173,
+  "height": 112,
+  "sourceWidth": 194,
+  "sourceHeight": 126,
+  "lowRes": false
+ },
+ "remo-general-contracting": {
+  "width": 246,
+  "height": 112,
+  "sourceWidth": 284,
+  "sourceHeight": 129,
+  "lowRes": false
+ },
+ "vicano-construction": {
+  "width": 341,
+  "height": 112,
+  "sourceWidth": 362,
+  "sourceHeight": 119,
+  "lowRes": false
+ }
+}

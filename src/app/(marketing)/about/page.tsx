@@ -1,7 +1,10 @@
+import { ResponsivePicture } from "@/components/marketing/responsive-picture";
+import { aboutImages } from "@/content/page-media";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { heroMedia } from "@/content/page-media";
 import {
   Card,
   CardContent,
@@ -36,6 +39,7 @@ export default function AboutPage() {
         eyebrow="Company"
         title="About Strong Foam"
         description={companyContent.story}
+        media={heroMedia["about"]}
       />
       <section
         className="marketing-section page-rail"
@@ -107,6 +111,27 @@ export default function AboutPage() {
                 <p>{slogan}</p>
               </CardContent>
             </Card>
+          ))}
+        </div>
+      </section>
+      <section
+        className="marketing-section page-rail service-media"
+        aria-labelledby="about-field-title"
+      >
+        <div className="marketing-section__intro">
+          <p className="section-kicker">On site</p>
+          <h2 id="about-field-title">Our crews and equipment</h2>
+        </div>
+        <div className="service-media__grid">
+          {aboutImages.map((image) => (
+            <figure key={image.manifestId} className="service-media__item">
+              <ResponsivePicture
+                image={image}
+                sizes="(max-width: 900px) 100vw, 25vw"
+                className="service-media__img"
+              />
+              <figcaption>{image.alt}</figcaption>
+            </figure>
           ))}
         </div>
       </section>

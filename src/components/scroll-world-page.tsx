@@ -5,7 +5,9 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PhoneIcon } from "lucide-react";
-import { PartnerGrid } from "@/components/marketing/partner-grid";
+import { PartnerMarquee } from "@/components/marketing/partner-marquee";
+import { ResponsivePicture } from "@/components/marketing/responsive-picture";
+import { brandLockups } from "@/content/page-media";
 import type { MarketingPageModel } from "@/components/marketing/marketing-page-model";
 import {
   Accordion,
@@ -204,7 +206,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       if (servicesTrack && shouldPinServicesRail(window.innerWidth)) {
         const distance = () =>
           getServicesPinDistance(servicesTrack.scrollWidth, window.innerWidth);
-        gsap.to(servicesTrack, {
+        const railTween = gsap.to(servicesTrack, {
           x: () => -distance(),
           ease: "none",
           scrollTrigger: {
@@ -213,6 +215,37 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
             end: () => `+=${distance()}`,
           },
         });
+
+        // Rail imagery: wipe-in reveal, then slow zoom + counter-pan while
+        // the panel crosses the viewport. Transforms only, all scrubbed to
+        // the horizontal tween so motion tracks the reader's scroll.
+        servicesTrack
+          .querySelectorAll<HTMLElement>(".service-panel")
+          .forEach((panel) => {
+            const mask = panel.querySelector("[data-rail-mask]");
+            const unmask = panel.querySelector("[data-rail-unmask]");
+            const img = panel.querySelector(".service-panel__img");
+            if (!mask || !unmask || !img) return;
+            const across = {
+              trigger: panel,
+              containerAnimation: railTween,
+              start: "left right",
+              end: "right left",
+              scrub: 0.6,
+            };
+            gsap
+              .timeline({
+                scrollTrigger: { ...across, end: "left 45%" },
+                defaults: { ease: "power2.out" },
+              })
+              .fromTo(mask, { xPercent: 100 }, { xPercent: 0 }, 0)
+              .fromTo(unmask, { xPercent: -100 }, { xPercent: 0 }, 0);
+            gsap.fromTo(
+              img,
+              { scale: 1.22, xPercent: -6 },
+              { scale: 1.08, xPercent: 6, ease: "none", scrollTrigger: across },
+            );
+          });
       }
 
       gsap.from("[data-process-image]", {
@@ -437,6 +470,17 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
                   index % 2 === 1 && "service-panel--lower",
                 )}
               >
+                <div className="service-panel__media" aria-hidden="true">
+                  <div data-rail-mask className="service-panel__mask">
+                    <div data-rail-unmask className="service-panel__mask">
+                      <ResponsivePicture
+                        image={service.image}
+                        sizes="(max-width: 900px) 80vw, 32vw"
+                        className="service-panel__img"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <span>0{index + 1}</span>
                 <h3>{service.label}</h3>
                 <p>{service.summary}</p>
@@ -447,6 +491,14 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
               </article>
             ))}
             <div className="services-close">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG lockup */}
+              <img
+                src={brandLockups.strongFireOnDark.src}
+                width={brandLockups.strongFireOnDark.width}
+                height={brandLockups.strongFireOnDark.height}
+                alt="Strong Fire Protection"
+                className="services-close__lockup"
+              />
               <p>{model.strongFire.endorsement}</p>
               <a href={model.strongFire.canonicalPath}>
                 Explore Strong Fire →
@@ -493,7 +545,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
           <figure data-process-image className="process-image">
             <Image
               src={model.cinematicMedia.process}
-              alt="Commercial building envelope work in progress"
+              alt={model.cinematicMedia.processAlt}
               fill
               sizes="(max-width: 900px) 100vw, 48vw"
               className="object-cover"
@@ -542,7 +594,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       >
         <SectionIntro id="projects" />
         <div data-projects-grid className="projects-grid">
-          {model.projects.map((project, index) => (
+          {model.homeProjects.map((project, index) => (
             <figure
               data-project
               key={project.id}
@@ -588,10 +640,15 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
             Third-party marks appear only after identity, current relationship,
             official artwork, and publication permission are confirmed.
           </p>
-          <PartnerGrid
-            partners={model.partners}
-            emptyMessage="Partner approvals are in progress; no held marks are published."
-          />
+        </div>
+        <PartnerMarquee
+          partners={model.partners}
+          emptyMessage="Partner approvals are in progress; no held marks are published."
+        />
+        <div className="page-rail">
+          <a className="projects-note" href="/partners">
+            See every partner →
+          </a>
         </div>
       </section>
 
@@ -643,9 +700,9 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       <section data-home-section="contact" id="contact" className="contact-act">
         <div className="contact-inner">
           <Image
-            src="/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png"
-            width={280}
-            height={67}
+            src={site.brandLogos.onDark}
+            width={252}
+            height={52}
             alt="Strong Foam Insulation"
             className="contact-logo"
           />

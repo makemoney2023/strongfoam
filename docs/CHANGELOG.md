@@ -9,7 +9,11 @@
 - **API / schema impact** — No migration. New Worker binding `AI_USAGE`, crons, and optional Turnstile secrets.
 - **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed (two existing unused-variable warnings). `npm test` passed: 156 files, 852 tests, 1 skipped. The media-audit CLI test passes `--experimental-strip-types` so Node 22.14 can load the TypeScript claims module before the binary check.
 
-## 2026-10-13
+- **What changed** — Recorded the owner's blanket approval for the Drive media, reassigned photos and video loops so every homepage panel, service page, /projects, and /about gets distinct media, published 29 owner-approved partner logos with a consistent monochrome treatment, and removed the dark plate from the Strong Fire lockup. See `docs/site-media-map.md`.
+- **Why** — The owner approved all supplied media and partner marks and found the reused images repetitive.
+
+- **What changed** — Added approved field photos and portrait spray-foam videos to the spray foam and air-vapour barrier pages, a third approved project image, an approved spray-foam process image on the homepage, and vector Strong Foam / Strong Fire lockups from the supplied PDF masters.
+- **Why** — The supplied media review approved these files; interior pages had no imagery and the header used a 280 px raster logo.
 
 - **What changed** — Restored scroll-driven video in the homepage hero and sector chapters using muted 12 s derivatives of approved shortlist clips `IMG_9677.mov` and `IMG_3398.m4v`, with posters for reduced motion.
 - **Why** — The marketing-pages merge replaced the hero and sector videos with stills.

@@ -9,15 +9,24 @@ type HeldApproval<T> = {
   reason: string;
 };
 
+type OwnerApproval<T> = {
+  approved: true;
+  approvedBy: "owner";
+  approvedOn: string;
+  value: T;
+  reason: string;
+};
+
 export const contentApprovals: {
   founding2016: HeldApproval<number>;
   alternate2020Date: HeldApproval<number>;
   fiftyYearsExperience: HeldApproval<number>;
   oneHundredYearsExperience: HeldApproval<number>;
   currentGtaStatus: HeldApproval<string>;
-  namedClients: HeldApproval<readonly string[]>;
+  namedClients: OwnerApproval<readonly string[]>;
   namedProjects: HeldApproval<readonly string[]>;
-  supplierRelationships: HeldApproval<readonly string[]>;
+  supplierRelationships: OwnerApproval<readonly string[]>;
+  sourceMedia: OwnerApproval<string>;
   applicatorStatus: HeldApproval<readonly string[]>;
 } = {
   founding2016: {
@@ -46,20 +55,32 @@ export const contentApprovals: {
     reason: "Current operating status and public NAP are not confirmed.",
   },
   namedClients: {
-    approved: false,
-    value: [],
-    reason: "No named client has current relationship and publication approval.",
+    approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
+    value: ["Owner-approved client and contractor logos in src/content/partners.ts"],
+    reason: "The owner confirmed client/contractor relationships and logo permission on 2026-10-13. Logos only; no named-project claims.",
   },
   namedProjects: {
     approved: false,
     value: [],
     reason: "No named project has client and publication approval.",
   },
-  supplierRelationships: {
-    approved: false,
-    value: ["Genyk", "Henry", "Soprema"],
+  sourceMedia: {
+    approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
+    value: "All files in the owner-supplied SFI WEBSITE Google Drive folder",
     reason:
-      "Current supplier relationships and logo permissions are not confirmed.",
+      "The owner approved every image, video, and logo in the supplied Drive folder for site use on 2026-10-13.",
+  },
+  supplierRelationships: {
+    approved: true,
+    approvedBy: "owner",
+    approvedOn: "2026-10-13",
+    value: ["Genyk", "BASF", "Soprema", "Henry", "GCP / Grace", "Carboline", "Hilti", "Sherwin-Williams", "3M"],
+    reason:
+      "The owner confirmed supplier relationships and logo permission on 2026-10-13 (Demilec held: no logo supplied).",
   },
   applicatorStatus: {
     approved: false,
