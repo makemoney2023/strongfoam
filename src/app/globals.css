@@ -223,6 +223,7 @@ body {
 }
 
 .hero-media {
+  display: block;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -683,6 +684,7 @@ body {
 }
 
 .sectors-media {
+  display: block;
   position: absolute;
   inset: -10%;
   width: 120%;
@@ -1357,12 +1359,12 @@ body {
   .hero-stage {
     background:
       radial-gradient(90% 75% at 0 100%, rgb(7 13 18 / 94%), transparent 80%),
-      url("/media/projects/IMG_7880.jpeg") center / cover;
+      url("/media/animated/16x9/sf-hero-envelope-spray-poster.jpg") center / cover;
   }
 
   .sectors-act {
     background:
       linear-gradient(90deg, rgb(7 13 18 / 94%), rgb(7 13 18 / 28%)),
-      url("/media/projects/IMG_7879.jpg") center / cover;
+      url("/media/animated/16x9/sf-sector-deck-fireproofing-poster.jpg") center / cover;
   }
 }

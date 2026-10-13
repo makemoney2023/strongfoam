@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -84,14 +86,36 @@ describe("marketing page model", () => {
     ).toBe(true);
   });
 
+  it("uses approved shortlist video derivatives for the hero and sectors", () => {
+    expect(homepageMarketingModel.cinematicMedia).toMatchObject({
+      heroVideo: "/media/animated/16x9/sf-hero-envelope-spray.mp4",
+      heroPoster: "/media/animated/16x9/sf-hero-envelope-spray-poster.jpg",
+      sectorVideo: "/media/animated/16x9/sf-sector-deck-fireproofing.mp4",
+      sectorPoster:
+        "/media/animated/16x9/sf-sector-deck-fireproofing-poster.jpg",
+    });
+    for (const path of [
+      homepageMarketingModel.cinematicMedia.heroVideo,
+      homepageMarketingModel.cinematicMedia.heroPoster,
+      homepageMarketingModel.cinematicMedia.sectorVideo,
+      homepageMarketingModel.cinematicMedia.sectorPoster,
+    ]) {
+      expect(
+        existsSync(join(process.cwd(), "assets", path.replace("/media/", ""))),
+      ).toBe(true);
+    }
+  });
+
   it("uses approved public project media for every cinematic still", () => {
-    expect(homepageMarketingModel.cinematicMedia).toEqual({
+    const { hero, process: processImage, sector } =
+      homepageMarketingModel.cinematicMedia;
+    expect({ hero, process: processImage, sector }).toEqual({
       hero: "/media/projects/IMG_7880.jpeg",
       process: "/media/projects/IMG_7879.jpg",
       sector: "/media/projects/IMG_7879.jpg",
     });
     expect(
-      Object.values(homepageMarketingModel.cinematicMedia).every((path) =>
+      [hero, processImage, sector].every((path) =>
         homepageMarketingModel.projects.some(
           (project) => project.publicImagePath === path,
         ),
@@ -148,7 +172,7 @@ describe("marketing page model", () => {
     expect(homepageMarketingModel.motion).toEqual({
       disableNonEssentialMotion: true,
       essentialContentVisible: true,
-      videoFallback: "poster",
+      videoFallback: "poster-when-reduced-motion",
       horizontalRailFallback: "scroll",
     });
   });

@@ -65,9 +65,17 @@ commit in this repo must use author and committer
   in the header and estimating close on dark surfaces.
 - `IMG_7880.jpeg`: approved commercial-envelope hero and project evidence.
 - `IMG_7879.jpg`: approved field-process, sector, and project evidence.
-- Until Phase 7 creates derivatives for the newly approved video shortlist,
-  the cinematic chapters use GSAP movement on these approved stills. Legacy
-  Omni loops and held/duplicate source images are not rendered.
+- Hero video: `animated/16x9/sf-hero-envelope-spray.mp4` (+ `-poster.jpg`),
+  a 12 s muted loop cut from approved shortlist `IMG_9677.mov` (0:01–0:13):
+  spray foam applied to a high-rise exterior wall.
+- Sector video: `animated/16x9/sf-sector-deck-fireproofing.mp4` (+ `-poster.jpg`),
+  a 12 s muted loop cut from approved shortlist `IMG_3398.m4v` (0:15–0:27):
+  spray application to a commercial concrete deck from scaffolding.
+- Derivatives: H.264 High, 1920×1080, 30 fps, CRF 27, `+faststart`, audio
+  stripped; posters are 1920 px JPEG frames from the same segment. The
+  GSAP `data-hero-media` / `data-sector-media` parallax drives the `<video>`
+  elements; reduced-motion users get the poster as a static background.
+  Legacy Omni loops and held/duplicate source images are not rendered.
 
 Product marks remain evidence only. They should appear in systems or product
 context after current applicator relationships and permissions are confirmed.

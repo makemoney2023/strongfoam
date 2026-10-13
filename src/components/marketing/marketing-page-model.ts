@@ -112,6 +112,10 @@ export function buildMarketingPageModel({
       hero: heroProject.publicImagePath,
       process: fieldProject.publicImagePath,
       sector: fieldProject.publicImagePath,
+      heroVideo: HOMEPAGE_VIDEOS.hero.src,
+      heroPoster: HOMEPAGE_VIDEOS.hero.poster,
+      sectorVideo: HOMEPAGE_VIDEOS.sector.src,
+      sectorPoster: HOMEPAGE_VIDEOS.sector.poster,
     },
     partners: selectMarketingPartners(partners),
     locations: selectMarketingLocations(locations),
@@ -123,11 +127,29 @@ export function buildMarketingPageModel({
     motion: {
       disableNonEssentialMotion: true,
       essentialContentVisible: true,
-      videoFallback: "poster",
+      videoFallback: "poster-when-reduced-motion",
       horizontalRailFallback: "scroll",
     } as const,
   };
 }
+
+/**
+ * Muted web derivatives of approved shortlist videos (see
+ * docs/scroll-world-direction.md). Sources live in the external SFI WEBSITE
+ * folder; derivatives are synced from assets/animated/16x9 to public/media.
+ */
+export const HOMEPAGE_VIDEOS = {
+  hero: {
+    source: "SFI- IMAGES/IMG_9677.mov",
+    src: "/media/animated/16x9/sf-hero-envelope-spray.mp4",
+    poster: "/media/animated/16x9/sf-hero-envelope-spray-poster.jpg",
+  },
+  sector: {
+    source: "SFI- IMAGES/IMG_3398.m4v",
+    src: "/media/animated/16x9/sf-sector-deck-fireproofing.mp4",
+    poster: "/media/animated/16x9/sf-sector-deck-fireproofing-poster.jpg",
+  },
+} as const;
 
 export type MarketingPageModel = ReturnType<typeof buildMarketingPageModel>;
 

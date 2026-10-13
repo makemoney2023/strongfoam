@@ -23,6 +23,13 @@ third-party logo is approved; all supplied partner/client/supplier marks remain
 held for relationship and publication-permission confirmation. Raw source
 paths are provenance only and must never be referenced by application routes.
 
+### Homepage video derivatives (2026-10-13)
+
+| Path | Source (publish record) | Spec |
+|---|---|---|
+| `animated/16x9/sf-hero-envelope-spray.mp4` / `-poster.jpg` | `SFI- IMAGES/IMG_9677.mov` (`media-df5fdffc6c929ffc`), 0:01–0:13 | 1920×1080 H.264, muted, faststart |
+| `animated/16x9/sf-sector-deck-fireproofing.mp4` / `-poster.jpg` | `SFI- IMAGES/IMG_3398.m4v` (`media-98d8baf8626d2274`), 0:15–0:27 | 1920×1080 H.264, muted, faststart |
+
 ## Summary
 
 - **Total images cataloged:** 120
