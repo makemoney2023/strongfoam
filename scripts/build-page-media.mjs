@@ -27,12 +27,13 @@ export const VIDEO_JOBS = [
 
 const L = "SFI Client Logo's/";
 const SUP = "SFI Client Logo's/SFI Supplier Logo.docx#";
+const CLI = "SFI Client Logo's/Client Logo-Website.docx#";
 /** Owner-permitted partner logos (2026-10-13). `#` reads word/media/<name> from a docx. */
 export const LOGO_JOBS = [
   ["basf", SUP + "image1.png"],
   ["genyk", L + "Genyk Logo.png"],
   ["soprema", L + "SOPREMA LOGO.png"],
-  ["henry", SUP + "image4.png"],
+  ["henry", L + "Henry Logo.png"],
   ["gcp-grace", L + "GCP LOGO.png"],
   ["carboline", SUP + "image9.png"],
   ["hilti", SUP + "image6.png"],
@@ -43,7 +44,7 @@ export const LOGO_JOBS = [
   ["mcc", L + "mcc1.png"],
   ["sem-construction", L + "sem-construction-logo.png"],
   ["southside-construction", L + "0.png"],
-  ["melloul-blamey", L + "J_3EqG67_400x400.jpg"],
+  ["melloul-blamey", L + "J_3EqG67_400x400.jpg", { inset: 12 }],
   ["graceview", L + "Unknown-1.jpeg"],
   ["stonerise", L + "Unknown-1.png"],
   ["k-and-l-construction", L + "Unknown-2.jpeg"],
@@ -56,8 +57,12 @@ export const LOGO_JOBS = [
   ["tonda", L + "Unknown-6.jpeg"],
   ["magil-construction", L + "Unknown-6.png"],
   ["sierra-construction", L + "Unknown-7.png"],
-  ["bronnenco-construction", L + "Unknown-8.png"],
+  ["bronnenco-construction", L + "Unknown-8.png", { inset: 16 }],
   ["csl", L + "Unknown.png"],
+  ["perlane-construction", CLI + "image11.png"],
+  ["reid-deleye", CLI + "image13.png"],
+  ["remo-general-contracting", CLI + "image16.jpg"],
+  ["vicano-construction", CLI + "image7.png"],
 ];
 
 async function readLogo(sourceRoot, ref) {
@@ -66,39 +71,66 @@ async function readLogo(sourceRoot, ref) {
   return execFileSync("unzip", ["-p", join(sourceRoot, file), `word/media/${member}`], { maxBuffer: 1 << 26 });
 }
 
-/** Knock a near-white background out to transparency (soft edge). */
-async function knockOutWhite(input) {
-  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  for (let i = 0; i < data.length; i += 4) {
-    const min = Math.min(data[i], data[i + 1], data[i + 2]);
-    if (min > 235) data[i + 3] = Math.round(data[i + 3] * Math.max(0, (255 - min) / 20));
-  }
-  return sharp(data, { raw: info }).png().toBuffer();
+/** Most common colour along the border of a trimmed mark = its background. */
+function borderColour(data, { width, height, channels }, inset = 0) {
+  const counts = new Map();
+  const add = (x, y) => {
+    const i = (y * width + x) * channels;
+    const key = [data[i], data[i + 1], data[i + 2]].map((v) => v >> 4).join(",");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  };
+  const d = inset;
+  for (let x = d; x < width - d; x++) { add(x, d); add(x, height - 1 - d); }
+  for (let y = d; y < height - d; y++) { add(d, y); add(width - 1 - d, y); }
+  const [key] = [...counts].sort((p, q) => q[1] - p[1])[0];
+  return key.split(",").map((v) => (Number(v) << 4) + 8);
 }
 
 /**
- * Trim, remove the white plate, then scale every mark to the same visual
- * area (not the same height) and centre it on a fixed 320x120 transparent
- * canvas so wide wordmarks and square badges read at a similar weight.
+ * Two variants from one source:
+ * - `{slug}.webp|png`      full colour, light background plate removed
+ * - `{slug}-mono.webp|png` reversed white ink on transparency for dark surfaces
+ * Ink alpha = distance from the detected background colour, so boxed marks
+ * (Henry, Hilti, Tonda) keep their lettering as knock-outs.
  */
-const LOGO_CANVAS = { width: 320, height: 120, area: 120 * 120 * 1.9 };
-async function buildLogos(sourceRoot) {
-  await mkdir(join(root, "assets/partners"), { recursive: true });
-  for (const [slug, ref] of LOGO_JOBS) {
-    const raw = await readLogo(sourceRoot, ref);
-    const clear = await knockOutWhite(await sharp(raw).trim({ threshold: 18 }).toBuffer());
-    const trimmed = await sharp(clear).trim({ threshold: 1 }).toBuffer();
-    const meta = await sharp(trimmed).metadata();
-    let scale = Math.sqrt(LOGO_CANVAS.area / (meta.width * meta.height));
-    scale = Math.min(scale, (LOGO_CANVAS.width - 16) / meta.width, (LOGO_CANVAS.height - 16) / meta.height);
-    const w = Math.round(meta.width * scale), h = Math.round(meta.height * scale);
-    const mark = await sharp(trimmed).resize(w, h).toBuffer();
-    const canvas = sharp({ create: { ...LOGO_CANVAS, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-      .composite([{ input: mark, left: Math.round((LOGO_CANVAS.width - w) / 2), top: Math.round((LOGO_CANVAS.height - h) / 2) }]);
-    const buf = await canvas.png().toBuffer();
-    await sharp(buf).webp({ quality: 90, alphaQuality: 100 }).toFile(join(root, `assets/partners/${slug}.webp`));
-    await sharp(buf).png({ compressionLevel: 9 }).toFile(join(root, `assets/partners/${slug}.png`));
+async function processLogo(input, { inset = 0 } = {}) {
+  const { data, info } = await sharp(input).flatten({ background: "#ffffff" }).trim({ threshold: 18 })
+    .resize({ height: 240, kernel: "lanczos3" }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const bg = borderColour(data, info, inset);
+  const lightBg = bg.every((v) => v > 200);
+  const n = info.width * info.height;
+  const colour = Buffer.alloc(n * 4), mono = Buffer.alloc(n * 4);
+  for (let p = 0; p < n; p++) {
+    const i = p * info.channels;
+    const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
+    const ink = Math.max(0, Math.min(1, (Math.hypot(r - bg[0], g - bg[1], b - bg[2]) - 18) / 70));
+    colour.set([r, g, b, lightBg ? Math.round(ink * 255) : 255], p * 4);
+    mono.set([255, 255, 255, Math.round(ink * 255)], p * 4);
   }
+  const raw = { raw: { width: info.width, height: info.height, channels: 4 } };
+  const tight = async (buf) => sharp(await sharp(buf, raw).png().toBuffer()).trim({ threshold: 1 }).png().toBuffer();
+  return { colour: await tight(colour), mono: await tight(mono) };
+}
+
+async function buildLogos(sourceRoot) {
+  const dir = join(root, "assets/partners");
+  await mkdir(dir, { recursive: true });
+  const meta = {};
+  for (const [slug, ref, options] of LOGO_JOBS) {
+    const raw = await readLogo(sourceRoot, ref);
+    const src = await sharp(await sharp(raw).flatten({ background: "#fff" }).trim({ threshold: 18 }).toBuffer()).metadata();
+    const { colour, mono } = await processLogo(raw, options);
+    // ~2x a 56px display height, capped by what the source can honestly give.
+    const outH = Math.min(112, Math.max(56, src.height * 2));
+    for (const [suffix, buf] of [["", colour], ["-mono", mono]]) {
+      const img = sharp(buf).resize({ height: outH });
+      await img.clone().webp({ quality: 92, alphaQuality: 100 }).toFile(join(dir, `${slug}${suffix}.webp`));
+      await img.clone().png({ compressionLevel: 9 }).toFile(join(dir, `${slug}${suffix}.png`));
+    }
+    const m = await sharp(join(dir, `${slug}-mono.png`)).metadata();
+    meta[slug] = { width: m.width, height: m.height, sourceWidth: src.width, sourceHeight: src.height, lowRes: src.height < 48 || src.width < 150 };
+  }
+  await writeFile(join(dir, "logos.json"), JSON.stringify(meta, null, 1) + "\n");
 }
 
 /** Owner-approved site media plan (assets/page-media.json). */

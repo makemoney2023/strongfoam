@@ -9,12 +9,12 @@ import {
 
 describe("typed partner content", () => {
   it("records every relationship and logo approval gate explicitly", () => {
-    expect(partnerRecords).toHaveLength(30);
+    expect(partnerRecords).toHaveLength(34);
     expect(
       partnerRecords
         .filter((partner) => partner.publicationStatus === "hold")
         .map((partner) => partner.id),
-    ).toEqual(["partner-demilec"]);
+    ).toEqual(["partner-demilec", "partner-hayman-construction"]);
     expect(new Set(partnerRecords.map((partner) => partner.id)).size).toBe(
       partnerRecords.length,
     );
@@ -89,7 +89,7 @@ describe("typed partner content", () => {
     expect(
       filterPublishablePartners([...partnerRecords, approved, held]),
     ).toContain(approved);
-    expect(filterPublishablePartners(partnerRecords)).toHaveLength(29);
+    expect(filterPublishablePartners(partnerRecords)).toHaveLength(32);
   });
 
   it("ships a cleaned logo for every owner-approved partner", () => {
