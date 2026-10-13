@@ -1399,7 +1399,15 @@ body {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
 }
+.service-panel__mask {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  will-change: transform;
+}
+.service-panel__mask picture { display: block; width: 100%; height: 100%; }
 .service-panel__media::after {
   content: "";
   position: absolute;
@@ -1410,6 +1418,13 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scale(1.08);
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-panel__img { transform: none; will-change: auto; }
+  .service-panel__mask { will-change: auto; }
 }
 .service-panel > :not(.service-panel__media) { position: relative; z-index: 1; }
 .services-close__lockup { display: block; width: min(18rem, 60vw); height: auto; margin-bottom: 1.25rem; }

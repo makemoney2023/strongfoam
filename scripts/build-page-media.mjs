@@ -142,8 +142,14 @@ async function buildPlan(sourceRoot) {
     const base = join(root, "assets", item.out);
     await mkdir(dirname(base), { recursive: true });
     if (item.kind === "image") {
+      // `frameAt` pulls a lossless still from a video source; `crop` is [left, top, width, height].
+      let still = item.frameAt === undefined ? undefined : execFileSync("ffmpeg", ["-loglevel", "error", "-ss", String(item.frameAt), "-i", input, "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"], { maxBuffer: 64 * 1024 * 1024 });
+      if (item.crop) {
+        const [left, top, width, height] = item.crop;
+        still = await sharp(still ?? input).rotate().extract({ left, top, width, height }).png().toBuffer();
+      }
       for (const width of item.widths) {
-        const img = () => sharp(input).rotate().resize({ width, withoutEnlargement: true });
+        const img = () => sharp(still ?? input).rotate().resize({ width, withoutEnlargement: true });
         await img().webp({ quality: 78 }).toFile(`${base}-${width}.webp`);
         await img().avif({ quality: 55 }).toFile(`${base}-${width}.avif`);
       }
