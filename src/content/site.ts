@@ -1,8 +1,7 @@
-/**
- * Scroll-world + SEO copy sourced from docs/ (recovered copy, dossier, ICP, AEO clusters).
- * Softened per claims guards in docs/strongfoam-build-brief.md.
- * Gaps marked with `status: "stub"` need short overlay rewrites before polish.
- */
+/** Audited public content shared by the Scroll Craft homepage and interior routes. */
+
+import { assertMarketingClaimsSafe } from "@/content/claims";
+import type { ListedServiceId } from "@/lib/leads/types";
 
 export const site = {
   legalName: "Strong Foam Insulation Inc.",
@@ -16,8 +15,6 @@ export const site = {
   phoneE164: "+15199006000",
   phoneDisplay: "519-900-6000",
   emailEstimating: "estimating@strongfoam.com",
-  emailAdmin: "admin@strongfoam.com",
-  /** Prefer Breithaupt as ops until client confirms primary NAP */
   primaryOps: {
     label: "Kitchener operations",
     street: "1-399 Breithaupt Street",
@@ -26,33 +23,6 @@ export const site = {
     postal: "N2H 5H8",
     country: "CA",
   },
-  headOffice: {
-    label: "Head office",
-    street: "322-72 St. Leger Street",
-    locality: "Kitchener",
-    region: "ON",
-    postal: "N2H 6R4",
-    country: "CA",
-  },
-  branches: [
-    {
-      id: "london",
-      label: "London branch",
-      street: "5130 Hamilton Road",
-      locality: "Dorchester",
-      region: "ON",
-      postal: "N0L 1G6",
-    },
-    {
-      id: "gta",
-      label: "Toronto / GTA",
-      street: "3445 Kirby",
-      locality: "Woodbridge",
-      region: "ON",
-      postal: "L4L 1A6",
-      note: "Confirm active status with client before hard GEO claims",
-    },
-  ],
   social: {
     facebook: "https://www.facebook.com/STRONGFOAMINSULATION",
     instagram: "https://www.instagram.com/strongfoaminsulation/",
@@ -62,12 +32,92 @@ export const site = {
   taglineLegacy: "Creating STRONG Relationships",
 } as const;
 
-export type ServiceId =
-  | "spray-foam"
-  | "fireproofing"
-  | "intumescent"
-  | "avb"
-  | "spf-roofing";
+export type PublicRoute =
+  | {
+      path:
+        | "/"
+        | "/about"
+        | "/services"
+        | "/projects"
+        | "/partners"
+        | "/locations"
+        | "/contact"
+        | "/request-estimate";
+      kind: "page";
+      slug?: never;
+    }
+  | {
+      path:
+        | "/services/spray-foam-insulation"
+        | "/services/fire-protection"
+        | "/services/air-vapour-barriers"
+        | "/services/spf-roofing";
+      kind: "service";
+      slug:
+        | "spray-foam-insulation"
+        | "fire-protection"
+        | "air-vapour-barriers"
+        | "spf-roofing";
+    };
+
+export const publicRoutes: readonly PublicRoute[] = [
+  { path: "/", kind: "page" },
+  { path: "/about", kind: "page" },
+  { path: "/services", kind: "page" },
+  {
+    path: "/services/spray-foam-insulation",
+    kind: "service",
+    slug: "spray-foam-insulation",
+  },
+  {
+    path: "/services/fire-protection",
+    kind: "service",
+    slug: "fire-protection",
+  },
+  {
+    path: "/services/air-vapour-barriers",
+    kind: "service",
+    slug: "air-vapour-barriers",
+  },
+  {
+    path: "/services/spf-roofing",
+    kind: "service",
+    slug: "spf-roofing",
+  },
+  { path: "/projects", kind: "page" },
+  { path: "/partners", kind: "page" },
+  { path: "/locations", kind: "page" },
+  { path: "/contact", kind: "page" },
+  { path: "/request-estimate", kind: "page" },
+] as const;
+
+export const companyContent = {
+  story:
+    "Strong Foam has grown through commercial building-envelope and fire-protection work, adapting its field practices to project specifications, schedules, and construction conditions.",
+  focus:
+    "The company focuses on ICI and multi-unit residential projects across its approved Ontario operations.",
+  culture:
+    "Strong Foam supports a family-oriented workplace where employees can develop their skills, collaborate, and take responsibility for their work.",
+  safety:
+    "Safe work practices are a core operating priority for management and field teams.",
+  mission:
+    "To provide knowledgeable, trustworthy, and professional service while developing long-term client relationships.",
+  vision:
+    "To support professional growth, responsive service, and thoughtful adaptation as the company grows.",
+  purpose:
+    "Develop a family-oriented workplace committed to safe work practices.",
+  promise:
+    "Deliver clear communication, integrity, and specification-aware service.",
+  objective:
+    "Use proven methods, collaborative planning, and respectful communication on each project.",
+  slogans: [
+    "Creating Strong Relationships",
+    "Go Beyond. Go Strong.",
+    "Strong People. Strong Service. Strong Results.",
+  ],
+} as const;
+
+export type ServiceId = ListedServiceId;
 
 export type ServiceCopy = {
   id: ServiceId;
@@ -84,7 +134,7 @@ export const services: ServiceCopy[] = [
     title: "Spray foam insulation",
     overlay:
       "Systems-minded SPF for ICI and multi-unit envelopes. Sealed assemblies, timed to the schedule.",
-    body: "Strong Foam focuses on thermal envelope solutions that last. A systems design approach treats your project as components that need attention to detail: certified evaluation, expert advice, quality, and integrity. Applied correctly, spray polyurethane foam helps reduce conditioned-air loss and supports energy performance as part of the specified assembly.",
+    body: "Strong Foam uses a systems approach that treats the project as connected components requiring attention to detail. When specified and applied correctly, spray polyurethane foam can help reduce conditioned-air loss and support energy performance as part of the assembly.",
   },
   {
     id: "fireproofing",
@@ -98,27 +148,27 @@ export const services: ServiceCopy[] = [
     title: "Intumescent coatings",
     overlay:
       "Intumescent fire protection for commercial, industrial, and infrastructure steel across Ontario.",
-    body: "The team stays current on application procedures for intumescent fire protection on large commercial, industrial, and infrastructure projects. For new construction or maintenance of existing systems, operators work to project requirements with safety as the non-negotiable priority.",
+    body: "Intumescent fire protection can serve suitable commercial, industrial, and infrastructure steel. For new construction or maintenance work, system selection and application follow project requirements, member conditions, and manufacturer instructions.",
   },
   {
     id: "avb",
     title: "Air-vapour barrier membranes",
     overlay:
-      "AVB membrane installation for mid- and high-rise envelopes, including Blueskin- and Sopraseal-class systems when specified.",
-    body: "Air-vapour barrier membranes are part of Strong Foam’s envelope package alongside SPF and fire protection. Product families evidenced on site materials include Henry Blueskin and Soprema Sopraseal. Confirm exact SKUs and applicator status against your specification when requesting an estimate.",
+      "Specified AVB membrane installation for suitable mid- and high-rise envelope assemblies.",
+    body: "Air-vapour barrier membranes form part of Strong Foam’s envelope scope alongside SPF and fire protection. The project specification and manufacturer instructions determine membrane family, substrate preparation, transitions, and terminations.",
   },
   {
     id: "spf-roofing",
     title: "SPF roofing",
     overlay:
-      "Spray polyurethane foam roofing systems built for durability, energy performance, and low maintenance.",
-    body: "Owners want durable roofing that combines energy performance with lower maintenance. SPF roofing systems have decades of field history; Strong Foam helps specify, install, and maintain them where they fit the project.",
+      "Spray polyurethane foam roofing systems for suitable specified new or recover applications.",
+    body: "SPF roofing combines specified foam with a compatible protective coating. Existing roof condition, substrate, drainage, weather, and manufacturer requirements determine whether the system fits the project.",
   },
 ];
 
 export type FaqItem = { question: string; answer: string };
 
-/** Draft AEO Q&As from docs/seo/04-aeo-geo-keyword-clusters.md. Verify before publish. */
+/** Claims-safe answers aligned with the visible marketing content. */
 export const faqItems: FaqItem[] = [
   {
     question: "What is commercial spray foam insulation used for?",
@@ -133,7 +183,7 @@ export const faqItems: FaqItem[] = [
   {
     question: "What is cementitious fireproofing?",
     answer:
-      "It is a spray-applied cementitious coating used to protect structural steel for a specified fire-resistance rating, installed to the project’s listed design and manufacturer instructions (for example GCP Monokote-class products when specified).",
+      "It is a spray-applied cementitious material used to protect structural steel for a specified fire-resistance rating, installed to the project’s listed design and manufacturer instructions.",
   },
   {
     question: "Cementitious or intumescent?",
@@ -141,9 +191,9 @@ export const faqItems: FaqItem[] = [
       "Cementitious PFP and intumescent coatings solve related but different finish, thickness, and exposure problems. The specification, member type, and architectural finish usually decide. Strong Foam works with both product families commonly specified in Ontario commercial work.",
   },
   {
-    question: "Do you install Henry Blueskin and Soprema membranes?",
+    question: "How are air-vapour barrier products selected?",
     answer:
-      "Those product lines appear on Strong Foam’s systems and products materials. Confirm current applicator status and the exact SKU in your spec when requesting an estimate.",
+      "The project specification, assembly design, substrate, transitions, and manufacturer instructions determine the membrane family and installation details. Include the specified system when requesting an estimate.",
   },
   {
     question: "How do I request an estimate?",
@@ -157,8 +207,7 @@ export type ScrollSection = {
   eyebrow?: string;
   headline: string;
   support?: string;
-  /** ready = docs-backed overlay; stub = needs short rewrite */
-  status: "ready" | "stub";
+  status: "ready";
   cta?: { label: string; href: string };
 };
 
@@ -176,7 +225,7 @@ export const scrollSections: ScrollSection[] = [
     id: "trust",
     headline: "Specification-aware crews. Documented commercial work.",
     support:
-      "Serving ICI and multi-unit residential from 2016. Decades of combined construction experience across the group. Exact founding narrative pending client confirmation.",
+      "Serving ICI and multi-unit residential projects with field practices guided by drawings, specifications, and site conditions.",
     status: "ready",
   },
   {
@@ -202,15 +251,15 @@ export const scrollSections: ScrollSection[] = [
   },
   {
     id: "projects",
-    headline: "Work that shows up on certificates and jobsite photos",
+    headline: "Approved field work and project photography",
     support:
-      "ConstructConnect substantial-performance records and field photography. Named case studies require client permission before publish.",
+      "The project gallery uses reviewed first-party media and generic trade descriptions until named-project permission is recorded.",
     status: "ready",
   },
   {
     id: "coverage",
-    headline: "Kitchener–Waterloo · London · GTA",
-    support: `Primary operations at ${site.primaryOps.street}, ${site.primaryOps.locality}. London / Dorchester and Woodbridge branches as published. Confirm active NAP before GEO freeze.`,
+    headline: "Kitchener–Waterloo operations",
+    support: `Primary operations at ${site.primaryOps.street}, ${site.primaryOps.locality}.`,
     status: "ready",
   },
   {
@@ -223,7 +272,7 @@ export const scrollSections: ScrollSection[] = [
     id: "contact",
     headline: "Get a competitive estimate",
     support:
-      "Start the project survey, or call 519-900-6000. Competitive quotes for projects of any size, with details carried from drawings to field.",
+      "Start the project survey, or call 519-900-6000. Share the drawings, specification, access, and schedule details needed to review fit.",
     status: "ready",
     cta: {
       label: "Start the project survey",
@@ -232,15 +281,18 @@ export const scrollSections: ScrollSection[] = [
   },
 ];
 
-export const productBrands = [
-  "Genyk",
-  "BASF",
-  "Soprema",
-  "Henry Blueskin",
-  "GCP / Grace",
-  "Carboline",
-  "Hilti",
-] as const;
+export const productBrands: readonly string[] = [];
 
-export const mission =
-  "To be a knowledgeable, trustworthy, and professional provider on all our services on every project throughout Ontario. We are dedicated to customer service and strive to develop and nurture long-term relationships with every client.";
+export const mission = companyContent.mission;
+
+assertMarketingClaimsSafe(
+  {
+    site,
+    publicRoutes,
+    companyContent,
+    services,
+    faqItems,
+    scrollSections,
+  },
+  "typed site content",
+);

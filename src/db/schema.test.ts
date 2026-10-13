@@ -70,6 +70,20 @@ describe("db schema exports", () => {
     expect(jobVoiceNotes.consentAt).toBeDefined();
   });
 
+  it("stores lead sentinels in unconstrained text and JSON columns", () => {
+    const config = getTableConfig(leads);
+    for (const name of [
+      "project_type",
+      "city",
+      "province",
+      "status",
+      "booking_status",
+    ]) {
+      expect(config.columns.some((column) => column.name === name)).toBe(true);
+    }
+    expect(config.checks).toEqual([]);
+  });
+
   it("allows at most one default schedule calendar", () => {
     const index = getTableConfig(scheduleCalendars).indexes.find(
       (candidate) =>

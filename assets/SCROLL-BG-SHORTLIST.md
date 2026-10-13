@@ -3,6 +3,31 @@
 Top candidates for Next.js full-bleed scroll / video-loop backgrounds.
 Preference: ≥1600px wide, construction / spray foam / fireproofing subject, no casino spam.
 
+## 2026-10-13 approved supplied-media additions
+
+The Scroll Craft homepage remains the cinematic homepage. Its existing
+background sequence stays in place unless a listed addition proves stronger
+during browser review. From the 576-file supplied-media audit, the following
+first-party candidates are approved for derivative generation and route use:
+
+- Wide stills: `IMG_7879.jpeg`, `IMG_7880.jpeg`, `IMG_7881.jpeg`, and
+  `IMG_7930.jpeg`
+- Vertical/service stills: `IMG_7852.jpeg`, `IMG_7960.jpeg`,
+  `IMG_7996 2.jpeg`, `IMG_8063.jpeg`, `IMG_8208.jpeg`, `IMG_8252.jpeg`,
+  `IMG_9571.jpeg`, `IMG_9636.jpeg`, `IMG_9642.jpeg`, and `IMG_9678.jpeg`
+- Application video:
+  `2688129a-064d-4092-93a9-224d9407d1b3.mp4`,
+  `71ccc8f7-bbe3-44ca-8417-55d8492f470b.mp4`, `IMG_3398.m4v`,
+  `IMG_9574.mov`, and `IMG_9677.mov`
+
+The wide stills are the only new full-bleed background candidates. The
+vertical stills and portrait-oriented videos are intended for service-page
+cards, detail panels, or contained media—not stretched homepage backgrounds.
+Every other supplied file remains held, duplicated, or rejected as recorded in
+`source-media-decisions.json`.
+
+## Existing harvested shortlist
+
 **Count:** 15  
 **Copies:** hardlinked under `backgrounds/NN-filename`
 

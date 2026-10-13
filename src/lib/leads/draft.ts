@@ -10,6 +10,7 @@ export type SurveyDraft = {
 };
 
 const STEPS: SurveyStep[] = [
+  "branch",
   "fit",
   "location",
   "notes",
@@ -17,6 +18,7 @@ const STEPS: SurveyStep[] = [
   "project",
   "files",
   "contact",
+  "message",
 ];
 
 export function parseSurveyDraft(raw: string | null): SurveyDraft | null {

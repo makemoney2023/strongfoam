@@ -3,7 +3,6 @@
 import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import { useEffect, useMemo, useState } from "react";
 import {
-  CONSENT_LABEL,
   DRAWINGS_OPTIONS,
   DRAFT_STORAGE_KEY,
   FIT_OPTIONS,
@@ -12,6 +11,18 @@ import {
   SCOPE_OPTIONS,
   TIMELINE_OPTIONS,
 } from "@/content/survey";
+import {
+  backSurvey,
+  chooseIntake,
+  continueSurvey,
+  initialSurveyFlow,
+  patchSurvey,
+  restoreSurveyFlow,
+  surveyPayload,
+  surveyView,
+  type SurveyAnswers,
+  type SurveyFlowState,
+} from "@/components/estimate-survey/survey-flow";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -27,116 +38,25 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { parseSurveyDraft, serializeSurveyDraft } from "@/lib/leads/draft";
-import { nextSurveyStep, type SurveyStep } from "@/lib/leads/graph";
-import type {
-  DrawingsReady,
-  ListedServiceId,
-  ProjectType,
-  Province,
-  Role,
-  Timeline,
-} from "@/lib/leads/types";
+import type { ListedServiceId } from "@/lib/leads/types";
 import { MAX_UPLOAD_FILES } from "@/lib/leads/uploads";
 import { createBrowserUuid } from "@/lib/browser-id";
 import { cn } from "@/lib/utils";
 
-type Answers = {
-  projectType?: ProjectType;
-  city?: string;
-  province?: Province;
-  notes?: string;
-  services?: ListedServiceId[];
-  role?: Role;
-  buildingType?: string;
-  timeline?: Timeline;
-  drawingsReady?: DrawingsReady;
-  company?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  consent?: boolean;
-  companyWebsite?: string;
-  uploadPaths?: string[];
-};
-
-const STEP_COPY: Record<SurveyStep, { title: string; description: string }> = {
-  fit: {
-    title: "What kind of project is this?",
-    description: "Commercial and multi-unit packages are the core of the work.",
-  },
-  location: {
-    title: "Where is the building?",
-    description: "Ontario ICI and multi-unit work is the primary coverage area.",
-  },
-  notes: {
-    title: "A few details",
-    description: "Estimating will review fit. This path does not book a site visit.",
-  },
-  scope: {
-    title: "Which scopes should estimating review?",
-    description: "Select every trade that belongs in the package.",
-  },
-  project: {
-    title: "Project details",
-    description: "Role, timing, and whether drawings are ready.",
-  },
-  files: {
-    title: "Drawings and specs",
-    description: "Optional. PDF or images, up to five files.",
-  },
-  contact: {
-    title: "How should estimating reach you?",
-    description: "We use this only to respond to the estimate request.",
-  },
-};
-
-function pathFor(projectType?: ProjectType): SurveyStep[] {
-  if (projectType === "residential_other") {
-    return ["fit", "location", "notes", "contact"];
-  }
-  if (projectType) {
-    return ["fit", "location", "scope", "project", "files", "contact"];
-  }
-  return ["fit", "location", "scope", "project", "files", "contact"];
-}
-
-function canAdvance(step: SurveyStep, answers: Answers): boolean {
-  if (step === "fit") return Boolean(answers.projectType);
-  if (step === "location") {
-    return Boolean(answers.city?.trim() && answers.province);
-  }
-  if (step === "notes") return true;
-  if (step === "scope") return (answers.services?.length ?? 0) > 0;
-  if (step === "project") {
-    return Boolean(
-      answers.role &&
-        answers.timeline &&
-        answers.drawingsReady &&
-        answers.company?.trim(),
-    );
-  }
-  if (step === "files") return true;
-  return Boolean(
-    answers.firstName?.trim() &&
-      answers.lastName?.trim() &&
-      answers.email?.trim() &&
-      answers.phone?.trim() &&
-      answers.consent === true,
-  );
-}
-
 function ChoiceButton({
+  id,
   selected,
   onClick,
   children,
 }: {
+  id?: string;
   selected: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
+      id={id}
       type="button"
       onClick={onClick}
       className={cn(
@@ -155,8 +75,8 @@ export function EstimateSurvey() {
   const [ready, setReady] = useState(false);
   const [draftId, setDraftId] = useState("");
   const [startedAt, setStartedAt] = useState(0);
-  const [step, setStep] = useState<SurveyStep>("fit");
-  const [answers, setAnswers] = useState<Answers>({});
+  const [flow, setFlow] = useState<SurveyFlowState>(initialSurveyFlow);
+  const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -167,22 +87,20 @@ export function EstimateSurvey() {
       if (existing) {
         setDraftId(existing.draftId);
         setStartedAt(existing.startedAt);
-        setStep(existing.step);
-        setAnswers(existing.answers as Answers);
+        setFlow(restoreSurveyFlow(existing));
       } else {
         const id = createBrowserUuid();
         const started = Date.now();
         setDraftId(id);
         setStartedAt(started);
-        setStep("fit");
-        setAnswers({});
+        setFlow(initialSurveyFlow());
         localStorage.setItem(
           DRAFT_STORAGE_KEY,
           serializeSurveyDraft({
             version: 1,
             startedAt: started,
             draftId: id,
-            step: "fit",
+            step: "branch",
             answers: {},
           }),
         );
@@ -200,56 +118,41 @@ export function EstimateSurvey() {
         version: 1,
         startedAt,
         draftId,
-        step,
-        answers,
+        step: flow.step,
+        answers: flow.answers,
       }),
     );
-  }, [ready, draftId, startedAt, step, answers]);
+  }, [ready, draftId, startedAt, flow]);
 
-  const path = useMemo(() => pathFor(answers.projectType), [answers.projectType]);
-  const stepIndex = Math.max(0, path.indexOf(step));
-  const progressValue = Math.round(((stepIndex + 1) / path.length) * 100);
-  const copy = STEP_COPY[step];
+  const view = useMemo(() => surveyView(flow), [flow]);
+  const answers: SurveyAnswers = flow.answers;
+  const step = flow.step;
 
-  function patch(next: Partial<Answers>) {
-    setAnswers((current) => ({ ...current, ...next }));
+  function patch(next: Partial<SurveyAnswers>) {
+    setAttempted(false);
+    setFlow((current) => patchSurvey(current, next));
   }
 
   function goNext() {
-    if (!canAdvance(step, answers) || uploading) return;
-    const next = nextSurveyStep(step, answers.projectType);
-    if (next === "submit") {
+    if (uploading) return;
+    const result = continueSurvey(flow);
+    if (!result.submit && result.state === flow) {
+      setAttempted(true);
+      document.getElementById(view.focusId)?.focus();
+      return;
+    }
+    setAttempted(false);
+    if (result.submit) {
       void submit();
       return;
     }
-    setStep(next);
+    setFlow(result.state);
   }
 
   async function submit() {
     setError(null);
     setBusy(true);
-    const payload = {
-      projectType: answers.projectType,
-      city: answers.city?.trim(),
-      province: answers.province,
-      notes: answers.notes ?? "",
-      services:
-        answers.projectType === "residential_other" ? [] : (answers.services ?? []),
-      role: answers.role,
-      buildingType: answers.buildingType ?? "",
-      timeline: answers.timeline,
-      drawingsReady: answers.drawingsReady,
-      company: answers.company ?? "",
-      firstName: answers.firstName?.trim(),
-      lastName: answers.lastName?.trim(),
-      email: answers.email?.trim(),
-      phone: answers.phone?.trim(),
-      consent: true,
-      companyWebsite: answers.companyWebsite ?? "",
-      startedAt,
-      draftId,
-      uploadPaths: answers.uploadPaths ?? [],
-    };
+    const payload = surveyPayload(flow, { startedAt, draftId });
 
     try {
       const response = await fetch("/api/leads", {
@@ -303,25 +206,45 @@ export function EstimateSurvey() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-28">
-      <p className="section-kicker mb-3">Request an estimate</p>
-      <h1 className="font-heading mb-8 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+      <p className="section-kicker mb-3">Project estimate</p>
+      <h2 className="font-heading mb-8 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
         Tell estimating about the package
-      </h1>
+      </h2>
       <Card className="bg-[color:var(--sf-concrete)]">
         <CardHeader>
-          <Progress value={progressValue} className="mb-4">
+          <Progress value={view.progress} className="mb-4">
             <span className="text-xs text-white/55">
-              Step {stepIndex + 1} of {path.length}
+              Step {view.index + 1} of {view.total}
             </span>
           </Progress>
-          <CardTitle>{copy.title}</CardTitle>
-          <CardDescription>{copy.description}</CardDescription>
+          <CardTitle>{view.title}</CardTitle>
+          <CardDescription>{view.description}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+          {step === "branch" ? (
+            <div className="grid gap-2">
+              <ChoiceButton
+                id="intake-estimate"
+                selected={answers.intakeType === "estimate"}
+                onClick={() => setFlow((current) => chooseIntake(current, "estimate"))}
+              >
+                Project estimate
+              </ChoiceButton>
+              <ChoiceButton
+                id="intake-general"
+                selected={answers.intakeType === "general"}
+                onClick={() => setFlow((current) => chooseIntake(current, "general"))}
+              >
+                General inquiry
+              </ChoiceButton>
+            </div>
+          ) : null}
+
           {step === "fit" ? (
             <div className="grid gap-2">
               {FIT_OPTIONS.map((option) => (
                 <ChoiceButton
+                  id={`project-${option.value}`}
                   key={option.value}
                   selected={answers.projectType === option.value}
                   onClick={() => patch({ projectType: option.value })}
@@ -346,6 +269,7 @@ export function EstimateSurvey() {
               <div className="grid gap-2">
                 {PROVINCE_OPTIONS.map((option) => (
                   <ChoiceButton
+                    id={`province-${option.value}`}
                     key={option.value}
                     selected={answers.province === option.value}
                     onClick={() => patch({ province: option.value })}
@@ -375,6 +299,7 @@ export function EstimateSurvey() {
                 const selected = answers.services?.includes(option.value) ?? false;
                 return (
                   <ChoiceButton
+                    id={`service-${option.value}`}
                     key={option.value}
                     selected={selected}
                     onClick={() => {
@@ -419,6 +344,7 @@ export function EstimateSurvey() {
                 <p className="text-sm font-medium">Your role</p>
                 {ROLE_OPTIONS.map((option) => (
                   <ChoiceButton
+                    id={`role-${option.value}`}
                     key={option.value}
                     selected={answers.role === option.value}
                     onClick={() => patch({ role: option.value })}
@@ -431,6 +357,7 @@ export function EstimateSurvey() {
                 <p className="text-sm font-medium">Timeline</p>
                 {TIMELINE_OPTIONS.map((option) => (
                   <ChoiceButton
+                    id={`timeline-${option.value}`}
                     key={option.value}
                     selected={answers.timeline === option.value}
                     onClick={() => patch({ timeline: option.value })}
@@ -443,6 +370,7 @@ export function EstimateSurvey() {
                 <p className="text-sm font-medium">Drawings</p>
                 {DRAWINGS_OPTIONS.map((option) => (
                   <ChoiceButton
+                    id={`drawings-${option.value}`}
                     key={option.value}
                     selected={answers.drawingsReady === option.value}
                     onClick={() => patch({ drawingsReady: option.value })}
@@ -457,6 +385,7 @@ export function EstimateSurvey() {
           {step === "files" ? (
             <div className="grid gap-3">
               <Input
+                id="files"
                 type="file"
                 multiple
                 accept=".pdf,image/jpeg,image/png,image/webp"
@@ -521,10 +450,11 @@ export function EstimateSurvey() {
               </div>
               <label className="flex items-start gap-3 text-sm leading-snug">
                 <Checkbox
+                  id="consent"
                   checked={answers.consent === true}
                   onCheckedChange={(checked) => patch({ consent: checked === true })}
                 />
-                <span>{CONSENT_LABEL}</span>
+                <span>{view.consentLabel}</span>
               </label>
               <input
                 type="text"
@@ -539,27 +469,55 @@ export function EstimateSurvey() {
             </>
           ) : null}
 
+          {step === "message" ? (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  value={answers.message ?? ""}
+                  onChange={(event) => patch({ message: event.target.value })}
+                  maxLength={2000}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="company">Company (optional)</Label>
+                <Input
+                  id="inquiry-company"
+                  value={answers.company ?? ""}
+                  onChange={(event) => patch({ company: event.target.value })}
+                  autoComplete="organization"
+                />
+              </div>
+            </>
+          ) : null}
+
+          {attempted && view.error ? (
+            <p id="survey-error" className="text-sm text-[color:var(--sf-red)]">
+              {view.error}
+            </p>
+          ) : null}
           {error ? <p className="text-sm text-[color:var(--sf-red)]">{error}</p> : null}
         </CardContent>
         <CardFooter className="justify-between gap-3">
           <button
             type="button"
             className={cn(buttonVariants({ variant: "ghost" }), "text-white/70")}
-            disabled={step === "fit" || busy}
+            disabled={view.index === 0 || busy}
             onClick={() => {
-              const previous = path[stepIndex - 1];
-              if (previous) setStep(previous);
+              setAttempted(false);
+              setFlow((current) => backSurvey(current));
             }}
           >
             Back
           </button>
           <Button
             type="button"
-            disabled={!canAdvance(step, answers) || busy || uploading}
+            disabled={busy || uploading}
             onClick={goNext}
             className="bg-[color:var(--sf-cyan)] text-[color:var(--sf-ink)] hover:bg-[color:var(--sf-cyan)]/90"
           >
-            {step === "contact" ? (busy ? "Sending…" : "Send request") : "Continue"}
+            {view.isLast ? (busy ? "Sending…" : "Send request") : "Continue"}
           </Button>
         </CardFooter>
       </Card>

@@ -1,6 +1,10 @@
 import { issueSignedToken, presignUrl } from "@vercel/blob";
+import {
+  parseNotifyRecipients,
+  sendThroughCloudflareEmail,
+} from "@/lib/cloudflare/email";
 import { D1RateLimiter } from "@/lib/cloudflare/rate-limit";
-import { getPlatform } from "@/lib/cloudflare/platform";
+import { getPlatform, type CloudflareBindings } from "@/lib/cloudflare/platform";
 import { getObject } from "@/lib/cloudflare/objects";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -93,6 +97,36 @@ export function buildLeadInsertValues(
   now: number = Date.now(),
 ): typeof leads.$inferInsert {
   const payload = lead.payload as LeadPayload;
+  if (payload.intakeType === "general") {
+    return {
+      organizationId: STRONG_FOAM_ORGANIZATION_ID,
+      status: lead.status,
+      bookingStatus: lead.bookingStatus,
+      notifyStatus: lead.notifyStatus,
+      email: lead.email,
+      phone: payload.phone,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      company: payload.company,
+      projectType: "general_inquiry",
+      city: "",
+      province: "not_applicable",
+      services: [],
+      answers: { intakeType: "general", message: payload.message },
+      recommendedServices: [],
+      files: [],
+      sourcePath: null,
+      utm: null,
+      referrer: null,
+      idempotencyKey: lead.idempotencyKey,
+      consentAt: new Date(now),
+      workflowStatus: "new",
+      assignedTo: null,
+      nextAction: null,
+      nextActionDueAt: null,
+      lostReason: null,
+    };
+  }
   return {
     organizationId: STRONG_FOAM_ORGANIZATION_ID,
     status: lead.status,
@@ -227,37 +261,48 @@ export function getCalendlyStore(): CalendlyLeadStore {
   };
 }
 
-async function sendResendEmail(args: {
-  to: string;
-  subject: string;
-  text: string;
-}): Promise<void> {
-  const apiKey = requireEnv("RESEND_API_KEY");
-  const from = process.env.RESEND_FROM ?? "Strong Foam <estimates@strongfoam.com>";
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from, to: [args.to], subject: args.subject, text: args.text }),
-  });
-  if (!response.ok) {
-    throw new Error(`Resend request failed with status ${response.status}`);
+const DEFAULT_FROM = "Strong Foam <estimates@strongfoam.com>";
+
+export function createCloudflareMailer(
+  env: Record<string, string | undefined>,
+  platform: CloudflareBindings | null,
+): Mailer {
+  async function deliver(to: string[], message: { subject: string; text: string }) {
+    if (!platform?.EMAIL) {
+      throw new Error("Cloudflare EMAIL binding is not available");
+    }
+    await sendThroughCloudflareEmail(platform.EMAIL, {
+      to,
+      from: platform.EMAIL_FROM ?? DEFAULT_FROM,
+      subject: message.subject,
+      text: message.text,
+    });
   }
+
+  return {
+    async sendEstimating(input) {
+      const to = parseNotifyRecipients(
+        env.LEAD_NOTIFY_TO ?? "estimating@strongfoam.com",
+      );
+      await deliver(to, buildEstimatingEmail(input));
+    },
+
+    async sendVisitor(input) {
+      await deliver(parseNotifyRecipients(input.email), buildVisitorEmail(input));
+    },
+  };
 }
 
 export function getMailer(): Mailer {
   return {
     async sendEstimating(input) {
-      const to = process.env.LEAD_NOTIFY_TO ?? "estimating@strongfoam.com";
-      const message = buildEstimatingEmail(input);
-      await sendResendEmail({ to, ...message });
+      const platform = await getPlatform();
+      await createCloudflareMailer(process.env, platform).sendEstimating(input);
     },
 
     async sendVisitor(input) {
-      const message = buildVisitorEmail(input);
-      await sendResendEmail({ to: input.email, ...message });
+      const platform = await getPlatform();
+      await createCloudflareMailer(process.env, platform).sendVisitor(input);
     },
   };
 }

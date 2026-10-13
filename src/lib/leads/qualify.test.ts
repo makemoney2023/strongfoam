@@ -4,6 +4,7 @@ import { qualifyLead } from "@/lib/leads/qualify";
 describe("qualifyLead", () => {
   it("qualifies Ontario ICI with a listed service", () => {
     const result = qualifyLead({
+      intakeType: "estimate",
       projectType: "commercial_ici",
       province: "ON",
       services: ["spray-foam"],
@@ -16,6 +17,7 @@ describe("qualifyLead", () => {
     for (const projectType of ["multi_unit", "industrial"] as const) {
       expect(
         qualifyLead({
+          intakeType: "estimate",
           projectType,
           province: "ON",
           services: ["fireproofing"],
@@ -26,6 +28,7 @@ describe("qualifyLead", () => {
 
   it("marks residential as secondary", () => {
     const result = qualifyLead({
+      intakeType: "estimate",
       projectType: "residential_other",
       province: "ON",
       services: ["spray-foam"],
@@ -36,6 +39,7 @@ describe("qualifyLead", () => {
 
   it("marks out-of-province as secondary", () => {
     const result = qualifyLead({
+      intakeType: "estimate",
       projectType: "commercial_ici",
       province: "outside_ontario",
       services: ["spray-foam"],
@@ -46,11 +50,19 @@ describe("qualifyLead", () => {
 
   it("marks empty services as secondary", () => {
     const result = qualifyLead({
+      intakeType: "estimate",
       projectType: "commercial_ici",
       province: "ON",
       services: [],
     });
     expect(result.status).toBe("secondary");
     expect(result.reasons).toContain("services");
+  });
+
+  it("always marks a general inquiry secondary without estimate qualification", () => {
+    expect(qualifyLead({ intakeType: "general" })).toEqual({
+      status: "secondary",
+      reasons: ["general_inquiry"],
+    });
   });
 });

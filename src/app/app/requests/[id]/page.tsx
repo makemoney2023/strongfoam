@@ -59,8 +59,10 @@ import {
   WORKFLOW_STATUSES,
   formatCompany,
   formatFullName,
+  formatRequestLocation,
   formatRequestNumber,
-  formatServices,
+  formatRequestServices,
+  requestIntakeType,
 } from "@/lib/ops/workflow";
 import { datetimeLocalValue } from "@/lib/ops/filters";
 import {
@@ -136,6 +138,7 @@ export default async function EstimateRequestDetailPage({
     allContacts,
   );
   const answers = asRecord(request.answers);
+  const isGeneralInquiry = requestIntakeType(answers) === "general";
   const files = Array.isArray(request.files)
     ? (request.files as Array<{ pathname?: string }>)
     : [];
@@ -192,18 +195,25 @@ export default async function EstimateRequestDetailPage({
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                  Project
+                  {isGeneralInquiry ? "Inquiry" : "Project"}
                 </dt>
                 <dd className="mt-1 space-y-1">
-                  <p>
-                    {PROJECT_TYPE_LABELS[request.projectType as keyof typeof PROJECT_TYPE_LABELS] ??
-                      request.projectType}
-                  </p>
-                  <p>
-                    {request.city}
-                    {request.province === "ON" ? ", ON" : " · Outside Ontario"}
-                  </p>
-                  <p>{formatServices(request.services)}</p>
+                  {isGeneralInquiry ? (
+                    <p className="whitespace-pre-wrap">
+                      {typeof answers.message === "string" && answers.message.trim()
+                        ? answers.message
+                        : "—"}
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        {PROJECT_TYPE_LABELS[request.projectType as keyof typeof PROJECT_TYPE_LABELS] ??
+                          request.projectType}
+                      </p>
+                      <p>{formatRequestLocation(request)}</p>
+                      <p>{formatRequestServices(request)}</p>
+                    </>
+                  )}
                 </dd>
               </div>
               <div>
@@ -305,6 +315,11 @@ export default async function EstimateRequestDetailPage({
                   </dd>
                 </div>
               </dl>
+            ) : isGeneralInquiry ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                This is a general inquiry. Start a new estimate request when
+                the project details are confirmed.
+              </p>
             ) : (
               <ActionForm action={convertRequestToCrmRecords} className="mt-4 space-y-4">
                 <input type="hidden" name="id" value={request.id} />

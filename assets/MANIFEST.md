@@ -3,6 +3,26 @@
 **Generated:** 2026-09-16 (America/Toronto)
 **Brand colors:** `#009ee2`, `#e8043d`
 
+## 2026-10-13 supplied-media review
+
+The 576 files in the external `SFI WEBSITE` source were inventoried and
+visually reviewed without modifying the source. The authoritative artifacts
+are:
+
+- `source-media-inventory.json` — generated hashes, dimensions, video metadata,
+  and exact-duplicate relationships
+- `source-media-decisions.json` — reviewed publish, hold, duplicate, and reject
+  outcomes
+- `source-media-manifest.json` — deterministic compiled view
+- `docs/sfi-media-audit.md` — review totals, approved shortlist, rights holds,
+  and selection rationale
+
+Only the 19 `publish` records may enter curated/public folders. The approved
+set contains 14 first-party project images and 5 application videos. No
+third-party logo is approved; all supplied partner/client/supplier marks remain
+held for relationship and publication-permission confirmation. Raw source
+paths are provenance only and must never be referenced by application routes.
+
 ## Summary
 
 - **Total images cataloged:** 120

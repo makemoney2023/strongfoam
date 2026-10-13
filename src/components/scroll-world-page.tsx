@@ -5,6 +5,8 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PhoneIcon } from "lucide-react";
+import { PartnerGrid } from "@/components/marketing/partner-grid";
+import type { MarketingPageModel } from "@/components/marketing/marketing-page-model";
 import {
   Accordion,
   AccordionContent,
@@ -13,10 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  faqItems,
-  productBrands,
   scrollSections,
-  services,
   site,
 } from "@/content/site";
 import {
@@ -45,25 +44,7 @@ const processSteps = [
   {
     number: "04",
     title: "Execute the detail",
-    copy: "Qualified applicators install the scope with safety, communication, and field conditions in view.",
-  },
-] as const;
-
-const projects = [
-  {
-    name: "Multi-unit residential",
-    scope: "Envelope execution",
-    image: "/media/projects/SFI1007.jpg",
-  },
-  {
-    name: "Spray foam application",
-    scope: "Wall assembly",
-    image: "/media/projects/SFI1006.jpeg",
-  },
-  {
-    name: "Commercial / ICI",
-    scope: "Building envelope",
-    image: "/media/projects/IMG_7880.jpeg",
+    copy: "The crew installs the scope with safety, communication, and field conditions in view.",
   },
 ] as const;
 
@@ -135,7 +116,7 @@ function SectionIntro({
   );
 }
 
-export function ScrollWorldPage() {
+export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
   const root = useRef<HTMLDivElement>(null);
   const hero = sectionCopy("hero");
 
@@ -353,27 +334,28 @@ export function ScrollWorldPage() {
   }, []);
 
   return (
-    <div ref={root} className="scroll-world">
+    <div
+      ref={root}
+      className="scroll-world"
+      data-motion-fallback={model.motion.videoFallback}
+      data-essential-content-visible={
+        model.motion.essentialContentVisible
+      }
+    >
       <div className="page-grain" aria-hidden="true" />
 
-      <section data-hero id="hero" className="hero-act">
+      <section data-home-section="hero" data-hero id="hero" className="hero-act">
         <div className="hero-stage">
-          <video
+          <Image
             data-hero-media
+            src={model.cinematicMedia.hero}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
             className="hero-media"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            poster="/media/backgrounds/02-SFI1004_00.jpg"
             aria-hidden="true"
-          >
-            <source
-              src="/media/animated/16x9/sf-bg-02-sfi-hero-spray_omni.mp4"
-              type="video/mp4"
-            />
-          </video>
+          />
           <div className="hero-corner-scrim" aria-hidden="true" />
           <div data-hero-copy className="hero-copy">
             <p data-hero-meta className="hero-label">
@@ -407,12 +389,13 @@ export function ScrollWorldPage() {
             </div>
           </div>
           <p className="hero-edge-note">
-            Kitchener · London · GTA
+            {model.locations[0]?.serviceAreaWording ??
+              "Ontario project inquiries"}
           </p>
         </div>
       </section>
 
-      <section data-trust id="trust" className="trust-act">
+      <section data-home-section="trust" data-trust id="trust" className="trust-act">
         <div className="trust-stage">
           <div className="trust-lines">
             <p data-trust-line>
@@ -428,22 +411,22 @@ export function ScrollWorldPage() {
             </p>
           </div>
           <p className="trust-footnote">
-            Creating Strong Relationships
+            {model.slogans[0]}
           </p>
         </div>
       </section>
 
-      <section data-services id="services" className="services-act">
+      <section data-home-section="services" data-services id="services" className="services-act">
         <div data-services-frame className="services-frame">
           <div data-services-track className="services-track">
             <div className="services-lead">
               <p className="section-kicker">Capabilities</p>
-              <h2>Five scopes.<br />One field mindset.</h2>
+              <h2>Four service paths.<br />One field mindset.</h2>
               <p>
-                Vertical scrolling opens the full trade package.
+                Vertical scrolling opens the approved public service routes.
               </p>
             </div>
-            {services.map((service, index) => (
+            {model.serviceLinks.map((service, index) => (
               <article
                 key={service.id}
                 className={cn(
@@ -452,16 +435,32 @@ export function ScrollWorldPage() {
                 )}
               >
                 <span>0{index + 1}</span>
-                <h3>{service.title}</h3>
-                <p>{service.overlay}</p>
+                <h3>{service.label}</h3>
+                <p>{service.summary}</p>
+                <a className="service-panel__link" href={service.href}>
+                  Explore service
+                </a>
                 <div className="service-rule" aria-hidden="true" />
               </article>
             ))}
             <div className="services-close">
-              <p>Specified systems.</p>
-              <p>Coordinated execution.</p>
-              <a href="/request-estimate">Send the package →</a>
+              <p>{model.strongFire.endorsement}</p>
+              <a href={model.strongFire.canonicalPath}>
+                Explore Strong Fire →
+              </a>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section data-home-section="mission" id="mission" className="mission-strip" aria-labelledby="mission-title">
+        <div className="page-rail">
+          <p className="section-kicker">Our mission</p>
+          <h2 id="mission-title">{model.mission}</h2>
+          <div className="mission-strip__slogans">
+            {model.slogans.map((slogan) => (
+              <p key={slogan}>{slogan}</p>
+            ))}
           </div>
         </div>
       </section>
@@ -469,6 +468,7 @@ export function ScrollWorldPage() {
       <section
         data-process
         data-reveal-section
+        data-home-section="process"
         id="process"
         className="process-act"
       >
@@ -489,8 +489,8 @@ export function ScrollWorldPage() {
           </div>
           <figure data-process-image className="process-image">
             <Image
-              src="/media/projects/SFI1006.jpeg"
-              alt="Strong Foam applicator installing spray foam in a wall assembly"
+              src={model.cinematicMedia.process}
+              alt="Commercial building envelope work in progress"
               fill
               sizes="(max-width: 900px) 100vw, 48vw"
               className="object-cover"
@@ -500,23 +500,16 @@ export function ScrollWorldPage() {
         </div>
       </section>
 
-      <section data-sectors id="sectors" className="sectors-act">
-        <video
+      <section data-home-section="sectors" data-sectors id="sectors" className="sectors-act">
+        <Image
           data-sector-media
+          src={model.cinematicMedia.sector}
+          alt=""
+          fill
+          sizes="100vw"
           className="sectors-media"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          poster="/media/backgrounds/07-SFI1007.jpg"
           aria-hidden="true"
-        >
-          <source
-            src="/media/animated/16x9/sf-bg-07-sfi-fireproofing_omni.mp4"
-            type="video/mp4"
-          />
-        </video>
+        />
         <div className="sectors-column-scrim" aria-hidden="true" />
         <div data-sectors-copy className="sectors-copy">
           <p data-sector-line className="section-kicker">
@@ -536,15 +529,16 @@ export function ScrollWorldPage() {
 
       <section
         data-reveal-section
+        data-home-section="projects"
         id="projects"
         className="projects-act"
       >
         <SectionIntro id="projects" />
         <div data-projects-grid className="projects-grid">
-          {projects.map((project, index) => (
+          {model.projects.map((project, index) => (
             <figure
               data-project
-              key={project.image}
+              key={project.id}
               className={cn(
                 "project-frame",
                 index === 0 && "project-frame--tall",
@@ -552,8 +546,8 @@ export function ScrollWorldPage() {
               )}
             >
               <Image
-                src={project.image}
-                alt={`${project.name}: ${project.scope}`}
+                src={project.publicImagePath}
+                alt={project.media.alt}
                 fill
                 sizes={
                   index === 2
@@ -563,21 +557,41 @@ export function ScrollWorldPage() {
                 className="object-cover transition-transform duration-500 hover:scale-[1.025]"
               />
               <figcaption>
-                <span>{project.name}</span>
-                <span>{project.scope}</span>
+                <span>{project.permissionSafeCaption}</span>
+                <span>{project.category.replaceAll("-", " ")}</span>
               </figcaption>
             </figure>
           ))}
         </div>
-        <p className="projects-note">
-          Public project names and scopes will be attached once client
-          permissions are confirmed.
-        </p>
+        <a className="projects-note" href="/projects">
+          Explore approved project photography →
+        </a>
+      </section>
+
+      <section
+        data-reveal-section
+        data-home-section="partners"
+        id="partners"
+        className="partners-act"
+      >
+        <div className="page-rail">
+          <p className="section-kicker">Partners</p>
+          <h2 className="section-heading">Approved relationships only.</h2>
+          <p className="section-support">
+            Third-party marks appear only after identity, current relationship,
+            official artwork, and publication permission are confirmed.
+          </p>
+          <PartnerGrid
+            partners={model.partners}
+            emptyMessage="Partner approvals are in progress; no held marks are published."
+          />
+        </div>
       </section>
 
       <section
         data-coverage
         data-reveal-section
+        data-home-section="coverage"
         id="coverage"
         className="coverage-act"
       >
@@ -586,25 +600,12 @@ export function ScrollWorldPage() {
         </div>
         <div className="coverage-route">
           <div data-route-line className="route-line" aria-hidden="true" />
-          {[
-            {
-              place: "Kitchener–Waterloo",
-              detail: "Primary operations · Breithaupt Street",
-            },
-            {
-              place: "London / Dorchester",
-              detail: "Southwestern Ontario project reach",
-            },
-            {
-              place: "Greater Toronto Area",
-              detail: "Commercial and multi-unit coverage",
-            },
-          ].map((stop) => (
-            <div data-reveal-item className="route-stop" key={stop.place}>
+          {model.locations.map((location) => (
+            <div data-reveal-item className="route-stop" key={location.id}>
               <span aria-hidden="true" />
               <div>
-                <h3>{stop.place}</h3>
-                <p>{stop.detail}</p>
+                <h3>{location.label}</h3>
+                <p>{location.serviceAreaWording}</p>
               </div>
             </div>
           ))}
@@ -613,12 +614,13 @@ export function ScrollWorldPage() {
 
       <section
         data-reveal-section
+        data-home-section="faq"
         id="faq"
         className="faq-act"
       >
         <SectionIntro id="faq" />
         <Accordion className="faq-list">
-          {faqItems.map((item, index) => (
+          {model.faq.map((item, index) => (
             <AccordionItem
               data-reveal-item
               key={item.question}
@@ -631,7 +633,7 @@ export function ScrollWorldPage() {
         </Accordion>
       </section>
 
-      <section id="contact" className="contact-act">
+      <section data-home-section="contact" id="contact" className="contact-act">
         <div className="contact-inner">
           <Image
             src="/media/brand/SFI-Logo-Jpeg-EDIT_00-removebg-preview.png"
@@ -648,13 +650,13 @@ export function ScrollWorldPage() {
           </p>
           <div className="contact-actions">
             <a
-              href="/request-estimate"
+              href={model.estimateCta.href}
               className={cn(
                 buttonVariants({ size: "lg" }),
                 "brand-button brand-button--red",
               )}
             >
-              Start the project survey
+              {model.estimateCta.label}
             </a>
             <a
               href={`tel:${site.phoneE164}`}
@@ -677,7 +679,7 @@ export function ScrollWorldPage() {
           </p>
           <div className="contact-footer">
             <span>Strong Foam Insulation Inc.</span>
-            <span>{productBrands.slice(0, 4).join(" · ")}</span>
+            <span>{model.slogans[2]}</span>
           </div>
         </div>
       </section>

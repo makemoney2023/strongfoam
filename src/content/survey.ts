@@ -1,4 +1,8 @@
-import { services } from "@/content/site";
+import {
+  getServiceBySlug,
+  type ServiceRouteSlug,
+} from "@/content/services";
+import type { ListedServiceId } from "@/lib/leads/types";
 
 export const DRAFT_STORAGE_KEY = "sf-estimate-draft";
 export const DRAFT_VERSION = 1 as const;
@@ -39,8 +43,53 @@ export const DRAWINGS_OPTIONS = [
 export const CONSENT_LABEL =
   "I agree Strong Foam Insulation Inc. may use this information to respond to my estimate request.";
 
-export const SCOPE_OPTIONS = services.map((service) => ({
-  value: service.id,
-  title: service.title,
-  overlay: service.overlay,
-}));
+const scopeMappings: readonly {
+  value: ListedServiceId;
+  displaySlug: ServiceRouteSlug;
+  title: string;
+  overlay: string;
+}[] = [
+  {
+    value: "spray-foam",
+    displaySlug: "spray-foam-insulation",
+    title: "Spray foam insulation",
+    overlay:
+      "Specification-led insulation and air sealing for suitable commercial and multi-unit assemblies.",
+  },
+  {
+    value: "fireproofing",
+    displaySlug: "fire-protection",
+    title: "Cementitious fireproofing",
+    overlay:
+      "Spray-applied passive fire protection selected to the listed design and project specification.",
+  },
+  {
+    value: "intumescent",
+    displaySlug: "fire-protection",
+    title: "Intumescent coatings",
+    overlay:
+      "Intumescent fire-protection systems selected for the member, exposure, finish, and maintenance requirements.",
+  },
+  {
+    value: "avb",
+    displaySlug: "air-vapour-barriers",
+    title: "Air-vapour barrier membranes",
+    overlay:
+      "Specified air and vapour control layers across suitable walls, transitions, and penetrations.",
+  },
+  {
+    value: "spf-roofing",
+    displaySlug: "spf-roofing",
+    title: "SPF roofing",
+    overlay:
+      "Roofing foam and protective coating systems for suitable specified new or recover applications.",
+  },
+];
+
+export const SCOPE_OPTIONS = scopeMappings.map((mapping) => {
+  const service = getServiceBySlug(mapping.displaySlug);
+  return {
+    ...mapping,
+    displayPath: service.canonicalPath,
+  };
+});

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   formatRelativeAge,
+  formatRequestLocation,
   formatRequestNumber,
+  formatRequestServices,
+  formatRequestType,
   formatServices,
   isWorkflowStatus,
+  requestIntakeType,
   requireLostReason,
 } from "@/lib/ops/workflow";
 
@@ -30,5 +34,34 @@ describe("workflow rules", () => {
     ).toBe("1h");
     expect(formatServices(["spray-foam", "avb"])).toBe("Spray foam, AVB");
     expect(formatServices([])).toBe("Unspecified");
+  });
+
+  it("labels a general inquiry without a project location or service", () => {
+    const answers = { intakeType: "general", message: "Call me" };
+    expect(requestIntakeType(answers)).toBe("general");
+    expect(formatRequestType(answers)).toBe("General inquiry");
+    expect(
+      formatRequestLocation({
+        city: "",
+        province: "not_applicable",
+        answers,
+      }),
+    ).toBe("Location not supplied");
+    expect(formatRequestServices({ services: [], answers })).toBe("");
+  });
+
+  it("keeps estimate labels for stored estimate answers", () => {
+    const answers = { intakeType: "estimate", projectType: "commercial_ici" };
+    expect(formatRequestType(answers)).toBe("Estimate");
+    expect(
+      formatRequestLocation({
+        city: "Kitchener",
+        province: "ON",
+        answers,
+      }),
+    ).toBe("Kitchener, ON");
+    expect(
+      formatRequestServices({ services: ["spray-foam", "avb"], answers }),
+    ).toBe("Spray foam, AVB");
   });
 });

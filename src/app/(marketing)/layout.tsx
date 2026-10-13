@@ -1,3 +1,4 @@
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export default function MarketingLayout({
@@ -9,6 +10,7 @@ export default function MarketingLayout({
     <div className="dark min-h-full bg-background text-foreground">
       <SiteHeader />
       {children}
+      <SiteFooter />
     </div>
   );
 }

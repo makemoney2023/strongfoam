@@ -39,6 +39,9 @@
       "bucket_name": "strongfoam"
     }
   ],
+  "send_email": [
+    { "name": "EMAIL" }
+  ],
   "queues": {
     "producers": [
       { "binding": "JOBS", "queue": "strongfoam-jobs" }
@@ -70,6 +73,7 @@
   "vars": {
     "AI_GATEWAY_ID": "strongfoam",
     "AI_GATEWAY_ACCOUNT_ID": "6f6959ecba86d1de4d6cf6aa0b34528d",
-    "AI_GATEWAY_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    "AI_GATEWAY_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "EMAIL_FROM": "Strong Foam <estimates@strongfoam.com>"
   }
 }

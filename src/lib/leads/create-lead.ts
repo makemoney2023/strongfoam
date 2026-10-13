@@ -53,7 +53,24 @@ function emailInput(
   status: StoredLead["status"],
   reasons: string[],
 ): LeadEmailInput {
+  if (payload.intakeType === "general") {
+    return {
+      intakeType: "general",
+      status,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      company: payload.company,
+      city: "",
+      services: [],
+      reasons,
+      fileLinks: [],
+      calendlyOffered: false,
+      message: payload.message,
+    };
+  }
   return {
+    intakeType: "estimate",
     status,
     firstName: payload.firstName,
     lastName: payload.lastName,
@@ -120,11 +137,15 @@ export async function createLead(args: {
     };
   }
 
-  const qualification = qualifyLead({
-    projectType: payload.projectType,
-    province: payload.province,
-    services: servicesOf(payload),
-  });
+  const qualification =
+    payload.intakeType === "general"
+      ? qualifyLead({ intakeType: "general" })
+      : qualifyLead({
+          intakeType: "estimate",
+          projectType: payload.projectType,
+          province: payload.province,
+          services: servicesOf(payload),
+        });
   const inserted = await args.store.insert({
     status: qualification.status,
     bookingStatus: qualification.status === "qualified" ? "offered" : "none",
