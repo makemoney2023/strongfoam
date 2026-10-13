@@ -1414,15 +1414,104 @@ body {
 .service-panel > :not(.service-panel__media) { position: relative; z-index: 1; }
 .services-close__lockup { display: block; width: min(18rem, 60vw); height: auto; margin-bottom: 1.25rem; }
 
-/* Partner marks: calm monochrome by default, colour on hover/focus */
-.marketing-partner-card__logo {
-  filter: grayscale(1) contrast(1.05);
-  opacity: 0.82;
-  transition: filter 200ms ease, opacity 200ms ease;
+/* Partner marks — brand logo-usage rules: reversed (white) marks on dark
+   surfaces, equal visual weight, generous clear space, no effects. */
+.partner-logo {
+  display: block;
+  width: var(--logo-w);
+  height: var(--logo-h);
+  max-width: 100%;
+  object-fit: contain;
 }
-.marketing-partner-card:hover .marketing-partner-card__logo,
-.marketing-partner-card:focus-within .marketing-partner-card__logo,
-.partner-logos--colour .marketing-partner-card__logo {
-  filter: none;
-  opacity: 1;
+
+.partner-logo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 2.5rem;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+  border-left: 1px solid rgb(255 255 255 / 9%);
+  list-style: none;
+  padding: 0;
+}
+@media (min-width: 1025px) {
+  .partner-logo-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.partner-logo-grid__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  min-height: 10rem;
+  padding: 2rem 1.25rem 1.25rem;
+  border-right: 1px solid rgb(255 255 255 / 9%);
+  border-bottom: 1px solid rgb(255 255 255 / 9%);
+  transition: background-color 200ms ease;
+}
+.partner-logo-grid__cell:hover { background: rgb(255 255 255 / 3%); }
+.partner-logo-grid__cell .partner-logo { margin-top: auto; }
+.partner-logo-grid__name {
+  margin-top: auto;
+  color: #7f8e99;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.partner-marquee {
+  display: grid;
+  gap: 2.25rem;
+  margin: 3rem 0 2rem;
+}
+.partner-marquee__label {
+  width: min(100%, var(--page-max));
+  margin: 0 auto 1rem;
+  padding-inline: var(--page-inline);
+  color: #7f8e99;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.partner-marquee__viewport {
+  overflow: hidden;
+  padding: 0.75rem 0;
+  border-block: 1px solid rgb(255 255 255 / 8%);
+  mask-image: linear-gradient(90deg, transparent, #000 clamp(2.5rem, 8vw, 8rem), #000 calc(100% - clamp(2.5rem, 8vw, 8rem)), transparent);
+}
+.partner-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: partner-marquee var(--marquee-duration, 60s) linear infinite;
+}
+.partner-marquee__viewport--reverse .partner-marquee__track { animation-direction: reverse; }
+.partner-marquee__viewport:hover .partner-marquee__track,
+.partner-marquee__viewport:focus-within .partner-marquee__track { animation-play-state: paused; }
+.partner-marquee__list {
+  display: flex;
+  align-items: center;
+  gap: 4.5rem;
+  margin: 0;
+  padding: 0.75rem 2.25rem;
+  list-style: none;
+}
+.partner-marquee__list li { display: flex; align-items: center; height: 4.25rem; }
+@keyframes partner-marquee {
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partner-marquee__track { width: auto; animation: none; }
+  .partner-marquee__list { flex-wrap: wrap; justify-content: center; row-gap: 1.5rem; }
+  .partner-marquee__list--clone { display: none; }
+  .partner-marquee__viewport { mask-image: none; }
+}
+@media (max-width: 1024px) {
+  .partner-logo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .partner-logo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .partner-logo-grid__cell { min-height: 8.25rem; padding: 1.5rem 0.75rem 1rem; }
+  .partner-logo { width: calc(var(--logo-w) * 0.8); height: calc(var(--logo-h) * 0.8); }
+  .partner-marquee__list { gap: 3rem; }
+  .partner-marquee__list li { height: 3.5rem; }
 }
