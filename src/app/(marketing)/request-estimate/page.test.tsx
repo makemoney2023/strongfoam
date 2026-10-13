@@ -10,18 +10,24 @@ describe("request-estimate page", () => {
     expect(metadata.alternates?.canonical).toBe("/request-estimate");
   });
 
-  it("does not reuse a project-gallery photograph as the social card", () => {
+  it("uses approved social media for both social metadata formats", () => {
     expect(metadata.openGraph).toMatchObject({
       title: "Request an Estimate or Ask a Question",
       description: expect.stringContaining("general inquiry"),
       url: "/request-estimate",
       type: "website",
+      images: [
+        expect.objectContaining({
+          url: expect.stringMatching(/^\/media\/social\//),
+          alt: expect.any(String),
+        }),
+      ],
     });
-    expect(metadata.openGraph?.images).toBeUndefined();
     expect(metadata.twitter).toMatchObject({
-      card: "summary",
+      card: "summary_large_image",
       title: "Request an Estimate or Ask a Question",
       description: expect.stringContaining("project estimate"),
+      images: [expect.stringMatching(/^\/media\/social\//)],
     });
     expect(JSON.stringify(metadata.twitter)).not.toContain("/media/projects/");
   });

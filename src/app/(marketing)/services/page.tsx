@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import {
   Card,
   CardContent,
@@ -10,21 +10,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { assertMarketingClaimsSafe } from "@/content/claims";
 import { serviceContent } from "@/content/services";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/services",
   title: "Commercial Insulation and Fire-Protection Services",
   description:
     "Compare four specification-led Strong Foam service families for Ontario commercial, industrial, and multi-unit construction.",
-  alternates: { canonical: "/services" },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /services");
+});
 
 export default function ServicesPage() {
+  const jsonLd = marketingPageGraph({
+    path: "/services",
+    name: "Specialty insulation and fire-protection services",
+    description:
+      "Four public service families connect building-envelope and passive-fire scopes to project specifications, assemblies, and site conditions.",
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Services" }],
+  });
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Services" }]} />
       <InteriorHero
         eyebrow="Services"

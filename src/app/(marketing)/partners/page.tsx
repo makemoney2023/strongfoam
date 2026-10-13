@@ -1,19 +1,18 @@
-import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
 import { PartnerGrid } from "@/components/marketing/partner-grid";
-import { assertMarketingClaimsSafe } from "@/content/claims";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import { partnerRecords } from "@/content/partners";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/partners",
   title: "Approved Partner Relationships",
   description:
     "Review Strong Foam supplier and client or contractor relationship sections governed by current-status and publication approvals.",
-  alternates: { canonical: "/partners" },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /partners");
+});
 
 const suppliers = partnerRecords.filter(
   (partner) => partner.category === "supplier",
@@ -23,13 +22,23 @@ const clientContractors = partnerRecords.filter(
 );
 
 export default function PartnersPage() {
+  const description =
+    "Third-party marks appear only after identity, current relationship, official artwork, and publication permission are approved.";
+  const jsonLd = marketingPageGraph({
+    path: "/partners",
+    name: "Approved partner relationships",
+    description,
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Partners" }],
+  });
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Partners" }]} />
       <InteriorHero
         eyebrow="Relationships"
         title="Approved partner relationships"
-        description="Third-party marks appear only after identity, current relationship, official artwork, and publication permission are approved."
+        description={description}
       />
       <section
         className="marketing-section page-rail"

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Archivo, Source_Sans_3 } from "next/font/google";
-import { site } from "@/content/site";
+import { assertMarketingClaimsSafe } from "@/content/claims";
+import { site, socialShareImage } from "@/content/site";
 import "./globals.css";
 
 const display = Archivo({
@@ -24,9 +26,35 @@ export const metadata: Metadata = {
   description:
     "ICI and multi-unit specialty trades: spray foam insulation, cementitious fireproofing, intumescent coatings, AVB membranes, and SPF roofing across Ontario.",
   alternates: { canonical: "/" },
+  openGraph: {
+    title: `${site.brand} — commercial spray foam & fire protection Ontario`,
+    description:
+      "ICI and multi-unit specialty trades: spray foam insulation, cementitious fireproofing, intumescent coatings, AVB membranes, and SPF roofing across Ontario.",
+    url: "/",
+    siteName: site.brand,
+    locale: "en_CA",
+    type: "website",
+    images: [
+      {
+        url: socialShareImage.publicPath,
+        width: socialShareImage.width,
+        height: socialShareImage.height,
+        alt: socialShareImage.alt,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${site.brand} — commercial spray foam & fire protection Ontario`,
+    description:
+      "ICI and multi-unit specialty trades: spray foam insulation, cementitious fireproofing, intumescent coatings, AVB membranes, and SPF roofing across Ontario.",
+    images: [socialShareImage.publicPath],
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+assertMarketingClaimsSafe(metadata, "metadata root defaults");
+
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en-CA"

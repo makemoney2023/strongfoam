@@ -1,45 +1,40 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { EstimateSurvey } from "@/components/estimate-survey/estimate-survey";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { assertMarketingClaimsSafe } from "@/content/claims";
 import { site } from "@/content/site";
+import { marketingMetadata } from "@/lib/site-metadata";
+import { marketingPageGraph } from "@/lib/site-schema";
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: "/request-estimate",
   title: "Request an Estimate or Ask a Question",
   description:
     "Start a project estimate with Strong Foam or use the public contact channels for a general inquiry about the company and its services.",
-  alternates: { canonical: "/request-estimate" },
-  openGraph: {
-    title: "Request an Estimate or Ask a Question",
-    description:
-      "Start a project estimate or contact Strong Foam with a general inquiry.",
-    url: "/request-estimate",
-    type: "website",
-  },
-  twitter: {
-    card: "summary",
-    title: "Request an Estimate or Ask a Question",
-    description:
-      "Start a project estimate or contact Strong Foam with a general inquiry.",
-  },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /request-estimate");
+});
 
 export default function RequestEstimatePage() {
+  const description =
+    "Use the survey below for a project estimate. For a general inquiry, call or email the public team.";
+  const jsonLd = marketingPageGraph({
+    path: "/request-estimate",
+    name: "Request an estimate or ask a question",
+    description,
+  });
+
   return (
     <main id="main-content" className="flex-1 bg-[color:var(--sf-ink)]">
+      <SchemaScript graph={jsonLd} />
       <InteriorHero
         eyebrow="Shared intake"
         title="Request an estimate or ask a question"
-        description="Use the survey below for a project estimate. For a general inquiry, call or email the public team."
+        description={description}
       />
       <section
         className="marketing-section page-rail"

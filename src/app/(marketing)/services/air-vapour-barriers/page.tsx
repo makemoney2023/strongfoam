@@ -1,17 +1,14 @@
-import type { Metadata } from "next";
 import { ServiceMarketingPage } from "@/components/marketing/service-detail";
-import { assertMarketingClaimsSafe } from "@/content/claims";
 import { getServiceBySlug } from "@/content/services";
+import { marketingMetadata } from "@/lib/site-metadata";
 
 const service = getServiceBySlug("air-vapour-barriers");
 
-export const metadata: Metadata = {
+export const metadata = marketingMetadata({
+  path: service.canonicalPath,
   title: service.metadata.title,
   description: service.metadata.description,
-  alternates: { canonical: service.canonicalPath },
-};
-
-assertMarketingClaimsSafe(metadata, "metadata /services/air-vapour-barriers");
+});
 
 export default function AirVapourBarriersPage() {
   return <ServiceMarketingPage service={service} />;

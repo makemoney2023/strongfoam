@@ -8,15 +8,20 @@ import {
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
+import { SchemaScript } from "@/components/marketing/schema-script";
 import type { ServiceContent } from "@/content/services";
+import { serviceGraph } from "@/lib/site-schema";
 
 export function ServiceMarketingPage({
   service,
 }: {
   service: ServiceContent;
 }) {
+  const jsonLd = serviceGraph(service);
+
   return (
     <main id="main-content" className="flex-1">
+      <SchemaScript graph={jsonLd} />
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },
