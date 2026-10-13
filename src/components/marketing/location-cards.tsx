@@ -11,7 +11,7 @@ import {
 
 export function LocationCards({
   locations,
-  emptyMessage = "No public locations are currently approved.",
+  emptyMessage,
 }: {
   locations: readonly PublicLocation[];
   emptyMessage?: string;
@@ -19,7 +19,9 @@ export function LocationCards({
   const approvedLocations = filterPublishableLocations(locations);
 
   if (approvedLocations.length === 0) {
-    return <p className="marketing-empty-state">{emptyMessage}</p>;
+    return emptyMessage ? (
+      <p className="marketing-empty-state">{emptyMessage}</p>
+    ) : null;
   }
 
   return (

@@ -8,9 +8,9 @@ import { assertMarketingClaimsSafe } from "@/content/claims";
 import { projectRecords } from "@/content/projects";
 
 export const metadata: Metadata = {
-  title: "Approved Project Photography",
+  title: "Project Photography",
   description:
-    "View reviewed first-party photography with permission-safe trade descriptions for Strong Foam building-envelope work.",
+    "See Strong Foam spray foam, air barrier, and building-envelope work on projects across Ontario.",
   alternates: { canonical: "/projects" },
 };
 
@@ -22,8 +22,8 @@ export default function ProjectsPage() {
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Projects" }]} />
       <InteriorHero
         eyebrow="Projects"
-        title="Approved project photography"
-        description="This gallery uses reviewed first-party media and generic trade descriptions without unapproved client names, addresses, or performance claims."
+        title="Our work in the field"
+        description="A look at Strong Foam crews on commercial, industrial, and multi-unit residential projects across Ontario."
         media={heroMedia["projects"]}
       />
       <section
@@ -32,10 +32,10 @@ export default function ProjectsPage() {
       >
         <div className="marketing-section__intro">
           <p className="section-kicker">Field work</p>
-          <h2 id="project-gallery-title">Permission-safe project gallery</h2>
+          <h2 id="project-gallery-title">Project gallery</h2>
           <p>
-            Published records are limited to media and captions that passed the
-            project and source-media approval gates.
+            Building envelopes, air barriers, and spray foam installations by
+            the Strong Foam team.
           </p>
         </div>
         <ProjectGallery projects={projectRecords} />

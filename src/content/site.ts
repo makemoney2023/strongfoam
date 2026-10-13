@@ -95,7 +95,7 @@ export const companyContent = {
   story:
     "Strong Foam has grown through commercial building-envelope and fire-protection work, adapting its field practices to project specifications, schedules, and construction conditions.",
   focus:
-    "The company focuses on ICI and multi-unit residential projects across its approved Ontario operations.",
+    "The company focuses on ICI and multi-unit residential projects across Ontario, from its Kitchener operations base.",
   culture:
     "Strong Foam supports a family-oriented workplace where employees can develop their skills, collaborate, and take responsibility for their work.",
   safety:
@@ -251,9 +251,9 @@ export const scrollSections: ScrollSection[] = [
   },
   {
     id: "projects",
-    headline: "Approved field work and project photography",
+    headline: "Field work and project photography",
     support:
-      "The project gallery uses reviewed first-party media and generic trade descriptions until named-project permission is recorded.",
+      "Spray foam, air barrier, and fire-protection work by Strong Foam crews on commercial, industrial, and multi-unit projects.",
     status: "ready",
   },
   {
@@ -265,7 +265,7 @@ export const scrollSections: ScrollSection[] = [
   {
     id: "faq",
     headline: "Answers estimators and consultants actually ask",
-    support: "Extractable answers for estimators, consultants, and search systems. Visible copy matches the JSON-LD.",
+    support: "Straight answers on spray foam, fireproofing, air-vapour barriers, and how to get an estimate.",
     status: "ready",
   },
   {

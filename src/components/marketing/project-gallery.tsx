@@ -10,7 +10,7 @@ import type { ProjectRecord } from "@/content/projects";
 
 export function ProjectGallery({
   projects,
-  emptyMessage = "Approved project photography will appear here as public derivatives become available.",
+  emptyMessage,
 }: {
   projects: readonly ProjectRecord[];
   emptyMessage?: string;
@@ -18,7 +18,9 @@ export function ProjectGallery({
   const approvedProjects = selectMarketingProjects(projects);
 
   if (approvedProjects.length === 0) {
-    return <p className="marketing-empty-state">{emptyMessage}</p>;
+    return emptyMessage ? (
+      <p className="marketing-empty-state">{emptyMessage}</p>
+    ) : null;
   }
 
   return (

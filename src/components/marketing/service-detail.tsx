@@ -98,7 +98,7 @@ export function ServiceDetail({ service }: { service: ServiceContent }) {
             <h3>Project conditions</h3>
           </CardTitle>
           <CardDescription>
-            Confirm these items against the project specification.
+            What we review with you before mobilizing.
           </CardDescription>
         </CardHeader>
         <CardContent>

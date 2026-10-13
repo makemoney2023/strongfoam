@@ -10,7 +10,7 @@ import { locationRecords } from "@/content/marketing-governance";
 export const metadata: Metadata = {
   title: "Strong Foam Kitchener Operations",
   description:
-    "Find approved public location information for Strong Foam operations in Kitchener, Ontario.",
+    "Find Strong Foam operations in Kitchener, Ontario, serving projects across the province.",
   alternates: { canonical: "/locations" },
 };
 
@@ -23,7 +23,7 @@ export default function LocationsPage() {
       <InteriorHero
         eyebrow="Locations"
         title="Strong Foam locations"
-        description="Only current locations with approved public labels, addresses, active status, and service wording appear here."
+        description="Strong Foam operates from Kitchener, serving commercial, industrial, and multi-unit projects across Ontario."
         media={heroMedia["locations"]}
       />
       <section
@@ -31,8 +31,8 @@ export default function LocationsPage() {
         aria-labelledby="approved-locations-title"
       >
         <div className="marketing-section__intro">
-          <p className="section-kicker">Current public location</p>
-          <h2 id="approved-locations-title">Approved operations information</h2>
+          <p className="section-kicker">Operations</p>
+          <h2 id="approved-locations-title">Kitchener operations</h2>
         </div>
         <LocationCards locations={locationRecords} />
       </section>

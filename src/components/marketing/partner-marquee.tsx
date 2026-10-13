@@ -50,13 +50,15 @@ export function PartnerMarquee({
   emptyMessage,
 }: {
   partners: readonly PartnerRecord[];
-  emptyMessage: string;
+  emptyMessage?: string;
 }) {
   const approved = filterPublishablePartners(partners).filter(
     (partner) => partner.logo.approvedOfficialPath,
   );
   if (approved.length === 0) {
-    return <p className="marketing-empty-state">{emptyMessage}</p>;
+    return emptyMessage ? (
+      <p className="marketing-empty-state">{emptyMessage}</p>
+    ) : null;
   }
   return (
     <div className="partner-marquee">

@@ -97,14 +97,14 @@ const interiorRoutes: readonly RouteCase[] = [
     path: "/projects",
     Page: ProjectsPage,
     metadata: projectsMetadata,
-    h1: "Approved project photography",
+    h1: "Our work in the field",
     links: ["/services", "/request-estimate"],
   },
   {
     path: "/partners",
     Page: PartnersPage,
     metadata: partnersMetadata,
-    h1: "Approved partner relationships",
+    h1: "Strong relationships",
     links: ["/contact", "/request-estimate"],
   },
   {

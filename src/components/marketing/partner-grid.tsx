@@ -7,7 +7,7 @@ import { PartnerLogo } from "@/components/marketing/partner-logo";
 export function PartnerGrid({
   partners,
   columns = 4,
-  emptyMessage = "Approved partner marks will appear here after relationship and publication permissions are recorded.",
+  emptyMessage,
 }: {
   partners: readonly PartnerRecord[];
   emptyMessage?: string;
@@ -19,7 +19,9 @@ export function PartnerGrid({
   );
 
   if (approvedPartners.length === 0) {
-    return <p className="marketing-empty-state">{emptyMessage}</p>;
+    return emptyMessage ? (
+      <p className="marketing-empty-state">{emptyMessage}</p>
+    ) : null;
   }
 
   return (

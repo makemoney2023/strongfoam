@@ -16,7 +16,7 @@ import { site } from "@/content/site";
 export const metadata: Metadata = {
   title: "Contact Strong Foam",
   description:
-    "Call or email Strong Foam for approved public company information, project-estimating questions, and the shared request intake.",
+    "Call or email Strong Foam about your project, estimating questions, or general inquiries.",
   alternates: { canonical: "/contact" },
 };
 
@@ -29,7 +29,7 @@ export default function ContactPage() {
       <InteriorHero
         eyebrow="Contact"
         title="Contact Strong Foam"
-        description="Use the public channels below for company questions, estimating coordination, or the shared project intake."
+        description="Reach our team by phone or email for company questions, estimating, or a new project."
         media={heroMedia["contact"]}
       />
       <section
@@ -37,7 +37,7 @@ export default function ContactPage() {
         aria-labelledby="contact-channels-title"
       >
         <div className="marketing-section__intro">
-          <p className="section-kicker">Public contact channels</p>
+          <p className="section-kicker">Get in touch</p>
           <h2 id="contact-channels-title">Reach the Strong Foam team</h2>
         </div>
         <div className="marketing-card-grid">
@@ -71,7 +71,7 @@ export default function ContactPage() {
             </CardHeader>
             <CardContent>
               <p>{site.primaryOps.label}</p>
-              <Link href="/locations">View approved location details</Link>
+              <Link href="/locations">View location details</Link>
             </CardContent>
           </Card>
         </div>
@@ -96,7 +96,7 @@ export default function ContactPage() {
       </section>
       <CtaBand
         heading="Send project details to estimating"
-        description="Use the shared intake for drawings, specifications, scope, access, and schedule details."
+        description="Send drawings, specifications, scope, access, and schedule details and we will take it from there."
         primary={{ label: "Request an estimate", href: "/request-estimate" }}
         secondary={{ label: "View locations", href: "/locations" }}
       />

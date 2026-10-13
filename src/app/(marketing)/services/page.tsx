@@ -30,7 +30,7 @@ export default function ServicesPage() {
       <InteriorHero
         eyebrow="Services"
         title="Specialty insulation and fire-protection services"
-        description="Four public service families connect building-envelope and passive-fire scopes to project specifications, assemblies, and site conditions."
+        description="Spray foam, fire protection, air-vapour barriers, and SPF roofing for commercial, industrial, and multi-unit projects across Ontario."
         media={heroMedia["services"]}
       />
       <section
