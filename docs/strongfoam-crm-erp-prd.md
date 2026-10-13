@@ -3,9 +3,9 @@
 **Product:** Strong Foam Operations Platform
 **Document owner:** Strong Foam Insulation Inc.
 **Status:** Draft source of truth
-**Version:** 1.43
+**Version:** 1.44
 **Created:** 2026-09-18
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-13
 
 ## 1. Purpose
 
@@ -124,7 +124,8 @@ margin, or a price. Office users keep a price book of reusable unit prices
 by trade, in bags, square feet, hours, or each. A retired item stays in the
 book. Estimate versions, proposals, change orders, and commercial approval
 rules are stored. Assemblies and scope templates are not. AI-016 and AI-018
-store drafts. AI-017, AI-019, AI-022, AI-024, AI-025, and AI-026 are not built.
+store drafts. AI-017 explains the difference between two estimate versions and
+does not approve. AI-019, AI-022, AI-024, AI-025, and AI-026 are not built.
 Production runs on the Cloudflare Worker `strongfoam`. D1 is the database,
 R2 is private file storage, Queues run background jobs, and Workers AI calls
 go through AI Gateway `strongfoam`. Storage in the United States is
@@ -2202,7 +2203,7 @@ These boundaries apply to every ID:
 | AI-014 | Quantity pace warning | A | Shipped | Open tasks store a stated quantity in bags or sq ft |
 | AI-015 | Material pick list | A | Shipped | After AI-014 |
 | AI-016 | Cited bid/request scope outline | B | Partly built | `ai_runs` and `ai_proposals` store the draft with an idempotency key. Audit the opportunity screen before marking shipped |
-| AI-017 | Estimate revision explanation | B | Blocked | QTE-001 and QTE-004 |
+| AI-017 | Estimate revision explanation | B | Shipped | QTE-001 and QTE-004 |
 | AI-018 | Bid-package/walkthrough scope lines | B | Partly built | Same draft record as AI-016. Audit apply into an estimate version before marking shipped |
 | AI-019 | Change-order draft | B | Blocked | Change-order records exist. Voice, photo, and plan-pin drafts are not built; a person sets the price |
 | AI-020 | Deficiencies grouped by plan sheet | A | Shipped | After AI-011 |
@@ -2736,11 +2737,13 @@ These decisions are required before their respective implementation stage:
 | 2026-10-06 | Run every model draft through one Cloudflare agent | `StrongfoamAgent` is one class with an instance per organization and record. Model calls use AI Gateway `strongfoam`. D1 stays the system of record. A person confirms. The agent does not set a price, send a message, or change the workforce score. AI-022 uses AI Search instead of pgvector |
 | 2026-10-06 | Measure plan takeoff after a person confirms the scale | AI-027 lets the agent propose a scale and one region. The server calculates square feet, linear feet, or a count. The model does not supply the stored quantity or the price. An unscaled sheet stays Takeoff required. AI-016 and AI-018 still cite written quantities only |
 | 2026-10-06 | Accept United States storage | Cloudflare cannot keep D1, R2, or Durable Objects inside Canada. The live database has no jurisdiction and the file bucket is in Eastern North America. That is accepted. Retention and restore testing stay open |
+| 2026-10-13 | Harden the gateway and schedule drafts only | Per-task model policy, usage ledger, offline golden set, cron fan-out for daily reports, morning briefs, and stale sweeps. AI-017 explains a version diff and does not approve. Turnstile is optional. ClamAV quarantines when it cannot scan. pg-boss is retired |
 
 ## 32. Change log
 
 | Version | Date | Summary |
 |---|---|---|
+| 1.44 | 2026-10-13 | Weeks 1–2 of the AI platform: gateway policy, usage ledger, offline evals, draft-only schedules, toMarkdown, fail-closed scanning, Turnstile, and AI-017. The current-state section now matches D1, R2, and the Worker mail binding |
 | 1.43 | 2026-10-06 | Replaced the Vercel, Render, and Supabase architecture with the Cloudflare Worker, D1, R2, and queue that are deployed. United States storage is accepted. The delivery sequence no longer starts by provisioning Supabase |
 | 1.42 | 2026-10-06 | Reviewed the agent plan against the code. AI-016 and AI-018 are partly built and already store drafts in D1. Drafts stay in D1, not agent state. Plan takeoff adds page size, two-point calibration, a takeoff record, a vision model, and an evaluation set |
 | 1.41 | 2026-10-06 | Specified AI-027 plan takeoff. The agent proposes a scale and a region. The server calculates the quantity after a person confirms both. The model does not set the quantity or the price |

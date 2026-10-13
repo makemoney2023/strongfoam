@@ -90,7 +90,7 @@ import {
 import {
   bidDocumentProgress,
   chunksForText,
-  extractEmbeddedPdfPages,
+  extractDocumentPages,
   resolvePageText,
 } from "@/lib/ops/document-extraction";
 import type { CrmConversionInput } from "@/lib/ops/crm";
@@ -1731,7 +1731,12 @@ export async function processBidDocument(
     .update(documentExtractions)
     .set({ status: "running", updatedAt: new Date() })
     .where(eq(documentExtractions.id, match.extraction.id));
-  const extracted = await extractEmbeddedPdfPages(bytes);
+  const platform = await getPlatform();
+  const toMarkdown = platform?.AI?.toMarkdown?.bind(platform.AI);
+  const extracted = await extractDocumentPages(bytes, {
+    filename: match.version.filename || "document.pdf",
+    toMarkdown,
+  });
   if (!extracted.ok) {
     await db
       .update(documentExtractions)
@@ -1776,8 +1781,8 @@ export async function processBidDocument(
       .set({
         pageProgress: page.pageNumber,
         pageCount: extracted.pages.length,
-        provider: "pdfjs",
-        model: null,
+        provider: extracted.provider,
+        model: extracted.provider === "workers-ai-to-markdown" ? "toMarkdown" : null,
         updatedAt: new Date(),
       })
       .where(eq(documentExtractions.id, match.extraction.id));

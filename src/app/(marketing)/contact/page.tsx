@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
+import { ContactInquiryForm } from "@/components/marketing/contact-inquiry-form";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
 import {
@@ -91,6 +92,13 @@ export default function ContactPage() {
             </Card>
           ))}
         </div>
+      </section>
+      <section className="marketing-section page-rail" aria-labelledby="contact-form-title">
+        <div className="marketing-section__intro">
+          <p className="section-kicker">General inquiry</p>
+          <h2 id="contact-form-title">Send a question</h2>
+        </div>
+        <ContactInquiryForm />
       </section>
       <CtaBand
         heading="Send project details to estimating"

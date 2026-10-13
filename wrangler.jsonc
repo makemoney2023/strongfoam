@@ -67,13 +67,24 @@
       "new_sqlite_classes": ["StrongfoamAgent"]
     }
   ],
+  "analytics_engine_datasets": [
+    { "binding": "AI_USAGE", "dataset": "ai_usage" }
+  ],
   "triggers": {
-    "crons": ["15 9 * * *"]
+    "crons": [
+      "* * * * *",
+      "15 9 * * *",
+      "0 10 * * *",
+      "0 11 * * *",
+      "30 21 * * *"
+    ]
   },
   "vars": {
     "AI_GATEWAY_ID": "strongfoam",
     "AI_GATEWAY_ACCOUNT_ID": "6f6959ecba86d1de4d6cf6aa0b34528d",
     "AI_GATEWAY_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "AI_GATEWAY_SMALL_MODEL": "@cf/meta/llama-3.1-8b-instruct-fast",
+    "AI_GATEWAY_FALLBACK_MODEL": "@cf/meta/llama-3.1-8b-instruct-fast",
     "EMAIL_FROM": "Strong Foam <estimates@strongfoam.com>"
   }
 }

@@ -9,6 +9,7 @@ import { qualifyLead } from "@/lib/leads/qualify";
 import type { RateLimiter } from "@/lib/leads/rate-limit";
 import { parseLeadPayload, type LeadPayload } from "@/lib/leads/schema";
 import { assertNotSpam } from "@/lib/leads/spam";
+import { turnstileSecret, verifyTurnstileToken } from "@/lib/leads/turnstile";
 import type { ListedServiceId } from "@/lib/leads/types";
 import { isOwnedUploadPath } from "@/lib/leads/uploads";
 
@@ -96,6 +97,8 @@ export async function createLead(args: {
   store: LeadStore;
   mailer: Mailer;
   thanksSecret: string;
+  turnstileSecret?: string;
+  verifyTurnstile?: typeof verifyTurnstileToken;
 }): Promise<CreateLeadResult> {
   const now = args.now ?? Date.now();
   const limited = await args.limiter.limit(args.ip);
@@ -113,6 +116,20 @@ export async function createLead(args: {
     now,
   });
   if (spam !== "ok") return { ok: false, error: "spam" };
+
+  const secret = args.turnstileSecret ?? turnstileSecret();
+  if (secret) {
+    const token =
+      args.body && typeof args.body === "object" && "turnstileToken" in args.body
+        ? String((args.body as { turnstileToken?: unknown }).turnstileToken ?? "")
+        : "";
+    const allowed = await (args.verifyTurnstile ?? verifyTurnstileToken)({
+      token,
+      secret,
+      ip: args.ip,
+    });
+    if (!allowed) return { ok: false, error: "spam" };
+  }
 
   if (
     payload.uploadPaths.some(

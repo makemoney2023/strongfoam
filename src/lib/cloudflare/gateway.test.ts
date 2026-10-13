@@ -108,4 +108,103 @@ describe("Cloudflare AI Gateway", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("sends metadata, cache, timeout, and retry headers without changing the requested model", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+    await completeThroughGateway({
+      env: { AI_GATEWAY_API_KEY: "gateway-token" },
+      model: "openai/gpt-5-mini",
+      messages,
+      json: true,
+      fetchImpl,
+      policy: {
+        metadata: { org: "org-1", purpose: "summary", prompt: "hidden", "cf.user_id": "nope" },
+        cache: { key: "evidence-hash", ttlSeconds: 30 },
+        timeoutMs: 45000,
+        maxAttempts: 9,
+        retryDelayMs: 250,
+        backoff: "exponential",
+      },
+    });
+    const [, init] = vi.mocked(fetchImpl).mock.calls[0];
+    const headers = init?.headers as Record<string, string>;
+    expect(headers["cf-aig-metadata"]).toBe(JSON.stringify({ org: "org-1", purpose: "summary" }));
+    expect(headers["cf-aig-cache-key"]).toBe("evidence-hash");
+    expect(headers["cf-aig-cache-ttl"]).toBe("60");
+    expect(headers["cf-aig-request-timeout"]).toBe("45000");
+    expect(headers["cf-aig-max-attempts"]).toBe("5");
+    expect(headers["cf-aig-retry-delay"]).toBe("250");
+    expect(headers["cf-aig-backoff"]).toBe("exponential");
+    expect(JSON.parse(String(init?.body)).model).toBe("openai/gpt-5-mini");
+  });
+
+  it("passes cache and metadata to the Workers AI binding", async () => {
+    const run = vi.fn(async () => ({ response: "ok" }));
+    await completeThroughGateway({
+      ai: { run },
+      env: {},
+      model: WORKERS_AI_MODEL,
+      messages,
+      policy: {
+        metadata: { purpose: "summary" },
+        cache: { key: "pack-hash", ttlSeconds: 3600 },
+        maxAttempts: 1,
+      },
+    });
+    expect(run).toHaveBeenCalledWith(
+      WORKERS_AI_MODEL,
+      { messages },
+      {
+        gateway: {
+          id: AI_GATEWAY_ID,
+          metadata: { purpose: "summary" },
+          cacheKey: "pack-hash",
+          cacheTtl: 3600,
+        },
+      },
+    );
+  });
+
+  it("falls back only after the requested model was called and failed", async () => {
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("provider down"))
+      .mockResolvedValueOnce({ response: "from-fallback" });
+    const content = await completeThroughGateway({
+      ai: { run },
+      env: {},
+      model: WORKERS_AI_MODEL,
+      messages,
+      policy: {
+        maxAttempts: 1,
+        fallbackModel: "@cf/meta/llama-3.1-8b-instruct-fast",
+      },
+    });
+    expect(content).toBe("from-fallback");
+    expect(run).toHaveBeenNthCalledWith(
+      2,
+      "@cf/meta/llama-3.1-8b-instruct-fast",
+      { messages },
+      { gateway: { id: AI_GATEWAY_ID } },
+    );
+  });
+
+  it("does not call a fallback when the requested model cannot be invoked", async () => {
+    const run = vi.fn();
+    await expect(
+      completeThroughGateway({
+        ai: { run },
+        env: {},
+        model: "openai/gpt-5-mini",
+        messages,
+        policy: { fallbackModel: WORKERS_AI_MODEL },
+      }),
+    ).rejects.toBeInstanceOf(ModelUnavailableError);
+    expect(run).not.toHaveBeenCalled();
+  });
 });

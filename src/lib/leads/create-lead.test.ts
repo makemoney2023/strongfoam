@@ -249,4 +249,32 @@ describe("createLead", () => {
     expect(result).toEqual({ ok: false, error: "rate_limited" });
     expect(store.rows).toHaveLength(0);
   });
+
+  it("rejects a failed Turnstile check as spam and skips it without a secret", async () => {
+    const now = Date.now();
+    const denied = await createLead({
+      body: body({ startedAt: now - 9000, turnstileToken: "bad" }),
+      ip: "1.1.1.1",
+      now,
+      limiter: new MemoryRateLimiter(),
+      store: new MemoryStore(now),
+      mailer: mailer(),
+      thanksSecret: "test-secret-test-secret-test-secret",
+      turnstileSecret: "secret",
+      verifyTurnstile: async () => false,
+    });
+    expect(denied).toEqual({ ok: false, error: "spam" });
+
+    const allowed = await createLead({
+      body: body({ startedAt: now - 9000 }),
+      ip: "1.1.1.1",
+      now,
+      limiter: new MemoryRateLimiter(),
+      store: new MemoryStore(now),
+      mailer: mailer(),
+      thanksSecret: "test-secret-test-secret-test-secret",
+      turnstileSecret: "",
+    });
+    expect(allowed.ok).toBe(true);
+  });
 });

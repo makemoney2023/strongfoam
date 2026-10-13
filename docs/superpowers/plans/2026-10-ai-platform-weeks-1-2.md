@@ -1,6 +1,6 @@
 # AI platform, weeks 1–2
 
-> **For agentic workers:** Implement task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Write the failing test first.
+> **For agentic workers:** Implement task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Write the failing test first.
 
 **Goal:** Harden AI Gateway calls, record usage, evaluate a fixed golden set, run three draft-only schedules, extract bid text with Workers AI when it helps, fail closed on malware scanning, and put Turnstile on the public forms. Ship the estimate-revision explainer (AI-017).
 
@@ -187,11 +187,11 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Modify: `src/lib/cloudflare/agent.ts`
 - Modify: `src/lib/ops/ai-gateway.ts`
 
-- [ ] **Step 1: Write failing tests.** `modelForTask("summary")` uses `AI_GATEWAY_MODEL` or the 70B default, allows cache, and names a fallback. `modelForTask("triage")` uses `AI_GATEWAY_SMALL_MODEL` or `@cf/meta/llama-3.1-8b-instruct-fast` and skips cache. Metadata keeps five string entries and drops `cf.*` keys and prompt text.
-- [ ] **Step 2: Write failing gateway tests.** A policy sets `cf-aig-metadata`, `cf-aig-cache-key`, `cf-aig-cache-ttl` (at least 60), `cf-aig-request-timeout`, `cf-aig-max-attempts` (at most 5), `cf-aig-retry-delay`, and `cf-aig-backoff` on the compat request. The Workers AI binding receives `metadata`, `cacheTtl` or `skipCache`, and `cacheKey`. A call that throws after the model was invoked retries the fallback model once. A missing API key still throws `ModelUnavailableError` and does not call the fallback. An omitted policy keeps today's `{ gateway: { id } }` call.
-- [ ] **Step 3: Implement the map and the policy.** Large tasks: summary, daily_report, revision_explanation, commercial_proposal, scope_outline, eval. Small tasks: classify, triage, morning_brief, stale_sweep. Timeouts: 20s small, 45s large. Two attempts, exponential backoff, 250ms delay. Cache TTL 3600 only when the caller supplies an evidence hash.
-- [ ] **Step 4: Pass the policy from `requestJobAi` and `StrongfoamAgent.draft`.** The model string on the draft input is still the model that is called. Routing chooses that string before the call.
-- [ ] **Step 5: Run `npx vitest run src/lib/cloudflare/model-routing.test.ts src/lib/cloudflare/gateway.test.ts src/lib/ops/ai-gateway.test.ts`.**
+- [x] **Step 1: Write failing tests.** `modelForTask("summary")` uses `AI_GATEWAY_MODEL` or the 70B default, allows cache, and names a fallback. `modelForTask("triage")` uses `AI_GATEWAY_SMALL_MODEL` or `@cf/meta/llama-3.1-8b-instruct-fast` and skips cache. Metadata keeps five string entries and drops `cf.*` keys and prompt text.
+- [x] **Step 2: Write failing gateway tests.** A policy sets `cf-aig-metadata`, `cf-aig-cache-key`, `cf-aig-cache-ttl` (at least 60), `cf-aig-request-timeout`, `cf-aig-max-attempts` (at most 5), `cf-aig-retry-delay`, and `cf-aig-backoff` on the compat request. The Workers AI binding receives `metadata`, `cacheTtl` or `skipCache`, and `cacheKey`. A call that throws after the model was invoked retries the fallback model once. A missing API key still throws `ModelUnavailableError` and does not call the fallback. An omitted policy keeps today's `{ gateway: { id } }` call.
+- [x] **Step 3: Implement the map and the policy.** Large tasks: summary, daily_report, revision_explanation, commercial_proposal, scope_outline, eval. Small tasks: classify, triage, morning_brief, stale_sweep. Timeouts: 20s small, 45s large. Two attempts, exponential backoff, 250ms delay. Cache TTL 3600 only when the caller supplies an evidence hash.
+- [x] **Step 4: Pass the policy from `requestJobAi` and `StrongfoamAgent.draft`.** The model string on the draft input is still the model that is called. Routing chooses that string before the call.
+- [x] **Step 5: Run `npx vitest run src/lib/cloudflare/model-routing.test.ts src/lib/cloudflare/gateway.test.ts src/lib/ops/ai-gateway.test.ts`.**
 
 ### Task 2: Usage ledger
 
@@ -202,10 +202,10 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Modify: `src/lib/cloudflare/platform.ts`
 - Modify: `wrangler.jsonc`
 
-- [ ] **Step 1: Write a failing test.** `usageDataPoint` writes `indexes: [organizationId]`, blobs for purpose, model, status, and cache, and doubles for latency, attempts, and character counts. No prompt text. A missing dataset does not throw.
-- [ ] **Step 2: Record the point at the end of `completeThroughGateway` when a dataset is passed.**
-- [ ] **Step 3: Add the binding** `{ "binding": "AI_USAGE", "dataset": "ai_usage" }`.
-- [ ] **Step 4: Run the usage and gateway tests.**
+- [x] **Step 1: Write a failing test.** `usageDataPoint` writes `indexes: [organizationId]`, blobs for purpose, model, status, and cache, and doubles for latency, attempts, and character counts. No prompt text. A missing dataset does not throw.
+- [x] **Step 2: Record the point at the end of `completeThroughGateway` when a dataset is passed.**
+- [x] **Step 3: Add the binding** `{ "binding": "AI_USAGE", "dataset": "ai_usage" }`.
+- [x] **Step 4: Run the usage and gateway tests.**
 
 ### Task 3: Golden-set harness
 
@@ -213,9 +213,9 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Create: `src/lib/ops/ai-eval.ts`
 - Create: `src/lib/ops/ai-eval.test.ts`
 
-- [ ] **Step 1: Write failing tests.** Three fixed job packs. The offline runner uses `demoAiResult`. Each case checks citation ids, required sections, and the absence of price, total, send, and approve fields. A case that cites an unknown id fails. `AI_EVAL_LIVE=1` is the only path that calls a model, and the test does not set it.
-- [ ] **Step 2: Implement `evaluateGoldenSet(runner)`.** Return pass count, failures, and citation-validity rate.
-- [ ] **Step 3: Run `npx vitest run src/lib/ops/ai-eval.test.ts`.**
+- [x] **Step 1: Write failing tests.** Three fixed job packs. The offline runner uses `demoAiResult`. Each case checks citation ids, required sections, and the absence of price, total, send, and approve fields. A case that cites an unknown id fails. `AI_EVAL_LIVE=1` is the only path that calls a model, and the test does not set it.
+- [x] **Step 2: Implement `evaluateGoldenSet(runner)`.** Return pass count, failures, and citation-validity rate.
+- [x] **Step 3: Run `npx vitest run src/lib/ops/ai-eval.test.ts`.**
 
 ### Task 4: AI-017 estimate revision explainer
 
@@ -226,9 +226,9 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Modify: `src/app/app/opportunities/[id]/estimates/[estimateId]/page.tsx`
 - Modify: `docs/strongfoam-crm-erp-prd.md` status row when the screen shows it
 
-- [ ] **Step 1: Write failing tests.** Added, removed, and changed lines are named only when they appear in the diff. The total delta matches `diff.totals`. A total that crosses `secondApproverTotalCents` says the second approver is required. The text does not say approved, rejected, or sent. A model paraphrase keeps only sentences that match the grounded list.
-- [ ] **Step 2: Implement `explainEstimateRevision`.** The page renders that result next to the existing diff. No model call on render. No approval write.
-- [ ] **Step 3: Run the estimate-revision tests.**
+- [x] **Step 1: Write failing tests.** Added, removed, and changed lines are named only when they appear in the diff. The total delta matches `diff.totals`. A total that crosses `secondApproverTotalCents` says the second approver is required. The text does not say approved, rejected, or sent. A model paraphrase keeps only sentences that match the grounded list.
+- [x] **Step 2: Implement `explainEstimateRevision`.** The page renders that result next to the existing diff. No model call on render. No approval write.
+- [x] **Step 3: Run the estimate-revision tests.**
 
 ### Task 5: Document text and ClamAV
 
@@ -239,10 +239,10 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Modify: `src/worker/handlers/scan-document.ts`
 - Tests beside those modules
 
-- [ ] **Step 1: Write failing tests.** Markdown with a page break becomes two pages and then the existing chunker. A `toMarkdown` error falls back to pdfjs. `scanner_unconfigured` and `scanner_unsupported` quarantine with `retry: false`. A scanner failure still retries. The INSTREAM client writes the length-prefixed chunks and parses `OK` / `FOUND` through an injected socket.
-- [ ] **Step 2: Call `env.AI.toMarkdown` from extraction when the binding exists, then pdfjs.** Record provider `workers-ai-to-markdown` or `pdfjs`.
-- [ ] **Step 3: Connect with `cloudflare:sockets`.** If the import or the connect fails, return `scanner_unsupported` and leave the file quarantined. Missing host returns `scanner_unconfigured`.
-- [ ] **Step 4: Run the extraction and scanner tests.**
+- [x] **Step 1: Write failing tests.** Markdown with a page break becomes two pages and then the existing chunker. A `toMarkdown` error falls back to pdfjs. `scanner_unconfigured` and `scanner_unsupported` quarantine with `retry: false`. A scanner failure still retries. The INSTREAM client writes the length-prefixed chunks and parses `OK` / `FOUND` through an injected socket.
+- [x] **Step 2: Call `env.AI.toMarkdown` from extraction when the binding exists, then pdfjs.** Record provider `workers-ai-to-markdown` or `pdfjs`.
+- [x] **Step 3: Connect with `cloudflare:sockets`.** If the import or the connect fails, return `scanner_unsupported` and leave the file quarantined. Missing host returns `scanner_unconfigured`.
+- [x] **Step 4: Run the extraction and scanner tests.**
 
 ### Task 6: Schedules
 
@@ -258,7 +258,7 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 - Modify: `src/lib/ops/background-jobs.test.ts`
 - Modify: `package.json` (remove `pg-boss` and the `worker` script)
 
-- [ ] **Step 1: Write failing tests.** Cron map:
+- [x] **Step 1: Write failing tests.** Cron map:
 
 | UTC cron | America/Toronto intent | Work |
 |---|---|---|
@@ -269,11 +269,11 @@ If these are unset, `document.scan` quarantines the file with `scanner_unconfigu
 | `30 21 * * *` | about 17:30 EDT | daily-autopilot fan-out |
 
 A fan-out of two active jobs emits two `ops.daily-autopilot` messages and does not include a send, price, or approve flag. Morning brief text comes from `buildMorningBrief`. Stale rows come from `listOperationsExceptions`. A proposal's status is `proposed`.
-- [ ] **Step 2: Implement the pure planner and the queue handlers.** The scheduled export enqueues the plan on `JOBS`. Without the binding it runs the same handlers inside the request context. Child messages draft one record. The handler stores the proposal on a `background_jobs` row of kind `ops.proposal` when D1 is available, and does nothing else. It never calls the field-note, reschedule, or mail commands.
-- [ ] **Step 3: Heartbeat.** The minute cron calls the existing heartbeat handler, which also `touchWorkerHeartbeat`. Raise `WORKER_HEARTBEAT_MAX_AGE_MS` from 60s to 180s so a one-minute cron still counts as healthy. Update the stale-heartbeat test.
-- [ ] **Step 4: Remove pg-boss.** Delete `src/worker/index.ts`. Remove the `worker` script and the `pg-boss` dependency. Point the worker-process tests at the cron plan instead of `startWorker`.
-- [ ] **Step 5: Show the proposals on Home** as a review list with links. The list has no approve or send button.
-- [ ] **Step 6: Run the schedule tests and `scripts/cloudflare-deploy.test.ts`.**
+- [x] **Step 2: Implement the pure planner and the queue handlers.** The scheduled export enqueues the plan on `JOBS`. Without the binding it runs the same handlers inside the request context. Child messages draft one record. The handler stores the proposal on a `background_jobs` row of kind `ops.proposal` when D1 is available, and does nothing else. It never calls the field-note, reschedule, or mail commands.
+- [x] **Step 3: Heartbeat.** The minute cron calls the existing heartbeat handler, which also `touchWorkerHeartbeat`. Raise `WORKER_HEARTBEAT_MAX_AGE_MS` from 60s to 180s so a one-minute cron still counts as healthy. Update the stale-heartbeat test.
+- [x] **Step 4: Remove pg-boss.** Delete `src/worker/index.ts`. Remove the `worker` script and the `pg-boss` dependency. Point the worker-process tests at the cron plan instead of `startWorker`.
+- [x] **Step 5: Show the proposals on Home** as a review list with links. The list has no approve or send button.
+- [x] **Step 6: Run the schedule tests and `scripts/cloudflare-deploy.test.ts`.**
 
 ### Task 7: Turnstile
 
@@ -288,10 +288,10 @@ A fan-out of two active jobs emits two `ops.daily-autopilot` messages and does n
 - Modify: `src/app/(marketing)/contact/page.tsx`
 - Modify: `.env.example`, `README.md`
 
-- [ ] **Step 1: Write failing tests.** No secret → verification is skipped and `createLead` still succeeds. A secret and a failing Siteverify → `{ ok: false, error: "spam" }` so the public route stays on the existing error set. The widget URL is the official `challenges.cloudflare.com` script. No site key → the component renders nothing.
-- [ ] **Step 2: Verify on the server** with `POST https://challenges.cloudflare.com/turnstile/v0/siteverify`. Pass the token from the raw JSON body. The parsed lead schema does not need a new field.
-- [ ] **Step 3: Render the widget** on the estimate survey submit step and on a general-inquiry form on `/contact` that posts `intakeType: "general"` to `/api/leads`.
-- [ ] **Step 4: Run the lead and turnstile tests.**
+- [x] **Step 1: Write failing tests.** No secret → verification is skipped and `createLead` still succeeds. A secret and a failing Siteverify → `{ ok: false, error: "spam" }` so the public route stays on the existing error set. The widget URL is the official `challenges.cloudflare.com` script. No site key → the component renders nothing.
+- [x] **Step 2: Verify on the server** with `POST https://challenges.cloudflare.com/turnstile/v0/siteverify`. Pass the token from the raw JSON body. The parsed lead schema does not need a new field.
+- [x] **Step 3: Render the widget** on the estimate survey submit step and on a general-inquiry form on `/contact` that posts `intakeType: "general"` to `/api/leads`.
+- [x] **Step 4: Run the lead and turnstile tests.**
 
 ### Task 8: Docs and verification
 
@@ -299,8 +299,8 @@ A fan-out of two active jobs emits two `ops.daily-autopilot` messages and does n
 - Modify: `README.md`, `.env.example`, `docs/CHANGELOG.md`
 - Modify: `docs/strongfoam-crm-erp-prd.md` (AI-017 status, decision log, version) after the screen exists
 
-- [ ] **Step 1: Document** `AI_USAGE`, the crons, `AI_GATEWAY_SMALL_MODEL`, `AI_GATEWAY_FALLBACK_MODEL`, Turnstile keys, and the ClamAV quarantine behavior. Remove the instruction to run `npm run worker` as the production worker.
-- [ ] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.** Fix regressions from this work.
+- [x] **Step 1: Document** `AI_USAGE`, the crons, `AI_GATEWAY_SMALL_MODEL`, `AI_GATEWAY_FALLBACK_MODEL`, Turnstile keys, and the ClamAV quarantine behavior. Remove the instruction to run `npm run worker` as the production worker.
+- [x] **Step 2: Run `npx tsc --noEmit`, `npm run lint`, and `npm test`.** Fix regressions from this work.
 
 ## Rollout
 

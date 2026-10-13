@@ -1,11 +1,17 @@
+import { createUnavailableScanner } from "@/lib/ops/document-scanner";
 import { processBidDocument } from "@/lib/ops/store";
 import { createClamAvScanner } from "@/worker/clamav";
 import type { WorkerJob } from "@/worker/registry";
 
+const SCANNER_UNCONFIGURED =
+  "scanner_unconfigured: CLAMAV_HOST and CLAMAV_PORT are not set. The file stays quarantined.";
+
 async function scannerForWorker() {
   const host = process.env.CLAMAV_HOST?.trim();
   const port = Number(process.env.CLAMAV_PORT);
-  if (!host || !Number.isInteger(port) || port <= 0) return null;
+  if (!host || !Number.isInteger(port) || port <= 0) {
+    return createUnavailableScanner(SCANNER_UNCONFIGURED);
+  }
   return createClamAvScanner({ host, port });
 }
 

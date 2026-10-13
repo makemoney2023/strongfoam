@@ -15,6 +15,18 @@ function ChangeList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+export function EstimateRevisionExplanation({ text }: { text: string }) {
+  return (
+    <section className="space-y-2" aria-label="Revision explanation">
+      <h3 className="text-sm font-medium">What changed</h3>
+      <p className="text-sm">{text}</p>
+      <p className="text-xs text-muted-foreground">
+        This explanation does not approve the version.
+      </p>
+    </section>
+  );
+}
+
 export function EstimateVersionDiff({
   fromVersion,
   toVersion,

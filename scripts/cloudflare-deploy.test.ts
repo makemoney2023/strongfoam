@@ -74,7 +74,12 @@ describe("Cloudflare Worker deploy config", () => {
     expect(config.durable_objects).toEqual({
       bindings: [{ name: "STRONGFOAM_AGENT", class_name: "StrongfoamAgent" }],
     });
-    expect(config.triggers).toEqual({ crons: ["15 9 * * *"] });
+    expect(config.triggers).toEqual({
+      crons: ["* * * * *", "15 9 * * *", "0 10 * * *", "0 11 * * *", "30 21 * * *"],
+    });
+    expect(config.analytics_engine_datasets).toEqual([
+      { binding: "AI_USAGE", dataset: "ai_usage" },
+    ]);
     expect(config.vars).toMatchObject({
       AI_GATEWAY_ID: "strongfoam",
       AI_GATEWAY_ACCOUNT_ID: ACCOUNT_ID,

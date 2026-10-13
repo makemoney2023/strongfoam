@@ -61,6 +61,21 @@ describe("document malware scan", () => {
     });
   });
 
+  it("quarantines an unconfigured scanner without retrying", () => {
+    expect(
+      applyScanOutcome({
+        status: "failed",
+        message: "scanner_unconfigured: CLAMAV_HOST and CLAMAV_PORT are not set. The file stays quarantined.",
+      }),
+    ).toMatchObject({ status: "quarantined", retry: false, enqueueExtraction: false });
+    expect(
+      applyScanOutcome({ status: "failed", message: "scanner_unsupported: no TCP" }),
+    ).toMatchObject({ retry: false });
+    expect(
+      applyScanOutcome({ status: "failed", message: "The malware scanner timed out." }),
+    ).toMatchObject({ retry: true, enqueueExtraction: false });
+  });
+
   it("does not enqueue extraction for an infected file", () => {
     expect(
       applyScanOutcome(

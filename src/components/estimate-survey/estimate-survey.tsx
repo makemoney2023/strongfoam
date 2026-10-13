@@ -23,6 +23,7 @@ import {
   type SurveyAnswers,
   type SurveyFlowState,
 } from "@/components/estimate-survey/survey-flow";
+import { TurnstileField, readTurnstileToken } from "@/components/marketing/turnstile-field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -152,7 +153,10 @@ export function EstimateSurvey() {
   async function submit() {
     setError(null);
     setBusy(true);
-    const payload = surveyPayload(flow, { startedAt, draftId });
+    const payload = {
+      ...surveyPayload(flow, { startedAt, draftId }),
+      turnstileToken: readTurnstileToken(),
+    };
 
     try {
       const response = await fetch("/api/leads", {
@@ -491,6 +495,8 @@ export function EstimateSurvey() {
               </div>
             </>
           ) : null}
+
+          {step === "contact" || step === "message" ? <TurnstileField /> : null}
 
           {attempted && view.error ? (
             <p id="survey-error" className="text-sm text-[color:var(--sf-red)]">

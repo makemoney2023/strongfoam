@@ -164,8 +164,12 @@ OPS_DEMO
 DEEPGRAM_API_KEY
 AI_GATEWAY_API_KEY
 AI_GATEWAY_MODEL
+AI_GATEWAY_SMALL_MODEL
+AI_GATEWAY_FALLBACK_MODEL
 AI_DOCUMENT_MODEL
 AI_COMMERCIAL_MODEL
+TURNSTILE_SECRET_KEY
+NEXT_PUBLIC_TURNSTILE_SITE_KEY
 CLAMAV_HOST
 CLAMAV_PORT
 COMMERCIAL_ESTIMATES_ENABLED
@@ -188,14 +192,22 @@ WORKER_ID
 
 The Worker reads and writes CRM and job records through the D1 binding `DB`.
 `DATABASE_URL`, `WORKER_DATABASE_URL`, and `DIRECT_URL` are not used by that
-Worker. `npm run worker` remains the local pg-boss process and is not the
-Cloudflare queue consumer.
+Worker. Background work is the `JOBS` queue consumer in `cloudflare-worker.ts`.
+There is no pg-boss process.
 
-`npm run worker` starts the Render background process. It claims pg-boss work,
-records a heartbeat, and stops cleanly on SIGTERM. It does not serve the Next.js
-app. Every 15 seconds it stores a completed `worker-heartbeat` row for the
-Strong Foam organization. Commercial AI stays disabled until that heartbeat is
-newer than 60 seconds.
+Cron triggers, in UTC:
+
+- `* * * * *` records `worker-heartbeat`
+- `15 9 * * *` retains import batches
+- `0 10 * * *` fans out morning-brief drafts (about 06:00 EDT)
+- `0 11 * * *` fans out the stale-record digest (about 07:00 EDT)
+- `30 21 * * *` fans out daily-report drafts (about 17:30 EDT)
+
+Those drafts are proposals. They do not send mail, set a price, or approve.
+Commercial AI stays disabled until the heartbeat is newer than 3 minutes.
+The Analytics Engine binding `AI_USAGE` writes dataset `ai_usage`. Set
+`AI_GATEWAY_FALLBACK_MODEL=off` to stop the second model attempt. Leave
+Turnstile keys unset to skip the widget and Siteverify.
 
 ## Commercial bid workflow
 
@@ -227,7 +239,7 @@ Commercial AI stays off unless all of these are true:
 - `AI_DOCUMENT_MODEL` names the residency-approved extraction model
 - `AI_GATEWAY_API_KEY` and `AI_COMMERCIAL_MODEL` (or `AI_GATEWAY_MODEL`) are set
 - `COMMERCIAL_AI_MONTHLY_COST_LIMIT_CENTS` and `COMMERCIAL_AI_RATE_LIMIT_PER_HOUR` are positive integers
-- the Render worker heartbeat for that organization is healthy
+- the Worker heartbeat for that organization is newer than 3 minutes
 
 Apply `migrations/0005_quality_records.sql` before using deficiency and
 rework records, `migrations/0004_closeout_packet.sql` before using the
@@ -240,10 +252,11 @@ performance, through `0031_labor_entries.sql` before using labor, through
 `0030_dispatches.sql` before using day dispatch, and
 through `0029_change_orders.sql` before using change orders,
 and through `0025_commercial_ai.sql` before enabling the commercial flags.
-Run the worker as a Render background service with `npm run worker`. Bid files
-stay in private Blob storage and remain quarantined until the scanner marks
-them clean. A failed scan, extraction, proposal draft, or conversion publication
-appears on Home for that organization only.
+Bid files stay in the R2 bucket and remain quarantined until a reachable
+ClamAV host marks them clean. If `CLAMAV_HOST` is unset, or the Worker cannot
+open TCP, the file stays quarantined and extraction is not queued. A failed
+scan, extraction, proposal draft, or conversion publication appears on Home
+for that organization only. Workers AI `toMarkdown` is tried before pdfjs.
 
 Change orders live on the project. Office staff can draft, edit, submit, and void
 them. An administrator approves or rejects a submitted order; the comment, actor,

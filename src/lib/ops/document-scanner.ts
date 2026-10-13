@@ -33,6 +33,14 @@ async function readChunks(input: AsyncIterable<Uint8Array>): Promise<Uint8Array>
   return bytes;
 }
 
+export function createUnavailableScanner(message: string): MalwareScanner {
+  return {
+    async scan() {
+      return { status: "failed", message };
+    },
+  };
+}
+
 export function createDemoMalwareScanner(): MalwareScanner {
   return {
     async scan(input) {
@@ -100,11 +108,14 @@ export function applyScanOutcome(
     };
   }
   if (result.status === "failed") {
+    const terminal =
+      result.message.startsWith("scanner_unconfigured") ||
+      result.message.startsWith("scanner_unsupported");
     return {
       status: "quarantined",
       sha256: null,
       enqueueExtraction: false,
-      retry: true,
+      retry: !terminal,
       reason: result.message,
     };
   }

@@ -1,6 +1,14 @@
+import type { AiUsageDataset } from "@/lib/cloudflare/ai-usage";
 import type { AgentNamespace } from "@/lib/cloudflare/agent-session";
+import type { WorkersAi } from "@/lib/cloudflare/gateway";
 import type { ObjectBucket } from "@/lib/cloudflare/objects";
 import type { RateLimitDb } from "@/lib/cloudflare/rate-limit";
+
+export type MarkdownConversion = {
+  toMarkdown?: (files: Array<{ name: string; blob: Blob }>) => Promise<
+    Array<{ data?: string; error?: string }>
+  >;
+};
 
 export type JobQueueBinding = {
   send(message: { kind: string; data?: Record<string, unknown> }): Promise<void>;
@@ -22,6 +30,8 @@ export type CloudflareBindings = {
   EMAIL?: EmailBinding;
   EMAIL_FROM?: string;
   STRONGFOAM_AGENT?: AgentNamespace;
+  AI?: WorkersAi & MarkdownConversion;
+  AI_USAGE?: AiUsageDataset;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_MODEL?: string;
   AI_GATEWAY_ACCOUNT_ID?: string;
