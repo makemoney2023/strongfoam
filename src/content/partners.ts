@@ -80,6 +80,7 @@ function ownerApprovedPartner(
 
 const SUP = "SFI Supplier Logo.docx";
 const CLI = "SFI Client Logo's";
+const CLI_DOC = "Client Logo-Website.docx";
 
 export const partnerRecords: readonly PartnerRecord[] = [
   ownerApprovedPartner("genyk", "Genyk", "supplier", `${CLI}/Genyk Logo.png`),
@@ -109,7 +110,12 @@ export const partnerRecords: readonly PartnerRecord[] = [
   ownerApprovedPartner("auburn-developments", "Auburn Developments", "client-contractor", `${CLI}/Unknown-2.png`),
   ownerApprovedPartner("drewlo", "Drewlo", "client-contractor", `${CLI}/Unknown-3.jpeg`),
   ownerApprovedPartner("devlan-construction", "Devlan Construction", "client-contractor", `${CLI}/Unknown-4.jpeg`),
-  ownerApprovedPartner("hayman-construction", "Hayman Construction", "client-contractor", `${CLI}/Unknown-4.png`),
+  heldPartner(
+    "partner-hayman-construction",
+    "Hayman Construction",
+    "client-contractor",
+    "Identified from the owner-supplied mark (Unknown-4.png), but the source is 97×221px and illegible at logo-strip size; hold until a full-resolution file is supplied.",
+  ),
   ownerApprovedPartner("d-grant-construction", "D. Grant Construction", "client-contractor", `${CLI}/Unknown-5.jpeg`),
   ownerApprovedPartner("zehr", "Zehr", "client-contractor", `${CLI}/Unknown-5.png`),
   ownerApprovedPartner("tonda", "Tonda Construction", "client-contractor", `${CLI}/Unknown-6.jpeg`),
@@ -117,6 +123,10 @@ export const partnerRecords: readonly PartnerRecord[] = [
   ownerApprovedPartner("sierra-construction", "Sierra Construction Group", "client-contractor", `${CLI}/Unknown-7.png`),
   ownerApprovedPartner("bronnenco-construction", "Bronnenco Construction", "client-contractor", `${CLI}/Unknown-8.png`),
   ownerApprovedPartner("csl", "CSL", "client-contractor", `${CLI}/Unknown.png`),
+  ownerApprovedPartner("perlane-construction", "Perlane Construction", "client-contractor", `${CLI_DOC}#image11.png`),
+  ownerApprovedPartner("reid-deleye", "Reid & Deleye Contractors", "client-contractor", `${CLI_DOC}#image13.png`),
+  ownerApprovedPartner("remo-general-contracting", "Remo General Contracting", "client-contractor", `${CLI_DOC}#image16.jpg`),
+  ownerApprovedPartner("vicano-construction", "Vicano Construction", "client-contractor", `${CLI_DOC}#image7.png`),
 ] as const;
 
 assertMarketingClaimsSafe(partnerRecords, "typed partner review records");

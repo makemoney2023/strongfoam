@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PhoneIcon } from "lucide-react";
-import { PartnerGrid } from "@/components/marketing/partner-grid";
+import { PartnerMarquee } from "@/components/marketing/partner-marquee";
 import { ResponsivePicture } from "@/components/marketing/responsive-picture";
 import { brandLockups } from "@/content/page-media";
 import type { MarketingPageModel } from "@/components/marketing/marketing-page-model";
@@ -605,10 +605,15 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
             Third-party marks appear only after identity, current relationship,
             official artwork, and publication permission are confirmed.
           </p>
-          <PartnerGrid
-            partners={model.partners}
-            emptyMessage="Partner approvals are in progress; no held marks are published."
-          />
+        </div>
+        <PartnerMarquee
+          partners={model.partners}
+          emptyMessage="Partner approvals are in progress; no held marks are published."
+        />
+        <div className="page-rail">
+          <a className="projects-note" href="/partners">
+            See every partner →
+          </a>
         </div>
       </section>
 
