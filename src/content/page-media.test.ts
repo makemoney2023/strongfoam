@@ -5,6 +5,7 @@ import manifest from "../../assets/source-media-manifest.json";
 import {
   aboutImages,
   brandLockups,
+  heroMedia,
   ownerMediaApproval,
   pageMediaPlan,
   processImage,
@@ -24,6 +25,7 @@ const all = [
   processImage,
   ...Object.values(railImages),
   ...aboutImages,
+  ...Object.values(heroMedia),
   ...Object.values(serviceMedia).flatMap((m) => [...(m?.images ?? []), ...(m?.videos ?? [])]),
 ];
 
@@ -63,6 +65,7 @@ describe("page media", () => {
       processImage,
       ...Object.values(railImages),
       ...aboutImages,
+  ...Object.values(heroMedia),
       ...Object.values(serviceMedia).flatMap((m) => [...(m?.images ?? []), ...(m?.videos ?? [])]),
     ]
       // A rail panel may tease its own service page with a still from that

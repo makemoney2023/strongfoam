@@ -1,6 +1,6 @@
 // Generates web derivatives for approved (publish) page media from the
 // external SFI WEBSITE source folder. Source masters are never copied.
-// Usage: node scripts/build-page-media.mjs --source "/path/to/SFI WEBSITE"
+// Usage: node scripts/build-page-media.mjs --source "/path/to/SFI WEBSITE" [--plan-only] [--only=<id-prefix>]
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -104,7 +104,9 @@ async function buildLogos(sourceRoot) {
 /** Owner-approved site media plan (assets/page-media.json). */
 async function buildPlan(sourceRoot) {
   const plan = JSON.parse(await readFile(join(root, "assets/page-media.json"), "utf8"));
+  const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7);
   for (const item of plan.items) {
+    if (only && !item.id.startsWith(only)) continue;
     // `source` is the manifest keeper; `downloadedAs` names an identical copy.
     const input = join(sourceRoot, item.downloadedAs ?? item.source);
     const base = join(root, "assets", item.out);
@@ -129,7 +131,7 @@ async function buildPlan(sourceRoot) {
 }
 
 async function run(sourceRoot) {
-  await buildLogos(sourceRoot);
+  if (!process.argv.some((a) => a.startsWith("--only="))) await buildLogos(sourceRoot);
   if (process.argv.includes("--logos-only")) return;
   await buildPlan(sourceRoot);
   if (process.argv.includes("--plan-only")) return;

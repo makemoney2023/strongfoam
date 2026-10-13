@@ -10,7 +10,7 @@ import { CtaBand } from "@/components/marketing/cta-band";
 import { InteriorHero } from "@/components/marketing/interior-hero";
 import type { ServiceContent } from "@/content/services";
 import { ServiceMediaGallery } from "@/components/marketing/service-media";
-import { brandLockups, serviceMedia } from "@/content/page-media";
+import { brandLockups, heroMedia, serviceMedia } from "@/content/page-media";
 
 export function ServiceMarketingPage({
   service,
@@ -30,6 +30,7 @@ export function ServiceMarketingPage({
         eyebrow="Services"
         title={service.title}
         description={service.summary}
+        media={heroMedia[service.slug]}
       />
       {service.endorsement ? (
         <div className="page-rail service-lockup">

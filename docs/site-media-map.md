@@ -35,3 +35,19 @@ Partner logos: trimmed, white plate knocked out to transparency, equal visual
 area on a 320×120 canvas (WebP + PNG). They render grayscale and switch to full
 colour on hover/focus (`.partner-logos--colour` forces colour). Demilec is held
 because no logo file was supplied.
+
+## Interior page heroes (`assets/heroes/`, synced to `/media/heroes`)
+
+| Page | Type | Source |
+|---|---|---|
+| /services | video loop (12 s) | `IMG_9575.mov` 0:08 (spraying exposed roof framing) |
+| /services/spray-foam-insulation | video loop (12 s) | `IMG_9574.mov` 0:04 (spraying a wood-framed room) |
+| /services/fire-protection | photo | `IMG_0572.jpeg` (exposed steel joists/deck) |
+| /services/air-vapour-barriers | photo | `IMG_8002.jpeg` (lift crew at green/blue barrier) |
+| /services/spf-roofing | photo | `IMG_00000012.jpg` (flat commercial roof deck) |
+| /projects | photo | `DSC_5919 (1).jpeg` (completed mid-rise + wrapped building) |
+| /partners | photo | `IMG_9428 2.jpeg` (Strong Foam site banner) |
+| /about | photo | `IMG_9001.jpeg` (Strong Foam truck at commercial site) |
+| /locations | photo | `IMG_00000013.jpg` (aerial over the region) |
+| /contact | photo | `IMG_9558.jpeg` (truck on residential jobsite) |
+| /request-estimate | photo | `IMG_7853.jpeg` (applicator on lift, blue barrier) |
