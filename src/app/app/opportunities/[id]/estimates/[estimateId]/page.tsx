@@ -6,7 +6,8 @@ import { EstimateConversionPreview } from "@/components/ops/estimate-conversion-
 import { ProposalPanel } from "@/components/ops/proposal-panel";
 import { EstimateEditor } from "@/components/ops/estimate-editor";
 import { EstimateJobPackages } from "@/components/ops/estimate-job-packages";
-import { EstimateVersionDiff } from "@/components/ops/estimate-version-diff";
+import { EstimateRevisionExplanation, EstimateVersionDiff } from "@/components/ops/estimate-version-diff";
+import { explainEstimateRevision } from "@/lib/ops/estimate-revision";
 import { PageHeader } from "@/components/ops/page-header";
 import { RecentVisit } from "@/components/ops/recent-visit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,6 +96,19 @@ export default async function EstimateWorkspacePage({
   });
   const previous = graphs.find((graph) => graph.versionNumber === selected.versionNumber - 1);
   const approvalDiff = previous ? compareEstimateVersions(previous, selected) : null;
+  const explained =
+    diff && compared
+      ? { diff, fromVersion: selected.versionNumber, toVersion: compared.versionNumber }
+      : approvalDiff && previous
+        ? { diff: approvalDiff, fromVersion: previous.versionNumber, toVersion: selected.versionNumber }
+        : null;
+  const revisionExplanation = explained
+    ? explainEstimateRevision({
+        ...explained,
+        ruleName: approval.rule.name,
+        secondApproverTotalCents: approval.rule.secondApproverTotalCents,
+      })
+    : null;
   const canApprove = resolveCommercialAccess(session, "estimate.approve").ok;
   const canDeliver = resolveCommercialAccess(session, "proposal.deliver").ok;
   const proposalRows = await listProposals(estimate.id);
@@ -228,6 +242,9 @@ export default async function EstimateWorkspacePage({
               toVersion={compared.versionNumber}
               diff={diff}
             />
+          ) : null}
+          {revisionExplanation ? (
+            <EstimateRevisionExplanation text={revisionExplanation.text} />
           ) : null}
         </CardContent>
       </Card>

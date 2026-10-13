@@ -128,7 +128,8 @@ describe("commercial flags", () => {
   });
 
   it("rejects a stale worker heartbeat", () => {
-    expect(isWorkerHeartbeatHealthy(new Date(NOW.getTime() - 61_000), NOW)).toBe(false);
+    expect(isWorkerHeartbeatHealthy(new Date(NOW.getTime() - 181_000), NOW)).toBe(false);
+    expect(isWorkerHeartbeatHealthy(new Date(NOW.getTime() - 60_000), NOW)).toBe(true);
     expect(isWorkerHeartbeatHealthy(NOW, NOW)).toBe(true);
   });
 });

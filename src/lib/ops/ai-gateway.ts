@@ -1,11 +1,15 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import {
   cloudflareChatCompletionsUrl,
   compatModelName,
+  completeThroughGateway,
   gatewayHeaders,
   readModelContent,
   type ChatMessage,
+  type GatewayPolicy,
 } from "@/lib/cloudflare/gateway";
+import { gatewayMetadata, modelForTask } from "@/lib/cloudflare/model-routing";
 import { namedAgent, type AgentNamespace } from "@/lib/cloudflare/agent-session";
 import { getPlatform } from "@/lib/cloudflare/platform";
 import {
@@ -202,6 +206,25 @@ export async function requestJobAi(args: {
   if (!model) return { status: "disabled" };
 
   const messages = jobMessages(args.purpose, args.pack);
+  const route = modelForTask(args.purpose, env);
+  const policy: GatewayPolicy = {
+    metadata: gatewayMetadata({
+      org: args.organizationId,
+      purpose: args.purpose,
+      record: args.pack.job.id,
+    }),
+    cache: route.cache
+      ? {
+          key: createHash("sha256").update(JSON.stringify(args.pack)).digest("hex"),
+          ttlSeconds: 3600,
+        }
+      : { skip: true },
+    timeoutMs: route.timeoutMs,
+    maxAttempts: route.maxAttempts,
+    retryDelayMs: route.retryDelayMs,
+    backoff: route.backoff,
+    fallbackModel: route.fallbackModel,
+  };
   try {
     const namespace =
       args.agentNamespace ??
@@ -214,13 +237,26 @@ export async function requestJobAi(args: {
         model,
         messages,
         json: true,
+        organizationId: args.organizationId,
+        policy,
       });
       return parseJobDraft(content, args.pack, args.purpose, "cloudflare-agent", model);
+    }
+    if (!model.startsWith("@cf/")) {
+      const content = await completeThroughGateway({
+        env,
+        model,
+        messages,
+        json: true,
+        fetchImpl: args.fetchImpl,
+        policy,
+      });
+      return parseJobDraft(content, args.pack, args.purpose, "cloudflare-ai-gateway", model);
     }
     const fetchImpl = args.fetchImpl ?? fetch;
     const response = await fetchImpl(cloudflareChatCompletionsUrl(env), {
       method: "POST",
-      headers: gatewayHeaders(env),
+      headers: gatewayHeaders(env, policy),
       body: JSON.stringify({
         model: compatModelName(model),
         response_format: { type: "json_object" },

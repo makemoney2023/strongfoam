@@ -31,7 +31,7 @@ export const COMMERCIAL_WORKFLOW_TESTS = [
   "conversion",
 ] as const;
 
-export const WORKER_HEARTBEAT_MAX_AGE_MS = 60_000;
+export const WORKER_HEARTBEAT_MAX_AGE_MS = 180_000;
 
 const FLAG_ON = new Set(["1", "true", "yes", "on"]);
 const FLAG_OFF = new Set(["0", "false", "no", "off"]);

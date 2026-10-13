@@ -16,7 +16,9 @@ import {
   bidDocumentProgress,
   chunkPageText,
   correctExtractedPage,
+  extractDocumentPages,
   extractEmbeddedPdfPages,
+  pagesFromMarkdown,
   extractPagesWithCheckpoint,
   hashChunkText,
   resolvePageText,
@@ -268,6 +270,28 @@ describe("bid document extraction", () => {
       versionId: recorded?.versionId ?? "",
     });
     expect(retried).toEqual({ ok: true, progress: "Failed" });
+  });
+
+  it("splits markdown on page breaks and falls back when toMarkdown fails", async () => {
+    const pages = pagesFromMarkdown("Sheet A-101 wall\fSheet A-201 roof");
+    expect(pages.map((page) => page.sheetLabel)).toEqual(["A-101", "A-201"]);
+    const bytes = await textPdf("Sheet A-301 podium");
+    const failed = await extractDocumentPages(bytes, {
+      toMarkdown: async () => {
+        throw new Error("converter down");
+      },
+    });
+    expect(failed.ok).toBe(true);
+    if (!failed.ok) return;
+    expect(failed.provider).toBe("pdfjs");
+    expect(failed.pages[0]?.text).toContain("A-301");
+    const converted = await extractDocumentPages(bytes, {
+      toMarkdown: async () => [{ data: "Sheet B-100 spec" }],
+    });
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) return;
+    expect(converted.provider).toBe("workers-ai-to-markdown");
+    expect(converted.pages[0]?.sheetLabel).toBe("B-100");
   });
 
   it("names the visible extraction states", () => {

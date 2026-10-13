@@ -2,6 +2,13 @@
 
 ## 2026-10-13
 
+- **What changed** — Model calls through AI Gateway now carry metadata, a timeout, retries, an optional cache key, and a fallback model chosen by task. Usage is written to Analytics Engine. A golden-set harness runs offline. Cron fans out daily-report, morning-brief, and stale-sweep proposals. Bid extraction tries Workers AI `toMarkdown`. ClamAV fails closed on Workers. The pg-boss process is gone. Turnstile protects `/request-estimate` and `/contact` when keys exist. Estimate versions explain what changed (AI-017).
+- **Why** — Drafts were one model with no per-call policy, schedules did not run, and the public forms had no bot check.
+- **Code touchpoints** — `src/lib/cloudflare/gateway.ts`, `src/lib/cloudflare/model-routing.ts`, `src/lib/ops/automation-schedule.ts`, `src/lib/ops/estimate-revision.ts`, `src/lib/leads/turnstile.ts`, `cloudflare-worker.ts`, `wrangler.jsonc`.
+- **Data-flow impact** — Scheduled output is an `ops.proposal` row. It does not send, price, or approve. An unconfigured scanner quarantines the file.
+- **API / schema impact** — No migration. New Worker binding `AI_USAGE`, crons, and optional Turnstile secrets.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed (two existing unused-variable warnings). `npm test` passed: 156 files, 852 tests, 1 skipped. The media-audit CLI test passes `--experimental-strip-types` so Node 22.14 can load the TypeScript claims module before the binary check.
+
 - **What changed** — Recorded the owner's blanket approval for the Drive media, reassigned photos and video loops so every homepage panel, service page, /projects, and /about gets distinct media, published 29 owner-approved partner logos with a consistent monochrome treatment, and removed the dark plate from the Strong Fire lockup. See `docs/site-media-map.md`.
 - **Why** — The owner approved all supplied media and partner marks and found the reused images repetitive.
 

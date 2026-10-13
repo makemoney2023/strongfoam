@@ -1,53 +1,108 @@
-import net from "node:net";
 import {
   parseClamAvResponse,
   type MalwareScanner,
   type ScanResult,
 } from "@/lib/ops/document-scanner";
 
+type WorkersSocket = {
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
+  close: () => void;
+};
+
+export type ClamSocket = {
+  write(chunk: Uint8Array): Promise<void>;
+  read(): Promise<Uint8Array | null>;
+  close(): void;
+};
+
+function concat(parts: Uint8Array[]): Uint8Array {
+  const length = parts.reduce((sum, part) => sum + part.length, 0);
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) {
+    bytes.set(part, offset);
+    offset += part.length;
+  }
+  return bytes;
+}
+
+export async function scanInstream(
+  socket: ClamSocket,
+  input: AsyncIterable<Uint8Array>,
+): Promise<ScanResult> {
+  const encoder = new TextEncoder();
+  try {
+    await socket.write(encoder.encode("zINSTREAM\0"));
+    for await (const chunk of input) {
+      if (chunk.length === 0) continue;
+      const header = new Uint8Array(4);
+      new DataView(header.buffer).setUint32(0, chunk.length);
+      await socket.write(header);
+      await socket.write(chunk);
+    }
+    await socket.write(new Uint8Array(4));
+    const parts: Uint8Array[] = [];
+    for (;;) {
+      const chunk = await socket.read();
+      if (!chunk || chunk.length === 0) break;
+      parts.push(chunk);
+      const text = new TextDecoder().decode(concat(parts));
+      if (text.includes("\n") || text.includes("OK") || text.includes("FOUND")) break;
+    }
+    return parseClamAvResponse(new TextDecoder().decode(concat(parts)));
+  } finally {
+    socket.close();
+  }
+}
+
+async function openSocket(host: string, port: number): Promise<ClamSocket> {
+  try {
+    const load = new Function(
+      "specifier",
+      "return import(specifier)",
+    ) as (specifier: string) => Promise<{
+      connect(address: { hostname: string; port: number }): WorkersSocket;
+    }>;
+    const sockets = await load("cloudflare:sockets");
+    const socket = sockets.connect({ hostname: host, port });
+    const writer = socket.writable.getWriter();
+    const reader = socket.readable.getReader();
+    return {
+      async write(chunk) {
+        await writer.write(chunk);
+      },
+      async read() {
+        const next = await reader.read();
+        return next.done ? null : next.value;
+      },
+      close() {
+        socket.close();
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`scanner_unsupported: ${message}`);
+  }
+}
+
 export function createClamAvScanner(options: {
   host: string;
   port: number;
+  connect?: () => Promise<ClamSocket>;
 }): MalwareScanner {
   return {
-    scan(input) {
-      return new Promise((resolve, reject) => {
-        const socket = net.connect({ host: options.host, port: options.port });
-        const response: Buffer[] = [];
-        let settled = false;
-        const finish = (result: ScanResult | Error) => {
-          if (settled) return;
-          settled = true;
-          socket.destroy();
-          if (result instanceof Error) reject(result);
-          else resolve(result);
-        };
-        socket.setTimeout(30_000, () => {
-          finish(new Error("The malware scanner timed out."));
-        });
-        socket.on("error", (error) => finish(error));
-        socket.on("data", (chunk) => response.push(chunk));
-        socket.on("connect", () => {
-          socket.write("zINSTREAM\0");
-          void (async () => {
-            try {
-              for await (const chunk of input) {
-                if (chunk.length === 0) continue;
-                const header = Buffer.alloc(4);
-                header.writeUInt32BE(chunk.length, 0);
-                socket.write(header);
-                socket.write(chunk);
-              }
-              socket.write(Buffer.alloc(4));
-            } catch (error) {
-              finish(error instanceof Error ? error : new Error(String(error)));
-            }
-          })();
-        });
-        socket.on("end", () => {
-          finish(parseClamAvResponse(Buffer.concat(response).toString("utf8")));
-        });
-      });
+    async scan(input) {
+      try {
+        const socket = options.connect ? await options.connect() : await openSocket(options.host, options.port);
+        return await scanInstream(socket, input);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.startsWith("scanner_unsupported")) {
+          return { status: "failed", message };
+        }
+        return { status: "failed", message: message || "The malware scanner failed." };
+      }
     },
   };
 }

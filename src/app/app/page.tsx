@@ -29,6 +29,7 @@ import {
   countOperationsExceptions,
   listOperationsExceptions,
 } from "@/lib/ops/ai-exceptions";
+import { listAutomationProposals } from "@/lib/ops/automation-store";
 import { workingDayLabel } from "@/lib/ops/ai-evidence";
 import { listUnapprovedChangeOrders } from "@/lib/ops/change-order-store";
 import { resolveCommercialAccess } from "@/lib/ops/commercial-authorization";
@@ -269,6 +270,9 @@ export default async function OpsHomePage() {
     changeOrders: unapprovedChangeOrders,
   };
   const operationsExceptions = listOperationsExceptions(exceptionInput);
+  const automationProposals = await listAutomationProposals(
+    organizationIdForOpsSession(session),
+  );
   const exceptionTotal = countOperationsExceptions(exceptionInput);
   const projectOptions = projects
     .filter((project) => project.status !== "closed")
@@ -425,6 +429,34 @@ export default async function OpsHomePage() {
                 >
                   <span>{exception.label}</span>
                   <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="automation-proposals-heading" className="space-y-3">
+        <div>
+          <h2 id="automation-proposals-heading" className="text-lg font-semibold">
+            Automation drafts
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Scheduled drafts stay here until someone reviews them. Nothing in this list is sent, priced, or approved.
+          </p>
+        </div>
+        {automationProposals.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No automation drafts.</p>
+        ) : (
+          <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/10">
+            {automationProposals.map((proposal) => (
+              <li key={`${proposal.kind}-${proposal.recordId}-${proposal.workingDay}`}>
+                <Link
+                  href={proposal.href}
+                  className="flex flex-col gap-1 px-4 py-3 text-sm hover:bg-muted/40"
+                >
+                  <span className="font-medium">{proposal.title}</span>
+                  <span className="text-muted-foreground">{proposal.body}</span>
                 </Link>
               </li>
             ))}

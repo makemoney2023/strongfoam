@@ -1,5 +1,5 @@
 import { getAgentByName } from "agents/routing";
-import type { ChatMessage } from "@/lib/cloudflare/gateway";
+import type { ChatMessage, GatewayPolicy } from "@/lib/cloudflare/gateway";
 import { isUuid } from "@/lib/ops/job-workspace";
 
 export type AgentRecordKind = "job" | "opportunity" | "estimate" | "project";
@@ -34,6 +34,8 @@ export type AgentDraftInput = {
   model: string;
   messages: ChatMessage[];
   json?: boolean;
+  organizationId?: string;
+  policy?: GatewayPolicy;
 };
 
 export type AgentDraftStub = {

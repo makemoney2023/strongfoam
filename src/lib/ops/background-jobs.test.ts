@@ -13,7 +13,6 @@ import {
   type DbTransaction,
 } from "@/lib/ops/background-jobs";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
-import { startWorker } from "@/worker";
 
 const fixedNow = new Date("2026-09-22T12:00:00.000Z");
 
@@ -114,46 +113,6 @@ describe("background job transitions", () => {
     exhausted = retryJob(exhausted, fixedNow);
     expect(exhausted.status).toBe("dead_letter");
     expect(effects).toEqual([3]);
-  });
-});
-
-describe("worker process", () => {
-  it("registers handlers and stops without claiming more work", async () => {
-    const registered: string[] = [];
-    let stopped = false;
-    const worker = await startWorker({
-      start: async () => undefined,
-      stop: async () => {
-        stopped = true;
-      },
-      createQueue: async (name) => {
-        registered.push(name);
-      },
-      work: async (name) => {
-        registered.push(`work:${name}`);
-        return "worker";
-      },
-    });
-    await worker.stop();
-    await worker.stop();
-    expect(stopped).toBe(true);
-    expect(registered).toContain("worker-heartbeat");
-    expect(registered).toContain("work:worker-heartbeat");
-  });
-
-  it("schedules daily import retention after the queue exists", async () => {
-    const scheduled: string[] = [];
-    const worker = await startWorker({
-      start: async () => undefined,
-      stop: async () => undefined,
-      createQueue: async () => undefined,
-      work: async () => "worker",
-      schedule: async (name, cron) => {
-        scheduled.push(`${name} ${cron}`);
-      },
-    });
-    await worker.stop();
-    expect(scheduled).toEqual(["data-import.retain 15 9 * * *"]);
   });
 });
 

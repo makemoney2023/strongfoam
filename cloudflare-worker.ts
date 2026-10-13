@@ -2,6 +2,7 @@ import handler, { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.
 import { runWithCloudflareRequestContext } from "./.open-next/cloudflare/init.js";
 import { StrongfoamAgent } from "./src/lib/cloudflare/agent";
 import { dispatchJobBatch, type JobMessage } from "./src/lib/cloudflare/jobs";
+import { schedulePlan } from "./src/lib/ops/automation-schedule";
 import type { WorkerHandler } from "./src/worker/registry";
 
 type QueueMessage = {
@@ -27,15 +28,25 @@ export default {
       async () => dispatchJobBatch(batch.messages, await handlers()),
     );
   },
-  async scheduled(_controller: unknown, env: unknown, ctx: unknown) {
+  async scheduled(controller: { cron?: string }, env: unknown, ctx: unknown) {
     await runWithCloudflareRequestContext(
       new Request(`${BACKGROUND_REQUEST_URL}scheduled`),
       env,
       ctx,
       async () => {
-        const retain = (await handlers())["data-import.retain"];
-        if (!retain) throw new Error("data-import.retain is not registered.");
-        await retain({ id: "data-import.retain", data: {} });
+        const plan = schedulePlan(controller?.cron ?? "");
+        const registry = await handlers();
+        const queue = (env as { JOBS?: { send(message: { kind: string; data?: Record<string, unknown> }): Promise<void> } } | null)
+          ?.JOBS;
+        for (const message of plan) {
+          if (queue?.send) {
+            await queue.send(message);
+            continue;
+          }
+          const handler = registry[message.kind];
+          if (!handler) throw new Error(`${message.kind} is not registered.`);
+          await handler({ id: message.kind, data: message.data });
+        }
       },
     );
   },

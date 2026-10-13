@@ -248,6 +248,7 @@ describe("audit-sfi-media inventory", () => {
         exec(
           process.execPath,
           [
+            "--experimental-strip-types",
             cli,
             "inventory",
             "--source",

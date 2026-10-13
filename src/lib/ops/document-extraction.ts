@@ -153,6 +153,61 @@ export async function resolvePageText(args: {
   };
 }
 
+export function pagesFromMarkdown(markdown: string): ExtractedPageText[] {
+  const trimmed = markdown.trim();
+  if (!trimmed) return [];
+  const parts = trimmed
+    .split(/\f|\n---\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.map((text, index) => ({
+    pageNumber: index + 1,
+    text,
+    sheetLabel: detectSheetLabel(text),
+  }));
+}
+
+function ownedPdfBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+export async function extractDocumentPages(
+  bytes: Uint8Array,
+  options?: {
+    filename?: string;
+    toMarkdown?: (files: Array<{ name: string; blob: Blob }>) => Promise<
+      Array<{ data?: string; error?: string }>
+    >;
+  },
+): Promise<
+  | { ok: true; pages: ExtractedPageText[]; provider: "workers-ai-to-markdown" | "pdfjs" }
+  | { ok: false; error: "encrypted_or_corrupt" }
+> {
+  const owned = ownedPdfBytes(bytes);
+  if (options?.toMarkdown) {
+    try {
+      const converted = await options.toMarkdown([
+        {
+          name: options.filename?.trim() || "document.pdf",
+          blob: new Blob([owned], { type: "application/pdf" }),
+        },
+      ]);
+      const data = converted[0]?.data?.trim();
+      if (data && !converted[0]?.error) {
+        const pages = pagesFromMarkdown(data);
+        if (pages.length > 0) return { ok: true, pages, provider: "workers-ai-to-markdown" };
+      }
+    } catch (error) {
+      console.error("Workers AI toMarkdown failed.", error);
+    }
+  }
+  const embedded = await extractEmbeddedPdfPages(owned);
+  if (!embedded.ok) return embedded;
+  return { ok: true, pages: embedded.pages, provider: "pdfjs" };
+}
+
 export async function extractEmbeddedPdfPages(
   bytes: Uint8Array,
 ): Promise<
@@ -162,7 +217,7 @@ export async function extractEmbeddedPdfPages(
     const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as PdfjsModule;
     const fonts = path.join(process.cwd(), "node_modules/pdfjs-dist/standard_fonts/");
     const document = await pdfjs.getDocument({
-      data: bytes,
+      data: ownedPdfBytes(bytes),
       disableWorker: true,
       isEvalSupported: false,
       standardFontDataUrl: pathToFileURL(fonts).href,
