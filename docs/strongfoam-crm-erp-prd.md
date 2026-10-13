@@ -51,16 +51,25 @@ user-facing requirements.
 
 ## 3. Current state
 
-The existing application is a Next.js marketing site with a public estimate
-survey. It currently provides:
+The application is a Next.js 16 staff workspace and marketing site, deployed
+as the Cloudflare Worker `strongfoam` through OpenNext. It currently provides:
 
-- A multi-step estimate-request form.
+- A multi-step estimate-request form at `/request-estimate`, and a public
+  contact page at `/contact`.
 - Deterministic lead qualification.
-- Lead persistence in Neon PostgreSQL through Drizzle ORM.
-- Private file uploads through Vercel Blob.
-- Estimating and customer notifications through Resend.
+- Lead and operations persistence in Cloudflare D1 through Drizzle ORM. The
+  Worker does not read Neon or any other Postgres URL.
+- Private file uploads in the R2 bucket `strongfoam` (`FILES`). Vercel Blob
+  is not the production file store.
+- Estimating and visitor notifications through the Worker `EMAIL` binding.
+  Resend is not the production mailer.
 - Qualified-lead booking through Calendly.
-- Automated tests for the lead intake domain.
+- Background work on the `strongfoam-jobs` queue. The Worker cron retains
+  import batches. A pg-boss process is not the production worker.
+- Model drafts through Workers AI and AI Gateway `strongfoam`, entered by
+  `StrongfoamAgent`. A person confirms before a business row changes.
+- Automated tests for lead intake, operations, and the Cloudflare worker
+  config.
 
 The survey creates **estimate requests**, not priced estimates. Staff can now
 sign in to a session-gated review workspace, search and update requests, add
@@ -116,8 +125,10 @@ by trade, in bags, square feet, hours, or each. A retired item stays in the
 book. Estimate versions, proposals, change orders, and commercial approval
 rules are stored. Assemblies and scope templates are not. AI-016 and AI-018
 store drafts. AI-017, AI-019, AI-022, AI-024, AI-025, and AI-026 are not built.
-Production runs on the Cloudflare Worker `strongfoam`, with D1 as the database
-and R2 as private file storage. Storage in the United States is acceptable.
+Production runs on the Cloudflare Worker `strongfoam`. D1 is the database,
+R2 is private file storage, Queues run background jobs, and Workers AI calls
+go through AI Gateway `strongfoam`. Storage in the United States is
+acceptable.
 A governed spreadsheet
 Import Center is now specified for customers, workforce, price book,
 opportunities, projects, jobs, assignments, work areas, and tasks. The full
