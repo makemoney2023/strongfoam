@@ -7,13 +7,24 @@ import { MEDIA_FOLDERS, syncPublicMedia } from "./sync-public-media.mjs";
 describe("syncPublicMedia", () => {
   it("lists the folders Next serves under /media", () => {
     expect(MEDIA_FOLDERS).toEqual([
+      "about",
       "animated",
       "backgrounds",
       "brand",
+      "home",
       "partners",
       "projects",
       "services",
     ]);
+  });
+
+  it("syncs every folder the page media plan writes to", async () => {
+    const plan = JSON.parse(
+      await readFile(join(process.cwd(), "assets/page-media.json"), "utf8"),
+    ) as { items: { out: string }[] };
+    for (const item of plan.items) {
+      expect(MEDIA_FOLDERS).toContain(item.out.split("/")[0]);
+    }
   });
 
   it("replaces a self-referential symlink with a real copied directory", async () => {

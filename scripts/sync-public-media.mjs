@@ -3,9 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const MEDIA_FOLDERS = [
+  "about",
   "animated",
   "backgrounds",
   "brand",
+  "home",
   "partners",
   "projects",
   "services",
