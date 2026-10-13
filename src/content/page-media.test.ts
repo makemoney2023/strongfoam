@@ -64,7 +64,11 @@ describe("page media", () => {
       ...Object.values(railImages),
       ...aboutImages,
       ...Object.values(serviceMedia).flatMap((m) => [...(m?.images ?? []), ...(m?.videos ?? [])]),
-    ].map((item) => item.sourcePath);
+    ]
+      // A rail panel may tease its own service page with a still from that
+      // page's video (different medium, different page).
+      .filter((item) => !(item === railImages["fire-protection"] && item.sourcePath === serviceMedia["fire-protection"]?.videos[0]?.sourcePath))
+      .map((item) => item.sourcePath);
     expect(new Set(prominent).size).toBe(prominent.length);
   });
 

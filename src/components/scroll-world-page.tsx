@@ -206,7 +206,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
       if (servicesTrack && shouldPinServicesRail(window.innerWidth)) {
         const distance = () =>
           getServicesPinDistance(servicesTrack.scrollWidth, window.innerWidth);
-        gsap.to(servicesTrack, {
+        const railTween = gsap.to(servicesTrack, {
           x: () => -distance(),
           ease: "none",
           scrollTrigger: {
@@ -215,6 +215,37 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
             end: () => `+=${distance()}`,
           },
         });
+
+        // Rail imagery: wipe-in reveal, then slow zoom + counter-pan while
+        // the panel crosses the viewport. Transforms only, all scrubbed to
+        // the horizontal tween so motion tracks the reader's scroll.
+        servicesTrack
+          .querySelectorAll<HTMLElement>(".service-panel")
+          .forEach((panel) => {
+            const mask = panel.querySelector("[data-rail-mask]");
+            const unmask = panel.querySelector("[data-rail-unmask]");
+            const img = panel.querySelector(".service-panel__img");
+            if (!mask || !unmask || !img) return;
+            const across = {
+              trigger: panel,
+              containerAnimation: railTween,
+              start: "left right",
+              end: "right left",
+              scrub: 0.6,
+            };
+            gsap
+              .timeline({
+                scrollTrigger: { ...across, end: "left 45%" },
+                defaults: { ease: "power2.out" },
+              })
+              .fromTo(mask, { xPercent: 100 }, { xPercent: 0 }, 0)
+              .fromTo(unmask, { xPercent: -100 }, { xPercent: 0 }, 0);
+            gsap.fromTo(
+              img,
+              { scale: 1.22, xPercent: -6 },
+              { scale: 1.08, xPercent: 6, ease: "none", scrollTrigger: across },
+            );
+          });
       }
 
       gsap.from("[data-process-image]", {
@@ -440,11 +471,15 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
                 )}
               >
                 <div className="service-panel__media" aria-hidden="true">
-                  <ResponsivePicture
-                    image={service.image}
-                    sizes="(max-width: 900px) 80vw, 32vw"
-                    className="service-panel__img"
-                  />
+                  <div data-rail-mask className="service-panel__mask">
+                    <div data-rail-unmask className="service-panel__mask">
+                      <ResponsivePicture
+                        image={service.image}
+                        sizes="(max-width: 900px) 80vw, 32vw"
+                        className="service-panel__img"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <span>0{index + 1}</span>
                 <h3>{service.label}</h3>

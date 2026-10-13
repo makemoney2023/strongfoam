@@ -11,9 +11,9 @@ appearing in more than one prominent placement.
 |---|---|---|
 | Home hero | video loop | `IMG_9677.mov` |
 | Home capability rail: spray foam | photo | `IMG_8207.jpeg` (vaulted roof foam) |
-| Home rail: fire protection | photo | `IMG_0578.jpeg` (lift under steel deck) |
+| Home rail: fire protection | photo | `IMG_3400.m4v` still @17.5s, cropped (applicator spraying fire protection overhead from scaffold) |
 | Home rail: air-vapour barriers | photo | `IMG_7257.jpeg` (green-wrapped mid-rise) |
-| Home rail: SPF roofing | photo | `63af8c77-….jpeg` (roof with foam rig) |
+| Home rail: SPF roofing | photo | `roofing1.jpg` (foam being sprayed across a flat roof deck) |
 | Home rail close | Strong Fire lockup (on dark) | `Strong Fire 2.pdf` |
 | Home process | photo | `IMG_9741.jpeg` (spraying wall cavity) |
 | Home sectors | video loop | `IMG_3398.m4v` |
@@ -23,7 +23,7 @@ appearing in more than one prominent placement.
 | /services/spray-foam-insulation | 3 photos + 3 videos | `IMG_9636`, `IMG_9678`, `B36EA202-….jpeg`; `IMG_9576.mov`, `2688129a-….mp4`, `71ccc8f7-….mp4` |
 | /services/air-vapour-barriers | 5 photos + 1 video | `IMG_7996 2`, `IMG_7881`, `IMG_9642`, `IMG_7998`, `DSC_5946`; `IMG_9647.mov` |
 | /services/fire-protection | lockup + 1 photo + 1 video | `Strong Fire 2.pdf`; `IMG_0574.jpeg`; `IMG_3400.m4v` |
-| /services/spf-roofing | 2 photos | `roofing1.jpg`, `IMG_00000011.jpg` |
+| /services/spf-roofing | 2 photos | `63af8c77-….jpeg`, `IMG_00000011.jpg` |
 | /about | 4 photos | `IMG_8998`, `BDF25049-… 2.jpeg`, `SFI1004.jpeg`, `IMG_9697.jpeg` |
 | Header / footer / close | Strong Foam vector logo | `Logo - Strong Foam Insulation.pdf` |
 
