@@ -13,6 +13,14 @@ import type { TaskStatus } from "@/lib/ops/collaboration";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { decideFieldDraft, isFieldDraftKind } from "@/lib/ops/field-drafts";
+import {
+  listFieldDrafts,
+  readFieldLanguage,
+  saveFieldDraft,
+  saveFieldLanguage,
+  updateFieldDraft,
+} from "@/lib/ops/field-draft-store";
 import {
   hasAllowedJobDocumentSignature,
   listJobUploadFiles,
@@ -478,6 +486,7 @@ export async function addFieldVoiceNote(
     contentType: inferVoiceContentType(file),
     sizeBytes: file.size,
     durationSeconds: String(formData.get("durationSeconds") ?? ""),
+    language: String(formData.get("language") ?? (await readFieldLanguage(session.userId))),
     consent: String(formData.get("consent") ?? ""),
   });
   if (!parsed.ok) return invalidFrom(parsed);
@@ -557,30 +566,92 @@ export async function extractFieldVoiceNote(
     selectedText: String(formData.get("selectedText") ?? ""),
   });
   if (!parsed.ok) return invalidFrom(parsed);
-  const result = await extractJobVoiceNote({
-    jobId,
-    voiceNoteId,
-    actor: session.email,
-    kind: parsed.value.kind,
-    selectedText: parsed.value.selectedText,
-  });
-  if (!result.ok) return fail(returnTo, result.error);
-  if (parsed.value.kind === "blocker") {
-    await updateJobStatus({
-      jobId,
-      actor: session.email,
-      status: "blocked",
-      blockerNote: parsed.value.selectedText,
-    });
+  if (!isFieldDraftKind(parsed.value.kind)) {
+    return fail(returnTo, "Choose a record type.");
   }
+  const draft = await saveFieldDraft({
+    organizationId: session.organizationId,
+    jobId,
+    userId: session.userId,
+    kind: parsed.value.kind,
+    body: parsed.value.selectedText,
+    quote: parsed.value.selectedText,
+    quantity: null,
+    unit: null,
+    workAreaId: null,
+    taskId: null,
+    documentId: null,
+    voiceNoteId,
+    effect: null,
+    source: "voice",
+  });
+  if (!draft) return fail(returnTo, "That draft could not be saved.");
+  const job = await getJob(jobId);
+  refreshField(jobId, job?.projectId);
+  return succeed(returnTo, "Draft saved. Confirm it before it is written.");
+}
+
+export async function confirmFieldDraft(formData: FormData): Promise<ActionState> {
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
+  const jobId = String(formData.get("jobId") ?? "");
+  const draftId = String(formData.get("draftId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const returnTo = safeReturnTo(
+    String(formData.get("returnTo") ?? ""),
+    `/field/jobs/${jobId}`,
+  );
+  if (!(await canFieldUserAccessJob(session.userId, jobId))) {
+    return fail("/field", "You do not have access to that job.");
+  }
+  if (decision !== "confirm" && decision !== "dismiss") {
+    return fail(returnTo, "Choose confirm or dismiss.");
+  }
+  const draft = (await listFieldDrafts(session.organizationId, jobId)).find(
+    (item) => item.id === draftId && item.userId === session.userId,
+  );
+  if (!draft) return fail(returnTo, "That draft is no longer available.");
+  const next = decideFieldDraft(draft, decision);
+  if (!next) return fail(returnTo, "That draft was already reviewed.");
+  if (decision === "confirm" && draft.voiceNoteId) {
+    const voiceKinds = ["task", "blocker", "deficiency", "material_request", "daily_report"] as const;
+    if ((voiceKinds as readonly string[]).includes(draft.kind)) {
+      const result = await extractJobVoiceNote({
+        jobId,
+        voiceNoteId: draft.voiceNoteId,
+        actor: session.email,
+        kind: draft.kind as (typeof voiceKinds)[number],
+        selectedText: draft.quote || draft.body,
+      });
+      if (!result.ok) return fail(returnTo, result.error);
+    }
+    if (draft.kind === "blocker") {
+      await updateJobStatus({
+        jobId,
+        actor: session.email,
+        status: "blocked",
+        blockerNote: draft.body,
+      });
+    }
+  }
+  await updateFieldDraft(next);
   const job = await getJob(jobId);
   refreshField(jobId, job?.projectId);
   return succeed(
     returnTo,
-    result.created === "task"
-      ? "Task created from the transcript."
-      : "Field entry created from the transcript.",
+    decision === "confirm" ? "Draft confirmed." : "Draft dismissed.",
   );
+}
+
+export async function saveFieldLanguageAction(formData: FormData): Promise<void> {
+  const session = await getFieldSession();
+  if (!session) redirect("/field/login");
+  await saveFieldLanguage({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    language: String(formData.get("language") ?? ""),
+  });
+  redirect("/field");
 }
 
 export async function removeFieldVoiceNote(

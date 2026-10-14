@@ -529,32 +529,7 @@ export function JobPlanBoard({
                 <input type="hidden" name="jobId" value={jobId} />
                 <input type="hidden" name="annotationId" value={selected.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
-                <div className="space-y-2">
-                  <Label htmlFor="field-status">What changed?</Label>
-                  <NativeSelect
-                    id="field-status"
-                    name="status"
-                    defaultValue="completed"
-                  >
-                    <option value="completed">Complete</option>
-                    <option value="in_progress">In progress</option>
-                    <option value="blocked">Blocked</option>
-                    <option value="deficiency">Deficiency</option>
-                    <option value="planned">Not started</option>
-                  </NativeSelect>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-note">Optional note</Label>
-                  <Textarea
-                    id="field-note"
-                    name="body"
-                    rows={3}
-                    placeholder="Photo taken, quantity, or why it is blocked."
-                  />
-                </div>
-                <SubmitButton className="min-h-11 w-full" pendingLabel="Saving…">
-                  Update mark
-                </SubmitButton>
+                <PlanMarkStatus />
               </ActionForm>
             ) : mode === "field" && statusAction ? (
               <p className="text-sm text-muted-foreground">
@@ -793,6 +768,45 @@ function MarkShape({
       stroke="#fff"
       strokeWidth={0.006}
     />
+  );
+}
+
+function PlanMarkStatus() {
+  const [markStatus, setMarkStatus] = useState("completed");
+  return (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="field-status">What changed?</Label>
+        <NativeSelect
+          id="field-status"
+          name="status"
+          value={markStatus}
+          onChange={(event) => setMarkStatus(event.target.value)}
+        >
+          <option value="completed">Complete</option>
+          <option value="in_progress">In progress</option>
+          <option value="blocked">Blocked</option>
+          <option value="deficiency">Deficiency</option>
+          <option value="planned">Not started</option>
+        </NativeSelect>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="field-note">Optional note</Label>
+        <Textarea
+          id="field-note"
+          name="body"
+          rows={3}
+          placeholder="Photo taken, quantity, or why it is blocked."
+        />
+      </div>
+      <SubmitButton className="min-h-11 w-full" pendingLabel="Saving…">
+        {markStatus === "blocked"
+          ? "Mark the job blocked"
+          : markStatus === "deficiency"
+            ? "Record a deficiency on this mark"
+            : "Update mark"}
+      </SubmitButton>
+    </>
   );
 }
 

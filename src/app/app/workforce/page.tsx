@@ -137,7 +137,7 @@ export default async function WorkforcePage({
                     <ActionForm action={verifyWorkforceProduction}>
                       <input type="hidden" name="workDate" value={workDate} />
                       <input type="hidden" name="productionId" value={draft.id} />
-                      <SubmitButton pendingLabel="Verifying…" className="min-h-11">Verify</SubmitButton>
+                      <SubmitButton pendingLabel="Verifying…" className="min-h-11">Verify this production. It counts on the worker&apos;s record.</SubmitButton>
                     </ActionForm>
                     <ActionForm action={voidWorkforceProduction}>
                       <input type="hidden" name="workDate" value={workDate} />
