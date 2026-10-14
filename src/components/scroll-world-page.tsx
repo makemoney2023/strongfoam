@@ -459,7 +459,7 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
               <p className="section-kicker">Capabilities</p>
               <h2>Four service paths.<br />One field mindset.</h2>
               <p>
-                Insulation, fire protection, air barriers, and roofing, delivered by one Ontario crew.
+                Insulation, fire protection, air barriers, waterproofing, and firestopping, delivered by one Ontario crew.
               </p>
             </div>
             {model.serviceLinks.map((service, index) => (

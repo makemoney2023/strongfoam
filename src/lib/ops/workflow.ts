@@ -46,6 +46,8 @@ export const SERVICE_LABELS: Record<string, string> = {
   fireproofing: "Fireproofing",
   intumescent: "Intumescent",
   avb: "AVB",
+  waterproofing: "Waterproofing",
+  firestopping: "Firestopping",
   "spf-roofing": "SPF roofing",
 };
 

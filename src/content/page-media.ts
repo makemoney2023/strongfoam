@@ -155,10 +155,15 @@ export const serviceMedia: Partial<Record<ServiceRouteSlug, ServiceMedia>> = {
     images: [planImage("fire-steel-deck")],
     videos: [planVideo("sf-fireproofing-overhead")],
   },
-  "spf-roofing": {
+  waterproofing: {
     images: [
-      planImage("roof-spray"),
-      planImage("roof-deck"),
+      planImage("svc-waterproof-foundation"),
+    ],
+    videos: [],
+  },
+  firestopping: {
+    images: [
+      planImage("svc-firestop-multiple"),
     ],
     videos: [],
   },
@@ -169,7 +174,8 @@ export const railImages: Record<ServiceRouteSlug, ResponsiveImage> = {
   "spray-foam-insulation": planImage("rail-spray-foam"),
   "fire-protection": planImage("rail-fire-protection"),
   "air-vapour-barriers": planImage("rail-air-vapour"),
-  "spf-roofing": planImage("rail-spf-roofing"),
+  waterproofing: planImage("rail-waterproofing"),
+  firestopping: planImage("rail-firestopping"),
 };
 
 /** One page-topic hero per interior page (image or 12 s muted loop). */
@@ -178,7 +184,8 @@ export const heroMedia = {
   "spray-foam-insulation": planVideo("hero-spray-foam"),
   "fire-protection": planImage("hero-fire-protection"),
   "air-vapour-barriers": planImage("hero-air-vapour"),
-  "spf-roofing": planImage("hero-spf-roofing"),
+  waterproofing: planImage("hero-waterproofing"),
+  firestopping: planImage("hero-firestopping"),
   projects: planImage("hero-projects"),
   partners: planImage("hero-partners"),
   about: planImage("hero-about"),

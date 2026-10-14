@@ -78,11 +78,18 @@ const scopeMappings: readonly {
       "Specified air and vapour control layers across suitable walls, transitions, and penetrations.",
   },
   {
-    value: "spf-roofing",
-    displaySlug: "spf-roofing",
-    title: "SPF roofing",
+    value: "waterproofing",
+    displaySlug: "waterproofing",
+    title: "Waterproofing",
     overlay:
-      "Roofing foam and protective coating systems for suitable specified new or recover applications.",
+      "Below-grade blindside or open-cut, crystalline, podium and deck waterproofing, or traffic toppings.",
+  },
+  {
+    value: "firestopping",
+    displaySlug: "firestopping",
+    title: "Firestopping",
+    overlay:
+      "Joint, penetration and insulated penetration firestopping, with engineering judgments as required.",
   },
 ];
 

@@ -32,13 +32,14 @@ describe("site content for scroll overlays", () => {
     );
   });
 
-  it("covers all five homepage service anchors", () => {
+  it("covers all six homepage service anchors", () => {
     expect(services.map((s) => s.id)).toEqual([
       "spray-foam",
       "fireproofing",
       "intumescent",
       "avb",
-      "spf-roofing",
+      "waterproofing",
+      "firestopping",
     ]);
     for (const service of services) {
       expect(service.title.length).toBeGreaterThan(3);
@@ -117,7 +118,8 @@ describe("site content for scroll overlays", () => {
       "/services/spray-foam-insulation",
       "/services/fire-protection",
       "/services/air-vapour-barriers",
-      "/services/spf-roofing",
+      "/services/waterproofing",
+      "/services/firestopping",
       "/projects",
       "/partners",
       "/locations",
@@ -134,9 +136,10 @@ describe("site content for scroll overlays", () => {
       "spray-foam-insulation",
       "fire-protection",
       "air-vapour-barriers",
-      "spf-roofing",
+      "waterproofing",
+      "firestopping",
     ]);
-    expect(new Set(serviceSlugs).size).toBe(4);
+    expect(new Set(serviceSlugs).size).toBe(5);
   });
 
   it("exposes approved company story and principle fields", () => {

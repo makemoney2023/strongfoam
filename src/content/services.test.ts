@@ -9,20 +9,21 @@ import { SCOPE_OPTIONS } from "@/content/survey";
 import { SERVICE_IDS } from "@/lib/leads/types";
 
 describe("typed service content", () => {
-  it("defines the four canonical service routes", () => {
+  it("defines the five canonical service routes", () => {
     expect(serviceContent.map((service) => service.slug)).toEqual([
       "spray-foam-insulation",
       "fire-protection",
       "air-vapour-barriers",
-      "spf-roofing",
+      "waterproofing",
+      "firestopping",
     ]);
     expect(serviceContent.map((service) => service.canonicalPath)).toEqual(
       serviceContent.map((service) => `/services/${service.slug}`),
     );
-    expect(new Set(serviceContent.map((service) => service.slug)).size).toBe(4);
+    expect(new Set(serviceContent.map((service) => service.slug)).size).toBe(5);
     expect(
       new Set(serviceContent.map((service) => service.canonicalPath)).size,
-    ).toBe(4);
+    ).toBe(5);
   });
 
   it("keeps display slugs separate from stored lead service IDs", () => {
@@ -36,8 +37,11 @@ describe("typed service content", () => {
     expect(getServiceBySlug("air-vapour-barriers").storedServiceIds).toEqual([
       "avb",
     ]);
-    expect(getServiceBySlug("spf-roofing").storedServiceIds).toEqual([
-      "spf-roofing",
+    expect(getServiceBySlug("waterproofing").storedServiceIds).toEqual([
+      "waterproofing",
+    ]);
+    expect(getServiceBySlug("firestopping").storedServiceIds).toEqual([
+      "firestopping",
     ]);
     for (const service of serviceContent) {
       for (const storedId of service.storedServiceIds) {

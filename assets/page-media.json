@@ -55,19 +55,6 @@
    "height": 1600
   },
   {
-   "id": "rail-spf-roofing",
-   "kind": "image",
-   "source": "SFI- IMAGES/roofing1.jpg",
-   "out": "home/rail-spf-roofing",
-   "widths": [
-    800
-   ],
-   "alt": "Applicator spraying polyurethane foam on a flat roof",
-   "manifestId": "media-b3c77acf9958bd69",
-   "width": 800,
-   "height": 450
-  },
-  {
    "id": "process-spray",
    "kind": "image",
    "source": "SFI- IMAGES/IMG_9741 2.jpeg",
@@ -329,34 +316,6 @@
    "width": 1920
   },
   {
-   "id": "roof-spray",
-   "kind": "image",
-   "source": "SFI- IMAGES/63af8c77-1a27-4c23-8ff9-ad1b0b91df70.jpeg",
-   "out": "services/roof-spray",
-   "widths": [
-    960,
-    1600
-   ],
-   "alt": "Spray polyurethane foam roofing equipment on a commercial roof",
-   "manifestId": "media-2952439d6fcc40a7",
-   "width": 1600,
-   "height": 1200
-  },
-  {
-   "id": "roof-deck",
-   "kind": "image",
-   "source": "SFI- IMAGES/IMG_00000011.jpg",
-   "out": "services/roof-deck",
-   "widths": [
-    960,
-    1600
-   ],
-   "alt": "Commercial roof deck prepared for spray foam roofing",
-   "manifestId": "media-7783ae0970076745",
-   "width": 1600,
-   "height": 1600
-  },
-  {
    "id": "about-truck",
    "kind": "image",
    "source": "SFI- IMAGES/IMG_8998.jpeg",
@@ -465,20 +424,6 @@
    "height": 2560
   },
   {
-   "id": "hero-spf-roofing",
-   "kind": "image",
-   "source": "SFI- IMAGES/IMG_00000012.jpg",
-   "out": "heroes/spf-roofing",
-   "alt": "Flat commercial roof deck with rooftop guardrails",
-   "manifestId": "media-2a0551e0c8f2f086",
-   "widths": [
-    960,
-    1920
-   ],
-   "width": 1920,
-   "height": 1920
-  },
-  {
    "id": "hero-projects",
    "kind": "image",
    "source": "SFI- IMAGES/DSC_5919 (1).jpeg",
@@ -561,6 +506,88 @@
    ],
    "width": 1920,
    "height": 1920
+  },
+  {
+   "id": "svc-waterproof-foundation",
+   "kind": "image",
+   "source": "client-photos-1014/waterproof-1.jpg",
+   "out": "services/waterproof-foundation",
+   "widths": [
+    720,
+    1125
+   ],
+   "alt": "Below-grade waterproofing membrane on a foundation wall with the excavation still open",
+   "manifestId": "media-0e93350110a46171",
+   "width": 1125,
+   "height": 1500
+  },
+  {
+   "id": "svc-firestop-multiple",
+   "kind": "image",
+   "source": "client-photos-1014/firestop-3.jpg",
+   "out": "services/firestop-multiple",
+   "widths": [
+    720,
+    1200
+   ],
+   "alt": "Firestopped pipe penetrations through a concrete floor",
+   "manifestId": "media-164051fbcb9c238f",
+   "width": 1200,
+   "height": 1600
+  },
+  {
+   "id": "hero-waterproofing",
+   "kind": "image",
+   "source": "client-photos-1014/waterproof-2.jpg",
+   "out": "heroes/waterproofing",
+   "widths": [
+    960,
+    1920
+   ],
+   "alt": "Crew installing a below-grade waterproofing membrane and drainage board on a stone foundation wall",
+   "manifestId": "media-fa286e38ce3c35ef",
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "hero-firestopping",
+   "kind": "image",
+   "source": "client-photos-1014/firestop-2.jpg",
+   "out": "heroes/firestopping",
+   "widths": [
+    960,
+    1920
+   ],
+   "alt": "Red firestop sealant at plastic pipe penetrations through a concrete slab",
+   "manifestId": "media-c21d1a9e0990269d",
+   "width": 1920,
+   "height": 2560
+  },
+  {
+   "id": "rail-waterproofing",
+   "kind": "image",
+   "source": "client-photos-1014/waterproof-3.jpg",
+   "out": "home/rail-waterproofing",
+   "widths": [
+    960
+   ],
+   "alt": "Purple below-grade waterproofing membrane being spray-applied along a foundation wall",
+   "manifestId": "media-dd157b8738bb03ed",
+   "width": 960,
+   "height": 720
+  },
+  {
+   "id": "rail-firestopping",
+   "kind": "image",
+   "source": "client-photos-1014/firestop-1.jpg",
+   "out": "home/rail-firestopping",
+   "widths": [
+    960
+   ],
+   "alt": "Red firestop sealant around a pipe penetration through a concrete floor",
+   "manifestId": "media-f4e95e053c0c03a4",
+   "width": 960,
+   "height": 1280
   }
  ]
 }
