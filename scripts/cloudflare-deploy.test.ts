@@ -124,7 +124,7 @@ describe("Cloudflare Worker deploy config", () => {
 
     const worker = readFileSync("cloudflare-worker.ts", "utf8");
     expect(worker).toContain("fetch: handler.fetch");
-    expect(worker).toContain("StrongfoamAgent");
+    expect(worker).toContain("export class StrongfoamAgent extends StrongfoamAgentBase {}");
     expect(worker).toContain("queue(batch");
     expect(worker).toContain("scheduled(");
     expect(worker).toContain("async email(");

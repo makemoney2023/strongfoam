@@ -1,6 +1,6 @@
 import handler, { DOQueueHandler, DOShardedTagCache } from "./.open-next/worker.js";
 import { runWithCloudflareRequestContext } from "./.open-next/cloudflare/init.js";
-import { StrongfoamAgent } from "./src/lib/cloudflare/agent";
+import { StrongfoamAgent as StrongfoamAgentBase } from "./src/lib/cloudflare/agent";
 import { dispatchJobBatch, type JobMessage } from "./src/lib/cloudflare/jobs";
 import { schedulePlan } from "./src/lib/ops/automation-schedule";
 import type { CloudflareBindings } from "./src/lib/cloudflare/platform";
@@ -98,4 +98,7 @@ export default {
   },
 };
 
-export { DOQueueHandler, DOShardedTagCache, StrongfoamAgent, ProposalFollowupWorkflow };
+/** Class export on the Worker entry so Wrangler binds STRONGFOAM_AGENT. */
+export class StrongfoamAgent extends StrongfoamAgentBase {}
+
+export { DOQueueHandler, DOShardedTagCache, ProposalFollowupWorkflow };

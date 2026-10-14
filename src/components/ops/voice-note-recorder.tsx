@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { MicIcon, SquareIcon, UploadIcon } from "lucide-react";
 import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { NativeSelect } from "@/components/ops/native-select";
@@ -42,6 +42,7 @@ export function VoiceNoteRecorder({
   defaultAnnotationId = "",
   defaultDocumentId = "",
   defaultWorkAreaId = "",
+  language = "en",
 }: {
   jobId: string;
   action: (formData: FormData) => Promise<ActionState | void>;
@@ -56,7 +57,9 @@ export function VoiceNoteRecorder({
   defaultAnnotationId?: string;
   defaultDocumentId?: string;
   defaultWorkAreaId?: string;
+  language?: string;
 }) {
+  const consentKey = "strongfoam-field-voice-consent";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -65,6 +68,14 @@ export function VoiceNoteRecorder({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState("");
   const [recordError, setRecordError] = useState<string | null>(null);
+  const consentRemembered = useSyncExternalStore(
+    (onStoreChange) => {
+      window.addEventListener("strongfoam-field-consent", onStoreChange);
+      return () => window.removeEventListener("strongfoam-field-consent", onStoreChange);
+    },
+    () => window.localStorage.getItem(consentKey) === "1",
+    () => false,
+  );
 
   const sources = VOICE_NOTE_SOURCES.filter((source) => {
     if (source === "task") return tasks.length > 0;
@@ -134,6 +145,7 @@ export function VoiceNoteRecorder({
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="durationSeconds" value={durationSeconds} />
+      <input type="hidden" name="language" value={language} />
       <input
         ref={fileInputRef}
         type="file"
@@ -285,16 +297,39 @@ export function VoiceNoteRecorder({
         <FieldError name="file" />
       </div>
 
-      <label className="flex items-start gap-3 text-sm sm:col-span-2">
-        <input
-          type="checkbox"
-          name="consent"
-          value="on"
-          required
-          className="mt-1 size-4"
-        />
-        <span>{consentCopy}</span>
-      </label>
+      {consentRemembered ? (
+        <div className="space-y-2 text-sm sm:col-span-2">
+          <input type="hidden" name="consent" value="on" />
+          <p>Recording consent is saved on this device.</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => {
+              window.localStorage.removeItem(consentKey);
+              window.dispatchEvent(new Event("strongfoam-field-consent"));
+            }}
+          >
+            Forget recording consent
+          </Button>
+        </div>
+      ) : (
+        <label className="flex items-start gap-3 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            name="consent"
+            value="on"
+            required
+            className="mt-1 size-4"
+            onChange={(event) => {
+              if (!event.target.checked) return;
+              window.localStorage.setItem(consentKey, "1");
+              window.dispatchEvent(new Event("strongfoam-field-consent"));
+            }}
+          />
+          <span>{consentCopy}</span>
+        </label>
+      )}
       <FieldError name="consent" />
 
       <div className="sm:col-span-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HardHatIcon, LogOutIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { FieldGloveToggle } from "@/components/field/field-glove";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -25,6 +26,7 @@ export function FieldShell({
             <BrandLogo variant="onLight" priority />
           </Link>
           <div className="ml-auto flex min-w-0 items-center gap-2">
+            <FieldGloveToggle />
             {demo ? <Badge variant="outline">Demo</Badge> : null}
             <span className="hidden truncate text-sm text-muted-foreground sm:block">
               {displayName}

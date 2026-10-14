@@ -32,6 +32,7 @@ export function VoiceNoteCard({
   updateAction,
   extractAction,
   deleteAction,
+  extractLabel = "Create record",
 }: {
   note: JobVoiceNoteRow;
   jobId: string;
@@ -43,6 +44,7 @@ export function VoiceNoteCard({
   updateAction: (formData: FormData) => Promise<ActionState | void>;
   extractAction: (formData: FormData) => Promise<ActionState | void>;
   deleteAction: (formData: FormData) => Promise<ActionState | void>;
+  extractLabel?: string;
 }) {
   const status = note.status as VoiceTranscriptStatus;
   const source = note.source as VoiceNoteSource;
@@ -176,7 +178,7 @@ export function VoiceNoteCard({
             </div>
             <div className="flex items-end">
               <SubmitButton variant="outline" className="min-h-11 w-full">
-                Create record
+                {extractLabel}
               </SubmitButton>
             </div>
           </ActionForm>

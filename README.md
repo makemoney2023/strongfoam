@@ -281,7 +281,11 @@ Field labor is hours or piece work. Piece work is a whole number of bags or
 square feet for one person, job, and date. Hours are a duration up to 24 hours.
 The same person can have both, and saving the same measure again updates it.
 The dispatch board lists the day's labor. The field landing records only the
-signed-in person's labor. No rate or wage is stored. The `labor_entries` table
+signed-in person's labor. When one job is dispatched today, that job and its
+single open task prefill the labor, production, field log, and voice forms.
+Voice extracts wait on a confirm card. A blocker confirm is what marks the job
+blocked. The language control on Field is English, French, or Spanish.
+No rate or wage is stored. The `labor_entries` table
 is created by `migrations/0002_operations.sql`.
 
 A purchase order cites open material requests on one job. Office staff enter a

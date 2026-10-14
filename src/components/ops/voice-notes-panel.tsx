@@ -41,6 +41,8 @@ export function VoiceNotesPanel({
   defaultAnnotationId = "",
   defaultDocumentId = "",
   defaultWorkAreaId = "",
+  language = "en",
+  extractLabel = "Create record",
 }: {
   jobId: string;
   notes: JobVoiceNoteRow[];
@@ -64,6 +66,8 @@ export function VoiceNotesPanel({
   defaultAnnotationId?: string;
   defaultDocumentId?: string;
   defaultWorkAreaId?: string;
+  language?: string;
+  extractLabel?: string;
 }) {
   return (
     <Card id="voice-notes">
@@ -75,8 +79,7 @@ export function VoiceNotesPanel({
           <div>
             <CardTitle>Voice notes</CardTitle>
             <CardDescription>
-              Record on site, review the transcript, then turn selected text
-              into a task or field entry.
+              Record on site. A proposed record waits for one confirm before it is written.
             </CardDescription>
           </div>
         </div>
@@ -96,6 +99,7 @@ export function VoiceNotesPanel({
           defaultAnnotationId={defaultAnnotationId}
           defaultDocumentId={defaultDocumentId}
           defaultWorkAreaId={defaultWorkAreaId}
+          language={language}
         />
         <div className="space-y-3 border-t pt-5">
           <h3 className="text-sm font-semibold">Recordings</h3>
@@ -122,6 +126,7 @@ export function VoiceNotesPanel({
                   updateAction={updateAction}
                   extractAction={extractAction}
                   deleteAction={deleteAction}
+                  extractLabel={extractLabel}
                 />
               ))}
             </ul>

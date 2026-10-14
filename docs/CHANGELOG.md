@@ -1,6 +1,9 @@
-# Changelog
-
-## 2026-10-13
+- **What changed** — The Worker entry exports `StrongfoamAgent` as a class. Field labor, production, the field log, and voice notes prefill from today's single dispatch. Voice records become confirm cards before they are written. A blocker button says it marks the job blocked, and verify says the row counts on the worker's record. The field home stores English, French, or Spanish for transcription. A gloves control enlarges the controls, and recording consent is remembered on the device.
+- **Why** — The crew should confirm a status change instead of having a voice note block the job as soon as it is saved, and today's job should already be selected.
+- **Code touchpoints** — `cloudflare-worker.ts`, `src/lib/ops/field-prefill.ts`, `src/lib/ops/field-drafts.ts`, `src/lib/ops/field-draft-store.ts`, `src/components/field/field-glove.tsx`, `src/app/app/field/page.tsx`.
+- **Data-flow impact** — Field drafts are `background_jobs` rows of kind `field.draft`. Confirming a voice blocker writes the note and then marks the job blocked. Dismiss writes nothing. Language is kind `staff.language`. Nothing is emailed.
+- **API / schema impact** — No migration. Migration tag `v1` still provisions `StrongfoamAgent`. No second sqlite class tag.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 167 files, 898 tests, 1 skipped.
 
 - **What changed** — A recorded proposal delivery starts a Cloudflare Workflow that drafts a follow-up on day 3, 7, and 14 while the proposal is open. Those drafts are not sent. Revoke and a confirmed accepted or lost reply stop the workflow. A reply that matches an open proposal becomes a status-change draft. Home shows a morning digest, and staff who opt in can receive it by email. `/app/automation` confirms or dismisses many drafts without sending them.
 - **Why** — Open proposals need a durable reminder, and the morning list should reach the people who asked for it, without sending customer mail on its own.

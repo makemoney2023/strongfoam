@@ -100,6 +100,11 @@ import { QualityRecordPanel } from "@/components/ops/quality-records";
 import { PurchaseOrdersPanel } from "@/components/ops/purchase-orders";
 import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
+import { fieldPrefill, prefillSaveLabel } from "@/lib/ops/field-prefill";
+import { listFieldDrafts, readFieldLanguage } from "@/lib/ops/field-draft-store";
+import { FieldDraftCards } from "@/components/field/field-draft-cards";
+import { EffectSubmit } from "@/components/field/effect-submit";
+import { confirmFieldDraft } from "@/app/field/actions";
 import { FieldEntryFields } from "../../../jobs/workspace-fields";
 
 export const dynamic = "force-dynamic";
@@ -168,6 +173,24 @@ export default async function FieldJobPage({
   const tasks = hasJobAssignment
     ? allTasks
     : allTasks.filter((task) => task.assigneeUserId === session.userId);
+  const prefill = fieldPrefill({
+    dispatchedJobIds: [job.id],
+    userId: session.userId,
+    jobNames: { [job.id]: job.name },
+    tasks: tasks.map((task) => ({
+      id: task.id,
+      jobId: job.id,
+      assigneeUserId: task.assigneeUserId,
+      status: task.status,
+      statedUnit: task.statedUnit,
+      workAreaId: task.workAreaId,
+      title: task.title,
+    })),
+  });
+  const [fieldDrafts, language] = await Promise.all([
+    listFieldDrafts(session.organizationId, job.id),
+    readFieldLanguage(session.userId),
+  ]);
   const contacts = company
     ? await listContacts(company.id)
     : opportunity?.contactId
@@ -541,19 +564,29 @@ export default async function FieldJobPage({
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          <ActionForm action={addFieldEntry} className="grid gap-4 sm:grid-cols-2">
+          <ActionForm action={addFieldEntry}>
             <input type="hidden" name="jobId" value={job.id} />
             <input type="hidden" name="returnTo" value={returnTo} />
-            <FieldEntryFields idPrefix="fieldEntry" areas={areaOptions} tasks={taskOptions} />
-            <div className="space-y-3 sm:col-span-2">
-              <SubmitButton variant="default" className="min-h-11 w-full" pendingLabel="Saving field entry…">
-                Save field entry
-              </SubmitButton>
-              <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                Reporting a blocker also marks the job blocked for the office.
-              </p>
-            </div>
+            <EffectSubmit
+              watch="kind"
+              fallback={prefillSaveLabel("Save field entry", prefill)}
+              pendingLabel="Saving field entry…"
+            >
+              <FieldEntryFields
+                idPrefix="fieldEntry"
+                areas={areaOptions}
+                tasks={taskOptions}
+                defaults={{
+                  taskId: prefill.taskId,
+                  workAreaId: prefill.workAreaId,
+                  unit: prefill.quantityUnit,
+                }}
+              />
+            </EffectSubmit>
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              A blocker asks you to mark the job blocked. Confirm that on the button before it is saved.
+            </p>
           </ActionForm>
 
           <div className="space-y-3 border-t pt-5">
@@ -642,6 +675,13 @@ export default async function FieldJobPage({
         </CardContent>
       </Card>
 
+      <FieldDraftCards
+        drafts={fieldDrafts.filter((draft) => draft.userId === session.userId)}
+        jobId={job.id}
+        returnTo={returnTo}
+        action={confirmFieldDraft}
+      />
+
       <VoiceNotesPanel
         jobId={job.id}
         notes={voiceNotes}
@@ -665,6 +705,10 @@ export default async function FieldJobPage({
         }))}
         areaName={areaName}
         taskTitle={taskTitle}
+        defaultTaskId={prefill.taskId ?? ""}
+        defaultWorkAreaId={prefill.workAreaId ?? ""}
+        language={language}
+        extractLabel="Propose record"
       />
 
       <Card>

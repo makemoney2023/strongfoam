@@ -31,6 +31,10 @@ import { getOpsNow } from "@/lib/ops/ops-now";
 import { getCompany, getJob, getSite, listJobs, listJobTasks } from "@/lib/ops/store";
 import { formatServices } from "@/lib/ops/workflow";
 import { recordFieldLabor, removeFieldLabor } from "@/app/field/labor-actions";
+import { saveFieldLanguageAction } from "@/app/field/actions";
+import { fieldPrefill, prefillSaveLabel } from "@/lib/ops/field-prefill";
+import { readFieldLanguage } from "@/lib/ops/field-draft-store";
+import { FIELD_LANGUAGE_LABELS, FIELD_LANGUAGES } from "@/lib/ops/field-language";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +79,29 @@ export default async function FieldLandingPage({
     )
     .filter((job, index, list) => list.findIndex((item) => item.id === job.id) === index)
     .sort((left, right) => left.name.localeCompare(right.name));
+  const prefillTasks = (
+    await Promise.all(
+      laborJobs.map(async (job) => {
+        const tasks = await listJobTasks(job.id);
+        return tasks.map((task) => ({
+          id: task.id,
+          jobId: job.id,
+          assigneeUserId: task.assigneeUserId,
+          status: task.status,
+          statedUnit: task.statedUnit,
+          workAreaId: task.workAreaId,
+          title: task.title,
+        }));
+      }),
+    )
+  ).flat();
+  const prefill = fieldPrefill({
+    dispatchedJobIds: dispatchedToday.map((row) => row.job.id),
+    tasks: prefillTasks,
+    userId: session.userId,
+    jobNames: Object.fromEntries(laborJobs.map((job) => [job.id, job.name])),
+  });
+  const language = await readFieldLanguage(session.userId);
   const performanceEnabled = workforcePerformanceEnabled();
   const performance = performanceEnabled
     ? (await loadWorkforceBoard(session.organizationId, workDate)).workers.find(
@@ -111,6 +138,23 @@ export default async function FieldLandingPage({
         title="Field"
         description="Today's dispatch, piece work or hours, and the work still open on active jobs."
       />
+
+      <section aria-labelledby="field-language-heading" className="space-y-3">
+        <h2 id="field-language-heading" className="text-lg font-semibold">Language</h2>
+        <ActionForm action={saveFieldLanguageAction} className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="fieldLanguage">Voice language</Label>
+            <NativeSelect id="fieldLanguage" name="language" defaultValue={language} className="h-11 w-48">
+              {FIELD_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {FIELD_LANGUAGE_LABELS[code]}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <SubmitButton className="min-h-11" pendingLabel="Saving…">Save language</SubmitButton>
+        </ActionForm>
+      </section>
 
       <section aria-labelledby="field-labor-heading" className="space-y-3">
         <div>
@@ -152,7 +196,7 @@ export default async function FieldLandingPage({
               <ActionForm action={recordFieldLabor} className="grid gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fieldLaborJob">Job</Label>
-                  <NativeSelect id="fieldLaborJob" name="jobId" required className="h-11">
+                  <NativeSelect id="fieldLaborJob" name="jobId" required className="h-11" defaultValue={prefill.jobId ?? ""}>
                     <option value="">Choose a job</option>
                     {laborJobs.map((job) => (
                       <option key={job.id} value={job.id}>
@@ -179,7 +223,7 @@ export default async function FieldLandingPage({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="fieldLaborUnit">Unit</Label>
-                    <NativeSelect id="fieldLaborUnit" name="unit" className="h-11">
+                    <NativeSelect id="fieldLaborUnit" name="unit" className="h-11" defaultValue={prefill.laborUnit ?? ""}>
                       <option value="">Choose a unit</option>
                       <option value="bags">Bags</option>
                       <option value="sq_ft">Square feet</option>
@@ -195,7 +239,7 @@ export default async function FieldLandingPage({
                   <Input id="fieldLaborNote" name="note" maxLength={500} className="h-11" />
                 </div>
                 <SubmitButton pendingLabel="Saving…" className="min-h-11">
-                  Save labor
+                  {prefillSaveLabel("Save labor", prefill)}
                 </SubmitButton>
               </ActionForm>
             </CardContent>
@@ -252,7 +296,7 @@ export default async function FieldLandingPage({
                 <ActionForm action={recordFieldProduction} className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="fieldProductionJob">Job</Label>
-                    <NativeSelect id="fieldProductionJob" name="jobId" required className="h-11">
+                    <NativeSelect id="fieldProductionJob" name="jobId" required className="h-11" defaultValue={prefill.jobId ?? ""}>
                       <option value="">Choose a job</option>
                       {laborJobs.map((job) => (
                         <option key={job.id} value={job.id}>
@@ -276,13 +320,13 @@ export default async function FieldLandingPage({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="fieldProductionUnit">Unit</Label>
-                      <NativeSelect id="fieldProductionUnit" name="unit" className="h-11">
+                      <NativeSelect id="fieldProductionUnit" name="unit" className="h-11" defaultValue={prefill.laborUnit ?? "bags"}>
                         <option value="bags">Bags</option>
                         <option value="sq_ft">Square feet</option>
                       </NativeSelect>
                     </div>
                   </div>
-                  <SubmitButton pendingLabel="Saving…" className="min-h-11">Save production</SubmitButton>
+                  <SubmitButton pendingLabel="Saving…" className="min-h-11">{prefillSaveLabel("Save production", prefill)}</SubmitButton>
                 </ActionForm>
               </CardContent>
             </Card>
