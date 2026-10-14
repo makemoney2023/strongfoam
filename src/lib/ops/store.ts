@@ -4580,11 +4580,29 @@ export async function processJobVoiceTranscription(
     if (!bytes) {
       throw new Error("The recording bytes are no longer available.");
     }
+    const { getPlatform } = await import("@/lib/cloudflare/platform");
+    const platform = await getPlatform();
+    const job = await getJob(claimed.jobId);
     const result = await transcribeVoiceAudio({
       bytes,
       filename: claimed.filename,
       contentType: claimed.contentType,
       language: claimed.language,
+      ai: platform?.AI as Parameters<typeof transcribeVoiceAudio>[0]["ai"],
+      env: {
+        ...process.env,
+        AI_GATEWAY_ID: platform?.AI_GATEWAY_ID ?? process.env.AI_GATEWAY_ID,
+        AI_GATEWAY_ACCOUNT_ID:
+          platform?.AI_GATEWAY_ACCOUNT_ID ?? process.env.AI_GATEWAY_ACCOUNT_ID,
+        AI_GATEWAY_API_KEY:
+          (platform as { AI_GATEWAY_API_KEY?: string } | null)?.AI_GATEWAY_API_KEY ??
+          process.env.AI_GATEWAY_API_KEY,
+        DEEPGRAM_API_KEY:
+          (platform as { DEEPGRAM_API_KEY?: string } | null)?.DEEPGRAM_API_KEY ??
+          process.env.DEEPGRAM_API_KEY,
+      },
+      dataset: platform?.AI_USAGE,
+      organizationId: job?.organizationId,
     });
     const now = new Date();
     const completed = (

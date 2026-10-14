@@ -12,7 +12,7 @@ import {
 import type { TaskStatus } from "@/lib/ops/collaboration";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { getFieldSession } from "@/lib/ops/field-auth";
-import { parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { isFieldQuantityUnit, parseFieldNoteInput } from "@/lib/ops/field-workspace";
 import { decideFieldDraft, isFieldDraftKind } from "@/lib/ops/field-drafts";
 import {
   listFieldDrafts,
@@ -608,12 +608,45 @@ export async function confirmFieldDraft(formData: FormData): Promise<ActionState
     return fail(returnTo, "Choose confirm or dismiss.");
   }
   const draft = (await listFieldDrafts(session.organizationId, jobId)).find(
-    (item) => item.id === draftId && item.userId === session.userId,
+    (item) => item.id === draftId,
   );
-  if (!draft) return fail(returnTo, "That draft is no longer available.");
+  const ownsDraft = draft?.userId === session.userId || draft?.userId === session.email;
+  const leadReport =
+    session.role === "field_lead" && draft?.source === "schedule" && draft.kind === "daily_report";
+  if (!draft || (!ownsDraft && !leadReport)) return fail(returnTo, "That draft is no longer available.");
   const next = decideFieldDraft(draft, decision);
   if (!next) return fail(returnTo, "That draft was already reviewed.");
-  if (decision === "confirm" && draft.voiceNoteId) {
+  if (decision === "confirm" && draft.kind === "quantity" && draft.quantity != null) {
+    const unit = draft.unit ?? "";
+    if (!isFieldQuantityUnit(unit)) return fail(returnTo, "That quantity needs a unit.");
+    const note = await addJobFieldNote({
+      jobId,
+      actor: session.email,
+      input: {
+        kind: "quantity",
+        body: draft.body,
+        workAreaId: draft.workAreaId,
+        taskId: draft.taskId,
+        quantity: draft.quantity,
+        unit,
+      },
+    });
+    if (!note) return fail(returnTo, "That quantity could not be saved.");
+  } else if (decision === "confirm" && draft.kind === "daily_report" && !draft.voiceNoteId) {
+    const note = await addJobFieldNote({
+      jobId,
+      actor: session.email,
+      input: {
+        kind: "daily_report",
+        body: draft.body,
+        workAreaId: null,
+        taskId: null,
+        quantity: null,
+        unit: null,
+      },
+    });
+    if (!note) return fail(returnTo, "That daily report could not be saved.");
+  } else if (decision === "confirm" && draft.voiceNoteId) {
     const voiceKinds = ["task", "blocker", "deficiency", "material_request", "daily_report"] as const;
     if ((voiceKinds as readonly string[]).includes(draft.kind)) {
       const result = await extractJobVoiceNote({

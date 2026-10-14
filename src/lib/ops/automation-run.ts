@@ -16,6 +16,8 @@ import {
   recordAutomationProposal,
 } from "@/lib/ops/automation-store";
 import { publishQueuedJob } from "@/lib/cloudflare/platform";
+import { confirmedDailyReport } from "@/lib/ops/field-daily-report";
+import { listFieldDrafts, saveFieldDraft } from "@/lib/ops/field-draft-store";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 
 async function enqueue(message: ScheduledMessage): Promise<boolean> {
@@ -67,6 +69,36 @@ export async function runDailyAutopilot(
     paragraph,
   });
   await storeProposal(proposal);
+  try {
+    const { listJobTasks } = await import("@/lib/ops/store");
+    const tasks = await listJobTasks(jobId);
+    const report = confirmedDailyReport({
+      jobName,
+      workingDay,
+      doneTasks: tasks.filter((task) => task.status === "done").map((task) => task.title),
+      drafts: await listFieldDrafts(organizationId, jobId),
+    });
+    if (report) {
+      await saveFieldDraft({
+        organizationId,
+        jobId,
+        userId: "schedule",
+        kind: "daily_report",
+        body: report,
+        quote: report.slice(0, 500),
+        quantity: null,
+        unit: null,
+        workAreaId: null,
+        taskId: null,
+        documentId: null,
+        voiceNoteId: null,
+        effect: null,
+        source: "schedule",
+      });
+    }
+  } catch (error) {
+    console.error("Confirmed daily report was not stored.", error);
+  }
   return [proposal];
 }
 

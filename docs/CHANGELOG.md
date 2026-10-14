@@ -1,3 +1,14 @@
+# Changelog
+
+## 2026-10-13
+
+- **What changed** — One voice transcript becomes quoted drafts for the daily report, a quantity, a blocker, and a material request. Deepgram Nova-3 is called through AI Gateway `strongfoam`. A failed call can use Workers AI Whisper. The end-of-day autopilot stores a daily report built only from confirmed rows, and the field job page prompts until a foreman confirms it.
+- **Why** — The crew should speak once, and the report should wait for a person before it is a field note.
+- **Code touchpoints** — `src/lib/ops/voice-transcribe.ts`, `src/lib/ops/voice-drafts.ts`, `src/lib/ops/field-daily-report.ts`, `src/lib/ops/automation-run.ts`.
+- **Data-flow impact** — Unquoted model cards are dropped. Confirming a quantity does not verify production. The prompt is on the field job page and does not email anyone.
+- **API / schema impact** — No migration. Transcription logs to `AI_USAGE` with purpose `voice_transcribe` and `voice_draft`.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 169 files, 902 tests, 1 skipped.
+
 - **What changed** — The Worker entry exports `StrongfoamAgent` as a class. Field labor, production, the field log, and voice notes prefill from today's single dispatch. Voice records become confirm cards before they are written. A blocker button says it marks the job blocked, and verify says the row counts on the worker's record. The field home stores English, French, or Spanish for transcription. A gloves control enlarges the controls, and recording consent is remembered on the device.
 - **Why** — The crew should confirm a status change instead of having a voice note block the job as soon as it is saved, and today's job should already be selected.
 - **Code touchpoints** — `cloudflare-worker.ts`, `src/lib/ops/field-prefill.ts`, `src/lib/ops/field-drafts.ts`, `src/lib/ops/field-draft-store.ts`, `src/components/field/field-glove.tsx`, `src/app/app/field/page.tsx`.

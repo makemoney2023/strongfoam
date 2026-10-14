@@ -17,7 +17,7 @@ export function FieldDraftCards({
   const open = drafts.filter((draft) => draft.status === "proposed");
   if (open.length === 0) return null;
   return (
-    <section aria-labelledby="field-drafts-heading" className="space-y-3">
+    <section id="field-drafts" aria-labelledby="field-drafts-heading" className="space-y-3">
       <h2 id="field-drafts-heading" className="text-lg font-semibold">
         Confirm before writing
       </h2>

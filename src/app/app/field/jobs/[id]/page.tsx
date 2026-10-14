@@ -675,8 +675,28 @@ export default async function FieldJobPage({
         </CardContent>
       </Card>
 
+      {fieldDrafts.some(
+        (draft) => draft.kind === "daily_report" && draft.status === "proposed" && draft.source === "schedule",
+      ) ? (
+        <p className="rounded-lg border bg-card p-3 text-sm">
+          The daily report is still a draft.{" "}
+          {session.role === "field_lead" ? (
+            <a href="#field-drafts" className="font-medium underline">
+              Confirm it
+            </a>
+          ) : (
+            "The foreman confirms it."
+          )}
+        </p>
+      ) : null}
+
       <FieldDraftCards
-        drafts={fieldDrafts.filter((draft) => draft.userId === session.userId)}
+        drafts={fieldDrafts.filter(
+          (draft) =>
+            draft.userId === session.userId ||
+            draft.userId === session.email ||
+            (draft.source === "schedule" && session.role === "field_lead"),
+        )}
         jobId={job.id}
         returnTo={returnTo}
         action={confirmFieldDraft}
