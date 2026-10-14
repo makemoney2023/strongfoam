@@ -50,6 +50,17 @@ export function FieldDraftCards({
                     />
                   </label>
                 ) : null}
+                {draft.kind === "labor" ? (
+                  <label className="grid gap-1 text-sm">
+                    Hours today
+                    <input
+                      name="hours"
+                      inputMode="decimal"
+                      required
+                      className="min-h-11 rounded-lg border bg-background px-3 text-sm"
+                    />
+                  </label>
+                ) : null}
                 <SubmitButton className="min-h-11 w-full">Confirm</SubmitButton>
               </ActionForm>
               <ActionForm action={action}>

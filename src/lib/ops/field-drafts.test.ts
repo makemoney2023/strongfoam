@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   VERIFY_PRODUCTION_LABEL,
   buildFieldDraft,
+  captionsForNote,
   decideFieldDraft,
   manualStatusLabel,
   quoteIsGrounded,
@@ -47,5 +48,36 @@ describe("field drafts", () => {
     expect(manualStatusLabel("blocker")).toBe("Mark the job blocked");
     expect(manualStatusLabel("deficiency")).toContain("deficiency");
     expect(VERIFY_PRODUCTION_LABEL).toContain("counts on the worker's record");
+  });
+
+  it("lists confirmed captions for the same work area", () => {
+    expect(
+      captionsForNote({
+        workAreaId: "area-1",
+        drafts: [
+          {
+            status: "confirmed",
+            kind: "caption",
+            body: "Studs are covered.",
+            documentId: "photo-1",
+            workAreaId: null,
+          },
+          {
+            status: "confirmed",
+            kind: "area_tag",
+            body: "North",
+            documentId: "photo-1",
+            workAreaId: "area-1",
+          },
+          {
+            status: "confirmed",
+            kind: "caption",
+            body: "Other bay.",
+            documentId: "photo-2",
+            workAreaId: "area-2",
+          },
+        ],
+      }),
+    ).toEqual(["Studs are covered."]);
   });
 });

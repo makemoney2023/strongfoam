@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { fail, succeed } from "@/lib/ops/action-redirect";
 import { invalidFrom, type ActionState } from "@/lib/ops/action-result";
 import { getOpsSession } from "@/lib/ops/auth";
+import { parseGeofenceFields } from "@/lib/ops/geofence";
+import { saveSiteGeofence } from "@/lib/ops/geofence-store";
 import {
   parseCompanyInput,
   parseContactInput,
@@ -136,10 +138,21 @@ export async function createCompanySite(formData: FormData): Promise<ActionState
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
+  const fence = parseGeofenceFields({
+    latitude: String(formData.get("latitude") ?? ""),
+    longitude: String(formData.get("longitude") ?? ""),
+    radiusMeters: String(formData.get("radiusMeters") ?? ""),
+  });
   if (!companyId) return fail("/app/companies", "Missing company.");
   if (!parsed.ok) return invalidFrom(parsed);
+  if (!fence.ok) return invalidFrom(fence);
   const site = await addSite({ companyId, input: parsed.value });
   if (!site) return fail(`/app/companies/${companyId}`, "That site could not be saved.");
+  await saveSiteGeofence(
+    fence.value
+      ? { siteId: site.id, organizationId: site.organizationId, ...fence.value }
+      : { siteId: site.id, clear: true },
+  );
   refreshCompanies(companyId);
   return succeed(`/app/companies/${companyId}`, "Site added.");
 }
@@ -154,10 +167,21 @@ export async function saveCompanySite(formData: FormData): Promise<ActionState> 
     city: String(formData.get("city") ?? ""),
     province: String(formData.get("province") ?? ""),
   });
+  const fence = parseGeofenceFields({
+    latitude: String(formData.get("latitude") ?? ""),
+    longitude: String(formData.get("longitude") ?? ""),
+    radiusMeters: String(formData.get("radiusMeters") ?? ""),
+  });
   if (!companyId || !id) return fail("/app/companies", "Missing site.");
   if (!parsed.ok) return invalidFrom(parsed);
+  if (!fence.ok) return invalidFrom(fence);
   const site = await updateSite(id, parsed.value);
   if (!site) return fail(`/app/companies/${companyId}`, "That site could not be updated.");
+  await saveSiteGeofence(
+    fence.value
+      ? { siteId: site.id, organizationId: site.organizationId, ...fence.value }
+      : { siteId: site.id, clear: true },
+  );
   refreshCompanies(companyId);
   return succeed(`/app/companies/${companyId}`, "Site saved.");
 }

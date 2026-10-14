@@ -20,12 +20,16 @@ export function QualityRecordPanel({
   canEdit,
   jobClosed,
   recordAction,
+  proposals = [],
+  reviewAction,
 }: {
   jobId: string;
   records: QualityRecord[];
   canEdit: boolean;
   jobClosed: boolean;
   recordAction?: (formData: FormData) => Promise<ActionState>;
+  proposals?: Array<{ id: string; body: string }>;
+  reviewAction?: (formData: FormData) => Promise<ActionState>;
 }) {
   return (
     <Card>
@@ -64,6 +68,35 @@ export function QualityRecordPanel({
             ))}
           </ul>
         )}
+
+        {canEdit && reviewAction && proposals.length > 0 ? (
+          <ul className="space-y-3">
+            {proposals.map((proposal) => (
+              <li key={proposal.id} className="space-y-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+                <p className="text-sm">{proposal.body}</p>
+                <p className="text-sm font-medium">
+                  Confirm opens a deficiency. It does not sign the inspection.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ActionForm action={reviewAction}>
+                    <input type="hidden" name="jobId" value={jobId} />
+                    <input type="hidden" name="draftId" value={proposal.id} />
+                    <input type="hidden" name="decision" value="confirm" />
+                    <SubmitButton className="min-h-11 w-full">Open quality record</SubmitButton>
+                  </ActionForm>
+                  <ActionForm action={reviewAction}>
+                    <input type="hidden" name="jobId" value={jobId} />
+                    <input type="hidden" name="draftId" value={proposal.id} />
+                    <input type="hidden" name="decision" value="dismiss" />
+                    <SubmitButton variant="outline" className="min-h-11 w-full">
+                      Dismiss
+                    </SubmitButton>
+                  </ActionForm>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         {canEdit && recordAction && !jobClosed ? (
           <ActionForm action={recordAction} className="grid gap-4">

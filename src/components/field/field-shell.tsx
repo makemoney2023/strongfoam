@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HardHatIcon, LogOutIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { FieldGloveToggle } from "@/components/field/field-glove";
+import { FieldOutbox } from "@/components/field/field-outbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,6 +17,7 @@ export function FieldShell({
 }) {
   return (
     <div className="min-h-dvh bg-muted/30">
+      <FieldOutbox />
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-5xl items-center gap-3 px-4">
           <Link

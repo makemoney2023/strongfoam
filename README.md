@@ -287,7 +287,12 @@ Voice extracts wait on a confirm card. A blocker confirm is what marks the job
 blocked. The language control on Field is English, French, or Spanish.
 A photo upload drafts a caption for one-tap confirm. Confirm writes it on the
 photo. The field job page prints a photo report for a date range. The caption
-does not certify thickness.
+does not certify thickness. Offline voice and photo notes wait in a device
+queue and sync as drafts. A site can store a latitude, longitude, and radius
+in `site_geofences` (`migrations/0007_site_geofences.sql`). "I'm here" drafts
+labor only after consent and only inside that radius. Confirming a deficiency
+writes a field note. A field lead can propose the quality row, and office
+opens it. The inspection result is unchanged.
 No rate or wage is stored. The `labor_entries` table
 is created by `migrations/0002_operations.sql`.
 

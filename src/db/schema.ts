@@ -127,6 +127,18 @@ export const sites = sqliteTable(
   (table) => [index("sites_organization_idx").on(table.organizationId)],
 );
 
+export const siteGeofences = sqliteTable("site_geofences", {
+  siteId: text("site_id")
+    .primaryKey()
+    .references(() => sites.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id),
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  radiusMeters: integer("radius_meters").notNull().default(150),
+});
+
 export const opportunities = sqliteTable(
   "opportunities",
   {

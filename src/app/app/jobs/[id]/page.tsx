@@ -133,6 +133,7 @@ import { getOpsNow } from "@/lib/ops/ops-now";
 import { resolveInspectionAccess } from "@/lib/ops/inspection-authorization";
 import { listJobInspections } from "@/lib/ops/inspection-store";
 import { resolveQualityAccess } from "@/lib/ops/quality-authorization";
+import { listFieldDrafts } from "@/lib/ops/field-draft-store";
 import { listJobQualityRecords } from "@/lib/ops/quality-store";
 import { resolvePurchaseAccess } from "@/lib/ops/purchase-order-authorization";
 import { listJobPurchaseOrders } from "@/lib/ops/purchase-order-store";
@@ -140,7 +141,7 @@ import { assignJobEquipment, releaseJobEquipment } from "../equipment-actions";
 import { recordJobAssembly, recordJobCloseout, saveJobCloseoutPacket } from "../closeout-actions";
 import { acceptDispatchRecommendation } from "../dispatch-recommendation-actions";
 import { recordJobInspection } from "../inspection-actions";
-import { recordJobQuality } from "../quality-actions";
+import { recordJobQuality, reviewJobQualityDraft } from "../quality-actions";
 import {
   cancelJobPurchaseOrder,
   draftPurchaseOrder,
@@ -295,6 +296,11 @@ export default async function JobDetailPage({
   const canEditQuality = resolveQualityAccess(session, "quality.edit").ok;
   const jobQuality = qualityRead.ok
     ? await listJobQualityRecords(qualityRead.organizationId, job.id)
+    : [];
+  const qualityProposals = qualityRead.ok
+    ? (await listFieldDrafts(qualityRead.organizationId, job.id)).filter(
+        (draft) => draft.kind === "inspection_note" && draft.status === "proposed",
+      )
     : [];
   const closeoutRead = resolveCloseoutAccess(session, "closeout.read");
   const canEditCloseout = resolveCloseoutAccess(session, "closeout.edit").ok;
@@ -1408,6 +1414,8 @@ export default async function JobDetailPage({
               canEdit={canEditQuality}
               jobClosed={job.status === "closed"}
               recordAction={recordJobQuality}
+              proposals={qualityProposals.map((draft) => ({ id: draft.id, body: draft.body }))}
+              reviewAction={reviewJobQualityDraft}
             />
           ) : null}
 
