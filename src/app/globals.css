@@ -1569,3 +1569,25 @@ html[data-field-glove="on"] textarea {
   min-height: 3.5rem;
   font-size: 1.05rem;
 }
+
+.marketing-legal {
+  max-width: 72ch;
+  display: grid;
+  gap: 1rem;
+  line-height: 1.65;
+}
+.marketing-legal h2 {
+  margin-top: 1.5rem;
+  font-size: 1.35rem;
+}
+.marketing-legal ul,
+.marketing-legal ol {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+.marketing-legal ul { list-style: disc; }
+.marketing-legal ol { list-style: decimal; }
+.marketing-legal a { text-decoration: underline; }
+.form-legal-note { font-size: 0.85rem; opacity: 0.8; }
+.form-legal-note a { text-decoration: underline; }

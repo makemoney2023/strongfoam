@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { uploadPrivateFile } from "@/lib/cloudflare/upload-client";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -502,6 +504,12 @@ export function EstimateSurvey() {
             <p id="survey-error" className="text-sm text-[color:var(--sf-red)]">
               {view.error}
             </p>
+          ) : null}
+          {view.isLast ? (
+            <p className="form-legal-note text-white/70">
+          By submitting, you agree we may use your details to respond as described in our 
+          <Link href="/privacy">Privacy Policy</Link> and <Link href="/terms">Terms of Service</Link>.
+        </p>
           ) : null}
           {error ? <p className="text-sm text-[color:var(--sf-red)]">{error}</p> : null}
         </CardContent>
