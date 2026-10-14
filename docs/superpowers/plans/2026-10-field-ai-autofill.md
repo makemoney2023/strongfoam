@@ -87,15 +87,15 @@ The binding is correct. The class is the production model door. Do not remove it
 
 ### Task 6: One voice note, many quoted drafts (PR B)
 
-- [ ] **Step 1:** `voiceDraftsFromTranscript` asks for JSON cards of `daily_report`, `quantity`, `blocker`, and `material_request`. A card is dropped when its quote is not a substring of the transcript. Quantity is a whole number greater than zero with a field unit, and only when the quote contains that number.
-- [ ] **Step 2:** Route audio to AI Gateway Deepgram (`/deepgram/listen`, model `nova-3`). If that call fails, call Workers AI `@cf/openai/whisper` through the same gateway options. If neither the gateway key nor the AI binding is configured, return the current empty manual transcript and do not pretend a call failed. Log both attempts to `AI_USAGE`.
-- [ ] **Step 3:** After a transcript completes, store the grounded drafts. The worker confirms each card. Confirm still does not verify production.
+- [x] **Step 1:** `voiceDraftsFromTranscript` asks for JSON cards of `daily_report`, `quantity`, `blocker`, and `material_request`. A card is dropped when its quote is not a substring of the transcript. Quantity is a whole number greater than zero with a field unit, and only when the quote contains that number.
+- [x] **Step 2:** Route audio to AI Gateway Deepgram (`/deepgram/listen`, model `nova-3`). If that call fails, call Workers AI `@cf/openai/whisper` through the same gateway options. If neither the gateway key nor the AI binding is configured, return the current empty manual transcript and do not pretend a call failed. Log both attempts to `AI_USAGE`.
+- [x] **Step 3:** After a transcript completes, store the grounded drafts. The worker confirms each card. Confirm still does not verify production.
 
 ### Task 7: End-of-day report and prompt (PR B)
 
-- [ ] **Step 1:** `confirmedDailyReport` builds a paragraph only from confirmed drafts and done tasks for that working day. It does not include dismissed drafts.
-- [ ] **Step 2:** The existing `30 21 * * *` autopilot stores that paragraph as a `field.draft` of kind `daily_report` when there is at least one confirmed row. The foreman or the worker confirms it before it becomes a field note.
-- [ ] **Step 3:** The field job page shows an in-app prompt when that draft is still proposed. The prompt opens the confirm card. It does not email a customer. Push delivery waits for the service worker in PR D.
+- [x] **Step 1:** `confirmedDailyReport` builds a paragraph only from confirmed drafts and done tasks for that working day. It does not include dismissed drafts.
+- [x] **Step 2:** The existing `30 21 * * *` autopilot stores that paragraph as a `field.draft` of kind `daily_report` when there is at least one confirmed row. The foreman or the worker confirms it before it becomes a field note.
+- [x] **Step 3:** The field job page shows an in-app prompt when that draft is still proposed. The prompt opens the confirm card. It does not email a customer. Push delivery waits for the service worker in PR D.
 
 ### Task 8: Photo AI (PR C)
 

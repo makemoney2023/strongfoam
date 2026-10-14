@@ -8,7 +8,16 @@ export function scheduleVoiceTranscription(args: {
   after(async () => {
     const { processJobVoiceTranscription } = await import("@/lib/ops/store");
     try {
-      await processJobVoiceTranscription(args.voiceNoteId);
+      const note = await processJobVoiceTranscription(args.voiceNoteId);
+      if (note?.status === "completed" && note.transcript?.trim()) {
+        const { storeTranscriptDrafts } = await import("@/lib/ops/voice-drafts");
+        await storeTranscriptDrafts({
+          transcript: note.transcript,
+          jobId: note.jobId,
+          actor: note.createdBy,
+          voiceNoteId: note.id,
+        });
+      }
     } catch (error) {
       console.error("Voice transcription failed.", error);
     }
