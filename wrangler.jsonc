@@ -92,6 +92,7 @@
     "AI_GATEWAY_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "AI_GATEWAY_SMALL_MODEL": "@cf/meta/llama-3.1-8b-instruct-fast",
     "AI_GATEWAY_FALLBACK_MODEL": "@cf/meta/llama-3.1-8b-instruct-fast",
-    "EMAIL_FROM": "Strong Foam <estimates@strongfoam.com>"
+    "EMAIL_FROM": "Strong Foam <estimates@strongfoam.com>",
+    "LEAD_NOTIFY_TO": "estimating@strongfoam.com"
   }
 }

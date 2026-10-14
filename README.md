@@ -135,7 +135,7 @@ Production operations requirements:
   binding is missing; they never use ephemeral process memory.
 - Estimate requests and general inquiries are stored in the `DB` D1 binding.
   Office notification uses the Worker `EMAIL` binding and the comma-separated
-  `LEAD_NOTIFY_TO` secret. Do not put recipient addresses or R2 keys in git.
+  `LEAD_NOTIFY_TO` var (set to `estimating@strongfoam.com` in `wrangler.jsonc`; code defaults to the same address). Do not put R2 keys in git.
 
 ```bash
 npm test
