@@ -61,6 +61,14 @@ export function SiteFooter() {
 
       <div className="page-rail marketing-footer__base">
         <p>© {new Date().getUTCFullYear()} {site.legalName}</p>
+        <ul aria-label="Legal">
+          <li>
+            <Link href="/privacy">Privacy Policy</Link>
+          </li>
+          <li>
+            <Link href="/terms">Terms of Service</Link>
+          </li>
+        </ul>
         <ul aria-label="Social media">
           {Object.entries(site.social).map(([network, href]) => (
             <li key={network}>

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, type FormEvent } from "react";
 import { TurnstileField, readTurnstileToken } from "@/components/marketing/turnstile-field";
 import { Button } from "@/components/ui/button";
@@ -92,6 +94,10 @@ export function ContactInquiryForm() {
         aria-hidden="true"
       />
       <TurnstileField />
+      <p className="form-legal-note">
+          By submitting, you agree we may use your details to respond as described in our 
+          <Link href="/privacy">Privacy Policy</Link> and <Link href="/terms">Terms of Service</Link>.
+        </p>
       {error ? <p className="text-sm text-[color:var(--sf-red)]">{error}</p> : null}
       <Button type="submit" disabled={busy}>
         {busy ? "Sending…" : "Send inquiry"}
