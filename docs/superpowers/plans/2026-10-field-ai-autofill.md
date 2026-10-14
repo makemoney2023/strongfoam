@@ -59,31 +59,31 @@ Each PR stays a draft. Each must pass `npx tsc --noEmit`, `npm run lint`, and `n
 
 The binding is correct. The class is the production model door. Do not remove it.
 
-- [ ] **Step 1:** Declare `export class StrongfoamAgent` in `cloudflare-worker.ts` so the entry module itself exports the class, extending the implementation in `src/lib/cloudflare/agent.ts`.
-- [ ] **Step 2:** Keep migration tag `v1` and `new_sqlite_classes: ["StrongfoamAgent"]`. Do not add a second `new_sqlite_classes` tag for the same class. Wrangler rejects that once the class exists.
-- [ ] **Step 3:** Extend `scripts/cloudflare-deploy.test.ts` so the entry file contains `export class StrongfoamAgent`.
+- [x] **Step 1:** Declare `export class StrongfoamAgent` in `cloudflare-worker.ts` so the entry module itself exports the class, extending the implementation in `src/lib/cloudflare/agent.ts`.
+- [x] **Step 2:** Keep migration tag `v1` and `new_sqlite_classes: ["StrongfoamAgent"]`. Do not add a second `new_sqlite_classes` tag for the same class. Wrangler rejects that once the class exists.
+- [x] **Step 3:** Extend `scripts/cloudflare-deploy.test.ts` so the entry file contains `export class StrongfoamAgent`.
 
 ### Task 2: Prefill from today's dispatch
 
-- [ ] **Step 1:** `fieldPrefill` in `src/lib/ops/field-prefill.ts`. One dispatched job today selects that job. Zero or several dispatched jobs do not guess a job. One open task assigned to the user on that job selects the task, its work area, and its stated unit when the unit is a field unit. Bags or square feet also prefill the labor unit. Several tasks do not guess.
-- [ ] **Step 2:** Labor, production, the field log, and the voice form use that prefill. The save button names the job when one is selected.
+- [x] **Step 1:** `fieldPrefill` in `src/lib/ops/field-prefill.ts`. One dispatched job today selects that job. Zero or several dispatched jobs do not guess a job. One open task assigned to the user on that job selects the task, its work area, and its stated unit when the unit is a field unit. Bags or square feet also prefill the labor unit. Several tasks do not guess.
+- [x] **Step 2:** Labor, production, the field log, and the voice form use that prefill. The save button names the job when one is selected.
 
 ### Task 3: Confirm cards
 
-- [ ] **Step 1:** `src/lib/ops/field-drafts.ts` defines draft kinds, the effect sentence, quote grounding, and confirm versus dismiss. Dismiss does not write a business row.
-- [ ] **Step 2:** `src/lib/ops/field-draft-store.ts` stores drafts as `background_jobs` kind `field.draft`. Demo mode uses memory.
-- [ ] **Step 3:** Voice "Create record" saves a draft. It does not call `extractJobVoiceNote` and it does not block the job. A card confirms or dismisses. Confirm of a blocker writes the field note and then sets the job blocked. Confirm of any other voice kind calls the existing extract.
-- [ ] **Step 4:** The manual blocker submit button reads "Mark the job blocked." The plan-mark submit button reads "Mark the job blocked" or "Record a deficiency on this mark" when those statuses are selected. The workforce verify button reads "Verify this production. It counts on the worker's record."
+- [x] **Step 1:** `src/lib/ops/field-drafts.ts` defines draft kinds, the effect sentence, quote grounding, and confirm versus dismiss. Dismiss does not write a business row.
+- [x] **Step 2:** `src/lib/ops/field-draft-store.ts` stores drafts as `background_jobs` kind `field.draft`. Demo mode uses memory.
+- [x] **Step 3:** Voice "Create record" saves a draft. It does not call `extractJobVoiceNote` and it does not block the job. A card confirms or dismisses. Confirm of a blocker writes the field note and then sets the job blocked. Confirm of any other voice kind calls the existing extract.
+- [x] **Step 4:** The manual blocker submit button reads "Mark the job blocked." The plan-mark submit button reads "Mark the job blocked" or "Record a deficiency on this mark" when those statuses are selected. The workforce verify button reads "Verify this production. It counts on the worker's record."
 
 ### Task 4: Language
 
-- [ ] **Step 1:** `en`, `fr`, and `es` in `src/lib/ops/field-language.ts`. Anything else falls back to `en`.
-- [ ] **Step 2:** A preference row kind `staff.language`, idempotency `staff.language:${userId}`. The field home has a language select. The voice upload sends that code. Deepgram already maps `en` to `en-US`.
+- [x] **Step 1:** `en`, `fr`, and `es` in `src/lib/ops/field-language.ts`. Anything else falls back to `en`.
+- [x] **Step 2:** A preference row kind `staff.language`, idempotency `staff.language:${userId}`. The field home has a language select. The voice upload sends that code. Deepgram already maps `en` to `en-US`.
 
 ### Task 5: Gloves and consent
 
-- [ ] **Step 1:** A header control stores `strongfoam-field-glove` on the device and sets `data-field-glove` on the document. Buttons, selects, and inputs grow under that attribute.
-- [ ] **Step 2:** The first voice save stores `strongfoam-field-voice-consent` on the device. Later recordings send consent without another checkbox, and the worker can clear it.
+- [x] **Step 1:** A header control stores `strongfoam-field-glove` on the device and sets `data-field-glove` on the document. Buttons, selects, and inputs grow under that attribute.
+- [x] **Step 2:** The first voice save stores `strongfoam-field-voice-consent` on the device. Later recordings send consent without another checkbox, and the worker can clear it.
 
 ### Task 6: One voice note, many quoted drafts (PR B)
 
