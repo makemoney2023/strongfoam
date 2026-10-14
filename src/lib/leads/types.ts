@@ -26,7 +26,8 @@ export const SERVICE_IDS = [
   "fireproofing",
   "intumescent",
   "avb",
-  "spf-roofing",
+  "waterproofing",
+  "firestopping",
 ] as const;
 export type ListedServiceId = (typeof SERVICE_IDS)[number];
 

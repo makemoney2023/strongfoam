@@ -19610,6 +19610,210 @@
       "decorative": true,
       "status": "reject",
       "reason": "Visually reviewed and rejected because the short edge is below 720 pixels and a stronger source or representative image is available."
+    },
+    {
+      "id": "media-f4e95e053c0c03a4",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Red firestop sealant around a pipe penetration through a concrete floor",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as home/rail-firestopping."
+    },
+    {
+      "id": "media-c21d1a9e0990269d",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Red firestop sealant at plastic pipe penetrations through a concrete slab",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as heroes/firestopping."
+    },
+    {
+      "id": "media-164051fbcb9c238f",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Firestopped pipe penetrations through a concrete floor",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as services/firestop-multiple."
+    },
+    {
+      "id": "media-0e93350110a46171",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Below-grade waterproofing membrane on a foundation wall with the excavation still open",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as services/waterproof-foundation."
+    },
+    {
+      "id": "media-fa286e38ce3c35ef",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Crew installing a below-grade waterproofing membrane and drainage board on a stone foundation wall",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as heroes/waterproofing."
+    },
+    {
+      "id": "media-dd157b8738bb03ed",
+      "category": "project",
+      "placement": "service",
+      "quality": {
+        "resolution": "approved",
+        "crop": "approved",
+        "exposure": "approved",
+        "blur": "approved",
+        "orientation": "approved"
+      },
+      "rights": {
+        "ownership": "owner-supplied-first-party",
+        "publicationPermission": "approved",
+        "basis": "Owner approved the client photos supplied on 2026-10-14 for website use."
+      },
+      "relationshipApproval": {
+        "identity": "known-first-party",
+        "currentRelationship": "not-applicable"
+      },
+      "safetyPrivacy": {
+        "ppe": "approved-or-not-applicable",
+        "faces": "none-distant-or-obscured",
+        "plates": "none-readable",
+        "signage": "none-sensitive-readable",
+        "addresses": "none-readable",
+        "sensitiveDetails": "none-observed",
+        "result": "approved"
+      },
+      "alt": "Purple below-grade waterproofing membrane being spray-applied along a foundation wall",
+      "decorative": false,
+      "status": "publish",
+      "reason": "Owner-approved client photo 2026-10-14; published as home/rail-waterproofing."
     }
   ]
 }

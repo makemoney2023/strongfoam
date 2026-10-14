@@ -57,7 +57,8 @@ describe("page media", () => {
     expect(serviceMedia["spray-foam-insulation"]?.videos).toHaveLength(3);
     expect(serviceMedia["air-vapour-barriers"]?.videos).toHaveLength(1);
     expect(serviceMedia["fire-protection"]?.videos).toHaveLength(1);
-    expect(serviceMedia["spf-roofing"]?.images.length).toBeGreaterThan(0);
+    expect(serviceMedia.waterproofing?.images).toHaveLength(1);
+    expect(serviceMedia.firestopping?.images).toHaveLength(1);
   });
 
   it("never repeats a source file across prominent placements", () => {

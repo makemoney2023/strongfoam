@@ -32,21 +32,22 @@ describe("marketing page model", () => {
     ]);
   });
 
-  it("exposes exactly four unique public service route links", () => {
-    expect(homepageMarketingModel.serviceLinks).toHaveLength(4);
+  it("exposes exactly five unique public service route links", () => {
+    expect(homepageMarketingModel.serviceLinks).toHaveLength(5);
     expect(
       homepageMarketingModel.serviceLinks.map((service) => service.href),
     ).toEqual([
       "/services/spray-foam-insulation",
       "/services/fire-protection",
       "/services/air-vapour-barriers",
-      "/services/spf-roofing",
+      "/services/waterproofing",
+      "/services/firestopping",
     ]);
     expect(
       new Set(
         homepageMarketingModel.serviceLinks.map((service) => service.href),
       ).size,
-    ).toBe(4);
+    ).toBe(5);
   });
 
   it("includes the endorsed Strong Fire feature and focused homepage content", () => {

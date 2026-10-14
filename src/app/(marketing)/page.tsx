@@ -8,7 +8,7 @@ import { homeGraph } from "@/lib/site-schema";
 export const metadata: Metadata = {
   title: "Ontario Envelope and Fire Trades",
   description:
-    "Explore Strong Foam spray foam, fire-protection, air-vapour barrier, and SPF roofing scopes for ICI and multi-unit projects.",
+    "Explore Strong Foam spray foam, fire-protection, air-vapour barrier, waterproofing, and firestopping scopes for ICI and multi-unit projects.",
   alternates: { canonical: "/" },
 };
 

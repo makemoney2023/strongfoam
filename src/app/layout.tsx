@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: `%s · ${site.brand}`,
   },
   description:
-    "ICI and multi-unit specialty trades: spray foam insulation, cementitious fireproofing, intumescent coatings, AVB membranes, and SPF roofing across Ontario.",
+    "ICI and multi-unit specialty trades: spray foam insulation, cementitious fireproofing, intumescent coatings, AVB membranes, waterproofing, and firestopping across Ontario.",
   alternates: { canonical: "/" },
 };
 

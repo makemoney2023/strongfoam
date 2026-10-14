@@ -3,7 +3,7 @@ import { ServiceMarketingPage } from "@/components/marketing/service-detail";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { getServiceBySlug } from "@/content/services";
 
-const service = getServiceBySlug("spf-roofing");
+const service = getServiceBySlug("firestopping");
 
 export const metadata: Metadata = {
   title: service.metadata.title,
@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   alternates: { canonical: service.canonicalPath },
 };
 
-assertMarketingClaimsSafe(metadata, "metadata /services/spf-roofing");
+assertMarketingClaimsSafe(metadata, "metadata /services/firestopping");
 
-export default function SpfRoofingPage() {
+export default function FirestoppingPage() {
   return <ServiceMarketingPage service={service} />;
 }

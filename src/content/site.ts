@@ -51,13 +51,15 @@ export type PublicRoute =
         | "/services/spray-foam-insulation"
         | "/services/fire-protection"
         | "/services/air-vapour-barriers"
-        | "/services/spf-roofing";
+        | "/services/waterproofing"
+        | "/services/firestopping";
       kind: "service";
       slug:
         | "spray-foam-insulation"
         | "fire-protection"
         | "air-vapour-barriers"
-        | "spf-roofing";
+        | "waterproofing"
+        | "firestopping";
     };
 
 export const publicRoutes: readonly PublicRoute[] = [
@@ -80,9 +82,14 @@ export const publicRoutes: readonly PublicRoute[] = [
     slug: "air-vapour-barriers",
   },
   {
-    path: "/services/spf-roofing",
+    path: "/services/waterproofing",
     kind: "service",
-    slug: "spf-roofing",
+    slug: "waterproofing",
+  },
+  {
+    path: "/services/firestopping",
+    kind: "service",
+    slug: "firestopping",
   },
   { path: "/projects", kind: "page" },
   { path: "/partners", kind: "page" },
@@ -158,11 +165,18 @@ export const services: ServiceCopy[] = [
     body: "Air-vapour barrier membranes form part of Strong Foam’s envelope scope alongside SPF and fire protection. The project specification and manufacturer instructions determine membrane family, substrate preparation, transitions, and terminations.",
   },
   {
-    id: "spf-roofing",
-    title: "SPF roofing",
+    id: "waterproofing",
+    title: "Waterproofing",
     overlay:
-      "Spray polyurethane foam roofing systems for suitable specified new or recover applications.",
-    body: "SPF roofing combines specified foam with a compatible protective coating. Existing roof condition, substrate, drainage, weather, and manufacturer requirements determine whether the system fits the project.",
+      "Below-grade blindside and open-cut, crystalline, podium and deck waterproofing, and traffic toppings.",
+    body: "Strong Foam installs specified waterproofing systems below grade, on podiums and decks, and as traffic-bearing toppings. The project specification and manufacturer requirements determine the system, protection, drainage and detailing.",
+  },
+  {
+    id: "firestopping",
+    title: "Firestopping",
+    overlay:
+      "Joint, penetration and insulated penetration firestopping, with engineering judgments (EJs) as required.",
+    body: "Strong Foam seals joints and penetrations in fire-rated assemblies with listed firestop systems. Where field conditions do not match a tested system, engineering judgments are obtained from the manufacturer as required.",
   },
 ];
 
@@ -232,7 +246,7 @@ export const scrollSections: ScrollSection[] = [
     id: "services",
     headline: "One trade package. Five critical scopes.",
     support:
-      "SPF, passive fire protection, intumescent, air-vapour barriers, and SPF roofing. Coordinated for envelope performance.",
+      "SPF, passive fire protection, intumescent, air-vapour barriers, waterproofing, and firestopping. Coordinated for envelope performance.",
     status: "ready",
   },
   {

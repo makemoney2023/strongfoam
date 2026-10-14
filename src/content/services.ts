@@ -5,7 +5,8 @@ export const SERVICE_ROUTE_SLUGS = [
   "spray-foam-insulation",
   "fire-protection",
   "air-vapour-barriers",
-  "spf-roofing",
+  "waterproofing",
+  "firestopping",
 ] as const;
 
 export type ServiceRouteSlug = (typeof SERVICE_ROUTE_SLUGS)[number];
@@ -139,41 +140,97 @@ export const serviceContent: readonly ServiceContent[] = [
     ],
   },
   {
-    slug: "spf-roofing",
-    canonicalPath: "/services/spf-roofing",
-    title: "SPF roofing",
+    slug: "waterproofing",
+    canonicalPath: "/services/waterproofing",
+    title: "Waterproofing",
     summary:
-      "Spray polyurethane foam roofing combines specified foam with a protective coating for suitable new or recover applications.",
-    storedServiceIds: ["spf-roofing"],
+      "Specified below-grade, podium and deck waterproofing systems, including blindside, open-cut and crystalline applications and traffic toppings.",
+    storedServiceIds: ["waterproofing"],
     metadata: {
-      title: "SPF Roofing Systems and Limitations | Strong Foam",
+      title: "Below-Grade, Podium and Deck Waterproofing | Strong Foam",
       description:
-        "Review SPF roofing composition, substrates, recover applications, slope, drainage, weather limits, and specification requirements.",
+        "Blindside and open-cut below-grade waterproofing, crystalline waterproofing, podium and deck waterproofing, and traffic toppings for commercial and multi-unit projects in Ontario.",
     },
     cta: estimateCta,
     technicalSections: [
       {
-        id: "system-composition",
-        title: "System composition",
+        id: "below-grade-blindside",
+        title: "Below-grade blindside waterproofing",
         body:
-          "Roofing SPF is installed to the required profile and protected from ultraviolet exposure by a compatible elastomeric coating or other specified covering.",
+          "Blindside membranes are installed against shoring or lagging before the foundation wall is poured, for sites where there is no room to work on the outside face of the wall after the pour.",
       },
       {
-        id: "substrates-and-recover",
-        title: "Substrates and recover applications",
+        id: "below-grade-open-cut",
+        title: "Below-grade open-cut waterproofing",
         body:
-          "SPF can adhere to several prepared substrates and may help add slope or fill low areas, but the existing roof and deck require evaluation before a recover application.",
+          "Where the excavation allows access to the outside face of the foundation, the specified membrane, protection and drainage board are applied directly to the wall before backfill.",
       },
       {
-        id: "conditions-and-limitations",
-        title: "Conditions and limitations",
+        id: "crystalline",
+        title: "Crystalline waterproofing",
         body:
-          "Installation depends on trained crews, suitable substrate temperatures, humidity and dew-point limits, dry surfaces, manageable wind, and manufacturer requirements.",
+          "Crystalline systems are applied to or mixed into concrete as specified and react with moisture in the concrete to reduce water passage through the substrate.",
+      },
+      {
+        id: "podium-and-deck",
+        title: "Podium and deck waterproofing",
+        body:
+          "Podium slabs, plaza decks and other horizontal surfaces over occupied or parking space receive the specified membrane system, detailed at drains, curbs, penetrations and terminations.",
+      },
+      {
+        id: "traffic-toppings",
+        title: "Traffic toppings",
+        body:
+          "Traffic-bearing coating systems for parking decks, ramps and similar surfaces are applied to the specified build-up for the expected pedestrian or vehicle traffic.",
       },
     ],
     cautions: [
-      "Every roof is assessed for substrate condition, drainage, and recover suitability before work begins.",
-      "Foam and protective coatings should not be applied over ice, frost, surface moisture, or visible dampness, or outside manufacturer weather limits.",
+      "System selection, membrane type, protection, drainage and detailing follow the project specification and the manufacturer's requirements.",
+      "Substrate condition, concrete cure, moisture, temperature and weather are checked against manufacturer limits before application.",
+    ],
+  },
+  {
+    slug: "firestopping",
+    canonicalPath: "/services/firestopping",
+    title: "Firestopping",
+    summary:
+      "Joint, penetration and insulated penetration firestopping installed to tested systems, with engineering judgments (EJs) obtained where a tested system does not match field conditions.",
+    storedServiceIds: ["firestopping"],
+    metadata: {
+      title: "Firestopping: Joints, Penetrations and EJs | Strong Foam",
+      description:
+        "Joint firestopping, penetration and insulated penetration firestopping, and engineering judgments (EJs) as required for commercial and multi-unit projects in Ontario.",
+    },
+    cta: estimateCta,
+    technicalSections: [
+      {
+        id: "joint-firestopping",
+        title: "Joint firestopping",
+        body:
+          "Joints between fire-rated assemblies, such as head-of-wall, wall-to-wall and floor-to-wall joints, are sealed with the listed system for the joint width and movement involved.",
+      },
+      {
+        id: "penetration-firestopping",
+        title: "Penetration firestopping",
+        body:
+          "Pipe, conduit, cable and duct penetrations through rated walls and floors are sealed with a listed system that matches the penetrating item, opening size and assembly.",
+      },
+      {
+        id: "insulated-penetrations",
+        title: "Insulated penetration firestopping",
+        body:
+          "Insulated pipes and ducts need systems tested with the specific insulation type and thickness, so the insulation is confirmed before the system is selected.",
+      },
+      {
+        id: "engineering-judgments",
+        title: "Engineering judgments (EJs)",
+        body:
+          "Where field conditions do not match a tested system, we work with the firestop manufacturer to obtain an engineering judgment for the condition as required.",
+      },
+    ],
+    cautions: [
+      "Each installation follows the listed system or engineering judgment for that condition, together with the project specification and manufacturer instructions.",
+      "Penetrating items, opening sizes, annular space and assembly ratings are confirmed on site before installation.",
     ],
   },
 ] as const;

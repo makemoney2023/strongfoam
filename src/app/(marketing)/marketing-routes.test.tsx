@@ -27,9 +27,12 @@ import FireProtectionPage, {
 import ServicesPage, {
   metadata as servicesMetadata,
 } from "@/app/(marketing)/services/page";
-import SpfRoofingPage, {
-  metadata as spfRoofingMetadata,
-} from "@/app/(marketing)/services/spf-roofing/page";
+import WaterproofingPage, {
+  metadata as waterproofingMetadata,
+} from "@/app/(marketing)/services/waterproofing/page";
+import FirestoppingPage, {
+  metadata as firestoppingMetadata,
+} from "@/app/(marketing)/services/firestopping/page";
 import SprayFoamInsulationPage, {
   metadata as sprayFoamMetadata,
 } from "@/app/(marketing)/services/spray-foam-insulation/page";
@@ -61,7 +64,8 @@ const interiorRoutes: readonly RouteCase[] = [
       "/services/spray-foam-insulation",
       "/services/fire-protection",
       "/services/air-vapour-barriers",
-      "/services/spf-roofing",
+      "/services/waterproofing",
+      "/services/firestopping",
       "/request-estimate",
     ],
   },
@@ -87,10 +91,17 @@ const interiorRoutes: readonly RouteCase[] = [
     links: ["/services", "/request-estimate"],
   },
   {
-    path: "/services/spf-roofing",
-    Page: SpfRoofingPage,
-    metadata: spfRoofingMetadata,
-    h1: "SPF roofing",
+    path: "/services/waterproofing",
+    Page: WaterproofingPage,
+    metadata: waterproofingMetadata,
+    h1: "Waterproofing",
+    links: ["/services", "/request-estimate"],
+  },
+  {
+    path: "/services/firestopping",
+    Page: FirestoppingPage,
+    metadata: firestoppingMetadata,
+    h1: "Firestopping",
     links: ["/services", "/request-estimate"],
   },
   {
@@ -163,12 +174,13 @@ describe("marketing route contracts", () => {
     expect(titleOf(homeMetadata)).not.toBe("");
     expect(homeMetadata.description).toEqual(expect.any(String));
     expect(canonicalOf(homeMetadata)).toBe("/");
-    expect(homepageMarketingModel.serviceLinks).toHaveLength(4);
+    expect(homepageMarketingModel.serviceLinks).toHaveLength(5);
     expect(homepageMarketingModel.serviceLinks.map((service) => service.href)).toEqual([
       "/services/spray-foam-insulation",
       "/services/fire-protection",
       "/services/air-vapour-barriers",
-      "/services/spf-roofing",
+      "/services/waterproofing",
+      "/services/firestopping",
     ]);
   });
 
