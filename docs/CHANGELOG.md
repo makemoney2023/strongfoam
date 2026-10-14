@@ -2,6 +2,13 @@
 
 ## 2026-10-13
 
+- **What changed** — A field photo upload drafts a caption, work-area tag, drum lot, gauge reading, and coverage or safety flags. The worker edits the caption and confirms it before it is saved on the photo. Confirmed captions show in the gallery, the daily report, the closeout photo log, and a printable job photo report.
+- **Why** — The crew should not type a caption, and a model must not certify thickness or compliance.
+- **Code touchpoints** — `src/lib/ops/photo-caption.ts`, `src/lib/ops/photo-caption-run.ts`, `src/lib/ops/job-photo-report.ts`, `src/app/field/jobs/[id]/photos/report/route.ts`, `src/worker/handlers/photo-caption.ts`.
+- **Data-flow impact** — Vision output is a `field.draft` until confirm. Confirm writes `job_documents.caption`. A missing AI binding stores no caption. Usage is purpose `photo_caption` with cache skip.
+- **API / schema impact** — `migrations/0006_job_document_caption.sql` adds nullable `job_documents.caption`. Queue kind `field.photo-caption` runs when `JOBS` is bound.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 173 files, 911 tests, 1 skipped.
+
 - **What changed** — One voice transcript becomes quoted drafts for the daily report, a quantity, a blocker, and a material request. Deepgram Nova-3 is called through AI Gateway `strongfoam`. A failed call can use Workers AI Whisper. The end-of-day autopilot stores a daily report built only from confirmed rows, and the field job page prompts until a foreman confirms it.
 - **Why** — The crew should speak once, and the report should wait for a person before it is a field note.
 - **Code touchpoints** — `src/lib/ops/voice-transcribe.ts`, `src/lib/ops/voice-drafts.ts`, `src/lib/ops/field-daily-report.ts`, `src/lib/ops/automation-run.ts`.

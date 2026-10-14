@@ -99,16 +99,16 @@ The binding is correct. The class is the production model door. Do not remove it
 
 ### Task 8: Photo AI (PR C)
 
-- [ ] **Step 1:** On a field photo upload, enqueue `field.photo-caption` when `JOBS` exists. Otherwise run inline. The vision input is the image plus job name, area names, today's task title, and scope. The model is `@cf/meta/llama-3.2-11b-vision-instruct` through the Workers AI binding gateway. A failed call may use `@cf/llava-hf/llava-1.5-7b-hf` only when that call was attempted and the fallback is configured. A missing AI binding stores no caption.
-- [ ] **Step 2:** Parse JSON into drafts: caption, area tag (only an area id that exists on the job), drum lot, gauge reading, coverage flag, safety flag. Drop any caption that claims certified thickness or code compliance. Gauge and lot drafts are readings, not verified production.
-- [ ] **Step 3:** The worker edits the caption text and confirms with one tap. Confirm writes `caption` on the document. The field gallery shows it and allows that edit.
-- [ ] **Step 4:** Golden cases in `src/lib/ops/field-ai-eval.ts` cover a grounded voice split and a caption that is rejected when it certifies thickness.
+- [x] **Step 1:** On a field photo upload, enqueue `field.photo-caption` when `JOBS` exists. Otherwise run inline. The vision input is the image plus job name, area names, today's task title, and scope. The model is `@cf/meta/llama-3.2-11b-vision-instruct` through the Workers AI binding gateway. A failed call may use `@cf/llava-hf/llava-1.5-7b-hf` only when that call was attempted and the fallback is configured. A missing AI binding stores no caption.
+- [x] **Step 2:** Parse JSON into drafts: caption, area tag (only an area id that exists on the job), drum lot, gauge reading, coverage flag, safety flag. Drop any caption that claims certified thickness or code compliance. Gauge and lot drafts are readings, not verified production.
+- [x] **Step 3:** The worker edits the caption text and confirms with one tap. Confirm writes `caption` on the document. The field gallery shows it and allows that edit.
+- [x] **Step 4:** Golden cases in `src/lib/ops/field-ai-eval.ts` cover a grounded voice split and a caption that is rejected when it certifies thickness.
 
 ### Task 9: Reports (PR C)
 
-- [ ] **Step 1:** The confirmed daily report lists confirmed captions for that day.
-- [ ] **Step 2:** `draftCloseoutPacket` gains a photo log of confirmed captions. The narrative still does not say the packet was sent.
-- [ ] **Step 3:** `jobPhotoReportPdf` uses pdf-lib, the same approach as proposal PDFs. Filters are a date range and an optional area. Confirmed captions are the lines. A route under the field or office session returns the PDF. No Browser Rendering binding unless pdf-lib cannot draw the page.
+- [x] **Step 1:** The confirmed daily report lists confirmed captions for that day.
+- [x] **Step 2:** `draftCloseoutPacket` gains a photo log of confirmed captions. The narrative still does not say the packet was sent.
+- [x] **Step 3:** `jobPhotoReportPdf` uses pdf-lib, the same approach as proposal PDFs. Filters are a date range and an optional area. Confirmed captions are the lines. A route under the field or office session returns the PDF. No Browser Rendering binding unless pdf-lib cannot draw the page.
 
 ### Task 10: Offline queue (PR D)
 

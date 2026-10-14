@@ -140,6 +140,17 @@ export async function handleDirectJobUpload(
       storage: stored,
     });
     if (!document) throw new Error("job_document_not_saved");
+    if (document.kind === "photo") {
+      const { scheduleFieldPhotoCaption } = await import("@/lib/ops/photo-caption-run");
+      await scheduleFieldPhotoCaption({
+        organizationId: document.organizationId,
+        jobId: payload.jobId,
+        documentId: document.id,
+        userId: session.userId || session.email,
+        bytes: upload.bytes,
+        contentType: upload.contentType,
+      });
+    }
   } catch (error) {
     await deletePrivateObject(upload.pathname);
     return Response.json(
@@ -239,6 +250,15 @@ export async function handleJobUploadPost(
             pathname: blob.pathname,
           });
           if (!document) throw new Error("job_document_not_saved");
+          if (document.kind === "photo") {
+            const { scheduleFieldPhotoCaption } = await import("@/lib/ops/photo-caption-run");
+            await scheduleFieldPhotoCaption({
+              organizationId: document.organizationId,
+              jobId: payload.jobId,
+              documentId: document.id,
+              userId: session?.userId || payload.actor,
+            });
+          }
         } catch (error) {
           try {
             await deps.deleteBlob(blob.pathname, { token: deps.blobToken });

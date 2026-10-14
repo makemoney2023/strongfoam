@@ -202,11 +202,20 @@ export default async function FieldJobPage({
     ) ??
     documents.find((document) => document.kind === "plan") ??
     documents[0];
-  const documentStorageMode = isDemoOpsStore()
-    ? "demo"
-    : process.env.BLOB_READ_WRITE_TOKEN
-      ? "blob"
-      : "unavailable";
+  const documentStorageMode = isDemoOpsStore() ? "demo" : "blob";
+  const confirmedCaptions = Object.fromEntries(
+    fieldDrafts
+      .filter(
+        (draft) => draft.status === "confirmed" && draft.kind === "caption" && draft.documentId,
+      )
+      .map((draft) => [draft.documentId as string, draft.body]),
+  );
+  const photoReportQuery = new URLSearchParams();
+  if (query.from) photoReportQuery.set("from", query.from);
+  if (query.to) photoReportQuery.set("to", query.to);
+  const photoReportHref = `/field/jobs/${job.id}/photos/report${
+    photoReportQuery.size ? `?${photoReportQuery}` : ""
+  }`;
   const areaName = (workAreaId: string | null) =>
     areas.find((area) => area.id === workAreaId)?.name;
   const taskTitle = (taskId: string | null) =>
@@ -740,7 +749,11 @@ export default async function FieldJobPage({
             <div>
               <CardTitle>Photos</CardTitle>
               <CardDescription>
-                Snap a photo or add several from the library.
+                Snap a photo or add several from the library. A caption is drafted
+                for review and does not certify thickness.{" "}
+                <a href={photoReportHref} className="font-medium underline">
+                  Print photo report
+                </a>
               </CardDescription>
             </div>
           </div>
@@ -756,6 +769,7 @@ export default async function FieldJobPage({
             documentScope="field"
             uploadAction={uploadFieldDocument}
             editable={false}
+            captions={confirmedCaptions}
           />
         </CardContent>
       </Card>

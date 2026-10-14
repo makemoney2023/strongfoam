@@ -13,6 +13,7 @@ import type { TaskStatus } from "@/lib/ops/collaboration";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { isFieldQuantityUnit, parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { captionClaimsCertification } from "@/lib/ops/photo-caption";
 import { decideFieldDraft, isFieldDraftKind } from "@/lib/ops/field-drafts";
 import {
   listFieldDrafts,
@@ -30,6 +31,7 @@ import {
 import {
   addJobDocument,
   addJobFieldNote,
+  setJobDocumentCaption,
   addJobVoiceNote,
   canFieldUserAccessJob,
   canFieldUserAccessTask,
@@ -332,8 +334,20 @@ export async function uploadFieldDocument(
       input: parsed.value,
       bytes,
     });
-    if (document) uploaded.push(file.name);
-    else failed.push(`${file.name}: could not be saved.`);
+    if (document) {
+      uploaded.push(file.name);
+      if (document.kind === "photo") {
+        const { scheduleFieldPhotoCaption } = await import("@/lib/ops/photo-caption-run");
+        await scheduleFieldPhotoCaption({
+          organizationId: document.organizationId,
+          jobId,
+          documentId: document.id,
+          userId: session.userId,
+          bytes,
+          contentType: document.contentType,
+        });
+      }
+    } else failed.push(`${file.name}: could not be saved.`);
   }
   const job = await getJob(jobId);
   refreshField(jobId, job?.projectId);
@@ -614,31 +628,48 @@ export async function confirmFieldDraft(formData: FormData): Promise<ActionState
   const leadReport =
     session.role === "field_lead" && draft?.source === "schedule" && draft.kind === "daily_report";
   if (!draft || (!ownsDraft && !leadReport)) return fail(returnTo, "That draft is no longer available.");
-  const next = decideFieldDraft(draft, decision);
+  let current = draft;
+  if (decision === "confirm" && draft.kind === "caption") {
+    const edited = String(formData.get("body") ?? draft.body).trim().replace(/\s+/g, " ");
+    if (!edited || edited.length > 500) return fail(returnTo, "Keep the caption under 500 characters.");
+    if (captionClaimsCertification(edited)) {
+      return fail(returnTo, "A caption cannot certify thickness or compliance.");
+    }
+    if (!draft.documentId) return fail(returnTo, "That caption is not attached to a photo.");
+    current = { ...draft, body: edited, quote: edited };
+  }
+  const next = decideFieldDraft(current, decision);
   if (!next) return fail(returnTo, "That draft was already reviewed.");
-  if (decision === "confirm" && draft.kind === "quantity" && draft.quantity != null) {
-    const unit = draft.unit ?? "";
+  if (decision === "confirm" && current.kind === "caption" && current.documentId) {
+    const saved = await setJobDocumentCaption({
+      jobId,
+      documentId: current.documentId,
+      caption: current.body,
+    });
+    if (!saved) return fail(returnTo, "That caption could not be saved on the photo.");
+  } else if (decision === "confirm" && current.kind === "quantity" && current.quantity != null) {
+    const unit = current.unit ?? "";
     if (!isFieldQuantityUnit(unit)) return fail(returnTo, "That quantity needs a unit.");
     const note = await addJobFieldNote({
       jobId,
       actor: session.email,
       input: {
         kind: "quantity",
-        body: draft.body,
-        workAreaId: draft.workAreaId,
-        taskId: draft.taskId,
-        quantity: draft.quantity,
+        body: current.body,
+        workAreaId: current.workAreaId,
+        taskId: current.taskId,
+        quantity: current.quantity,
         unit,
       },
     });
     if (!note) return fail(returnTo, "That quantity could not be saved.");
-  } else if (decision === "confirm" && draft.kind === "daily_report" && !draft.voiceNoteId) {
+  } else if (decision === "confirm" && current.kind === "daily_report" && !current.voiceNoteId) {
     const note = await addJobFieldNote({
       jobId,
       actor: session.email,
       input: {
         kind: "daily_report",
-        body: draft.body,
+        body: current.body,
         workAreaId: null,
         taskId: null,
         quantity: null,
@@ -646,24 +677,24 @@ export async function confirmFieldDraft(formData: FormData): Promise<ActionState
       },
     });
     if (!note) return fail(returnTo, "That daily report could not be saved.");
-  } else if (decision === "confirm" && draft.voiceNoteId) {
+  } else if (decision === "confirm" && current.voiceNoteId) {
     const voiceKinds = ["task", "blocker", "deficiency", "material_request", "daily_report"] as const;
-    if ((voiceKinds as readonly string[]).includes(draft.kind)) {
+    if ((voiceKinds as readonly string[]).includes(current.kind)) {
       const result = await extractJobVoiceNote({
         jobId,
-        voiceNoteId: draft.voiceNoteId,
+        voiceNoteId: current.voiceNoteId,
         actor: session.email,
-        kind: draft.kind as (typeof voiceKinds)[number],
-        selectedText: draft.quote || draft.body,
+        kind: current.kind as (typeof voiceKinds)[number],
+        selectedText: current.quote || current.body,
       });
       if (!result.ok) return fail(returnTo, result.error);
     }
-    if (draft.kind === "blocker") {
+    if (current.kind === "blocker") {
       await updateJobStatus({
         jobId,
         actor: session.email,
         status: "blocked",
-        blockerNote: draft.body,
+        blockerNote: current.body,
       });
     }
   }

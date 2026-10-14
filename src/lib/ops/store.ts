@@ -167,6 +167,7 @@ import {
   getDemoEstimateRequest,
   getDemoJob,
   getDemoJobDocumentDownload,
+  setDemoJobDocumentCaption,
   getDemoJobPlanAnnotation,
   getDemoJobVoiceNote,
   getDemoJobVoiceNoteDownload,
@@ -3842,6 +3843,22 @@ export async function recordUploadedJobDocument(args: {
     console.error("Could not record the document upload event.", error);
   }
   return document;
+}
+
+export async function setJobDocumentCaption(args: {
+  jobId: string;
+  documentId: string;
+  caption: string;
+}): Promise<boolean> {
+  const caption = args.caption.trim().replace(/\s+/g, " ").slice(0, 500);
+  if (!caption) return false;
+  if (isDemoOpsStore()) return setDemoJobDocumentCaption(args.jobId, args.documentId, caption);
+  const updated = await getDb()
+    .update(jobDocuments)
+    .set({ caption })
+    .where(and(eq(jobDocuments.id, args.documentId), eq(jobDocuments.jobId, args.jobId)))
+    .returning({ id: jobDocuments.id });
+  return Boolean(updated[0]);
 }
 
 export async function getJobDocumentDownload(

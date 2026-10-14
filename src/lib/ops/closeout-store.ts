@@ -19,6 +19,7 @@ import {
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
 import { dispatchableJobStatus } from "@/lib/ops/dispatch";
 import { draftCloseoutPacket, type CloseoutPacketDraft } from "@/lib/ops/closeout-packet";
+import { listFieldDrafts } from "@/lib/ops/field-draft-store";
 import { listJobAssembly } from "@/lib/ops/assembly-store";
 import { listJobInspections } from "@/lib/ops/inspection-store";
 import { isUuid } from "@/lib/ops/job-workspace";
@@ -160,12 +161,17 @@ export async function previewCloseoutPacket(
         ? `${task.title}: ${task.statedQuantity} ${statedQuantityUnitLabel(unit)}`
         : `${task.title}: ${task.statedQuantity}`;
     });
+  const drafts = await listFieldDrafts(organizationId, jobId);
+  const photoLog = drafts
+    .filter((draft) => draft.status === "confirmed" && draft.kind === "caption" && draft.body.trim())
+    .map((draft) => draft.body.trim());
   return draftCloseoutPacket({
     jobName: job.name,
     assembly,
     photoCount: documents.filter((document) => document.kind === "photo").length,
     quantityLines,
     planRows: marks.map((mark) => mark.title),
+    photoLog,
   });
 }
 

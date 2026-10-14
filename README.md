@@ -285,6 +285,9 @@ signed-in person's labor. When one job is dispatched today, that job and its
 single open task prefill the labor, production, field log, and voice forms.
 Voice extracts wait on a confirm card. A blocker confirm is what marks the job
 blocked. The language control on Field is English, French, or Spanish.
+A photo upload drafts a caption for one-tap confirm. Confirm writes it on the
+photo. The field job page prints a photo report for a date range. The caption
+does not certify thickness.
 No rate or wage is stored. The `labor_entries` table
 is created by `migrations/0002_operations.sql`.
 

@@ -2830,6 +2830,7 @@ export function addDemoJobDocument(args: {
     pathname,
     storage: "memory",
     kind: args.input.kind,
+    caption: null,
     uploadedBy: args.actor,
     sheetKey,
     versionNumber,
@@ -2850,6 +2851,17 @@ export function addDemoJobDocument(args: {
     },
   });
   return document;
+}
+
+export function setDemoJobDocumentCaption(
+  jobId: string,
+  documentId: string,
+  caption: string,
+): boolean {
+  const document = getDemoJobDocument(jobId, documentId);
+  if (!document || document.kind !== "photo") return false;
+  document.caption = caption;
+  return true;
 }
 
 export function getDemoJobDocumentDownload(
