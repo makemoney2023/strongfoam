@@ -102,7 +102,9 @@ import { VoiceNotesPanel } from "@/components/ops/voice-notes-panel";
 import { voiceConsentCopy } from "@/lib/ops/voice-notes";
 import { fieldPrefill, prefillSaveLabel } from "@/lib/ops/field-prefill";
 import { listFieldDrafts, readFieldLanguage } from "@/lib/ops/field-draft-store";
+import { FieldArrival } from "@/components/field/field-arrival";
 import { FieldDraftCards } from "@/components/field/field-draft-cards";
+import { captionsForNote } from "@/lib/ops/field-drafts";
 import { EffectSubmit } from "@/components/field/effect-submit";
 import { confirmFieldDraft } from "@/app/field/actions";
 import { FieldEntryFields } from "../../../jobs/workspace-fields";
@@ -616,6 +618,15 @@ export default async function FieldJobPage({
                             {formatFieldQuantity(note.quantity, note.unit)}
                           </span>
                         ) : null}
+                        {note.kind === "deficiency"
+                          ? captionsForNote({ workAreaId: note.workAreaId, drafts: fieldDrafts }).map(
+                              (caption) => (
+                                <span key={caption} className="text-sm text-muted-foreground">
+                                  Photo: {caption}
+                                </span>
+                              ),
+                            )
+                          : null}
                       </div>
                       {note.createdBy === session.email ? (
                       <div className="flex items-center">
@@ -698,6 +709,8 @@ export default async function FieldJobPage({
           )}
         </p>
       ) : null}
+
+      {site ? <FieldArrival jobId={job.id} /> : null}
 
       <FieldDraftCards
         drafts={fieldDrafts.filter(

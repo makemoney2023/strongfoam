@@ -140,8 +140,38 @@ export function VoiceNoteRecorder({
     setRecording(false);
   }
 
+  async function submitVoice(formData: FormData): Promise<ActionState | void> {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      const body = "Voice note queued on this device.";
+      const workAreaId = String(formData.get("workAreaId") ?? "").trim() || null;
+      window.dispatchEvent(
+        new CustomEvent("strongfoam-field-queue", {
+          detail: {
+            id: crypto.randomUUID(),
+            draft: {
+              jobId,
+              kind: "daily_report",
+              body,
+              quote: body,
+              source: "manual",
+              workAreaId,
+              taskId: null,
+              documentId: null,
+              voiceNoteId: null,
+              quantity: null,
+              unit: null,
+              effect: "This keeps the queued voice note. It does not transcribe or change the job.",
+            },
+          },
+        }),
+      );
+      return { href: returnTo, notice: { kind: "success", message: "Voice note queued as a draft." } };
+    }
+    return action(formData);
+  }
+
   return (
-    <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
+    <ActionForm action={submitVoice} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="jobId" value={jobId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="durationSeconds" value={durationSeconds} />

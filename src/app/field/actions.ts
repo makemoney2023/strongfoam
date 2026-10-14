@@ -13,6 +13,10 @@ import type { TaskStatus } from "@/lib/ops/collaboration";
 import { isDemoOpsStore } from "@/lib/ops/demo-store";
 import { getFieldSession } from "@/lib/ops/field-auth";
 import { isFieldQuantityUnit, parseFieldNoteInput } from "@/lib/ops/field-workspace";
+import { workingDayLabel } from "@/lib/ops/ai-evidence";
+import { DISPATCH_TIME_ZONE } from "@/lib/ops/dispatch";
+import { recordLabor } from "@/lib/ops/labor-store";
+import { getOpsNow } from "@/lib/ops/ops-now";
 import { captionClaimsCertification } from "@/lib/ops/photo-caption";
 import { decideFieldDraft, isFieldDraftKind } from "@/lib/ops/field-drafts";
 import {
@@ -647,6 +651,58 @@ export async function confirmFieldDraft(formData: FormData): Promise<ActionState
       caption: current.body,
     });
     if (!saved) return fail(returnTo, "That caption could not be saved on the photo.");
+  } else if (decision === "confirm" && current.kind === "labor") {
+    const result = await recordLabor({
+      actor: {
+        email: session.email,
+        role: session.role,
+        organizationId: session.organizationId,
+        userId: session.userId,
+      },
+      jobId,
+      userId: session.userId,
+      workDate: workingDayLabel(getOpsNow(), DISPATCH_TIME_ZONE),
+      kind: "hourly",
+      hours: String(formData.get("hours") ?? ""),
+      note: current.body,
+    });
+    if (!result.ok) return fail(returnTo, result.error);
+  } else if (
+    decision === "confirm" &&
+    (current.kind === "deficiency" || current.kind === "safety_flag")
+  ) {
+    const note = await addJobFieldNote({
+      jobId,
+      actor: session.email,
+      input: {
+        kind: "deficiency",
+        body: current.body,
+        workAreaId: current.workAreaId,
+        taskId: current.taskId,
+        quantity: null,
+        unit: null,
+      },
+    });
+    if (!note) return fail(returnTo, "That deficiency could not be saved.");
+    if (session.role === "field_lead") {
+      const proposal = await saveFieldDraft({
+        organizationId: session.organizationId,
+        jobId,
+        userId: session.userId,
+        kind: "inspection_note",
+        body: current.body,
+        quote: current.body,
+        quantity: null,
+        unit: null,
+        workAreaId: current.workAreaId,
+        taskId: current.taskId,
+        documentId: current.documentId,
+        voiceNoteId: null,
+        effect: "Office confirms this before a quality record is opened. It does not sign the inspection.",
+        source: "manual",
+      });
+      if (!proposal) return fail(returnTo, "That quality proposal could not be saved.");
+    }
   } else if (decision === "confirm" && current.kind === "quantity" && current.quantity != null) {
     const unit = current.unit ?? "";
     if (!isFieldQuantityUnit(unit)) return fail(returnTo, "That quantity needs a unit.");

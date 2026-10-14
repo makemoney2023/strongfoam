@@ -2,6 +2,13 @@
 
 ## 2026-10-13
 
+- **What changed** — The field app queues voice and photo notes in IndexedDB and a service worker syncs them as drafts. Office can save a site point, and "I'm here" drafts labor only inside that radius after consent. Confirming a deficiency or safety flag writes a deficiency note. A field lead can propose a quality record that office opens. Confirmed captions for the same area show on the deficiency card.
+- **Why** — A dropped connection or an arrival should not write the job, and a deficiency should stay a note until office opens the quality row.
+- **Code touchpoints** — `src/lib/ops/field-outbox.ts`, `public/field-sw.js`, `src/app/api/field/sync/route.ts`, `src/lib/ops/geofence.ts`, `src/lib/ops/field-arrival.ts`, `src/app/app/jobs/quality-actions.ts`.
+- **Data-flow impact** — Sync rejects status changes and production verification. Arrival stores a labor draft and not the coordinates. Confirming labor records today's hours. Dismiss writes nothing. Inspection results are unchanged.
+- **API / schema impact** — `migrations/0007_site_geofences.sql` adds `site_geofences`. `POST /api/field/sync` and `POST /api/field/arrival`.
+- **Verification** — `npx tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 177 files, 920 tests, 1 skipped.
+
 - **What changed** — A field photo upload drafts a caption, work-area tag, drum lot, gauge reading, and coverage or safety flags. The worker edits the caption and confirms it before it is saved on the photo. Confirmed captions show in the gallery, the daily report, the closeout photo log, and a printable job photo report.
 - **Why** — The crew should not type a caption, and a model must not certify thickness or compliance.
 - **Code touchpoints** — `src/lib/ops/photo-caption.ts`, `src/lib/ops/photo-caption-run.ts`, `src/lib/ops/job-photo-report.ts`, `src/app/field/jobs/[id]/photos/report/route.ts`, `src/worker/handlers/photo-caption.ts`.

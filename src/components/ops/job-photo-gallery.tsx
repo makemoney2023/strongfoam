@@ -112,6 +112,35 @@ export function JobPhotoGallery({
       return;
     }
 
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      for (const file of files) {
+        const body = `Photo queued on this device: ${file.name}`.slice(0, 500);
+        window.dispatchEvent(
+          new CustomEvent("strongfoam-field-queue", {
+            detail: {
+              id: crypto.randomUUID(),
+              draft: {
+                jobId,
+                kind: "caption",
+                body,
+                quote: body,
+                source: "photo",
+                workAreaId: workAreaId || null,
+                taskId: null,
+                documentId: null,
+                voiceNoteId: null,
+                quantity: null,
+                unit: null,
+                effect: "This keeps the queued photo note. It does not upload the file or certify thickness.",
+              },
+            },
+          }),
+        );
+      }
+      setError("Photos queued on this device. They stay drafts until you confirm them.");
+      return;
+    }
+
     setUploading(true);
     setError(null);
     try {

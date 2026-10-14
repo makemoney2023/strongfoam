@@ -112,19 +112,19 @@ The binding is correct. The class is the production model door. Do not remove it
 
 ### Task 10: Offline queue (PR D)
 
-- [ ] **Step 1:** `fieldOutbox` is a pure reducer: enqueue, list, drop after ack. The browser stores it in IndexedDB `strongfoam-field` / `outbox`. A service worker at `public/field-sw.js` retries when the network returns.
-- [ ] **Step 2:** `POST /api/field/sync` accepts only draft payloads for the signed-in field user. It never sets job status and never verifies production. Synced voice and photo bytes are drafts until a confirm card.
+- [x] **Step 1:** `fieldOutbox` is a pure reducer: enqueue, list, drop after ack. The browser stores it in IndexedDB `strongfoam-field` / `outbox`. A service worker at `public/field-sw.js` retries when the network returns.
+- [x] **Step 2:** `POST /api/field/sync` accepts only draft payloads for the signed-in field user. It never sets job status and never verifies production. Synced voice and photo bytes are drafts until a confirm card.
 
 ### Task 11: Arrival labor (PR D)
 
-- [ ] **Step 1:** Table `site_geofences` (site id, organization id, latitude, longitude, radius meters default 150). Office can save a point on the company page. No coordinates means no geofence.
-- [ ] **Step 2:** `geofenceContains` is haversine. The field button "I'm here" asks for browser location only after a consent checkbox. The server creates a labor draft when the point is inside the radius. Confirm writes today's labor row for the signed-in user. Dismiss writes nothing. Do not store the raw trail.
+- [x] **Step 1:** Table `site_geofences` (site id, organization id, latitude, longitude, radius meters default 150). Office can save a point on the company page. No coordinates means no geofence.
+- [x] **Step 2:** `geofenceContains` is haversine. The field button "I'm here" asks for browser location only after a consent checkbox. The server creates a labor draft when the point is inside the radius. Confirm writes today's labor row for the signed-in user. Dismiss writes nothing. Do not store the raw trail.
 
 ### Task 12: Inspections and quality (PR D)
 
-- [ ] **Step 1:** Confirming a deficiency or safety-flag draft writes a field note of kind `deficiency`. It does not change `inspections.result`.
-- [ ] **Step 2:** A field lead may also propose a quality record of kind `deficiency` and status `open`. Office confirm creates that quality row. A field worker confirm stops at the field note.
-- [ ] **Step 3:** Confirmed captions whose area matches a deficiency note are listed on that note's card and in the photo report.
+- [x] **Step 1:** Confirming a deficiency or safety-flag draft writes a field note of kind `deficiency`. It does not change `inspections.result`.
+- [x] **Step 2:** A field lead may also propose a quality record of kind `deficiency` and status `open`. Office confirm creates that quality row. A field worker confirm stops at the field note.
+- [x] **Step 3:** Confirmed captions whose area matches a deficiency note are listed on that note's card and in the photo report.
 
 ## Owner steps (after merge, not this series)
 

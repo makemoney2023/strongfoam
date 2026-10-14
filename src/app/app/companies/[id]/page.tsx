@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { listSiteGeofences } from "@/lib/ops/geofence-store";
 import { ActionForm, FieldError } from "@/components/ops/action-form";
 import { ConfirmForm } from "@/components/ops/confirm-form";
 import { DetailList } from "@/components/ops/detail-list";
@@ -154,7 +155,14 @@ function SiteFields({
   defaults = {},
 }: {
   idPrefix: string;
-  defaults?: { name?: string; city?: string; province?: string };
+  defaults?: {
+    name?: string;
+    city?: string;
+    province?: string;
+    latitude?: string;
+    longitude?: string;
+    radiusMeters?: string;
+  };
 }) {
   const id = (field: string) => `${idPrefix}-${field}`;
   return (
@@ -180,6 +188,21 @@ function SiteFields({
         <Input id={id("province")} name="province" className="h-11" defaultValue={defaults.province ?? "ON"} required />
         <FieldError name="province" />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("latitude")}>Latitude</Label>
+        <Input id={id("latitude")} name="latitude" className="h-11" defaultValue={defaults.latitude ?? ""} inputMode="decimal" />
+        <FieldError name="latitude" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={id("longitude")}>Longitude</Label>
+        <Input id={id("longitude")} name="longitude" className="h-11" defaultValue={defaults.longitude ?? ""} inputMode="decimal" />
+        <FieldError name="longitude" />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={id("radiusMeters")}>Arrival radius (meters)</Label>
+        <Input id={id("radiusMeters")} name="radiusMeters" className="h-11" defaultValue={defaults.radiusMeters ?? ""} inputMode="numeric" placeholder="150" />
+        <FieldError name="radiusMeters" />
+      </div>
     </>
   );
 }
@@ -204,6 +227,8 @@ export default async function CompanyDetailPage({
     listProjects({ companyId: company.id }),
     listJobs({ companyId: company.id }),
   ]);
+  const geofences = await listSiteGeofences(sites.map((site) => site.id));
+  const geofenceBySite = new Map(geofences.map((fence) => [fence.siteId, fence]));
 
   const location = [company.city, company.province].filter(Boolean).join(", ");
 
@@ -428,7 +453,17 @@ export default async function CompanyDetailPage({
                         <ActionForm action={saveCompanySite} className="grid gap-3 sm:grid-cols-2">
                           <input type="hidden" name="companyId" value={company.id} />
                           <input type="hidden" name="id" value={site.id} />
-                          <SiteFields idPrefix={`site-${site.id}`} defaults={site} />
+                          <SiteFields
+                            idPrefix={`site-${site.id}`}
+                            defaults={{
+                              name: site.name,
+                              city: site.city,
+                              province: site.province,
+                              latitude: geofenceBySite.get(site.id)?.latitude.toString() ?? "",
+                              longitude: geofenceBySite.get(site.id)?.longitude.toString() ?? "",
+                              radiusMeters: geofenceBySite.get(site.id)?.radiusMeters.toString() ?? "",
+                            }}
+                          />
                           <div className="sm:col-span-2">
                             <SubmitButton variant="default" className="min-h-11 w-full sm:w-auto">
                               Save site

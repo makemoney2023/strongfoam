@@ -121,3 +121,31 @@ export function manualStatusLabel(kind: string): string | null {
 
 export const VERIFY_PRODUCTION_LABEL =
   "Verify this production. It counts on the worker's record.";
+
+export function captionsForNote(input: {
+  workAreaId: string | null;
+  drafts: Array<Pick<FieldDraft, "status" | "kind" | "body" | "documentId" | "workAreaId">>;
+}): string[] {
+  if (!input.workAreaId) return [];
+  const tagged = new Set(
+    input.drafts
+      .filter(
+        (draft) =>
+          draft.status === "confirmed" &&
+          draft.kind === "area_tag" &&
+          draft.workAreaId === input.workAreaId &&
+          draft.documentId,
+      )
+      .map((draft) => draft.documentId as string),
+  );
+  return input.drafts
+    .filter(
+      (draft) =>
+        draft.status === "confirmed" &&
+        draft.kind === "caption" &&
+        draft.body.trim() &&
+        (draft.workAreaId === input.workAreaId ||
+          (draft.documentId != null && tagged.has(draft.documentId))),
+    )
+    .map((draft) => draft.body.trim());
+}
