@@ -25,16 +25,31 @@ export function FieldDraftCards({
         {open.map((draft) => (
           <li key={draft.id} className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
             <p className="text-sm font-medium capitalize">{draft.kind.replaceAll("_", " ")}</p>
-            <p className="whitespace-pre-wrap text-sm">{draft.body}</p>
+            {draft.kind === "caption" ? null : (
+              <p className="whitespace-pre-wrap text-sm">{draft.body}</p>
+            )}
             {draft.effect ? (
               <p className="text-sm font-medium">{draft.effect}</p>
             ) : null}
             <div className="grid gap-2 sm:grid-cols-2">
-              <ActionForm action={action}>
+              <ActionForm action={action} className="space-y-2">
                 <input type="hidden" name="jobId" value={jobId} />
                 <input type="hidden" name="draftId" value={draft.id} />
                 <input type="hidden" name="decision" value="confirm" />
                 <input type="hidden" name="returnTo" value={returnTo} />
+                {draft.kind === "caption" ? (
+                  <label className="grid gap-1 text-sm sm:col-span-2">
+                    Caption
+                    <textarea
+                      name="body"
+                      defaultValue={draft.body}
+                      maxLength={500}
+                      rows={3}
+                      required
+                      className="min-h-24 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                ) : null}
                 <SubmitButton className="min-h-11 w-full">Confirm</SubmitButton>
               </ActionForm>
               <ActionForm action={action}>

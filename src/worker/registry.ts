@@ -8,6 +8,7 @@ import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import { persistQueuedInbound } from "@/worker/inbound-email";
 import { handleDraftBidEstimate } from "@/worker/handlers/draft-bid-estimate";
 import { handleRetainImport } from "@/worker/handlers/retain-import";
+import { handlePhotoCaption } from "@/worker/handlers/photo-caption";
 import {
   handleExtractDocument,
   handleScanDocument,
@@ -58,4 +59,5 @@ export const handlers: Record<string, WorkerHandler> = {
   "leads.inbound": async (job) => {
     await persistQueuedInbound(firstData(job));
   },
+  "field.photo-caption": handlePhotoCaption,
 };

@@ -24,6 +24,7 @@ export function draftCloseoutPacket(input: {
   photoCount: number;
   quantityLines: string[];
   planRows: string[];
+  photoLog?: string[];
 }): { ok: true; draft: CloseoutPacketDraft } | { ok: false; error: string } {
   if (!input.assembly) {
     return {
@@ -37,6 +38,7 @@ export function draftCloseoutPacket(input: {
     `photos:${input.photoCount}`,
     ...input.quantityLines.map((_, index) => `quantity:${index + 1}`),
     ...input.planRows.map((_, index) => `plan:${index + 1}`),
+    ...(input.photoLog ?? []).map((_, index) => `photo-log:${index + 1}`),
   ];
   const existing = assembly.existingRValue ? ` Existing R-value ${assembly.existingRValue}.` : "";
   const program = assembly.rebateProgram ? ` Rebate program: ${assembly.rebateProgram}.` : "";
@@ -49,12 +51,16 @@ export function draftCloseoutPacket(input: {
   const plans = input.planRows.length
     ? ` Plan marks: ${input.planRows.join("; ")}.`
     : " No plan marks are included.";
+  const photoLog = (input.photoLog ?? []).map((line) => line.trim()).filter(Boolean);
   const narrative = [
     `${input.jobName} closeout packet.`,
     `${assemblyLocationLabel(assembly.location)} assembly, target ${assembly.targetRValue}, ${assembly.areaSqFt} sq ft, ${assembly.bagCount} bags of ${assembly.product}${assembly.manufacturer ? ` (${assembly.manufacturer})` : ""}.${existing}${program}`,
     `${input.photoCount} photo${input.photoCount === 1 ? "" : "s"}.${quantities}${plans}`,
+    photoLog.length ? `Photo log: ${photoLog.join("; ")}.` : "",
     barriers ? `Conditions: ${barriers}` : "Barrier and blower-door notes are not recorded.",
     "This draft is not sent to the customer.",
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
   return { ok: true, draft: { narrative, citations } };
 }

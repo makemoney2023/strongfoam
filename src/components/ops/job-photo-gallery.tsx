@@ -75,6 +75,7 @@ export function JobPhotoGallery({
   saveMetaAction = defaultSaveJobDocumentMeta,
   removeAction = defaultRemoveJobDocument,
   editable = true,
+  captions = {},
 }: {
   jobId: string;
   areas: AreaOption[];
@@ -87,6 +88,7 @@ export function JobPhotoGallery({
   saveMetaAction?: (formData: FormData) => Promise<ActionState>;
   removeAction?: (formData: FormData) => Promise<ActionState>;
   editable?: boolean;
+  captions?: Record<string, string>;
 }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -274,6 +276,7 @@ export function JobPhotoGallery({
               ? fieldJobDocumentHref(jobId, document.id)
               : jobDocumentHref(jobId, document.id);
           const isImage = isJobImageContentType(document.contentType);
+          const caption = captions[document.id];
           return (
             <li
               key={document.id}
@@ -285,7 +288,7 @@ export function JobPhotoGallery({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={href}
-                    alt={document.filename}
+                    alt={caption || document.filename}
                     className="size-full object-cover"
                   />
                 ) : (
@@ -344,6 +347,11 @@ export function JobPhotoGallery({
                   </SubmitButton>
                 </ConfirmForm>
               </div>
+              ) : null}
+              {caption ? (
+                <p className="pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 bg-black/65 px-2 py-1.5 text-[11px] text-white">
+                  {caption}
+                </p>
               ) : null}
               <p className="pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/55 to-transparent px-2 py-1.5 text-[11px] text-white">
                 {JOB_DOCUMENT_LABELS[document.kind as keyof typeof JOB_DOCUMENT_LABELS] ??

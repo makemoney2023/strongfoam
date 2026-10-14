@@ -900,6 +900,7 @@ export function demoJobDocuments(): JobDocumentRow[] {
       pathname: `jobs/${DEMO_JOB_ID}/${DEMO_PLAN_DOCUMENT_ID}/level-2-podium.png`,
       storage: "memory",
       kind: "plan",
+      caption: null,
       uploadedBy: DEMO_ADMIN_EMAIL,
       sheetKey: DEMO_PLAN_DOCUMENT_ID,
       versionNumber: 1,

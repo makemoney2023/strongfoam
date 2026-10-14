@@ -809,6 +809,7 @@ export const jobDocuments = sqliteTable(
     pathname: text("pathname").notNull().unique(),
     storage: text("storage").notNull().default("blob"),
     kind: text("kind").notNull().default("plan"),
+    caption: text("caption"),
     uploadedBy: text("uploaded_by").notNull(),
     sheetKey: text("sheet_key").notNull().default(""),
     versionNumber: integer("version_number").notNull().default(1),

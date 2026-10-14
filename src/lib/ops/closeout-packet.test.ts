@@ -45,4 +45,31 @@ describe("closeout packet", () => {
       "plan:1",
     ]);
   });
+
+  it("adds a confirmed photo log and still does not say the packet was sent", () => {
+    const result = draftCloseoutPacket({
+      jobName: "North elevation",
+      assembly: {
+        location: "wall",
+        targetRValue: "R-20",
+        existingRValue: "",
+        areaSqFt: 400,
+        bagCount: 18,
+        product: "Closed cell",
+        manufacturer: "",
+        rebateProgram: "",
+        airBarrier: "",
+        vaporBarrier: "",
+        blowerDoor: "",
+      },
+      photoCount: 1,
+      quantityLines: [],
+      planRows: [],
+      photoLog: ["Studs are covered."],
+    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.draft.narrative).toContain("Photo log: Studs are covered.");
+    expect(result.draft.narrative).toContain("is not sent");
+    expect(result.draft.citations).toContain("photo-log:1");
+  });
 });
