@@ -17,7 +17,7 @@ Beautiful **3D one-page scroll craft / scroll-world** marketing site for commerc
 ## Verified NAP (prefer Breithaupt as ops until client confirms primary)
 - Phone: +1 519-900-6000
 - Email: estimating@strongfoam.com (also admin@strongfoam.com)
-- Ops: 1-399 Breithaupt Street, Kitchener ON N2H 5H8
+- Ops (client confirmed 2026-10-14): 100 McGovern Drive, Cambridge ON N3H 4R7
 - Also published: St. Leger (head office unit), Dorchester/London, Woodbridge/Toronto, LioCorr Cambridge HQ
 - Social: Facebook STRONGFOAMINSULATION, Instagram strongfoaminsulation, LinkedIn company/strong-foam-insulation-inc
 

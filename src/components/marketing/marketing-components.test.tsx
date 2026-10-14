@@ -140,7 +140,7 @@ describe("server-compatible marketing components", () => {
       <LocationCards locations={locationRecords} />,
     );
 
-    expect(html).toContain("Kitchener operations");
+    expect(html).toContain("Cambridge operations");
     expect(html).not.toContain("Kitchener head office");
     expect(html).not.toContain("London branch");
     expect(html).not.toContain("GTA / Woodbridge");
