@@ -16,7 +16,7 @@
 | Phone | +1 519-900-6000 |
 | Email (estimate) | estimating@strongfoam.com |
 | Email (admin) | admin@strongfoam.com |
-| Primary ops NAP (preferred until client confirms) | 1-399 Breithaupt Street, Kitchener ON N2H 5H8 |
+| Primary ops NAP (client confirmed 2026-10-14) | 100 McGovern Drive, Cambridge ON N3H 4R7 |
 | Head office (published) | 322-72 St. Leger Street, Kitchener ON N2H 6R4 |
 | Services | Spray foam insulation; cementitious fireproofing; intumescent coatings; air-vapour barriers; SPF roofing; firestopping/wraps (as scoped) |
 | Geos | Kitchener-Waterloo, Cambridge, London/Dorchester, Guelph, Greater Toronto / Woodbridge |

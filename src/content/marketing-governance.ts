@@ -125,7 +125,7 @@ export const locationRecords: readonly PublicLocation[] = [
       postal: site.primaryOps.postal,
       country: site.primaryOps.country,
     },
-    serviceAreaWording: "Kitchener operations",
+    serviceAreaWording: "Cambridge operations",
     approvals: {
       address: true,
       activeStatus: true,
@@ -134,7 +134,7 @@ export const locationRecords: readonly PublicLocation[] = [
     },
     publicationStatus: "publish",
     publicationReason:
-      "The current source-copy audit approves the Breithaupt Street operations address for public location and contact use.",
+      "The current source-copy audit approves the McGovern Drive operations address for public location and contact use.",
   },
   {
     id: "kitchener-head-office",

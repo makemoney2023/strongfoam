@@ -19,7 +19,7 @@ describe("site content for scroll overlays", () => {
     expect(site.legalName).toBe("Strong Foam Insulation Inc.");
     expect(site.phoneDisplay).toBe("519-900-6000");
     expect(site.emailEstimating).toBe("estimating@strongfoam.com");
-    expect(site.primaryOps.street).toContain("Breithaupt");
+    expect(site.primaryOps.street).toContain("McGovern");
     expect(site).not.toHaveProperty("headOffice");
     expect(site).not.toHaveProperty("branches");
     expect(site).not.toHaveProperty("emailAdmin");

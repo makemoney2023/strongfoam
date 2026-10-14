@@ -32,7 +32,7 @@ export default function LocationsPage() {
       >
         <div className="marketing-section__intro">
           <p className="section-kicker">Operations</p>
-          <h2 id="approved-locations-title">Kitchener operations</h2>
+          <h2 id="approved-locations-title">Cambridge operations</h2>
         </div>
         <LocationCards locations={locationRecords} />
       </section>

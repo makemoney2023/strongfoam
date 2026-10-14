@@ -16,11 +16,11 @@ export const site = {
   phoneDisplay: "519-900-6000",
   emailEstimating: "estimating@strongfoam.com",
   primaryOps: {
-    label: "Kitchener operations",
-    street: "1-399 Breithaupt Street",
-    locality: "Kitchener",
+    label: "Cambridge operations",
+    street: "100 McGovern Drive",
+    locality: "Cambridge",
     region: "ON",
-    postal: "N2H 5H8",
+    postal: "N3H 4R7",
     country: "CA",
   },
   social: {
@@ -95,7 +95,7 @@ export const companyContent = {
   story:
     "Strong Foam has grown through commercial building-envelope and fire-protection work, adapting its field practices to project specifications, schedules, and construction conditions.",
   focus:
-    "The company focuses on ICI and multi-unit residential projects across Ontario, from its Kitchener operations base.",
+    "The company focuses on ICI and multi-unit residential projects across Ontario, from its Cambridge operations base.",
   culture:
     "Strong Foam supports a family-oriented workplace where employees can develop their skills, collaborate, and take responsibility for their work.",
   safety:

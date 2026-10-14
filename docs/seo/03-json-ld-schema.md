@@ -5,7 +5,7 @@
 **Rules:** Schema must match visible page content. ≥3 types per important URL. Keep FAQPage for AI extraction (Google FAQ rich results deprecated May 2026). Do **not** invent `aggregateRating`, opening hours, geo coordinates, or certifications. Confirm primary address with client before freeze.
 
 **Preferred primary ops NAP (certificates / SprayFoamMagazine):**  
-`1-399 Breithaupt Street, Kitchener, ON N2H 5H8`  
+`100 McGovern Drive, Cambridge, ON N3H 4R7`  
 **Published head office:** `322-72 St. Leger Street, Kitchener, ON N2H 6R4`  
 **Phone:** `+1-519-900-6000` · **Estimate email:** `estimating@strongfoam.com`
 
@@ -33,10 +33,10 @@ Stable `@id`s so page-level graphs can `$ref` the same Organization / WebSite no
       "telephone": "+1-519-900-6000",
       "address": {
         "@type": "PostalAddress",
-        "streetAddress": "1-399 Breithaupt Street",
-        "addressLocality": "Kitchener",
+        "streetAddress": "100 McGovern Drive",
+        "addressLocality": "Cambridge",
         "addressRegion": "ON",
-        "postalCode": "N2H 5H8",
+        "postalCode": "N3H 4R7",
         "addressCountry": "CA"
       },
       "sameAs": [
@@ -97,10 +97,10 @@ Emit only after client confirms this is the GBP primary. No fake hours/geo/ratin
   "email": "estimating@strongfoam.com",
   "address": {
     "@type": "PostalAddress",
-    "streetAddress": "1-399 Breithaupt Street",
-    "addressLocality": "Kitchener",
+    "streetAddress": "100 McGovern Drive",
+    "addressLocality": "Cambridge",
     "addressRegion": "ON",
-    "postalCode": "N2H 5H8",
+    "postalCode": "N3H 4R7",
     "addressCountry": "CA"
   },
   "areaServed": [
