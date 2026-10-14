@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PhoneIcon } from "lucide-react";
 import { CalendlyEmbed } from "@/components/estimate-survey/calendly-embed";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { site } from "@/content/site";
 import { getLeadById } from "@/lib/leads/adapters";
 import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
