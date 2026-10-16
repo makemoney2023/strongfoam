@@ -1,3 +1,4 @@
+import { serviceGraph } from "@/lib/site-schema";
 import {
   Card,
   CardContent,
@@ -19,6 +20,10 @@ export function ServiceMarketingPage({
 }) {
   return (
     <main id="main-content" className="flex-1">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceGraph(service)).replace(/</g, "\\u003c") }}
+      />
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },

@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
@@ -7,12 +8,12 @@ import { LocationCards } from "@/components/marketing/location-cards";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { locationRecords } from "@/content/marketing-governance";
 
-export const metadata: Metadata = {
-  title: "Strong Foam Kitchener Operations",
+export const metadata: Metadata = pageMetadata({
+  title: "Strong Foam Locations: Based in Cambridge, Serving Ontario",
   description:
-    "Find Strong Foam operations in Kitchener, Ontario, serving projects across the province.",
+    "Strong Foam is based in Cambridge, Ontario, serving commercial, industrial, and multi-unit projects across all of Ontario.",
   alternates: { canonical: "/locations" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /locations");
 
@@ -23,7 +24,7 @@ export default function LocationsPage() {
       <InteriorHero
         eyebrow="Locations"
         title="Strong Foam locations"
-        description="Strong Foam operates from Kitchener, serving commercial, industrial, and multi-unit projects across Ontario."
+        description="Strong Foam is based in Cambridge, serving commercial, industrial, and multi-unit projects across all of Ontario."
         media={heroMedia["locations"]}
       />
       <section

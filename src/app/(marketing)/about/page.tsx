@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import { ResponsivePicture } from "@/components/marketing/responsive-picture";
 import { aboutImages } from "@/content/page-media";
 import type { Metadata } from "next";
@@ -14,12 +15,12 @@ import {
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { companyContent } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About Strong Foam Insulation",
   description:
     "Learn how Strong Foam approaches ICI and multi-unit work, employee culture, safe field practices, service, and long-term relationships.",
   alternates: { canonical: "/about" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /about");
 

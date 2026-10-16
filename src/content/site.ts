@@ -272,7 +272,7 @@ export const scrollSections: ScrollSection[] = [
   },
   {
     id: "coverage",
-    headline: "Kitchener–Waterloo operations",
+    headline: "Based in Cambridge, serving all of Ontario",
     support: `Primary operations at ${site.primaryOps.street}, ${site.primaryOps.locality}.`,
     status: "ready",
   },

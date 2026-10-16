@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -14,12 +15,12 @@ import {
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { serviceContent } from "@/content/services";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Commercial Insulation and Fire-Protection Services",
   description:
     "Compare four specification-led Strong Foam service families for Ontario commercial, industrial, and multi-unit construction.",
   alternates: { canonical: "/services" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /services");
 

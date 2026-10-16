@@ -171,7 +171,7 @@ describe("marketing page model", () => {
 
     expect(model.partners).toEqual([approvedPartner]);
     expect(model.locations.map((location) => location.id)).toEqual([
-      "kitchener-operations",
+      "cambridge-operations",
     ]);
     expect(
       model.locations.every((location) =>
