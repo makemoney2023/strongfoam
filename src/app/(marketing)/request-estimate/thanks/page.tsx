@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import { PhoneIcon } from "lucide-react";
 import { CalendlyEmbed } from "@/components/estimate-survey/calendly-embed";
@@ -7,10 +8,10 @@ import { getLeadById } from "@/lib/leads/adapters";
 import { resolveThanksView } from "@/app/(marketing)/request-estimate/thanks/resolve-thanks-view";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Request received",
   robots: { index: false, follow: false },
-};
+});
 
 async function thanksView(lid?: string, k?: string) {
   const secret = process.env.LEAD_THANKS_SECRET;

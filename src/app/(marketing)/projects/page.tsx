@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
@@ -7,12 +8,12 @@ import { ProjectGallery } from "@/components/marketing/project-gallery";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { projectRecords } from "@/content/projects";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Project Photography",
   description:
     "See Strong Foam spray foam, air barrier, and building-envelope work on projects across Ontario.",
   alternates: { canonical: "/projects" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /projects");
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { breadcrumbGraph } from "@/lib/site-schema";
 
 export type BreadcrumbItem = {
   label: string;
@@ -11,6 +12,11 @@ export function Breadcrumbs({
   items: readonly BreadcrumbItem[];
 }) {
   return (
+    <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbGraph(items)).replace(/</g, "\\u003c") }}
+    />
     <nav className="marketing-breadcrumbs page-rail" aria-label="Breadcrumb">
       <ol>
         {items.map((item, index) => {
@@ -29,5 +35,6 @@ export function Breadcrumbs({
         })}
       </ol>
     </nav>
+    </>
   );
 }

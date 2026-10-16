@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import { LegalDocumentView } from "@/components/legal/legal-document";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -5,12 +6,12 @@ import { InteriorHero } from "@/components/marketing/interior-hero";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { termsOfService } from "@/content/legal";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Terms of Service",
   description:
     "Terms for using the Strong Foam Insulation Inc. website, including non-binding estimates, website content and Ontario governing law.",
   alternates: { canonical: "/terms" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /terms");
 

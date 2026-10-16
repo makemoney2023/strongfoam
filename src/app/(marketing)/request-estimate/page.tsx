@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EstimateSurvey } from "@/components/estimate-survey/estimate-survey";
@@ -12,7 +13,7 @@ import {
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { site } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Request an Estimate or Ask a Question",
   description:
     "Start a project estimate with Strong Foam or call or email our team for a general inquiry about the company and its services.",
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     description:
       "Start a project estimate or contact Strong Foam with a general inquiry.",
   },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /request-estimate");
 

@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
 import { CtaBand } from "@/components/marketing/cta-band";
@@ -7,12 +8,12 @@ import { PartnerGrid } from "@/components/marketing/partner-grid";
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { partnerRecords } from "@/content/partners";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Partners and Clients",
   description:
     "The manufacturers Strong Foam installs and the builders and general contractors who trust our crews.",
   alternates: { canonical: "/partners" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /partners");
 

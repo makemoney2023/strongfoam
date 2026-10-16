@@ -14,7 +14,7 @@ describe("request-estimate page", () => {
     expect(metadata.openGraph).toMatchObject({
       title: "Request an Estimate or Ask a Question",
       description: expect.stringContaining("general inquiry"),
-      url: "/request-estimate",
+      url: "https://strongfoam.com/request-estimate",
       type: "website",
     });
     expect(JSON.stringify(metadata.openGraph?.images)).toContain("https://strongfoam.com/og-image.png");

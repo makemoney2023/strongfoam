@@ -91,7 +91,7 @@ export const contentApprovals: {
 
 export type PublicLocation = {
   id:
-    | "kitchener-operations"
+    | "cambridge-operations"
     | "kitchener-head-office"
     | "london-dorchester"
     | "gta-woodbridge";
@@ -116,7 +116,7 @@ export type PublicLocation = {
 
 export const locationRecords: readonly PublicLocation[] = [
   {
-    id: "kitchener-operations",
+    id: "cambridge-operations",
     label: site.primaryOps.label,
     address: {
       street: site.primaryOps.street,

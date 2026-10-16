@@ -199,7 +199,7 @@ describe("site content for scroll overlays", () => {
 
   it("renders only locations whose public address and operating facts are approved", () => {
     expect(locationRecords.map((location) => location.id)).toEqual([
-      "kitchener-operations",
+      "cambridge-operations",
       "kitchener-head-office",
       "london-dorchester",
       "gta-woodbridge",
@@ -207,7 +207,7 @@ describe("site content for scroll overlays", () => {
 
     const publishable = filterPublishableLocations(locationRecords);
     expect(publishable.map((location) => location.id)).toEqual([
-      "kitchener-operations",
+      "cambridge-operations",
     ]);
     expect(
       publishable.every((location) =>

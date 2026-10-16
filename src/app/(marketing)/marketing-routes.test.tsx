@@ -142,7 +142,10 @@ const interiorRoutes: readonly RouteCase[] = [
 ];
 
 function titleOf(metadata: Metadata): string {
-  return typeof metadata.title === "string" ? metadata.title : "";
+  const title = metadata.title;
+  if (typeof title === "string") return title;
+  if (title && typeof title === "object" && "absolute" in title) return String(title.absolute);
+  return "";
 }
 
 function canonicalOf(metadata: Metadata): string {

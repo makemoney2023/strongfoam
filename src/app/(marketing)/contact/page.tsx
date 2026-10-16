@@ -1,3 +1,4 @@
+import { pageMetadata } from "@/lib/page-metadata";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/marketing/breadcrumbs";
@@ -14,12 +15,12 @@ import {
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import { site } from "@/content/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Contact Strong Foam",
   description:
     "Call or email Strong Foam about your project, estimating questions, or general inquiries.",
   alternates: { canonical: "/contact" },
-};
+});
 
 assertMarketingClaimsSafe(metadata, "metadata /contact");
 
