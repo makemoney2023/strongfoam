@@ -23,9 +23,12 @@ export const metadata: Metadata = {
       "Start a project estimate or contact Strong Foam with a general inquiry.",
     url: "/request-estimate",
     type: "website",
+    siteName: "Strong Foam",
+    images: [{ url: "https://strongfoam.com/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
+    images: ["https://strongfoam.com/og-image.png"],
     title: "Request an Estimate or Ask a Question",
     description:
       "Start a project estimate or contact Strong Foam with a general inquiry.",

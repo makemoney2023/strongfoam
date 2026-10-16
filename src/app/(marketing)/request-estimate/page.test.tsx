@@ -10,16 +10,16 @@ describe("request-estimate page", () => {
     expect(metadata.alternates?.canonical).toBe("/request-estimate");
   });
 
-  it("does not reuse a project-gallery photograph as the social card", () => {
+  it("uses the brand OG card, not a project-gallery photograph", () => {
     expect(metadata.openGraph).toMatchObject({
       title: "Request an Estimate or Ask a Question",
       description: expect.stringContaining("general inquiry"),
       url: "/request-estimate",
       type: "website",
     });
-    expect(metadata.openGraph?.images).toBeUndefined();
+    expect(JSON.stringify(metadata.openGraph?.images)).toContain("https://strongfoam.com/og-image.png");
     expect(metadata.twitter).toMatchObject({
-      card: "summary",
+      card: "summary_large_image",
       title: "Request an Estimate or Ask a Question",
       description: expect.stringContaining("project estimate"),
     });
