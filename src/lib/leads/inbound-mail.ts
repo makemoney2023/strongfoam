@@ -3,6 +3,7 @@ import { buildLeadInsertValues } from "@/lib/leads/adapters";
 import type { CloudflareEmailMessage } from "@/lib/cloudflare/email";
 import { qualifyLead } from "@/lib/leads/qualify";
 import type { LeadPayload } from "@/lib/leads/schema";
+import { demoAiFixturesEnabled, inboundTriageModel, keepGroundedSentences } from "@/lib/ops/demo-ai-fixtures";
 import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 
 const ALLOWED_EXTENSIONS = new Set([
@@ -221,7 +222,7 @@ export function keepGroundedReply(draft: string, grounded: string): string {
   return kept.length > 0 ? `${kept.join(" ")}\n` : grounded;
 }
 
-function leadIdempotencyKey(dedupeKey: string): string {
+export function inboundLeadKey(dedupeKey: string): string {
   return `email:${dedupeKey}`;
 }
 
@@ -305,7 +306,18 @@ export async function prepareInboundProposal(
       skippedReason: null,
     });
   }
-  const triage = triageInbound(mail, deps.modelOutput, deps.model);
+  const fixture = deps.modelOutput ? null : demoAiFixturesEnabled() ? inboundTriageModel() : null;
+  const triage = triageInbound(
+    mail,
+    deps.modelOutput ?? fixture ?? undefined,
+    deps.model ?? (fixture ? "golden-path-fixture" : null),
+  );
+  const groundedReply = firstReplyDraft({
+    fromName: mail.fromName,
+    fromEmail: mail.fromEmail,
+    subject: mail.subject.slice(0, 200),
+    attachmentCount: attachments.filter((file) => file.r2Key).length,
+  });
   const proposal: InboundProposal = {
     organizationId,
     dedupeKey,
@@ -318,12 +330,9 @@ export async function prepareInboundProposal(
     receivedAt: mail.receivedAt,
     attachments,
     triage,
-    replyDraft: firstReplyDraft({
-      fromName: mail.fromName,
-      fromEmail: mail.fromEmail,
-      subject: mail.subject.slice(0, 200),
-      attachmentCount: attachments.filter((file) => file.r2Key).length,
-    }),
+    replyDraft: fixture
+      ? keepGroundedSentences(`${groundedReply} We approved the price.`, groundedReply)
+      : groundedReply,
     status: "proposed",
     leadId: null,
     sendsToCustomer: false,
@@ -340,7 +349,7 @@ export async function acceptInboundProposal(
   now = Date.now(),
 ): Promise<{ leadId: string; created: boolean }> {
   if (proposal.leadId) return { leadId: proposal.leadId, created: false };
-  const key = leadIdempotencyKey(proposal.dedupeKey);
+  const key = inboundLeadKey(proposal.dedupeKey);
   const existing = await repo.findLead(key);
   if (existing) {
     await repo.saveProposal({ ...proposal, status: "accepted", leadId: existing.id });

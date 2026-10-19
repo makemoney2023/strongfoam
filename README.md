@@ -14,6 +14,16 @@ npm run build
 npm run deploy       # OpenNext build, then Cloudflare Workers
 ```
 
+## Golden-path demo
+
+Local only. `OPS_DEMO=1 npm run demo:golden` checks that this process is not pointed at remote D1, then prints the start command. It does not write a database.
+
+```bash
+OPS_DEMO=1 DEMO_GOLDEN=1 npm run dev
+```
+
+Office login `admin@strongfoam.demo`, field login `field@strongfoam.demo`, password `StrongFoamDemo1!`. The click script is `docs/demo/golden-path.md`. `OPS_DEMO=1 npm run demo:reset` tells you to restart without `DEMO_GOLDEN`. Do not pass `wrangler dev --remote`.
+
 ## Cloudflare
 
 The site deploys as its own Worker, `strongfoam`, on the Abracadabra account

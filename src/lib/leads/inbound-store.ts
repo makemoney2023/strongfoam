@@ -1,8 +1,15 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { backgroundJobs, leads } from "@/db/schema";
-import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 import type { InboundProposal, InboundRepository } from "@/lib/leads/inbound-mail";
+import {
+  findDemoInboundProposal,
+  listDemoInboundProposals,
+  saveDemoInboundProposal,
+} from "@/lib/ops/demo-inbox";
+import { isDemoOpsStore } from "@/lib/ops/demo-mode";
+import { findDemoLeadByIdempotency, insertDemoLeadFromValues } from "@/lib/ops/demo-store";
+import { STRONG_FOAM_ORGANIZATION_ID } from "@/lib/ops/identity";
 
 function inboundKey(dedupeKey: string): string {
   return `leads.inbound:${dedupeKey}`;
@@ -86,9 +93,35 @@ export function drizzleInboundRepository(): InboundRepository {
   };
 }
 
+export function demoInboundRepository(): InboundRepository {
+  return {
+    async findProposal(organizationId, dedupeKey) {
+      return findDemoInboundProposal(organizationId, dedupeKey);
+    },
+    async insertProposal(proposal) {
+      return saveDemoInboundProposal(proposal);
+    },
+    async saveProposal(proposal) {
+      saveDemoInboundProposal(proposal);
+    },
+    async findLead(idempotencyKey) {
+      const lead = findDemoLeadByIdempotency(idempotencyKey);
+      return lead ? { id: lead.id } : null;
+    },
+    async insertLead(values) {
+      return insertDemoLeadFromValues(values);
+    },
+  };
+}
+
+export function activeInboundRepository(): InboundRepository {
+  return isDemoOpsStore() ? demoInboundRepository() : drizzleInboundRepository();
+}
+
 export async function listInboundProposals(
   organizationId = STRONG_FOAM_ORGANIZATION_ID,
 ): Promise<InboundProposal[]> {
+  if (isDemoOpsStore()) return listDemoInboundProposals(organizationId);
   try {
     const rows = await getDb()
       .select({ payload: backgroundJobs.payload })

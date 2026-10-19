@@ -25,6 +25,13 @@ export function resetFieldDraftMemory(): void {
   memory.__strongfoamFieldDrafts = { drafts: [], languages: {} };
 }
 
+export function removeFieldDraftsForJob(jobId: string): void {
+  const rows = bucket().drafts;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index]?.jobId === jobId) rows.splice(index, 1);
+  }
+}
+
 function draftKey(draft: FieldDraft): string {
   const anchor = draft.voiceNoteId ?? draft.documentId ?? draft.userId;
   return `field.draft:${draft.jobId}:${draft.source}:${anchor}:${draft.kind}:${draft.quote.slice(0, 120)}`;

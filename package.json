@@ -19,6 +19,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "demo:golden": "tsx scripts/demo/golden-path.ts",
+    "demo:reset": "tsx scripts/demo/golden-path.ts --reset",
     "omni:bg": "node scripts/omni-animate-backgrounds.mjs"
   },
   "dependencies": {

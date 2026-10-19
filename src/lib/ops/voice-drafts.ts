@@ -3,6 +3,7 @@ import { modelForTask } from "@/lib/cloudflare/model-routing";
 import type { AiUsageDataset } from "@/lib/cloudflare/ai-usage";
 import { isFieldQuantityUnit, type FieldQuantityUnit } from "@/lib/ops/field-workspace";
 import { saveFieldDraft } from "@/lib/ops/field-draft-store";
+import { demoAiFixturesEnabled, GOLDEN_VOICE_TRANSCRIPT, voiceExtractionFixture } from "@/lib/ops/demo-ai-fixtures";
 import { quoteIsGrounded } from "@/lib/ops/field-drafts";
 import { getJob } from "@/lib/ops/store";
 import { getPlatform } from "@/lib/cloudflare/platform";
@@ -98,6 +99,12 @@ export async function extractVoiceDraftCards(args: {
   const transcript = args.transcript.trim();
   if (!transcript) return [];
   const env = args.env ?? process.env;
+  if (demoAiFixturesEnabled(env)) {
+    const payload =
+      transcript === GOLDEN_VOICE_TRANSCRIPT ? voiceExtractionFixture(transcript) : { cards: [] };
+    const grounded = voiceDraftsFromModel(transcript, payload);
+    return grounded.length > 0 ? grounded : voiceDraftsFromTranscript(transcript);
+  }
   const route = modelForTask("classify", env);
   const configured = Boolean(args.ai) || Boolean(env.AI_GATEWAY_API_KEY?.trim());
   if (!configured) return voiceDraftsFromTranscript(transcript);

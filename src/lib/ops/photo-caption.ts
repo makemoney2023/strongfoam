@@ -1,4 +1,5 @@
 import { recordAiUsage, type AiUsageDataset } from "@/lib/cloudflare/ai-usage";
+import { demoAiFixturesEnabled, photoCaptionFixture } from "@/lib/ops/demo-ai-fixtures";
 import { AI_GATEWAY_ID } from "@/lib/cloudflare/gateway";
 
 export const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
@@ -116,6 +117,9 @@ export async function captionPhoto(args: {
   fallbackModel?: string;
   usage?: { dataset?: AiUsageDataset; organizationId: string };
 }): Promise<PhotoDraftSeed[]> {
+  if (demoAiFixturesEnabled()) {
+    return photoDraftsFromModel(photoCaptionFixture(args.context), args.context);
+  }
   if (!args.ai) return [];
   const image = Buffer.from(args.bytes).toString("base64");
   const prompt = photoCaptionPrompt(args.context);

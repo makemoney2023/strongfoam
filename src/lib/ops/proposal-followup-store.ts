@@ -2,6 +2,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { backgroundJobs, estimates, proposalEvents, proposals } from "@/db/schema";
 import { isDemoOpsStore } from "@/lib/ops/demo-mode";
+import { listDemoCommercialProposals } from "@/lib/ops/demo-store";
+import { listDemoReviewDrafts, updateDemoReviewDrafts } from "@/lib/ops/demo-inbox";
 import {
   cancelFollowupInstance,
   createFollowupInstance,
@@ -50,7 +52,11 @@ export async function saveReviewDraft(draft: ReviewDraftInput): Promise<void> {
 }
 
 export async function listReviewDrafts(organizationId: string): Promise<ReviewDraft[]> {
-  if (isDemoOpsStore()) return [];
+  if (isDemoOpsStore()) {
+    return listDemoReviewDrafts(organizationId).filter(
+      (draft) => draft.status === "proposed" || draft.status === "confirmed",
+    );
+  }
   try {
     const rows = await getDb()
       .select({ id: backgroundJobs.id, payload: backgroundJobs.payload })
@@ -78,7 +84,11 @@ export async function updateReviewDrafts(
   organizationId: string,
   drafts: ReviewDraft[],
 ): Promise<void> {
-  if (isDemoOpsStore() || drafts.length === 0) return;
+  if (drafts.length === 0) return;
+  if (isDemoOpsStore()) {
+    updateDemoReviewDrafts(organizationId, drafts);
+    return;
+  }
   const db = getDb();
   for (const draft of drafts) {
     const { id, ...payload } = draft;
@@ -231,7 +241,24 @@ export async function cancelProposalFollowup(proposalId: string): Promise<void> 
 type LoadedProposal = OpenProposalRef & { href: string };
 
 async function loadProposalRows(organizationId: string): Promise<LoadedProposal[]> {
-  if (isDemoOpsStore()) return [];
+  if (isDemoOpsStore()) {
+    return listDemoCommercialProposals()
+      .filter((row) => row.proposal.organizationId === organizationId)
+      .map((row) => {
+        const status = lifecycle(row.proposal.expiresAt, row.events);
+        const delivered = [...row.events]
+          .reverse()
+          .find((event) => event.kind === "delivered" && event.recipientEmail);
+        return {
+          id: row.proposal.id,
+          organizationId: row.proposal.organizationId,
+          estimateNumber: row.proposal.snapshot.estimateNumber,
+          recipientEmail: delivered?.recipientEmail ?? "",
+          status,
+          href: `/app/opportunities/${row.opportunityId}/estimates/${row.proposal.estimateId}`,
+        };
+      });
+  }
   try {
     const db = getDb();
     const proposalRows = await db

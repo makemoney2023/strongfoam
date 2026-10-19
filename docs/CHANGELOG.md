@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-19
+
+- **What changed** — A local golden-path demo loads one Cambridge warehouse job when `OPS_DEMO=1` and `DEMO_GOLDEN=1`. Deterministic AI fixtures for the bid draft, triage, voice, photo captions, daily report, digest, and follow-up run through the existing grounding checks. `npm run demo:golden` refuses a remote D1 binding.
+- **Why** — A recording needs the same rich output every take, and a seed must not touch production.
+- **Code touchpoints** — `src/lib/ops/golden-path.ts`, `src/lib/ops/demo-ai-fixtures.ts`, `src/lib/ops/demo-seed-guard.ts`, `docs/demo/golden-path.md`.
+- **Data-flow impact** — The warehouse rows stay in server memory. Fixtures are off when a gateway or Deepgram key is set. Confirm still does not send customer mail.
+- **API / schema impact** — No migration. Scripts `demo:golden` and `demo:reset`.
+- **Verification** — `tsc --noEmit` passed. `npm run lint` passed with two existing unused-variable warnings. `npm test` passed: 181 files, 937 tests, 1 skipped.
+
 ## 2026-10-13
 
 - **What changed** — The field app queues voice and photo notes in IndexedDB and a service worker syncs them as drafts. Office can save a site point, and "I'm here" drafts labor only inside that radius after consent. Confirming a deficiency or safety flag writes a deficiency note. A field lead can propose a quality record that office opens. Confirmed captions for the same area show on the deficiency card.

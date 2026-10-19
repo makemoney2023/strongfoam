@@ -1,4 +1,5 @@
 import { recordAiUsage, type AiUsageDataset } from "@/lib/cloudflare/ai-usage";
+import { demoAiFixturesEnabled, GOLDEN_VOICE_TRANSCRIPT } from "@/lib/ops/demo-ai-fixtures";
 import { AI_GATEWAY_ID, CLOUDFLARE_ACCOUNT_ID } from "@/lib/cloudflare/gateway";
 
 export type VoiceTranscriptionResult = {
@@ -134,6 +135,14 @@ export async function transcribeVoiceAudio(args: {
   fetchImpl?: typeof fetch;
 }): Promise<VoiceTranscriptionResult> {
   const env = args.env ?? process.env;
+  if (demoAiFixturesEnabled(env)) {
+    return {
+      transcript: GOLDEN_VOICE_TRANSCRIPT,
+      provider: "demo-fixture",
+      model: "golden-path-fixture",
+      confidence: null,
+    };
+  }
   const gatewayKey = env.AI_GATEWAY_API_KEY?.trim();
   const deepgramKey = env.DEEPGRAM_API_KEY?.trim();
   const started = Date.now();

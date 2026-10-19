@@ -13,7 +13,7 @@ import {
   decideReplySend,
   type InboundProposal,
 } from "@/lib/leads/inbound-mail";
-import { drizzleInboundRepository, listInboundProposals } from "@/lib/leads/inbound-store";
+import { activeInboundRepository, listInboundProposals } from "@/lib/leads/inbound-store";
 
 const PATH = "/app/requests/inbound";
 
@@ -28,7 +28,7 @@ export async function acceptInboundMail(formData: FormData): Promise<void> {
   if (!isOfficeMembershipRole(session.role)) redirect(`${PATH}?error=office`);
   const proposal = await proposalFor(String(formData.get("dedupeKey") ?? ""));
   if (!proposal) redirect(`${PATH}?error=missing`);
-  await acceptInboundProposal(proposal, drizzleInboundRepository());
+  await acceptInboundProposal(proposal, activeInboundRepository());
   revalidatePath(PATH);
   revalidatePath("/app/requests");
   redirect(`${PATH}?notice=accepted`);
@@ -40,7 +40,7 @@ export async function dismissInboundMail(formData: FormData): Promise<void> {
   if (!isOfficeMembershipRole(session.role)) redirect(`${PATH}?error=office`);
   const proposal = await proposalFor(String(formData.get("dedupeKey") ?? ""));
   if (!proposal) redirect(`${PATH}?error=missing`);
-  await drizzleInboundRepository().saveProposal({ ...proposal, status: "dismissed" });
+  await activeInboundRepository().saveProposal({ ...proposal, status: "dismissed" });
   revalidatePath(PATH);
   redirect(`${PATH}?notice=dismissed`);
 }
@@ -61,7 +61,7 @@ export async function sendInboundReply(formData: FormData): Promise<ActionState>
   if (!decision.send) return fail(PATH, "The reply stays a draft until an administrator confirms it.");
   if (!platform?.EMAIL) return fail(PATH, "The EMAIL binding is not available.");
   await sendThroughCloudflareEmail(platform.EMAIL, decision.message);
-  await drizzleInboundRepository().saveProposal({ ...proposal, status: "sent" });
+  await activeInboundRepository().saveProposal({ ...proposal, status: "sent" });
   revalidatePath(PATH);
   return succeed(PATH, "Reply sent.");
 }
