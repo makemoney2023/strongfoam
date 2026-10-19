@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { AgentNamespace } from "@/lib/cloudflare/agent-session";
 import type { CommercialEvidencePack } from "@/lib/ops/commercial-ai-evidence";
+import { bidDraftFixture, demoAiFixturesEnabled } from "@/lib/ops/demo-ai-fixtures";
 
 export const COMMERCIAL_PROMPT_TEMPLATE_VERSION = "bid-estimate-v1";
 export const COMMERCIAL_RESPONSE_SCHEMA_VERSION = "bid-estimate-proposal-v1";
@@ -348,6 +349,16 @@ export async function requestCommercialProposal(args: {
   | { ok: false; error: string }
 > {
   if (!args.model) {
+    if (demoAiFixturesEnabled()) {
+      const validated = validateBidEstimateProposal(bidDraftFixture(args.pack), args.pack);
+      if (!validated.ok) return validated;
+      return {
+        ok: true,
+        proposal: validated.proposal,
+        provider: "demo-fixture",
+        model: "golden-path-fixture",
+      };
+    }
     return {
       ok: true,
       proposal: deterministicBidProposal(args.pack),

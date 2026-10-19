@@ -1,3 +1,4 @@
+import { syncGoldenDemo } from "@/lib/ops/golden-path";
 import { materialRequestCitedInMemory } from "@/lib/ops/purchase-order-access";
 import type { CommercialApprovalRule, EstimateApproval } from "@/lib/ops/estimate-approvals";
 import type {
@@ -62,6 +63,7 @@ import {
   demoPriceBookVersions,
   demoEstimateSeed,
   DEMO_ESTIMATE_CHUNK_ID,
+  DEMO_ORGANIZATION_ID,
   demoProjectScheduleBaselineItems,
   demoProjectScheduleBaselines,
   demoProjects,
@@ -226,7 +228,7 @@ import { isWorkflowStatus } from "@/lib/ops/workflow";
 
 export { isDemoOpsStore } from "@/lib/ops/demo-mode";
 
-type DemoOpsState = {
+export type DemoOpsState = {
   requests: EstimateRequestRow[];
   events: EstimateRequestEvent[];
   tasks: EstimateRequestTask[];
@@ -483,6 +485,7 @@ function getDemoState(): DemoOpsState {
     globalForDemo.__strongfoamDemoOps.projectBudgetLines = [];
     globalForDemo.__strongfoamDemoOps.conversionOutbox = [];
   }
+  syncGoldenDemo(globalForDemo.__strongfoamDemoOps);
   return globalForDemo.__strongfoamDemoOps;
 }
 
@@ -1635,6 +1638,7 @@ export function getDemoProjectBudgetCents(
 }
 
 export function listDemoJobs(filters: JobListFilters = {}): JobRow[] {
+  getDemoState();
   return jobsList
     .filter((job) => {
       if (filters.projectId && job.projectId !== filters.projectId) return false;
@@ -4602,6 +4606,71 @@ export function saveDemoEstimateApproval(approval: EstimateApproval): EstimateAp
 
 export function getDemoOrganization(id: string) {
   return getDemoState().organizations.find((organization) => organization.id === id) ?? null;
+}
+
+export function findDemoLeadByIdempotency(key: string): EstimateRequestRow | null {
+  return getDemoState().requests.find((row) => row.idempotencyKey === key) ?? null;
+}
+
+export function insertDemoLeadFromValues(values: Record<string, unknown>): { id: string } {
+  const idempotencyKey = typeof values.idempotencyKey === "string" ? values.idempotencyKey : "";
+  const existing = idempotencyKey ? findDemoLeadByIdempotency(idempotencyKey) : null;
+  if (existing) return { id: existing.id };
+  const now = new Date();
+  const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+  const row: EstimateRequestRow = {
+    id: crypto.randomUUID(),
+    organizationId: text(values.organizationId, DEMO_ORGANIZATION_ID),
+    createdAt: now,
+    updatedAt: now,
+    status: text(values.status, "qualified"),
+    bookingStatus: text(values.bookingStatus, "none"),
+    notifyStatus: text(values.notifyStatus, "held"),
+    workflowStatus: text(values.workflowStatus, "new"),
+    assignedTo: typeof values.assignedTo === "string" ? values.assignedTo : null,
+    nextAction: typeof values.nextAction === "string" ? values.nextAction : null,
+    nextActionDueAt: values.nextActionDueAt instanceof Date ? values.nextActionDueAt : null,
+    lostReason: typeof values.lostReason === "string" ? values.lostReason : null,
+    email: text(values.email),
+    phone: text(values.phone),
+    firstName: text(values.firstName),
+    lastName: text(values.lastName),
+    company: text(values.company),
+    projectType: text(values.projectType, "commercial_ici"),
+    city: text(values.city),
+    province: text(values.province, "ON"),
+    services: Array.isArray(values.services) ? values.services.map(String) : [],
+    answers:
+      values.answers && typeof values.answers === "object"
+        ? (values.answers as EstimateRequestRow["answers"])
+        : {},
+    recommendedServices: Array.isArray(values.recommendedServices)
+      ? values.recommendedServices.map(String)
+      : [],
+    files: Array.isArray(values.files) ? (values.files as EstimateRequestRow["files"]) : [],
+    sourcePath: typeof values.sourcePath === "string" ? values.sourcePath : null,
+    utm: null,
+    referrer: null,
+    idempotencyKey: idempotencyKey || crypto.randomUUID(),
+    calendlyInviteeUri: null,
+    consentAt: values.consentAt instanceof Date ? values.consentAt : now,
+    companyId: null,
+    contactId: null,
+    siteId: null,
+    opportunityId: null,
+  };
+  getDemoState().requests.unshift(row);
+  return { id: row.id };
+}
+
+export function listDemoCommercialProposals() {
+  const state = getDemoState();
+  return state.proposals.map((proposal) => ({
+    proposal,
+    opportunityId:
+      state.estimates.find((estimate) => estimate.id === proposal.estimateId)?.opportunityId ?? "",
+    events: state.proposalEvents.filter((event) => event.proposalId === proposal.id),
+  }));
 }
 
 export function listDemoProposals(estimateId: string): ProposalRecord[] {

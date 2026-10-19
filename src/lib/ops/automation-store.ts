@@ -1,8 +1,10 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { backgroundJobs, jobs } from "@/db/schema";
-import { FIELD_ACTIVE_JOB_STATUSES } from "@/lib/ops/field-workspace";
 import type { AutomationJob, AutomationProposal } from "@/lib/ops/automation-schedule";
+import { listDemoReviewDrafts } from "@/lib/ops/demo-inbox";
+import { isDemoOpsStore } from "@/lib/ops/demo-mode";
+import { FIELD_ACTIVE_JOB_STATUSES } from "@/lib/ops/field-workspace";
 
 export function automationIdempotencyKey(proposal: AutomationProposal): string {
   return `ops.proposal:${proposal.kind}:${proposal.recordId}:${proposal.workingDay}`;
@@ -39,9 +41,31 @@ export async function recordAutomationProposal(proposal: AutomationProposal): Pr
   }
 }
 
+function isAutomationKind(kind: string): kind is AutomationProposal["kind"] {
+  return kind === "daily_report" || kind === "morning_brief" || kind === "stale_sweep";
+}
+
 export async function listAutomationProposals(
   organizationId: string,
 ): Promise<AutomationProposal[]> {
+  if (isDemoOpsStore()) {
+    return listDemoReviewDrafts(organizationId)
+      .filter((draft) => draft.status === "proposed" && isAutomationKind(draft.kind))
+      .map((draft) => ({
+        kind: draft.kind as AutomationProposal["kind"],
+        status: "proposed",
+        requiresConfirmation: true,
+        sendsToCustomer: false,
+        setsPrice: false,
+        approves: false,
+        organizationId: draft.organizationId,
+        recordId: draft.recordId,
+        title: draft.title,
+        body: draft.body,
+        href: draft.href,
+        workingDay: draft.workingDay,
+      }));
+  }
   try {
     const rows = await getDb()
       .select({ payload: backgroundJobs.payload })

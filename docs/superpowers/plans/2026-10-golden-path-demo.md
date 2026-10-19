@@ -29,9 +29,9 @@ Walk order: inbound email, triage, opportunity, estimate with a cited bid draft,
 
 ## Tasks
 
-- [ ] Guard, fixtures, and tests that a bad citation, quote, area, or city is dropped.
-- [ ] Append the warehouse to demo memory when `DEMO_GOLDEN=1` and the guard allows it. Show the inbound card and the automation drafts in demo mode.
-- [ ] `npm run demo:golden` and `npm run demo:reset`.
-- [ ] Generated PNG and WAV under `assets/demo/`.
-- [ ] `docs/demo/golden-path.md` click script, and `scripts/demo/record.spec.ts` as step data with no Playwright import.
-- [ ] Changelog and a short README note.
+- [x] Guard, fixtures, and tests that a bad citation, quote, area, or city is dropped.
+- [x] Append the warehouse to demo memory when `DEMO_GOLDEN=1` and the guard allows it. Show the inbound card and the automation drafts in demo mode.
+- [x] `npm run demo:golden` and `npm run demo:reset`.
+- [x] Generated PNG and WAV under `assets/demo/`.
+- [x] `docs/demo/golden-path.md` click script, and `scripts/demo/record.spec.ts` as step data with no Playwright import.
+- [x] Changelog and a short README note.

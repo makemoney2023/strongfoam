@@ -55,6 +55,14 @@ export default async function InboundMailPage({
                   &lt;{proposal.fromEmail}&gt; · {proposal.triage.intent} · {proposal.status}
                 </p>
               </div>
+              <p className="whitespace-pre-wrap text-sm">{proposal.text}</p>
+              {proposal.triage.company || proposal.triage.city || proposal.triage.phone ? (
+                <p className="text-sm">
+                  {[proposal.triage.company, proposal.triage.city, proposal.triage.phone]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
               <p className="whitespace-pre-wrap text-sm">{proposal.replyDraft}</p>
               {proposal.attachments.length > 0 ? (
                 <ul className="text-sm text-muted-foreground">

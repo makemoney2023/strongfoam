@@ -18,6 +18,7 @@ import {
   type Citation,
   type JobEvidencePack,
 } from "@/lib/ops/ai-evidence";
+import { demoAiFixturesEnabled, jobAiFixture } from "@/lib/ops/demo-ai-fixtures";
 
 export type AiCitedText = {
   text: string;
@@ -164,7 +165,7 @@ function jobMessages(purpose: GatewayPurpose, pack: JobEvidencePack): ChatMessag
   ];
 }
 
-function parseJobDraft(
+export function parseJobDraft(
   content: string,
   pack: JobEvidencePack,
   purpose: GatewayPurpose,
@@ -201,6 +202,15 @@ export async function requestJobAi(args: {
   agentNamespace?: AgentNamespace;
 }): Promise<AiGatewayResult> {
   const env = args.env ?? process.env;
+  if (demoAiFixturesEnabled(env)) {
+    return parseJobDraft(
+      JSON.stringify(jobAiFixture(args.pack)),
+      args.pack,
+      args.purpose,
+      "demo-fixture",
+      "golden-path-fixture",
+    );
+  }
   if (env.OPS_DEMO === "1") return demoAiResult(args.pack);
   const model = env.AI_GATEWAY_MODEL?.trim();
   if (!model) return { status: "disabled" };
