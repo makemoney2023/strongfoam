@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { assertMarketingClaimsSafe } from "@/content/claims";
+import { serviceCountWord } from "@/content/services";
 import { companyContent } from "@/content/site";
 
 export const metadata: Metadata = pageMetadata({
@@ -138,7 +139,7 @@ export default function AboutPage() {
       </section>
       <CtaBand
         heading="Explore the service scopes"
-        description="Review the four service families or share a project package with estimating."
+        description={`Review the ${serviceCountWord} service families or share a project package with estimating.`}
         primary={{ label: "Explore services", href: "/services" }}
         secondary={{ label: "Request an estimate", href: "/request-estimate" }}
       />

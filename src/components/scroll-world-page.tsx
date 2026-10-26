@@ -26,6 +26,7 @@ import {
   shouldPinServicesRail,
 } from "@/lib/scroll-triggers";
 import { cn } from "@/lib/utils";
+import { countWord } from "@/lib/count-words";
 
 const processSteps = [
   {
@@ -457,7 +458,9 @@ export function ScrollWorldPage({ model }: { model: MarketingPageModel }) {
           <div data-services-track className="services-track">
             <div className="services-lead">
               <p className="section-kicker">Capabilities</p>
-              <h2>Four service paths.<br />One field mindset.</h2>
+              <h2>
+                {countWord(model.serviceLinks.length, { capitalize: true })} service paths.<br />One field mindset.
+              </h2>
               <p>
                 Insulation, fire protection, air barriers, waterproofing, and firestopping, delivered by one Ontario crew.
               </p>

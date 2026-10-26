@@ -110,7 +110,7 @@ describe("site content for scroll overlays", () => {
     expect(blob).not.toContain("—");
   });
 
-  it("defines every public route with exactly four unique service slugs", () => {
+  it("defines every public route with exactly five unique service slugs", () => {
     expect(publicRoutes.map((route) => route.path)).toEqual([
       "/",
       "/about",
