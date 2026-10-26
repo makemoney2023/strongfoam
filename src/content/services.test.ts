@@ -98,3 +98,29 @@ describe("typed service content", () => {
     }
   });
 });
+
+describe("service count copy", () => {
+  it("derives the spelled-out count from the service list", async () => {
+    const { serviceCountWord } = await import("@/content/services");
+    const { countWord } = await import("@/lib/count-words");
+    expect(serviceCountWord).toBe(countWord(serviceContent.length));
+  });
+
+  it("never hard-codes a spelled-out service count in marketing copy", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const roots = ["src/app", "src/components", "src/content", "src/lib", "public"];
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.(tsx?|mdx?|txt|json|html)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) files.push(full);
+      }
+    };
+    roots.forEach(walk);
+    const pattern = /\b(one|two|three|four|five|six|seven|eight|nine|ten)[ -](service|services)\b/i;
+    const offenders = files.filter((file) => pattern.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});

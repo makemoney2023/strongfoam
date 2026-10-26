@@ -1,5 +1,6 @@
 import { assertMarketingClaimsSafe } from "@/content/claims";
 import type { ListedServiceId } from "@/lib/leads/types";
+import { countWord } from "@/lib/count-words";
 
 export const SERVICE_ROUTE_SLUGS = [
   "spray-foam-insulation",
@@ -244,3 +245,6 @@ export function getServiceBySlug(slug: ServiceRouteSlug): ServiceContent {
   }
   return service;
 }
+
+/** Number of published service families, spelled out ("five") for copy. */
+export const serviceCountWord = countWord(serviceContent.length);

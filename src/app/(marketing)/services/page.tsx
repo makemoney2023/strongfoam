@@ -13,12 +13,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { assertMarketingClaimsSafe } from "@/content/claims";
-import { serviceContent } from "@/content/services";
+import { serviceContent, serviceCountWord } from "@/content/services";
+import { countWord } from "@/lib/count-words";
 
 export const metadata: Metadata = pageMetadata({
   title: "Commercial Insulation and Fire-Protection Services",
   description:
-    "Compare four specification-led Strong Foam service families for Ontario commercial, industrial, and multi-unit construction.",
+    `Compare ${serviceCountWord} specification-led Strong Foam service families for Ontario commercial, industrial, and multi-unit construction.`,
   alternates: { canonical: "/services" },
 });
 
@@ -40,7 +41,9 @@ export default function ServicesPage() {
       >
         <div className="marketing-section__intro">
           <p className="section-kicker">Choose a scope</p>
-          <h2 id="service-families-title">Four service families</h2>
+          <h2 id="service-families-title">
+            {countWord(serviceContent.length, { capitalize: true })} service families
+          </h2>
           <p>
             Each detail page explains suitable uses, technical conditions, and
             specification dependencies.
